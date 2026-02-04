@@ -87,15 +87,11 @@ class ExplicitRule:
     id: str
     text: str
     domain: str
-
-    # Links to concepts this rule operationalizes
-    concept_ids: list[str] = field(default_factory=list)
-
-    # Source provenance
     source_id: str
-    source_location: str | None = None
 
-    # Metadata
+    # Optional fields (must come after required)
+    concept_ids: list[str] = field(default_factory=list)
+    source_location: str | None = None
     category: str | None = None  # e.g., "architectural", "testing"
     confidence: float = 1.0
 
