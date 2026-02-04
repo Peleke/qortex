@@ -9,7 +9,7 @@ from __future__ import annotations
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Literal, Protocol, runtime_checkable
+from typing import TYPE_CHECKING, Literal
 
 from qortex.core.models import (
     ConceptEdge,
@@ -18,6 +18,9 @@ from qortex.core.models import (
     IngestionManifest,
     SourceMetadata,
 )
+
+if TYPE_CHECKING:
+    from .llm import LLMBackend
 
 
 @dataclass
@@ -50,31 +53,6 @@ class Source:
             raise ValueError("Source must have path, url, or raw_content")
 
 
-@runtime_checkable
-class LLMBackend(Protocol):
-    """LLM backend for extraction tasks."""
-
-    def extract_concepts(self, text: str, domain_hint: str | None = None) -> list[dict]:
-        """Extract concepts from text."""
-        ...
-
-    def extract_relations(
-        self,
-        concepts: list[ConceptNode],
-        text: str,
-    ) -> list[dict]:
-        """Extract relations between concepts."""
-        ...
-
-    def extract_rules(self, text: str, concepts: list[ConceptNode]) -> list[dict]:
-        """Extract explicit rules from text."""
-        ...
-
-    def suggest_domain_name(self, source_name: str, sample_text: str) -> str:
-        """Suggest a domain name for a source."""
-        ...
-
-
 class Ingestor(ABC):
     """Base class for source ingestors.
 
@@ -82,7 +60,7 @@ class Ingestor(ABC):
     LLM extraction is shared across all ingestors.
     """
 
-    def __init__(self, llm: LLMBackend):
+    def __init__(self, llm: "LLMBackend"):
         self.llm = llm
 
     @abstractmethod
@@ -178,29 +156,3 @@ class Ingestor(ABC):
         )
 
 
-# =============================================================================
-# Stub LLM Backend (for testing without real LLM)
-# =============================================================================
-
-
-class StubLLMBackend:
-    """Stub LLM that returns empty results.
-
-    Use for testing pipeline without LLM costs.
-    """
-
-    def extract_concepts(self, text: str, domain_hint: str | None = None) -> list[dict]:
-        return []
-
-    def extract_relations(
-        self,
-        concepts: list[ConceptNode],
-        text: str,
-    ) -> list[dict]:
-        return []
-
-    def extract_rules(self, text: str, concepts: list[ConceptNode]) -> list[dict]:
-        return []
-
-    def suggest_domain_name(self, source_name: str, sample_text: str) -> str:
-        return source_name.lower().replace(" ", "_")

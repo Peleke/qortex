@@ -26,17 +26,24 @@ classifiers = [
 
 dependencies = [
     # Core
-    # "gqlalchemy>=1.4",  # Memgraph driver - uncomment when implementing
-
-    # LLM (optional, for extraction)
-    # "anthropic>=0.18",
-    # "openai>=1.0",
+    "gqlalchemy>=1.4",  # Memgraph driver
+    "pyyaml>=6.0",      # YAML export
 ]
 
 [project.optional-dependencies]
 pdf = [
     "pymupdf>=1.23",
     "pdfplumber>=0.10",
+]
+anthropic = [
+    "anthropic>=0.40",
+]
+ollama = [
+    "ollama>=0.3",
+    "httpx>=0.27",
+]
+llm = [
+    "qortex[anthropic,ollama]",
 ]
 mcp = [
     # MCP server dependencies
@@ -47,9 +54,10 @@ dev = [
     "pytest-asyncio>=0.23",
     "ruff>=0.2",
     "mypy>=1.8",
+    "httpx>=0.27",  # For Ollama availability check in tests
 ]
 all = [
-    "qortex[pdf,mcp,dev]",
+    "qortex[pdf,llm,mcp,dev]",
 ]
 
 [project.urls]

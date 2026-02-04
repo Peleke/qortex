@@ -8,9 +8,12 @@ Fallback: SQLite (limited features, no PPR)
 from __future__ import annotations
 
 from abc import abstractmethod
-from typing import Iterator, Literal, Protocol, runtime_checkable
+from typing import TYPE_CHECKING, Iterator, Literal, Protocol, runtime_checkable
 
 from .models import ConceptEdge, ConceptNode, Domain, IngestionManifest
+
+if TYPE_CHECKING:
+    from .memgraph import MemgraphBackend as MemgraphBackendImpl
 
 
 class GraphPattern:
@@ -187,137 +190,45 @@ class GraphBackend(Protocol):
 
 
 # =============================================================================
-# Stub Implementations (to be filled in)
+# Backend Factory
 # =============================================================================
 
 
-class MemgraphBackend:
-    """Primary backend using Memgraph + MAGE.
+def get_backend(
+    backend_type: Literal["memgraph", "sqlite"] = "memgraph",
+    **kwargs,
+) -> GraphBackend:
+    """Get a graph backend instance.
 
-    TODO: Implement with gqlalchemy or neo4j driver
+    Args:
+        backend_type: "memgraph" (primary) or "sqlite" (fallback)
+        **kwargs: Backend-specific configuration
+
+    Returns:
+        Connected GraphBackend instance
     """
-
-    def __init__(self, host: str = "localhost", port: int = 7687):
-        self.host = host
-        self.port = port
-        self._connection = None
-
-    def connect(self) -> None:
-        raise NotImplementedError("M1: Implement Memgraph connection")
-
-    def disconnect(self) -> None:
-        raise NotImplementedError()
-
-    def is_connected(self) -> bool:
-        return False
-
-    def create_domain(self, name: str, description: str | None = None) -> Domain:
-        raise NotImplementedError()
-
-    def get_domain(self, name: str) -> Domain | None:
-        raise NotImplementedError()
-
-    def list_domains(self) -> list[Domain]:
-        raise NotImplementedError()
-
-    def delete_domain(self, name: str) -> bool:
-        raise NotImplementedError()
-
-    def add_node(self, node: ConceptNode) -> None:
-        raise NotImplementedError()
-
-    def get_node(self, node_id: str, domain: str | None = None) -> ConceptNode | None:
-        raise NotImplementedError()
-
-    def find_nodes(
-        self,
-        domain: str | None = None,
-        name_pattern: str | None = None,
-        limit: int = 100,
-    ) -> Iterator[ConceptNode]:
-        raise NotImplementedError()
-
-    def add_edge(self, edge: ConceptEdge) -> None:
-        raise NotImplementedError()
-
-    def get_edges(
-        self,
-        node_id: str,
-        direction: Literal["in", "out", "both"] = "both",
-        relation_type: str | None = None,
-    ) -> Iterator[ConceptEdge]:
-        raise NotImplementedError()
-
-    def ingest_manifest(self, manifest: IngestionManifest) -> None:
-        raise NotImplementedError()
-
-    def query(self, pattern: GraphPattern) -> Iterator[dict]:
-        raise NotImplementedError()
-
-    def query_cypher(self, cypher: str, params: dict | None = None) -> Iterator[dict]:
-        raise NotImplementedError()
-
-    def supports_mage(self) -> bool:
-        return True
-
-    def personalized_pagerank(
-        self,
-        source_nodes: list[str],
-        damping_factor: float = 0.85,
-        max_iterations: int = 100,
-        domain: str | None = None,
-    ) -> dict[str, float]:
-        raise NotImplementedError("M3: Implement PPR via MAGE")
-
-    def checkpoint(self, name: str, domains: list[str] | None = None) -> str:
-        raise NotImplementedError()
-
-    def restore(self, checkpoint_id: str) -> None:
-        raise NotImplementedError()
-
-    def list_checkpoints(self) -> list[dict]:
-        raise NotImplementedError()
+    if backend_type == "memgraph":
+        from .memgraph import MemgraphBackend
+        return MemgraphBackend(
+            host=kwargs.get("host", "localhost"),
+            port=kwargs.get("port", 7687),
+            username=kwargs.get("username", ""),
+            password=kwargs.get("password", ""),
+        )
+    elif backend_type == "sqlite":
+        raise NotImplementedError("SQLite backend not yet implemented")
+    else:
+        raise ValueError(f"Unknown backend type: {backend_type}")
 
 
-class SQLiteBackend:
-    """Fallback backend using SQLite adjacency list.
+def get_connected_backend(
+    backend_type: Literal["memgraph", "sqlite"] = "memgraph",
+    **kwargs,
+) -> GraphBackend:
+    """Get a connected graph backend instance.
 
-    Limited features - no MAGE algorithms.
-    Use for environments without Memgraph.
+    Convenience function that also calls connect().
     """
-
-    def __init__(self, db_path: str = "~/.qortex/graph.db"):
-        self.db_path = db_path
-        self._connection = None
-
-    def supports_mage(self) -> bool:
-        return False
-
-    def personalized_pagerank(
-        self,
-        source_nodes: list[str],
-        damping_factor: float = 0.85,
-        max_iterations: int = 100,
-        domain: str | None = None,
-    ) -> dict[str, float]:
-        """Simple BFS-based approximation (not true PPR)."""
-        raise NotImplementedError("M3: Implement simple traversal fallback")
-
-    # ... other methods similar stubs ...
-
-
-def get_backend(prefer_memgraph: bool = True) -> GraphBackend:
-    """Get the best available backend.
-
-    Tries Memgraph first, falls back to SQLite.
-    """
-    if prefer_memgraph:
-        backend = MemgraphBackend()
-        try:
-            backend.connect()
-            return backend
-        except Exception:
-            pass
-
-    # Fallback
-    return SQLiteBackend()
+    backend = get_backend(backend_type, **kwargs)
+    backend.connect()
+    return backend
