@@ -6,13 +6,14 @@ Commands:
     qortex project buildlog/flat/json   Project rules to formats
     qortex inspect domains/rules/stats  Inspect graph contents
     qortex viz open/query          Graph visualization
+    qortex interop status/pending/signals  Consumer interop management
 """
 
 from __future__ import annotations
 
 import typer
 
-from qortex.cli import infra, ingest, inspect_cmd, project, viz
+from qortex.cli import infra, ingest, inspect_cmd, interop_cmd, project, viz
 
 app = typer.Typer(
     name="qortex",
@@ -25,6 +26,7 @@ app.add_typer(ingest.app, name="ingest")
 app.add_typer(project.app, name="project")
 app.add_typer(inspect_cmd.app, name="inspect")
 app.add_typer(viz.app, name="viz")
+app.add_typer(interop_cmd.app, name="interop")
 
 
 def main() -> None:

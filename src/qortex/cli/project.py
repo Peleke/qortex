@@ -71,20 +71,41 @@ def buildlog(
     output: Path = typer.Option(None, "--output", "-o", help="Output file path"),
     enrich: bool = typer.Option(True, "--enrich/--no-enrich", help="Run enrichment"),
     persona: str = typer.Option("qortex", "--persona", "-p", help="Buildlog persona name"),
+    pending: bool = typer.Option(False, "--pending", help="Write to interop pending directory"),
+    emit: bool = typer.Option(True, "--emit/--no-emit", help="Emit signal event (with --pending)"),
 ) -> None:
-    """Project rules to buildlog seed YAML format."""
+    """Project rules to buildlog seed YAML format.
+
+    Use --pending to write to the shared interop directory for consumers.
+    Use --output to write to a specific file path.
+    If neither is specified, prints to stdout.
+    """
     from qortex.projectors.targets.buildlog_seed import BuildlogSeedTarget
 
     import yaml
 
     target = BuildlogSeedTarget(persona_name=persona)
     result = _run_projection(target, domain, enrich)
-    yaml_str = yaml.dump(result, default_flow_style=False, sort_keys=False)
 
-    if output:
+    if pending:
+        # Write to interop pending directory
+        from qortex.interop import write_seed_to_pending
+
+        seed_path = write_seed_to_pending(
+            seed_data=result,
+            persona=persona,
+            domain=domain or "general",
+            emit_signal=emit,
+        )
+        typer.echo(f"Wrote seed to {seed_path} ({result['metadata']['rule_count']} rules)")
+        if emit:
+            typer.echo("Signal emitted to projections.jsonl")
+    elif output:
+        yaml_str = yaml.dump(result, default_flow_style=False, sort_keys=False)
         output.write_text(yaml_str)
         typer.echo(f"Wrote buildlog seed to {output} ({result['metadata']['rule_count']} rules)")
     else:
+        yaml_str = yaml.dump(result, default_flow_style=False, sort_keys=False)
         typer.echo(yaml_str)
 
 
