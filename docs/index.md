@@ -1,6 +1,6 @@
 # qortex
 
-**Knowledge graph ingestion engine with HippoRAG-style cross-domain retrieval.**
+**Knowledge graph ingestion engine for automated rule generation.**
 
 qortex transforms unstructured content (books, docs, PDFs) into a knowledge graph, then projects actionable rules for AI agents, buildlog, and other consumers.
 

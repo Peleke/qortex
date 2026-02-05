@@ -285,9 +285,11 @@ class MyTarget:
         # Your serialization logic
 ```
 
-## Future Architecture
+## Roadmap
 
-### HippoRAG Integration
+### Phase 2: HippoRAG-Style Retrieval
+
+Cross-domain retrieval using Personalized PageRank for pattern completion:
 
 ```mermaid
 flowchart LR
@@ -297,7 +299,11 @@ flowchart LR
     Rules --> Context[Augmented Context]
 ```
 
-### Causal DAG
+The scaffolding exists in `src/qortex/hippocampus/` but is not yet fully implemented.
+
+### Phase 3: Causal DAG
+
+Confidence feedback loops from reward events:
 
 ```mermaid
 flowchart LR
@@ -306,7 +312,7 @@ flowchart LR
     Confidence --> Rules[Better Rules]
 ```
 
-See [Phase 2 Plans](https://github.com/Peleke/qortex/issues/3) for roadmap.
+See [GitHub Issues](https://github.com/Peleke/qortex/issues) for detailed roadmap.
 
 ## Next Steps
 

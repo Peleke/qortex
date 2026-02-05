@@ -126,7 +126,7 @@ scores = backend.personalized_pagerank(
 # Returns: {"timeout": 0.35, "retry": 0.28, ...}
 ```
 
-This powers HippoRAG-style retrieval: start from query-matched concepts and spread activation through the graph.
+PPR enables future HippoRAG-style retrieval: start from query-matched concepts and spread activation through the graph.
 
 ## Schema
 

@@ -1,6 +1,6 @@
 site_name: qortex
 site_url: https://peleke.github.io/qortex/
-site_description: Knowledge graph ingestion engine with HippoRAG-style cross-domain retrieval
+site_description: Knowledge graph ingestion engine for automated rule generation
 repo_url: https://github.com/Peleke/qortex
 repo_name: Peleke/qortex
 
