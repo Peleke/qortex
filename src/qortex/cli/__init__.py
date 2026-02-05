@@ -16,7 +16,7 @@ from qortex.cli import infra, ingest, inspect_cmd, project, viz
 
 app = typer.Typer(
     name="qortex",
-    help="Knowledge graph ingestion, projection, and visualization.",
+    help="Manage knowledge graphs: ingest content, project rules, inspect results.",
     no_args_is_help=True,
 )
 

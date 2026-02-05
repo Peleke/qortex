@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from pathlib import Path
+from typing import Any
 
 import typer
 
@@ -21,6 +22,38 @@ def _get_backend():
     return backend
 
 
+def _run_projection(
+    target_obj: Any,
+    domain: str | None,
+    enrich: bool,
+) -> Any:
+    """Shared projection logic for all project commands."""
+    from qortex.projectors.projection import Projection
+    from qortex.projectors.sources.flat import FlatRuleSource
+
+    backend = _get_backend()
+    source = FlatRuleSource(backend=backend)
+
+    enricher = None
+    if enrich:
+        from qortex.projectors.enrichers.template import TemplateEnricher
+
+        enricher = TemplateEnricher(domain=domain or "general")
+
+    projection = Projection(source=source, enricher=enricher, target=target_obj)
+    domains = [domain] if domain else None
+    return projection.project(domains=domains)
+
+
+def _write_output(result: str, output: Path | None, label: str) -> None:
+    """Write string result to file or stdout."""
+    if output:
+        output.write_text(result)
+        typer.echo(f"Wrote {label} to {output}")
+    else:
+        typer.echo(result)
+
+
 @app.command()
 def buildlog(
     domain: str = typer.Option(None, "--domain", "-d", help="Limit to domain"),
@@ -29,27 +62,12 @@ def buildlog(
     persona: str = typer.Option("qortex", "--persona", "-p", help="Buildlog persona name"),
 ) -> None:
     """Project rules to buildlog seed YAML format."""
-    from qortex.projectors.models import ProjectionFilter
-    from qortex.projectors.projection import Projection
-    from qortex.projectors.sources.flat import FlatRuleSource
     from qortex.projectors.targets.buildlog_seed import BuildlogSeedTarget
-
-    backend = _get_backend()
-    source = FlatRuleSource(backend=backend)
-    target = BuildlogSeedTarget(persona_name=persona)
-
-    enricher = None
-    if enrich:
-        from qortex.projectors.enrichers.template import TemplateEnricher
-
-        enricher = TemplateEnricher(domain=domain or "general")
-
-    projection = Projection(source=source, enricher=enricher, target=target)
-    domains = [domain] if domain else None
-    result = projection.project(domains=domains)
 
     import yaml
 
+    target = BuildlogSeedTarget(persona_name=persona)
+    result = _run_projection(target, domain, enrich)
     yaml_str = yaml.dump(result, default_flow_style=False, sort_keys=False)
 
     if output:
@@ -66,29 +84,11 @@ def flat(
     enrich: bool = typer.Option(True, "--enrich/--no-enrich", help="Run enrichment"),
 ) -> None:
     """Project rules to flat YAML format."""
-    from qortex.projectors.projection import Projection
-    from qortex.projectors.sources.flat import FlatRuleSource
     from qortex.projectors.targets.flat_yaml import FlatYAMLTarget
 
-    backend = _get_backend()
-    source = FlatRuleSource(backend=backend)
     target = FlatYAMLTarget()
-
-    enricher = None
-    if enrich:
-        from qortex.projectors.enrichers.template import TemplateEnricher
-
-        enricher = TemplateEnricher(domain=domain or "general")
-
-    projection = Projection(source=source, enricher=enricher, target=target)
-    domains = [domain] if domain else None
-    result = projection.project(domains=domains)
-
-    if output:
-        output.write_text(result)
-        typer.echo(f"Wrote flat YAML to {output}")
-    else:
-        typer.echo(result)
+    result = _run_projection(target, domain, enrich)
+    _write_output(result, output, "flat YAML")
 
 
 @app.command(name="json")
@@ -98,26 +98,8 @@ def json_cmd(
     enrich: bool = typer.Option(True, "--enrich/--no-enrich", help="Run enrichment"),
 ) -> None:
     """Project rules to JSON format."""
-    from qortex.projectors.projection import Projection
-    from qortex.projectors.sources.flat import FlatRuleSource
     from qortex.projectors.targets.flat_json import FlatJSONTarget
 
-    backend = _get_backend()
-    source = FlatRuleSource(backend=backend)
     target = FlatJSONTarget()
-
-    enricher = None
-    if enrich:
-        from qortex.projectors.enrichers.template import TemplateEnricher
-
-        enricher = TemplateEnricher(domain=domain or "general")
-
-    projection = Projection(source=source, enricher=enricher, target=target)
-    domains = [domain] if domain else None
-    result = projection.project(domains=domains)
-
-    if output:
-        output.write_text(result)
-        typer.echo(f"Wrote JSON to {output}")
-    else:
-        typer.echo(result)
+    result = _run_projection(target, domain, enrich)
+    _write_output(result, output, "JSON")

@@ -99,6 +99,16 @@ class TestConfig:
         config = get_config()
         assert isinstance(config, QortexConfig)
 
+    def test_invalid_port_gives_helpful_error(self):
+        with patch.dict(os.environ, {"QORTEX_MEMGRAPH_PORT": "not_a_number"}):
+            with pytest.raises(SystemExit):
+                QortexConfig()
+
+    def test_invalid_lab_port_gives_helpful_error(self):
+        with patch.dict(os.environ, {"QORTEX_LAB_PORT": "abc"}):
+            with pytest.raises(SystemExit):
+                QortexConfig()
+
     def test_compose_file_default(self):
         config = QortexConfig()
         assert config.compose_file == "docker/docker-compose.yml"
@@ -271,6 +281,82 @@ class TestProjectJSON:
     def test_json_no_enrich(self):
         result = runner.invoke(app, ["project", "json", "--no-enrich"])
         assert result.exit_code == 0
+
+
+# =========================================================================
+# Project commands with populated graph
+# =========================================================================
+
+
+class TestProjectWithData:
+    """Verify rules flow through the CLI when the graph has data."""
+
+    def _populate_backend(self, backend):
+        from qortex.core.models import ConceptEdge, ConceptNode, ExplicitRule, RelationType
+
+        backend.create_domain("test_domain")
+        n1 = ConceptNode(
+            id="c1", name="Retry", description="Retry pattern",
+            domain="test_domain", source_id="ch1",
+        )
+        n2 = ConceptNode(
+            id="c2", name="Timeout", description="Timeout config",
+            domain="test_domain", source_id="ch1",
+        )
+        backend.add_node(n1)
+        backend.add_node(n2)
+        edge = ConceptEdge(
+            source_id="c1", target_id="c2",
+            relation_type=RelationType.REQUIRES, confidence=0.9,
+        )
+        backend.add_edge(edge)
+        rule = ExplicitRule(
+            id="r1", text="Always configure timeouts with retries",
+            domain="test_domain", source_id="ch1", confidence=0.95,
+        )
+        backend.add_rule(rule)
+
+    @patch("qortex.cli.project._get_backend")
+    def test_buildlog_with_data(self, mock_get_backend):
+        from qortex.core.memory import InMemoryBackend
+
+        backend = InMemoryBackend()
+        backend.connect()
+        self._populate_backend(backend)
+        mock_get_backend.return_value = backend
+
+        result = runner.invoke(app, ["project", "buildlog"])
+        assert result.exit_code == 0
+        parsed = yaml.safe_load(result.output)
+        assert len(parsed["rules"]) >= 1
+
+    @patch("qortex.cli.project._get_backend")
+    def test_flat_with_data(self, mock_get_backend):
+        from qortex.core.memory import InMemoryBackend
+
+        backend = InMemoryBackend()
+        backend.connect()
+        self._populate_backend(backend)
+        mock_get_backend.return_value = backend
+
+        result = runner.invoke(app, ["project", "flat"])
+        assert result.exit_code == 0
+        parsed = yaml.safe_load(result.output)
+        assert len(parsed["rules"]) >= 1
+
+    @patch("qortex.cli.project._get_backend")
+    def test_json_with_data(self, mock_get_backend):
+        from qortex.core.memory import InMemoryBackend
+
+        backend = InMemoryBackend()
+        backend.connect()
+        self._populate_backend(backend)
+        mock_get_backend.return_value = backend
+
+        result = runner.invoke(app, ["project", "json"])
+        assert result.exit_code == 0
+        parsed = json.loads(result.output)
+        assert len(parsed["rules"]) >= 1
 
 
 # =========================================================================

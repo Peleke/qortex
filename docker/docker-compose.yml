@@ -9,8 +9,8 @@ services:
       - memgraph_data:/var/lib/memgraph
       - memgraph_log:/var/log/memgraph
     environment:
-      - MEMGRAPH_USER=qortex
-      - MEMGRAPH_PASSWORD=qortex
+      - MEMGRAPH_USER=${QORTEX_MEMGRAPH_USER:-qortex}
+      - MEMGRAPH_PASSWORD=${QORTEX_MEMGRAPH_PASSWORD:-qortex}
     command: ["--also-log-to-stderr"]
     healthcheck:
       test: ["CMD-SHELL", "echo > /dev/tcp/localhost/7687"]
