@@ -5,32 +5,7 @@ repo_url: https://github.com/Peleke/qortex
 repo_name: Peleke/qortex
 
 theme:
-  name: material
-  palette:
-    - scheme: default
-      primary: deep purple
-      accent: amber
-      toggle:
-        icon: material/brightness-7
-        name: Switch to dark mode
-    - scheme: slate
-      primary: deep purple
-      accent: amber
-      toggle:
-        icon: material/brightness-4
-        name: Switch to light mode
-  features:
-    - navigation.tabs
-    - navigation.sections
-    - navigation.expand
-    - navigation.top
-    - content.code.copy
-    - content.tabs.link
-    - search.suggest
-    - search.highlight
-    - toc.follow
-  icon:
-    repo: fontawesome/brands/github
+  name: readthedocs
 
 markdown_extensions:
   - admonition
@@ -52,12 +27,11 @@ markdown_extensions:
           format: !!python/name:pymdownx.superfences.fence_code_format
   - pymdownx.tabbed:
       alternate_style: true
-  - pymdownx.emoji:
-      emoji_index: !!python/name:material.extensions.emoji.twemoji
-      emoji_generator: !!python/name:material.extensions.emoji.to_svg
 
 nav:
   - Home: index.md
+  - Tutorials:
+    - "Series: RAG to HippoRAG": tutorials/series-outline.md
   - Getting Started:
     - Installation: getting-started/installation.md
     - Quick Start: getting-started/quickstart.md
