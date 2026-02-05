@@ -751,3 +751,189 @@ class TestProjectBuildlogPending:
         # In real use, there would be data in the backend
         # For now, just verify the CLI accepts the flags
         assert "--pending" not in result.output or "Error" not in result.output
+
+
+# =============================================================================
+# Schema Tests
+# =============================================================================
+
+
+class TestSchemas:
+    def test_seed_schema_is_valid_json_schema(self):
+        from qortex.interop_schemas import SEED_SCHEMA
+
+        # Basic structure checks
+        assert SEED_SCHEMA["$schema"] == "https://json-schema.org/draft/2020-12/schema"
+        assert "title" in SEED_SCHEMA
+        assert "properties" in SEED_SCHEMA
+        assert "persona" in SEED_SCHEMA["properties"]
+        assert "rules" in SEED_SCHEMA["properties"]
+
+    def test_event_schema_is_valid_json_schema(self):
+        from qortex.interop_schemas import EVENT_SCHEMA
+
+        assert EVENT_SCHEMA["$schema"] == "https://json-schema.org/draft/2020-12/schema"
+        assert "properties" in EVENT_SCHEMA
+        assert "event" in EVENT_SCHEMA["properties"]
+
+    def test_get_seed_schema_returns_copy(self):
+        from qortex.interop_schemas import get_seed_schema, SEED_SCHEMA
+
+        schema = get_seed_schema()
+        schema["modified"] = True
+        assert "modified" not in SEED_SCHEMA
+
+    def test_get_event_schema_returns_copy(self):
+        from qortex.interop_schemas import get_event_schema, EVENT_SCHEMA
+
+        schema = get_event_schema()
+        schema["modified"] = True
+        assert "modified" not in EVENT_SCHEMA
+
+    def test_export_schemas(self, tmp_path):
+        from qortex.interop_schemas import export_schemas
+
+        seed_path, event_path = export_schemas(tmp_path)
+
+        assert seed_path.exists()
+        assert event_path.exists()
+        assert "seed" in seed_path.name
+        assert "event" in event_path.name
+        assert seed_path.suffix == ".json"
+
+    def test_validate_seed_valid(self):
+        from qortex.interop_schemas import validate_seed
+
+        valid_seed = {
+            "persona": "test",
+            "version": 1,
+            "rules": [
+                {
+                    "rule": "Test rule",
+                    "category": "testing",
+                    "provenance": {
+                        "id": "r1",
+                        "domain": "test",
+                        "derivation": "explicit",
+                        "confidence": 0.9,
+                    }
+                }
+            ],
+            "metadata": {
+                "source": "qortex",
+                "rule_count": 1,
+            }
+        }
+
+        errors = validate_seed(valid_seed)
+        assert errors == []
+
+    def test_validate_seed_missing_fields(self):
+        from qortex.interop_schemas import validate_seed
+
+        invalid_seed = {"persona": "test"}
+        errors = validate_seed(invalid_seed)
+        assert len(errors) > 0
+        assert any("version" in e for e in errors)
+
+    def test_validate_seed_wrong_types(self):
+        from qortex.interop_schemas import validate_seed
+
+        invalid_seed = {
+            "persona": 123,  # Should be string
+            "version": "1",  # Should be int
+            "rules": "not a list",
+            "metadata": {},
+        }
+        errors = validate_seed(invalid_seed)
+        assert len(errors) >= 3
+
+    def test_validate_event_valid(self):
+        from qortex.interop_schemas import validate_event
+
+        valid_event = {
+            "event": "projection_complete",
+            "ts": "2026-02-05T14:00:00Z",
+            "source": "qortex",
+        }
+        errors = validate_event(valid_event)
+        assert errors == []
+
+    def test_validate_event_invalid_type(self):
+        from qortex.interop_schemas import validate_event
+
+        invalid_event = {
+            "event": "unknown_event",
+            "ts": "2026-02-05T14:00:00Z",
+            "source": "qortex",
+        }
+        errors = validate_event(invalid_event)
+        assert len(errors) > 0
+
+
+class TestSchemaCLI:
+    def test_schema_command_shows_seed(self):
+        from typer.testing import CliRunner
+        from qortex.cli.interop_cmd import app
+
+        runner = CliRunner()
+        result = runner.invoke(app, ["schema", "--which", "seed"])
+
+        assert result.exit_code == 0
+        assert "Seed Schema" in result.output
+        assert "persona" in result.output
+
+    def test_schema_command_shows_event(self):
+        from typer.testing import CliRunner
+        from qortex.cli.interop_cmd import app
+
+        runner = CliRunner()
+        result = runner.invoke(app, ["schema", "--which", "event"])
+
+        assert result.exit_code == 0
+        assert "Event Schema" in result.output
+        assert "projection_complete" in result.output
+
+    def test_schema_command_exports(self, tmp_path):
+        from typer.testing import CliRunner
+        from qortex.cli.interop_cmd import app
+
+        runner = CliRunner()
+        result = runner.invoke(app, ["schema", "--output", str(tmp_path)])
+
+        assert result.exit_code == 0
+        assert "Exported" in result.output
+        assert (tmp_path / "seed.v1.0.schema.json").exists()
+
+    def test_validate_command_valid_seed(self, tmp_path):
+        import yaml
+        from typer.testing import CliRunner
+        from qortex.cli.interop_cmd import app
+
+        seed_file = tmp_path / "test.yaml"
+        seed_file.write_text(yaml.dump({
+            "persona": "test",
+            "version": 1,
+            "rules": [],
+            "metadata": {"source": "test", "rule_count": 0},
+        }))
+
+        runner = CliRunner()
+        result = runner.invoke(app, ["validate", str(seed_file)])
+
+        assert result.exit_code == 0
+        assert "Valid seed" in result.output
+
+    def test_validate_command_invalid_seed(self, tmp_path):
+        import yaml
+        from typer.testing import CliRunner
+        from qortex.cli.interop_cmd import app
+
+        seed_file = tmp_path / "bad.yaml"
+        seed_file.write_text(yaml.dump({"persona": "incomplete"}))
+
+        runner = CliRunner()
+        result = runner.invoke(app, ["validate", str(seed_file)])
+
+        assert result.exit_code == 1
+        assert "failed" in result.output.lower()
