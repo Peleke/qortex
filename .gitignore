@@ -48,6 +48,9 @@ htmlcov/
 *.sqlite
 data/
 
+# MkDocs
+site/
+
 # Secrets
 .env
 .env.local
