@@ -9,8 +9,8 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 
-from qortex.core.memory import InMemoryBackend
-from qortex.core.models import ConceptEdge, ConceptNode, RelationType, Rule
+from qortex.core.backend import GraphBackend
+from qortex.core.models import ConceptEdge, Rule
 from qortex.core.templates import select_template
 from qortex.projectors.models import ProjectionFilter
 
@@ -26,7 +26,7 @@ class FlatRuleSource:
     Implements the ProjectionSource protocol.
     """
 
-    backend: InMemoryBackend
+    backend: GraphBackend
     include_derived: bool = True
     _seen_edge_pairs: set[tuple[str, str]] = field(default_factory=set, repr=False)
 

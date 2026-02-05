@@ -26,5 +26,5 @@ class LLMEnricher:
             return []
 
         # Infer domain from first rule if not set explicitly
-        effective_domain = rules[0].domain if rules else self.domain
+        effective_domain = rules[0].domain
         return self.pipeline.enrich(rules, effective_domain)
