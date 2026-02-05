@@ -15,41 +15,41 @@ pip install qortex
 
 qortex has several optional dependency groups for different use cases:
 
-=== "Memgraph (Production)"
+### Memgraph (Production)
 
-    ```bash
-    pip install qortex[memgraph]
-    ```
+```bash
+pip install qortex[memgraph]
+```
 
-    Adds the `neo4j` driver for connecting to Memgraph. Required for:
+Adds the `neo4j` driver for connecting to Memgraph. Required for:
 
-    - Production deployments with persistent storage
-    - MAGE graph algorithms (Personalized PageRank)
-    - Cypher query support
+- Production deployments with persistent storage
+- MAGE graph algorithms (Personalized PageRank)
+- Cypher query support
 
-=== "PDF Ingestion"
+### PDF Ingestion
 
-    ```bash
-    pip install qortex[pdf]
-    ```
+```bash
+pip install qortex[pdf]
+```
 
-    Adds PDF parsing libraries for ingesting PDF documents.
+Adds PDF parsing libraries for ingesting PDF documents.
 
-=== "LLM Enrichment"
+### LLM Enrichment
 
-    ```bash
-    pip install qortex[llm]
-    ```
+```bash
+pip install qortex[llm]
+```
 
-    Adds the Anthropic SDK for LLM-powered rule enrichment.
+Adds the Anthropic SDK for LLM-powered rule enrichment.
 
-=== "All Dependencies"
+### All Dependencies
 
-    ```bash
-    pip install qortex[all]
-    ```
+```bash
+pip install qortex[all]
+```
 
-    Installs everything: memgraph, pdf, llm, mcp, and dev tools.
+Installs everything: memgraph, pdf, llm, mcp, and dev tools.
 
 ## Development Installation
 
