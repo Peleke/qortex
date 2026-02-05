@@ -25,12 +25,8 @@ classifiers = [
 ]
 
 dependencies = [
-    # Core
-    # "gqlalchemy>=1.4",  # Memgraph driver - uncomment when implementing
-
-    # LLM (optional, for extraction)
-    # "anthropic>=0.18",
-    # "openai>=1.0",
+    "typer>=0.9",
+    "pyyaml>=6.0",
 ]
 
 [project.optional-dependencies]
@@ -51,6 +47,12 @@ dev = [
 all = [
     "qortex[pdf,mcp,dev]",
 ]
+
+[project.optional-dependencies.llm]
+anthropic = ["anthropic>=0.18"]
+
+[project.scripts]
+qortex = "qortex.cli:main"
 
 [project.urls]
 Homepage = "https://github.com/Peleke/qortex"

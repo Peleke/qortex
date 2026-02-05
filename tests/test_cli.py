@@ -1,0 +1,441 @@
+"""Exhaustive tests for the qortex CLI.
+
+Tests all commands: infra, ingest, project, inspect, viz.
+Uses typer.testing.CliRunner for isolated CLI testing.
+"""
+
+from __future__ import annotations
+
+import json
+import os
+from pathlib import Path
+from unittest.mock import MagicMock, patch
+
+import pytest
+import yaml
+from typer.testing import CliRunner
+
+from qortex.cli import app
+from qortex.cli._config import QortexConfig, get_config
+
+runner = CliRunner()
+
+
+# =========================================================================
+# App structure
+# =========================================================================
+
+
+class TestAppStructure:
+    def test_app_has_all_subcommands(self):
+        result = runner.invoke(app, ["--help"])
+        assert result.exit_code == 0
+        assert "infra" in result.output
+        assert "ingest" in result.output
+        assert "project" in result.output
+        assert "inspect" in result.output
+        assert "viz" in result.output
+
+    def test_infra_help(self):
+        result = runner.invoke(app, ["infra", "--help"])
+        assert result.exit_code == 0
+        assert "up" in result.output
+        assert "down" in result.output
+        assert "status" in result.output
+
+    def test_project_help(self):
+        result = runner.invoke(app, ["project", "--help"])
+        assert result.exit_code == 0
+        assert "buildlog" in result.output
+        assert "flat" in result.output
+        assert "json" in result.output
+
+    def test_inspect_help(self):
+        result = runner.invoke(app, ["inspect", "--help"])
+        assert result.exit_code == 0
+        assert "domains" in result.output
+        assert "rules" in result.output
+        assert "stats" in result.output
+
+    def test_viz_help(self):
+        result = runner.invoke(app, ["viz", "--help"])
+        assert result.exit_code == 0
+        assert "open" in result.output
+        assert "query" in result.output
+
+    def test_no_args_shows_help(self):
+        result = runner.invoke(app, [])
+        # typer with no_args_is_help=True returns exit code 0 on some versions, 2 on others
+        assert result.exit_code in (0, 2)
+        assert "Usage" in result.output or "Commands" in result.output
+
+
+# =========================================================================
+# Config
+# =========================================================================
+
+
+class TestConfig:
+    def test_default_config(self):
+        config = QortexConfig()
+        assert config.memgraph_host == "localhost"
+        assert config.memgraph_port == 7687
+        assert config.memgraph_user == "qortex"
+        assert config.memgraph_password == "qortex"
+        assert config.lab_port == 3000
+
+    def test_config_from_env(self):
+        with patch.dict(os.environ, {
+            "QORTEX_MEMGRAPH_HOST": "custom-host",
+            "QORTEX_MEMGRAPH_PORT": "9999",
+            "QORTEX_LAB_PORT": "4000",
+        }):
+            config = QortexConfig()
+            assert config.memgraph_host == "custom-host"
+            assert config.memgraph_port == 9999
+            assert config.lab_port == 4000
+
+    def test_get_config(self):
+        config = get_config()
+        assert isinstance(config, QortexConfig)
+
+    def test_compose_file_default(self):
+        config = QortexConfig()
+        assert config.compose_file == "docker/docker-compose.yml"
+
+    def test_compose_file_from_env(self):
+        with patch.dict(os.environ, {"QORTEX_COMPOSE_FILE": "/custom/compose.yml"}):
+            config = QortexConfig()
+            assert config.compose_file == "/custom/compose.yml"
+
+
+# =========================================================================
+# Infra commands
+# =========================================================================
+
+
+class TestInfraUp:
+    @patch("qortex.cli.infra.subprocess.run")
+    def test_up_success(self, mock_run):
+        mock_run.return_value = MagicMock(returncode=0, stdout="Started\n", stderr="")
+        result = runner.invoke(app, ["infra", "up"])
+        assert result.exit_code == 0
+        assert "Starting infrastructure" in result.output
+        call_args = mock_run.call_args[0][0]
+        assert "docker" in call_args
+        assert "compose" in call_args
+        assert "up" in call_args
+        assert "-d" in call_args
+
+    @patch("qortex.cli.infra.subprocess.run")
+    def test_up_no_detach(self, mock_run):
+        mock_run.return_value = MagicMock(returncode=0, stdout="", stderr="")
+        result = runner.invoke(app, ["infra", "up", "--no-detach"])
+        assert result.exit_code == 0
+        call_args = mock_run.call_args[0][0]
+        assert "-d" not in call_args
+
+    @patch("qortex.cli.infra.subprocess.run")
+    def test_up_failure(self, mock_run):
+        mock_run.return_value = MagicMock(returncode=1, stdout="", stderr="Connection refused")
+        result = runner.invoke(app, ["infra", "up"])
+        assert result.exit_code == 1
+        assert "Failed to start" in result.output
+
+    @patch("qortex.cli.infra.subprocess.run")
+    def test_up_shows_endpoints(self, mock_run):
+        mock_run.return_value = MagicMock(returncode=0, stdout="", stderr="")
+        result = runner.invoke(app, ["infra", "up"])
+        assert "7687" in result.output
+        assert "3000" in result.output
+
+
+class TestInfraDown:
+    @patch("qortex.cli.infra.subprocess.run")
+    def test_down_success(self, mock_run):
+        mock_run.return_value = MagicMock(returncode=0, stdout="", stderr="")
+        result = runner.invoke(app, ["infra", "down"])
+        assert result.exit_code == 0
+        assert "stopped" in result.output.lower()
+
+    @patch("qortex.cli.infra.subprocess.run")
+    def test_down_failure(self, mock_run):
+        mock_run.return_value = MagicMock(returncode=1, stdout="", stderr="Error")
+        result = runner.invoke(app, ["infra", "down"])
+        assert result.exit_code == 1
+
+
+class TestInfraStatus:
+    @patch("qortex.cli.infra.subprocess.run")
+    def test_status_no_containers(self, mock_run):
+        mock_run.return_value = MagicMock(returncode=1, stdout="", stderr="")
+        result = runner.invoke(app, ["infra", "status"])
+        assert result.exit_code == 0
+        assert "No containers" in result.output or "Not reachable" in result.output
+
+    @patch("qortex.cli.infra.subprocess.run")
+    def test_status_with_containers(self, mock_run):
+        mock_run.return_value = MagicMock(
+            returncode=0, stdout="qortex-memgraph  running\n", stderr=""
+        )
+        result = runner.invoke(app, ["infra", "status"])
+        assert result.exit_code == 0
+        assert "Containers" in result.output
+
+
+# =========================================================================
+# Ingest command
+# =========================================================================
+
+
+class TestIngest:
+    def test_ingest_requires_memgraph(self):
+        result = runner.invoke(app, ["ingest", "ingest", "/nonexistent/file.md"])
+        assert result.exit_code == 1
+
+    def test_ingest_help(self):
+        result = runner.invoke(app, ["ingest", "ingest", "--help"])
+        assert result.exit_code == 0
+        assert "path" in result.output.lower()
+
+
+# =========================================================================
+# Project commands
+# =========================================================================
+
+
+class TestProjectBuildlog:
+    def test_buildlog_empty_graph(self):
+        result = runner.invoke(app, ["project", "buildlog"])
+        assert result.exit_code == 0
+        parsed = yaml.safe_load(result.output)
+        assert parsed["rules"] == []
+        assert parsed["persona"]["name"] == "qortex"
+
+    def test_buildlog_custom_persona(self):
+        result = runner.invoke(app, ["project", "buildlog", "--persona", "custom"])
+        assert result.exit_code == 0
+        parsed = yaml.safe_load(result.output)
+        assert parsed["persona"]["name"] == "custom"
+
+    def test_buildlog_no_enrich(self):
+        result = runner.invoke(app, ["project", "buildlog", "--no-enrich"])
+        assert result.exit_code == 0
+
+    def test_buildlog_to_file(self, tmp_path):
+        output = tmp_path / "seed.yml"
+        result = runner.invoke(app, ["project", "buildlog", "--output", str(output)])
+        assert result.exit_code == 0
+        assert output.exists()
+        parsed = yaml.safe_load(output.read_text())
+        assert "rules" in parsed
+
+    def test_buildlog_domain_filter(self):
+        result = runner.invoke(app, ["project", "buildlog", "--domain", "test"])
+        assert result.exit_code == 0
+
+
+class TestProjectFlat:
+    def test_flat_empty_graph(self):
+        result = runner.invoke(app, ["project", "flat"])
+        assert result.exit_code == 0
+        parsed = yaml.safe_load(result.output)
+        assert parsed["rules"] == []
+
+    def test_flat_to_file(self, tmp_path):
+        output = tmp_path / "rules.yml"
+        result = runner.invoke(app, ["project", "flat", "--output", str(output)])
+        assert result.exit_code == 0
+        assert output.exists()
+
+    def test_flat_no_enrich(self):
+        result = runner.invoke(app, ["project", "flat", "--no-enrich"])
+        assert result.exit_code == 0
+
+
+class TestProjectJSON:
+    def test_json_empty_graph(self):
+        result = runner.invoke(app, ["project", "json"])
+        assert result.exit_code == 0
+        parsed = json.loads(result.output)
+        assert parsed["rules"] == []
+
+    def test_json_to_file(self, tmp_path):
+        output = tmp_path / "rules.json"
+        result = runner.invoke(app, ["project", "json", "--output", str(output)])
+        assert result.exit_code == 0
+        assert output.exists()
+        parsed = json.loads(output.read_text())
+        assert "rules" in parsed
+
+    def test_json_no_enrich(self):
+        result = runner.invoke(app, ["project", "json", "--no-enrich"])
+        assert result.exit_code == 0
+
+
+# =========================================================================
+# Inspect commands (require Memgraph)
+# =========================================================================
+
+
+class TestInspect:
+    def test_domains_requires_memgraph(self):
+        result = runner.invoke(app, ["inspect", "domains"])
+        assert result.exit_code == 1
+
+    def test_rules_requires_memgraph(self):
+        result = runner.invoke(app, ["inspect", "rules"])
+        assert result.exit_code == 1
+
+    def test_stats_requires_memgraph(self):
+        result = runner.invoke(app, ["inspect", "stats"])
+        assert result.exit_code == 1
+
+    def test_domains_help(self):
+        result = runner.invoke(app, ["inspect", "domains", "--help"])
+        assert result.exit_code == 0
+
+    def test_rules_help(self):
+        result = runner.invoke(app, ["inspect", "rules", "--help"])
+        assert result.exit_code == 0
+
+    def test_stats_help(self):
+        result = runner.invoke(app, ["inspect", "stats", "--help"])
+        assert result.exit_code == 0
+
+
+# =========================================================================
+# Viz commands
+# =========================================================================
+
+
+class TestVizOpen:
+    @patch("qortex.cli.viz.webbrowser.open")
+    def test_open_lab(self, mock_open):
+        result = runner.invoke(app, ["viz", "open"])
+        assert result.exit_code == 0
+        assert "Memgraph Lab" in result.output
+        mock_open.assert_called_once_with("http://localhost:3000")
+
+    @patch("qortex.cli.viz.webbrowser.open")
+    def test_open_lab_custom_port(self, mock_open):
+        with patch.dict(os.environ, {"QORTEX_LAB_PORT": "4000"}):
+            result = runner.invoke(app, ["viz", "open"])
+            assert result.exit_code == 0
+            mock_open.assert_called_once_with("http://localhost:4000")
+
+
+class TestVizQuery:
+    def test_query_requires_memgraph(self):
+        result = runner.invoke(app, ["viz", "query", "MATCH (n) RETURN n"])
+        assert result.exit_code == 1
+
+    def test_query_help(self):
+        result = runner.invoke(app, ["viz", "query", "--help"])
+        assert result.exit_code == 0
+
+
+# =========================================================================
+# Docker compose file validation
+# =========================================================================
+
+
+class TestDockerCompose:
+    def test_compose_file_is_valid_yaml(self):
+        compose_path = Path(__file__).parent.parent / "docker" / "docker-compose.yml"
+        parsed = yaml.safe_load(compose_path.read_text())
+        assert "services" in parsed
+
+    def test_compose_has_memgraph_service(self):
+        compose_path = Path(__file__).parent.parent / "docker" / "docker-compose.yml"
+        parsed = yaml.safe_load(compose_path.read_text())
+        assert "memgraph" in parsed["services"]
+
+    def test_compose_has_lab_service(self):
+        compose_path = Path(__file__).parent.parent / "docker" / "docker-compose.yml"
+        parsed = yaml.safe_load(compose_path.read_text())
+        assert "memgraph-lab" in parsed["services"]
+
+    def test_compose_memgraph_healthcheck(self):
+        compose_path = Path(__file__).parent.parent / "docker" / "docker-compose.yml"
+        parsed = yaml.safe_load(compose_path.read_text())
+        mg = parsed["services"]["memgraph"]
+        assert "healthcheck" in mg
+        assert "start_period" in mg["healthcheck"]
+
+    def test_compose_lab_depends_on_healthy(self):
+        compose_path = Path(__file__).parent.parent / "docker" / "docker-compose.yml"
+        parsed = yaml.safe_load(compose_path.read_text())
+        lab = parsed["services"]["memgraph-lab"]
+        assert lab["depends_on"]["memgraph"]["condition"] == "service_healthy"
+
+    def test_compose_no_deprecated_version(self):
+        compose_path = Path(__file__).parent.parent / "docker" / "docker-compose.yml"
+        parsed = yaml.safe_load(compose_path.read_text())
+        assert "version" not in parsed
+
+    def test_compose_ports(self):
+        compose_path = Path(__file__).parent.parent / "docker" / "docker-compose.yml"
+        parsed = yaml.safe_load(compose_path.read_text())
+        mg_ports = parsed["services"]["memgraph"]["ports"]
+        assert "7687:7687" in mg_ports
+        lab_ports = parsed["services"]["memgraph-lab"]["ports"]
+        assert "3000:3000" in lab_ports
+
+    def test_compose_volumes(self):
+        compose_path = Path(__file__).parent.parent / "docker" / "docker-compose.yml"
+        parsed = yaml.safe_load(compose_path.read_text())
+        assert "memgraph_data" in parsed["volumes"]
+        assert "memgraph_log" in parsed["volumes"]
+
+
+# =========================================================================
+# require_memgraph decorator
+# =========================================================================
+
+
+class TestRequireMemgraph:
+    def test_decorator_fails_without_memgraph(self):
+        from click.exceptions import Exit as ClickExit
+
+        from qortex.cli._errors import require_memgraph
+
+        @require_memgraph
+        def dummy_cmd():
+            return "should not reach here"
+
+        with pytest.raises((SystemExit, ClickExit)):
+            dummy_cmd()
+
+
+# =========================================================================
+# Pyproject.toml validation
+# =========================================================================
+
+
+class TestPyprojectToml:
+    def test_has_entry_point(self):
+        import tomllib
+
+        pyproject_path = Path(__file__).parent.parent / "pyproject.toml"
+        with open(pyproject_path, "rb") as f:
+            data = tomllib.load(f)
+        assert data["project"]["scripts"]["qortex"] == "qortex.cli:main"
+
+    def test_has_typer_dependency(self):
+        import tomllib
+
+        pyproject_path = Path(__file__).parent.parent / "pyproject.toml"
+        with open(pyproject_path, "rb") as f:
+            data = tomllib.load(f)
+        deps = data["project"]["dependencies"]
+        assert any("typer" in d for d in deps)
+
+    def test_has_pyyaml_dependency(self):
+        import tomllib
+
+        pyproject_path = Path(__file__).parent.parent / "pyproject.toml"
+        with open(pyproject_path, "rb") as f:
+            data = tomllib.load(f)
+        deps = data["project"]["dependencies"]
+        assert any("pyyaml" in d.lower() for d in deps)
