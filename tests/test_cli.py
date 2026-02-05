@@ -220,13 +220,13 @@ class TestProjectBuildlog:
         assert result.exit_code == 0
         parsed = yaml.safe_load(result.output)
         assert parsed["rules"] == []
-        assert parsed["persona"]["name"] == "qortex"
+        assert parsed["persona"] == "qortex"
 
     def test_buildlog_custom_persona(self):
         result = runner.invoke(app, ["project", "buildlog", "--persona", "custom"])
         assert result.exit_code == 0
         parsed = yaml.safe_load(result.output)
-        assert parsed["persona"]["name"] == "custom"
+        assert parsed["persona"] == "custom"
 
     def test_buildlog_no_enrich(self):
         result = runner.invoke(app, ["project", "buildlog", "--no-enrich"])

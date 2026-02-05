@@ -14,12 +14,23 @@ app = typer.Typer(help="Project rules from the knowledge graph.")
 
 
 def _get_backend():
-    """Get the appropriate backend (InMemory for now, Memgraph when available)."""
-    from qortex.core.memory import InMemoryBackend
+    """Get the appropriate backend. Tries Memgraph, falls back to InMemory."""
+    config = get_config()
+    try:
+        from qortex.core.backend import MemgraphBackend
 
-    backend = InMemoryBackend()
-    backend.connect()
-    return backend
+        backend = MemgraphBackend(
+            host=config.memgraph_host,
+            port=config.memgraph_port,
+        )
+        backend.connect()
+        return backend
+    except Exception:
+        from qortex.core.memory import InMemoryBackend
+
+        backend = InMemoryBackend()
+        backend.connect()
+        return backend
 
 
 def _run_projection(

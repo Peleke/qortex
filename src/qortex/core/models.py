@@ -184,4 +184,7 @@ class Rule:
     # Category for filtering
     category: str | None = None
 
+    # Extensible metadata (e.g. template info for derived rules)
+    metadata: dict[str, Any] = field(default_factory=dict)
+
 

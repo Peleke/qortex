@@ -216,8 +216,8 @@ class TestProjectCommands:
             assert "version" in data
             assert "rules" in data
             assert "metadata" in data
-            # Persona is a dict with name and description
-            assert "name" in data["persona"]
+            # Persona is a flat string
+            assert isinstance(data["persona"], str)
     
     def test_project_buildlog_with_domain(self, populated_backend):
         """Test project buildlog with --domain flag."""
@@ -239,8 +239,8 @@ class TestProjectCommands:
             result = runner.invoke(app, ["project", "buildlog", "--persona", "CustomBot"])
             assert result.exit_code == 0
             data = yaml.safe_load(result.stdout)
-            # Persona is a dict with name field
-            assert data["persona"]["name"] == "CustomBot"
+            # Persona is a flat string
+            assert data["persona"] == "CustomBot"
     
     def test_project_buildlog_empty_persona(self, populated_backend):
         """Test project buildlog with empty --persona string."""
@@ -249,7 +249,7 @@ class TestProjectCommands:
             assert result.exit_code == 0
             data = yaml.safe_load(result.stdout)
             # Empty string should be accepted
-            assert data["persona"]["name"] == ""
+            assert data["persona"] == ""
     
     def test_project_buildlog_no_enrich(self, populated_backend):
         """Test project buildlog with --no-enrich flag."""
@@ -527,7 +527,7 @@ class TestEdgeCases:
             result = runner.invoke(app, ["project", "buildlog", "--persona", special_persona])
             assert result.exit_code == 0
             data = yaml.safe_load(result.stdout)
-            assert data["persona"]["name"] == special_persona
+            assert data["persona"] == special_persona
     
     def test_unicode_in_persona(self, populated_backend):
         """Test with Unicode characters in persona name."""
@@ -536,7 +536,7 @@ class TestEdgeCases:
             result = runner.invoke(app, ["project", "buildlog", "--persona", unicode_persona])
             assert result.exit_code == 0
             data = yaml.safe_load(result.stdout)
-            assert data["persona"]["name"] == unicode_persona
+            assert data["persona"] == unicode_persona
 
 
 # ============================================================================
@@ -563,8 +563,8 @@ class TestDataIntegrity:
             assert isinstance(data["rules"], list)
             for rule in data["rules"]:
                 assert isinstance(rule, dict)
-                # Rules are enriched dicts with metadata
-                assert "text" in rule or "id" in rule
+                # Universal schema: 'rule' key for text
+                assert "rule" in rule
     
     def test_json_output_contains_actual_data(self, populated_backend):
         """Test that JSON output contains the actual rule data."""

@@ -136,6 +136,12 @@ class FlatRuleSource:
             source_concepts=[edge.source_id, edge.target_id],
             confidence=edge.confidence,
             category=template.category,
+            metadata={
+                "relation_type": edge.relation_type.value,
+                "template_id": template.id,
+                "template_variant": template.variant,
+                "template_severity": template.severity,
+            },
         )
 
         if self._passes_filter(rule, filt):

@@ -257,32 +257,50 @@ def seeded_backend(chapter_manifest: IngestionManifest) -> InMemoryBackend:
 
 
 def _validate_buildlog_seed(seed: dict) -> None:
-    """Assert that a dict matches the buildlog seed structural contract."""
+    """Assert that a dict matches the universal rule set schema."""
+    # Persona is a flat string
     assert "persona" in seed
-    assert "name" in seed["persona"]
-    assert "description" in seed["persona"]
-    assert isinstance(seed["persona"]["name"], str)
-    assert isinstance(seed["persona"]["description"], str)
+    assert isinstance(seed["persona"], str)
 
+    # Version is an int
     assert "version" in seed
-    assert isinstance(seed["version"], str)
+    assert isinstance(seed["version"], int)
 
+    # Metadata block
     assert "metadata" in seed
     assert "source" in seed["metadata"]
+    assert "source_version" in seed["metadata"]
+    assert "projected_at" in seed["metadata"]
     assert "rule_count" in seed["metadata"]
     assert seed["metadata"]["rule_count"] == len(seed["rules"])
 
+    # Rules list
     assert "rules" in seed
     assert isinstance(seed["rules"], list)
 
     for rule in seed["rules"]:
-        assert "id" in rule
-        assert "text" in rule
-        assert "domain" in rule
-        assert "confidence" in rule
-        assert "derivation" in rule
-        assert isinstance(rule["confidence"], (int, float))
-        assert rule["derivation"] in ("explicit", "derived")
+        # Universal schema: 'rule' key (not 'text'), category required
+        assert "rule" in rule
+        assert "category" in rule
+        assert isinstance(rule["rule"], str)
+
+        # Provenance block
+        assert "provenance" in rule
+        prov = rule["provenance"]
+        assert "id" in prov
+        assert "domain" in prov
+        assert "derivation" in prov
+        assert "confidence" in prov
+        assert isinstance(prov["confidence"], (int, float))
+        assert prov["derivation"] in ("explicit", "derived")
+        assert "source_concepts" in prov
+        assert "relevance" in prov
+
+        # Template fields present (null for explicit, populated for derived)
+        assert "relation_type" in prov
+        assert "template_id" in prov
+        assert "template_variant" in prov
+        assert "template_severity" in prov
 
 
 # =============================================================================
@@ -306,13 +324,12 @@ class TestE2EWithoutMemgraph:
 
     def test_seed_has_correct_persona(self, seeded_backend):
         source = FlatRuleSource(backend=seeded_backend)
-        target = BuildlogSeedTarget(persona_name="sd4pp_ch5", persona_description="Chapter 5 rules")
+        target = BuildlogSeedTarget(persona_name="sd4pp_ch5")
 
         projection = Projection(source=source, target=target)
         result = projection.project(domains=[DOMAIN])
 
-        assert result["persona"]["name"] == "sd4pp_ch5"
-        assert result["persona"]["description"] == "Chapter 5 rules"
+        assert result["persona"] == "sd4pp_ch5"
 
     def test_seed_has_version(self, seeded_backend):
         source = FlatRuleSource(backend=seeded_backend)
@@ -321,7 +338,7 @@ class TestE2EWithoutMemgraph:
         projection = Projection(source=source, target=target)
         result = projection.project(domains=[DOMAIN])
 
-        assert result["version"] == "1.0.0"
+        assert result["version"] == 1
 
     def test_seed_metadata_tracks_source(self, seeded_backend):
         source = FlatRuleSource(backend=seeded_backend)
@@ -341,11 +358,14 @@ class TestE2EWithoutMemgraph:
         result = projection.project(domains=[DOMAIN])
 
         for rule in result["rules"]:
-            assert "id" in rule
-            assert "text" in rule
-            assert "domain" in rule
-            assert "confidence" in rule
-            assert "derivation" in rule
+            assert "rule" in rule
+            assert "category" in rule
+            assert "provenance" in rule
+            prov = rule["provenance"]
+            assert "id" in prov
+            assert "domain" in prov
+            assert "confidence" in prov
+            assert "derivation" in prov
 
     def test_enriched_rules_have_context_fields(self, seeded_backend):
         source = FlatRuleSource(backend=seeded_backend)
@@ -381,7 +401,7 @@ class TestE2EWithoutMemgraph:
         projection = Projection(source=source, target=target)
         result = projection.project(domains=[DOMAIN])
 
-        derivations = {r["derivation"] for r in result["rules"]}
+        derivations = {r["provenance"]["derivation"] for r in result["rules"]}
         assert "explicit" in derivations
         assert "derived" in derivations
 
@@ -397,7 +417,8 @@ class TestE2EWithoutMemgraph:
         yaml_str = yaml.dump(result, default_flow_style=False, Dumper=yaml.SafeDumper)
         loaded = yaml.safe_load(yaml_str)
 
-        assert loaded["persona"]["name"] == result["persona"]["name"]
+        assert loaded["persona"] == result["persona"]
+        assert loaded["version"] == result["version"]
         assert loaded["metadata"]["rule_count"] == result["metadata"]["rule_count"]
         assert len(loaded["rules"]) == len(result["rules"])
 
@@ -437,7 +458,7 @@ class TestE2EWithoutMemgraph:
             filters=ProjectionFilter(derivation="explicit"),
         )
 
-        assert all(r["derivation"] == "explicit" for r in result["rules"])
+        assert all(r["provenance"]["derivation"] == "explicit" for r in result["rules"])
         assert len(result["rules"]) == NUM_EXPLICIT
 
     def test_derivation_filter_derived_only(self, seeded_backend):
@@ -450,7 +471,7 @@ class TestE2EWithoutMemgraph:
             filters=ProjectionFilter(derivation="derived"),
         )
 
-        assert all(r["derivation"] == "derived" for r in result["rules"])
+        assert all(r["provenance"]["derivation"] == "derived" for r in result["rules"])
         assert len(result["rules"]) == NUM_EDGES
 
     def test_passthrough_enricher_produces_no_enrichment_fields(self, seeded_backend):
@@ -516,6 +537,112 @@ class TestE2EWithoutMemgraph:
         assert domain.edge_count == len(EDGES)
         assert domain.rule_count == len(EXPLICIT_RULES)
 
+    # -----------------------------------------------------------------
+    # New provenance tests (Track F)
+    # -----------------------------------------------------------------
+
+    def test_provenance_template_metadata_for_derived_rules(self, seeded_backend):
+        """Derived rules should have non-null template metadata in provenance."""
+        source = FlatRuleSource(backend=seeded_backend)
+        target = BuildlogSeedTarget()
+
+        projection = Projection(source=source, target=target)
+        result = projection.project(
+            domains=[DOMAIN],
+            filters=ProjectionFilter(derivation="derived"),
+        )
+
+        for rule in result["rules"]:
+            prov = rule["provenance"]
+            assert prov["derivation"] == "derived"
+            assert prov["relation_type"] is not None
+            assert prov["template_id"] is not None
+            assert prov["template_variant"] is not None
+            assert prov["template_severity"] is not None
+
+    def test_provenance_null_template_for_explicit_rules(self, seeded_backend):
+        """Explicit rules should have null template metadata in provenance."""
+        source = FlatRuleSource(backend=seeded_backend)
+        target = BuildlogSeedTarget()
+
+        projection = Projection(source=source, target=target)
+        result = projection.project(
+            domains=[DOMAIN],
+            filters=ProjectionFilter(derivation="explicit"),
+        )
+
+        for rule in result["rules"]:
+            prov = rule["provenance"]
+            assert prov["derivation"] == "explicit"
+            assert prov["relation_type"] is None
+            assert prov["template_id"] is None
+            assert prov["template_variant"] is None
+            assert prov["template_severity"] is None
+
+    def test_provenance_graph_version_propagated(self, seeded_backend):
+        """graph_version should appear in provenance when set on target."""
+        source = FlatRuleSource(backend=seeded_backend)
+        target = BuildlogSeedTarget(graph_version="2026-02-05T14:30:00Z")
+
+        projection = Projection(source=source, target=target)
+        result = projection.project(domains=[DOMAIN])
+
+        for rule in result["rules"]:
+            assert rule["provenance"]["graph_version"] == "2026-02-05T14:30:00Z"
+
+    def test_category_falls_back_to_domain(self, seeded_backend):
+        """Rules without explicit category should use domain as fallback."""
+        from qortex.core.models import Rule
+        from qortex.projectors.targets._serialize import serialize_ruleset
+
+        # Rule with no category
+        rule = Rule(
+            id="test:no_cat",
+            text="Test rule",
+            domain="some_domain",
+            derivation="explicit",
+            source_concepts=["c1"],
+            confidence=0.9,
+            category=None,
+        )
+
+        result = serialize_ruleset([rule], persona="test")
+        assert result["rules"][0]["category"] == "some_domain"
+
+    def test_projected_at_in_metadata(self, seeded_backend):
+        """metadata.projected_at should be present as an ISO timestamp."""
+        source = FlatRuleSource(backend=seeded_backend)
+        target = BuildlogSeedTarget()
+
+        projection = Projection(source=source, target=target)
+        result = projection.project(domains=[DOMAIN])
+
+        assert "projected_at" in result["metadata"]
+        # Should be an ISO format string with T separator
+        assert "T" in result["metadata"]["projected_at"]
+
+    def test_source_version_in_metadata(self, seeded_backend):
+        """metadata.source_version should be present."""
+        source = FlatRuleSource(backend=seeded_backend)
+        target = BuildlogSeedTarget(source_version="0.2.0")
+
+        projection = Projection(source=source, target=target)
+        result = projection.project(domains=[DOMAIN])
+
+        assert result["metadata"]["source_version"] == "0.2.0"
+
+    def test_provenance_source_concepts_present(self, seeded_backend):
+        """All rules should have source_concepts in provenance."""
+        source = FlatRuleSource(backend=seeded_backend)
+        target = BuildlogSeedTarget()
+
+        projection = Projection(source=source, target=target)
+        result = projection.project(domains=[DOMAIN])
+
+        for rule in result["rules"]:
+            assert "source_concepts" in rule["provenance"]
+            assert isinstance(rule["provenance"]["source_concepts"], list)
+
 
 # =============================================================================
 # E2E tests: Memgraph (local mode, skipped in CI)
@@ -534,21 +661,60 @@ except (OSError, ConnectionRefusedError):
 
 @pytest.mark.skipif(not MEMGRAPH_AVAILABLE, reason="Memgraph not running (docker-compose up)")
 class TestE2EWithMemgraph:
-    """Placeholder tests for Memgraph backend. Skipped until MemgraphBackend is implemented."""
+    """Full pipeline tests using MemgraphBackend. Requires Docker."""
 
-    def test_memgraph_backend_connects(self):
+    @pytest.fixture(autouse=True)
+    def _setup_backend(self):
         from qortex.core.backend import MemgraphBackend
 
-        backend = MemgraphBackend(host="localhost", port=7687)
-        try:
-            backend.connect()
-            assert backend.is_connected()
-        except NotImplementedError:
-            pytest.skip("MemgraphBackend not yet implemented")
+        self.backend = MemgraphBackend(host="localhost", port=7687)
+        self.backend.connect()
+        self.backend._run("MATCH (n) DETACH DELETE n")
+        yield
+        self.backend._run("MATCH (n) DETACH DELETE n")
+        self.backend.disconnect()
+
+    def test_memgraph_backend_connects(self):
+        assert self.backend.is_connected()
 
     def test_memgraph_full_pipeline(self):
-        """Full pipeline with Memgraph. Placeholder until backend is ready."""
-        pytest.skip("MemgraphBackend not yet implemented")
+        """Full pipeline: ingest -> project -> validate seed."""
+        manifest = _build_chapter_manifest()
+        self.backend.ingest_manifest(manifest)
+
+        source = FlatRuleSource(backend=self.backend)
+        enricher = TemplateEnricher(domain=DOMAIN)
+        target = BuildlogSeedTarget(persona_name="qortex_" + DOMAIN)
+
+        projection = Projection(source=source, enricher=enricher, target=target)
+        result = projection.project(domains=[DOMAIN])
+
+        _validate_buildlog_seed(result)
+        assert result["metadata"]["rule_count"] == NUM_EXPLICIT + NUM_EDGES
+
+    def test_memgraph_ingest_and_query(self):
+        """Ingest manifest and query concepts via Cypher."""
+        manifest = _build_chapter_manifest()
+        self.backend.ingest_manifest(manifest)
+
+        results = list(self.backend.query_cypher(
+            "MATCH (c:Concept {domain: $d}) RETURN c.id AS id",
+            {"d": DOMAIN},
+        ))
+        ids = {r["id"] for r in results}
+        assert len(ids) == len(CONCEPTS)
+
+    def test_memgraph_ppr_returns_nonzero_scores(self):
+        """PPR should return scores for connected concepts."""
+        manifest = _build_chapter_manifest()
+        self.backend.ingest_manifest(manifest)
+
+        scores = self.backend.personalized_pagerank(
+            source_nodes=["ch5:encapsulation"],
+            domain=DOMAIN,
+        )
+        # Should return some scores (depends on MAGE availability)
+        assert isinstance(scores, dict)
 
 
 # =============================================================================

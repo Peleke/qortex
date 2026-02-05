@@ -44,12 +44,15 @@ dev = [
     "ruff>=0.2",
     "mypy>=1.8",
 ]
-all = [
-    "qortex[pdf,mcp,dev]",
+llm = [
+    "anthropic>=0.18",
 ]
-
-[project.optional-dependencies.llm]
-anthropic = ["anthropic>=0.18"]
+memgraph = [
+    "neo4j>=5.0",
+]
+all = [
+    "qortex[pdf,mcp,llm,memgraph,dev]",
+]
 
 [project.scripts]
 qortex = "qortex.cli:main"
