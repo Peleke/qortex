@@ -139,9 +139,12 @@ class MockEnrichmentBackend:
         )
 
 
-class TestMockBackendProtocol:
-    def test_implements_protocol(self):
+class TestProtocolCompliance:
+    def test_mock_backend_implements_protocol(self):
         assert isinstance(MockEnrichmentBackend(), EnrichmentBackend)
+
+    def test_template_fallback_implements_protocol(self):
+        assert isinstance(TemplateEnrichmentFallback(), EnrichmentBackend)
 
 
 # -------------------------------------------------------------------------

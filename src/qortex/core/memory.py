@@ -5,7 +5,6 @@ from __future__ import annotations
 import copy
 import fnmatch
 import uuid
-from collections import defaultdict
 from datetime import datetime, timezone
 from typing import Iterator, Literal
 

@@ -1,4 +1,4 @@
-"""Anthropic (Claude) enrichment backend — batch enrichment via API."""
+"""Anthropic (Claude) enrichment backend. Batch enrichment via API."""
 
 from __future__ import annotations
 
@@ -145,14 +145,18 @@ class AnthropicEnrichmentBackend:
             ],
         )
 
-        data = self._parse_json(response.content[0].text)
+        try:
+            data = self._parse_json(response.content[0].text)
+        except (json.JSONDecodeError, ValueError) as e:
+            logger.warning("Failed to parse LLM response as JSON: %s", e)
+            return [self._fallback_enrichment(r) for r in rules]
+
         enrichments: list[RuleEnrichment] = []
 
         if isinstance(data, list):
             for item in data:
                 enrichments.append(self._parse_enrichment(item))
         else:
-            # Single object — shouldn't happen but handle gracefully
             enrichments.append(self._parse_enrichment(data))
 
         # Pad if API returned fewer than expected

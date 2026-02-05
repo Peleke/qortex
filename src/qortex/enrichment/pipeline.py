@@ -24,7 +24,7 @@ class EnrichmentStats:
 
 
 class TemplateEnrichmentFallback:
-    """Mechanical fallback — no LLM needed. Produces basic enrichments from rule text."""
+    """Mechanical fallback (no LLM). Produces basic enrichments from rule text."""
 
     def enrich_batch(
         self,

@@ -236,6 +236,12 @@ class TestNodes:
         domain = backend.get_domain("error_handling")
         assert domain.concept_count == 1
 
+    def test_add_node_without_domain(self, backend, sample_nodes):
+        """Adding a node when its domain doesn't exist stores the node but skips stats."""
+        backend.add_node(sample_nodes[0])
+        assert backend.get_node("err:circuit_breaker") is not None
+        assert backend.get_domain("error_handling") is None
+
 
 # -------------------------------------------------------------------------
 # Edges

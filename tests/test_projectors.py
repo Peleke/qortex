@@ -193,10 +193,7 @@ class TestProjection:
 
 class TestRegistry:
     def setup_method(self):
-        # Clean registry state
-        registry._sources.clear()
-        registry._enrichers.clear()
-        registry._targets.clear()
+        registry.reset()
 
     def test_register_and_get_source(self):
         registry.register_source("stub", StubSource)

@@ -11,6 +11,13 @@ _enrichers: dict[str, type] = {}
 _targets: dict[str, type] = {}
 
 
+def reset() -> None:
+    """Clear all registries. Use in test fixtures for isolation."""
+    _sources.clear()
+    _enrichers.clear()
+    _targets.clear()
+
+
 def register_source(name: str, cls: type) -> None:
     _sources[name] = cls
 
