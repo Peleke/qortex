@@ -65,3 +65,15 @@ class EnrichedRule:
     @property
     def category(self) -> str | None:
         return self.rule.category
+
+    @property
+    def derivation(self) -> str:
+        return self.rule.derivation
+
+    @property
+    def source_concepts(self) -> list[str]:
+        return self.rule.source_concepts
+
+    @property
+    def relevance(self) -> float:
+        return self.rule.relevance
