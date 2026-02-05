@@ -9,7 +9,7 @@ These models define the contract between components:
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from datetime import datetime
+from datetime import datetime, timezone
 from enum import Enum
 from typing import Any, Literal
 
@@ -87,12 +87,12 @@ class ExplicitRule:
     id: str
     text: str
     domain: str
+    source_id: str
 
     # Links to concepts this rule operationalizes
     concept_ids: list[str] = field(default_factory=list)
 
     # Source provenance
-    source_id: str
     source_location: str | None = None
 
     # Metadata
@@ -109,7 +109,7 @@ class SourceMetadata:
     path_or_url: str
 
     # Ingestion info
-    ingested_at: datetime = field(default_factory=datetime.utcnow)
+    ingested_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
     content_hash: str | None = None  # For change detection
 
     # Statistics
@@ -157,8 +157,8 @@ class Domain:
     edge_count: int = 0
     rule_count: int = 0
 
-    created_at: datetime = field(default_factory=datetime.utcnow)
-    updated_at: datetime = field(default_factory=datetime.utcnow)
+    created_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
+    updated_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
 
 
 # =============================================================================
@@ -185,14 +185,3 @@ class Rule:
     category: str | None = None
 
 
-# =============================================================================
-# Edge Templates (for Phase B rule derivation)
-# =============================================================================
-
-EDGE_RULE_TEMPLATES: dict[RelationType, str] = {
-    RelationType.CONTRADICTS: "When applying {source}, avoid {target}",
-    RelationType.REQUIRES: "Before {target}, ensure {source} is satisfied",
-    RelationType.REFINES: "{target} is a more specific form of {source}; prefer when context demands precision",
-    RelationType.IMPLEMENTS: "{target} is a concrete way to achieve {source}",
-    RelationType.ALTERNATIVE_TO: "{source} and {target} are alternatives; choose based on context",
-}
