@@ -67,7 +67,7 @@ EDGE_RULE_TEMPLATE_REGISTRY: list[EdgeRuleTemplate] = [
         variant="dependency",
         category="architectural",
         severity="error",
-        applicability="When the dependency is hard — target literally cannot work without source",
+        applicability="When the dependency is hard and target literally cannot work without source",
     ),
     EdgeRuleTemplate(
         id="requires:ordering",

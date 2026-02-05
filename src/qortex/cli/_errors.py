@@ -3,11 +3,14 @@
 from __future__ import annotations
 
 import functools
+import logging
 from typing import Any, Callable
 
 import typer
 
 from qortex.cli._config import get_config
+
+logger = logging.getLogger(__name__)
 
 # Module-level holder for the connected backend (set by require_memgraph)
 _current_backend: Any = None
@@ -38,6 +41,7 @@ def require_memgraph(f: Callable) -> Callable:
             )
             backend.connect()
         except Exception:
+            logger.debug("Memgraph connection failed", exc_info=True)
             typer.echo(
                 f"Could not connect to Memgraph at "
                 f"{config.memgraph_host}:{config.memgraph_port}.\n"

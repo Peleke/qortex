@@ -18,7 +18,8 @@ def open_lab() -> None:
     config = get_config()
     url = f"http://localhost:{config.lab_port}"
     typer.echo(f"Opening Memgraph Lab at {url}")
-    webbrowser.open(url)
+    if not webbrowser.open(url):
+        typer.echo(f"Could not open browser. Visit: {url}", err=True)
 
 
 @app.command()

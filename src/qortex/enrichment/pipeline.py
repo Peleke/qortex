@@ -113,9 +113,18 @@ class EnrichmentPipeline:
             self.stats.succeeded = len(enrichments)
 
         # Pair rules with enrichments
+        if len(enrichments) != len(rules):
+            logger.warning(
+                "Enrichment count mismatch: %d enrichments for %d rules",
+                len(enrichments),
+                len(rules),
+            )
+
         result: list[EnrichedRule] = []
         for i, rule in enumerate(rules):
             enrichment = enrichments[i] if i < len(enrichments) else None
+            if enrichment is None:
+                self.stats.skipped += 1
             result.append(EnrichedRule(rule=rule, enrichment=enrichment))
 
         return result
