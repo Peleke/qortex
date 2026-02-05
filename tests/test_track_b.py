@@ -598,17 +598,16 @@ class TestFlatJSONTarget:
 
 class TestBuildlogSeedTarget:
     def test_serialize_structure(self):
+        # New universal schema: persona is flat string, version is int
         target = BuildlogSeedTarget(
             persona_name="qortex_error_handling",
-            persona_description="Error handling rules",
-            version="1.0.0",
+            version=1,
         )
         rules = [_make_enriched_rule("r1")]
         result = target.serialize(rules)
 
-        assert result["persona"]["name"] == "qortex_error_handling"
-        assert result["persona"]["description"] == "Error handling rules"
-        assert result["version"] == "1.0.0"
+        assert result["persona"] == "qortex_error_handling"  # flat string
+        assert result["version"] == 1  # int
         assert result["metadata"]["source"] == "qortex"
         assert result["metadata"]["rule_count"] == 1
 
@@ -618,8 +617,9 @@ class TestBuildlogSeedTarget:
         result = target.serialize(rules)
 
         seed_rule = result["rules"][0]
-        assert seed_rule["id"] == "r1"
-        assert seed_rule["text"] == "Test rule"
+        # 'rule' key (not 'text'), provenance block
+        assert seed_rule["rule"] == "Test rule"
+        assert seed_rule["provenance"]["id"] == "r1"
         assert seed_rule["context"] == "Context for r1"
         assert seed_rule["antipattern"] == "Antipattern for r1"
         assert seed_rule["rationale"] == "Rationale for r1"
@@ -631,7 +631,7 @@ class TestBuildlogSeedTarget:
         result = target.serialize(rules)
 
         seed_rule = result["rules"][0]
-        assert seed_rule["id"] == "r1"
+        assert seed_rule["provenance"]["id"] == "r1"
         assert "context" not in seed_rule
         assert "antipattern" not in seed_rule
 
@@ -641,7 +641,7 @@ class TestBuildlogSeedTarget:
         result = target.serialize(rules)
 
         assert len(result["rules"]) == 1
-        assert result["rules"][0]["id"] == "r1"
+        assert result["rules"][0]["provenance"]["id"] == "r1"
         assert "context" not in result["rules"][0]
 
     def test_serialize_empty(self):
@@ -661,11 +661,12 @@ class TestBuildlogSeedTarget:
         result = target.serialize([rule])
         assert result["rules"][0]["category"] == "architectural"
 
-    def test_category_omitted_when_none(self):
+    def test_category_falls_back_to_domain(self):
+        # New schema: category falls back to domain when None
         target = BuildlogSeedTarget()
-        rule = _make_rule(category=None)
+        rule = _make_rule(category=None, domain="error_handling")
         result = target.serialize([rule])
-        assert "category" not in result["rules"][0]
+        assert result["rules"][0]["category"] == "error_handling"
 
 
 # =========================================================================
@@ -711,7 +712,8 @@ class TestProjectionPipelineIntegration:
         )
         result = projection.project(domains=["error_handling"])
 
-        assert result["persona"]["name"] == "qortex_error_handling"
+        # New universal schema: persona is flat string
+        assert result["persona"] == "qortex_error_handling"
         assert len(result["rules"]) == 3
         assert all("context" in r for r in result["rules"])
 
@@ -853,24 +855,28 @@ class TestPropertyBasedBuildlogSeed:
     @given(rules=st.lists(rule_strategy, min_size=0, max_size=10))
     @settings(max_examples=50)
     def test_buildlog_seed_always_has_persona(self, rules: list[Rule]):
-        """Buildlog seed always includes persona."""
+        """Buildlog seed always includes persona (flat string in new schema)."""
         target = BuildlogSeedTarget()
         result = target.serialize(rules)
         assert "persona" in result
-        assert "name" in result["persona"]
-        assert "description" in result["persona"]
+        # New schema: persona is flat string, not dict
+        assert isinstance(result["persona"], str)
 
     @given(rules=st.lists(rule_strategy, min_size=1, max_size=10))
     @settings(max_examples=50)
     def test_buildlog_seed_all_rules_have_required_fields(self, rules: list[Rule]):
-        """Every rule in buildlog seed has id, text, domain, confidence."""
+        """Every rule in buildlog seed has provenance with id, domain, confidence."""
         target = BuildlogSeedTarget()
         result = target.serialize(rules)
         for seed_rule in result["rules"]:
-            assert "id" in seed_rule
-            assert "text" in seed_rule
-            assert "domain" in seed_rule
-            assert "confidence" in seed_rule
+            # New schema: 'rule' key (not 'text'), provenance block
+            assert "rule" in seed_rule
+            assert "category" in seed_rule
+            assert "provenance" in seed_rule
+            prov = seed_rule["provenance"]
+            assert "id" in prov
+            assert "domain" in prov
+            assert "confidence" in prov
 
 
 class TestPropertyBasedCrossFormat:
@@ -896,7 +902,8 @@ class TestPropertyBasedCrossFormat:
 
         yaml_ids = {r["id"] for r in yaml.safe_load(yaml_target.serialize(rules))["rules"]}
         json_ids = {r["id"] for r in json.loads(json_target.serialize(rules))["rules"]}
-        seed_ids = {r["id"] for r in seed_target.serialize(rules)["rules"]}
+        # New schema: buildlog seed stores ID in provenance block
+        seed_ids = {r["provenance"]["id"] for r in seed_target.serialize(rules)["rules"]}
         input_ids = {r.id for r in rules}
 
         assert yaml_ids == input_ids
