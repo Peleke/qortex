@@ -1,0 +1,218 @@
+# Architecture Overview
+
+qortex is a knowledge graph ingestion engine that transforms unstructured content into actionable rules for AI agents.
+
+## High-Level Architecture
+
+![subgraph-sources-source-materi](../images/diagrams/overview-1-subgraph-sources-source-materi.svg)
+
+## Design Principles
+
+### 1. Separation of Concerns
+
+Each layer has a single responsibility:
+
+| Layer | Responsibility |
+|-------|----------------|
+| Ingestion | Parse sources, extract concepts, produce manifests |
+| Knowledge Graph | Store concepts/edges/rules, provide queries |
+| Projection | Transform KG into rules, enrich, serialize |
+| Interop | Distribute seeds, coordinate consumers |
+
+### 2. Protocol-Driven Design
+
+Core abstractions are Python protocols, enabling:
+
+- Multiple backend implementations (InMemory, Memgraph, future: Neo4j)
+- Pluggable enrichment backends (Template, Anthropic, future: custom)
+- Extensible projection targets (Buildlog, flat, JSON)
+
+```python
+class GraphBackend(Protocol):
+    def connect(self) -> None: ...
+    def add_node(self, node: ConceptNode) -> None: ...
+    # ...
+
+class ProjectionSource(Protocol):
+    def derive(self, domains: list[str] | None) -> list[Rule]: ...
+
+class Enricher(Protocol):
+    def enrich(self, rules: list[Rule]) -> list[EnrichedRule]: ...
+```
+
+### 3. Manifest as Boundary
+
+The `IngestionManifest` is the contract between ingestion and storage:
+
+```python
+@dataclass
+class IngestionManifest:
+    source: SourceMetadata
+    domain: str
+    concepts: list[ConceptNode]
+    edges: list[ConceptEdge]
+    rules: list[ExplicitRule]
+```
+
+This allows:
+- Ingestors to be developed independently
+- KG to be agnostic of source formats
+- Future: ingestion as a separate microservice
+
+### 4. Universal Schema
+
+All outputs follow a single schema that any consumer can validate:
+
+```yaml
+persona: <flat string>
+version: <integer>
+rules:
+  - rule: <text>
+    category: <string>
+    provenance: {...}
+metadata: {...}
+```
+
+Benefits:
+- Language-agnostic validation via JSON Schema
+- Forward compatibility (additive changes only)
+- Clear contract between qortex and consumers
+
+## Package Structure
+
+```
+qortex/
+├── core/
+│   ├── models.py          # ConceptNode, ConceptEdge, Rule, etc.
+│   ├── backend.py         # GraphBackend protocol, MemgraphBackend
+│   ├── memory.py          # InMemoryBackend
+│   └── templates.py       # 30 edge rule templates
+├── projectors/
+│   ├── base.py            # ProjectionSource, Enricher, ProjectionTarget
+│   ├── models.py          # EnrichedRule, ProjectionFilter
+│   ├── projection.py      # Projection orchestrator
+│   ├── sources/
+│   │   └── flat.py        # FlatRuleSource
+│   ├── enrichers/
+│   │   └── template.py    # TemplateEnricher
+│   └── targets/
+│       ├── buildlog_seed.py  # BuildlogSeedTarget
+│       └── _serialize.py     # serialize_ruleset()
+├── enrichment/
+│   ├── base.py            # EnrichmentBackend protocol
+│   ├── anthropic.py       # AnthropicEnrichmentBackend
+│   └── pipeline.py        # EnrichmentPipeline
+├── interop.py             # Consumer interop protocol
+├── interop_schemas.py     # JSON Schema definitions
+└── cli/
+    ├── __init__.py        # Typer app
+    ├── infra.py           # qortex infra
+    ├── ingest.py          # qortex ingest
+    ├── project.py         # qortex project
+    ├── inspect_cmd.py     # qortex inspect
+    ├── viz.py             # qortex viz
+    └── interop_cmd.py     # qortex interop
+```
+
+## Data Flow
+
+### Ingestion Flow
+
+![sequencediagram](../images/diagrams/overview-2-sequencediagram.svg)
+
+### Projection Flow
+
+![sequencediagram](../images/diagrams/overview-3-sequencediagram.svg)
+
+## Key Abstractions
+
+### GraphBackend
+
+The storage abstraction with two implementations:
+
+| Implementation | Use Case | Features |
+|----------------|----------|----------|
+| `InMemoryBackend` | Testing, development | Fast, no setup |
+| `MemgraphBackend` | Production | Persistence, Cypher, MAGE algorithms |
+
+### Projection Pipeline
+
+Composable pipeline: Source → Enricher → Target
+
+```python
+projection = Projection(
+    source=FlatRuleSource(backend),
+    enricher=TemplateEnricher(domain),  # Optional
+    target=BuildlogSeedTarget(persona),
+)
+result = projection.project(domains=["patterns"])
+```
+
+### Edge Rule Templates
+
+30 templates (3 variants × 10 relation types) for deriving rules from edges:
+
+| Relation | imperative | conditional | warning |
+|----------|------------|-------------|---------|
+| REQUIRES | "Ensure A has B" | "When using A, ensure B" | "A without B may fail" |
+| CONTRADICTS | "Choose A or B, not both" | "If using A, avoid B" | "A and B conflict" |
+| ... | ... | ... | ... |
+
+### Consumer Interop
+
+Hybrid pull/push model for any consumer:
+
+- **Pull**: Consumers scan `pending/` directory
+- **Push**: Consumers tail `signals/projections.jsonl`
+- **Validation**: JSON Schema for any-language validation
+
+## Extension Points
+
+### Custom Backend
+
+```python
+class MyBackend:
+    def connect(self) -> None: ...
+    def add_node(self, node: ConceptNode) -> None: ...
+    # Implement GraphBackend protocol
+```
+
+### Custom Enrichment
+
+```python
+class MyEnrichmentBackend:
+    def enrich_batch(self, rules: list[Rule], domain: str) -> list[RuleEnrichment]:
+        # Your enrichment logic
+```
+
+### Custom Projection Target
+
+```python
+class MyTarget:
+    def serialize(self, rules: list[EnrichedRule]) -> MyOutputFormat:
+        # Your serialization logic
+```
+
+## Roadmap
+
+### Phase 2: HippoRAG-Style Retrieval
+
+Cross-domain retrieval using Personalized PageRank for pattern completion:
+
+![query-query-ppr-personalized-p](../images/diagrams/overview-4-query-query-ppr-personalized-p.svg)
+
+The scaffolding exists in `src/qortex/hippocampus/` but is not yet fully implemented.
+
+### Phase 3: Causal DAG
+
+Confidence feedback loops from reward events:
+
+![rewards-reward-events-dag-caus](../images/diagrams/overview-5-rewards-reward-events-dag-caus.svg)
+
+See [GitHub Issues](https://github.com/Peleke/qortex/issues) for detailed roadmap.
+
+## Next Steps
+
+- [Projection Pipeline](projection-pipeline.md) - Deep dive into projection
+- [Data Models](../reference/models.md) - Model reference
+- [Consumer Integration](../guides/consumer-integration.md) - Interop details

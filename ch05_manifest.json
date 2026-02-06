@@ -1,0 +1,4354 @@
+{
+  "source": {
+    "id": "implementation_hiding:ch05_5_Hide_class_implementations",
+    "name": "ch05_5_Hide_class_implementations",
+    "source_type": "text",
+    "path_or_url": "/Users/peleke/Documents/Projects/qortex/data/books/ch05_5_Hide_class_implementations.txt",
+    "ingested_at": "2026-02-06 01:21:21.752516+00:00",
+    "content_hash": null,
+    "chunk_count": 39,
+    "concept_count": 405,
+    "rule_count": 7
+  },
+  "domain": "implementation_hiding",
+  "concepts": [
+    {
+      "id": "implementation_hiding:Implementation Hiding",
+      "name": "Implementation Hiding",
+      "description": "The practice of making instance variables and methods private to hide internal class details from other classes.",
+      "domain": "implementation_hiding",
+      "source_id": "implementation_hiding:ch05_5_Hide_class_implementations",
+      "source_location": "chars 0-2000",
+      "properties": {},
+      "confidence": 0.95
+    },
+    {
+      "id": "implementation_hiding:Principle Of Least Knowledge",
+      "name": "Principle Of Least Knowledge",
+      "description": "A design principle that minimizes dependencies by limiting what classes know about each other's internal workings.",
+      "domain": "implementation_hiding",
+      "source_id": "implementation_hiding:ch05_5_Hide_class_implementations",
+      "source_location": "chars 0-2000",
+      "properties": {},
+      "confidence": 0.9
+    },
+    {
+      "id": "implementation_hiding:Loose Coupling",
+      "name": "Loose Coupling",
+      "description": "A design approach where classes have minimal dependencies on each other to reduce the impact of changes.",
+      "domain": "implementation_hiding",
+      "source_id": "implementation_hiding:ch05_5_Hide_class_implementations",
+      "source_location": "chars 0-2000",
+      "properties": {},
+      "confidence": 0.9
+    },
+    {
+      "id": "implementation_hiding:Encapsulation",
+      "name": "Encapsulation",
+      "description": "The object-oriented programming concept of bundling data and methods together while hiding implementation details.",
+      "domain": "implementation_hiding",
+      "source_id": "implementation_hiding:ch05_5_Hide_class_implementations",
+      "source_location": "chars 0-2000",
+      "properties": {},
+      "confidence": 0.85
+    },
+    {
+      "id": "implementation_hiding:Instance Variables",
+      "name": "Instance Variables",
+      "description": "Class variables that represent the state of an object and should typically be kept private.",
+      "domain": "implementation_hiding",
+      "source_id": "implementation_hiding:ch05_5_Hide_class_implementations",
+      "source_location": "chars 0-2000",
+      "properties": {},
+      "confidence": 0.8
+    },
+    {
+      "id": "implementation_hiding:Class Dependencies",
+      "name": "Class Dependencies",
+      "description": "The relationships between classes where changes in one class may require changes in dependent classes.",
+      "domain": "implementation_hiding",
+      "source_id": "implementation_hiding:ch05_5_Hide_class_implementations",
+      "source_location": "chars 0-2000",
+      "properties": {},
+      "confidence": 0.85
+    },
+    {
+      "id": "implementation_hiding:Public Interface",
+      "name": "Public Interface",
+      "description": "The set of public methods and properties that a class exposes for other classes to use.",
+      "domain": "implementation_hiding",
+      "source_id": "implementation_hiding:ch05_5_Hide_class_implementations",
+      "source_location": "chars 0-2000",
+      "properties": {},
+      "confidence": 0.8
+    },
+    {
+      "id": "implementation_hiding:Object State",
+      "name": "Object State",
+      "description": "The current condition of an object at runtime, characterized by the values of its instance variables.",
+      "domain": "implementation_hiding",
+      "source_id": "implementation_hiding:ch05_5_Hide_class_implementations",
+      "source_location": "chars 0-2000",
+      "properties": {},
+      "confidence": 0.75
+    },
+    {
+      "id": "implementation_hiding:Runtime Behavior",
+      "name": "Runtime Behavior",
+      "description": "The actions and operations an object can perform, typically implemented through its methods.",
+      "domain": "implementation_hiding",
+      "source_id": "implementation_hiding:ch05_5_Hide_class_implementations",
+      "source_location": "chars 0-2000",
+      "properties": {},
+      "confidence": 0.75
+    },
+    {
+      "id": "implementation_hiding:Design Principles",
+      "name": "Design Principles",
+      "description": "Fundamental guidelines that serve as the foundation for creating well-structured software architectures.",
+      "domain": "implementation_hiding",
+      "source_id": "implementation_hiding:ch05_5_Hide_class_implementations",
+      "source_location": "chars 0-2000",
+      "properties": {},
+      "confidence": 0.85
+    },
+    {
+      "id": "implementation_hiding:Design Patterns",
+      "name": "Design Patterns",
+      "description": "Reusable models that provide proven solutions to common software architecture problems.",
+      "domain": "implementation_hiding",
+      "source_id": "implementation_hiding:ch05_5_Hide_class_implementations",
+      "source_location": "chars 0-2000",
+      "properties": {},
+      "confidence": 0.8
+    },
+    {
+      "id": "implementation_hiding:Instance Variables",
+      "name": "Instance Variables",
+      "description": "Variables that characterize an object at runtime with unique values that define the object's state.",
+      "domain": "implementation_hiding",
+      "source_id": "implementation_hiding:ch05_5_Hide_class_implementations",
+      "source_location": "chars 1800-3800",
+      "properties": {},
+      "confidence": 0.95
+    },
+    {
+      "id": "implementation_hiding:Runtime Behavior",
+      "name": "Runtime Behavior",
+      "description": "The actions and operations an object can perform, represented by a class's methods during program execution.",
+      "domain": "implementation_hiding",
+      "source_id": "implementation_hiding:ch05_5_Hide_class_implementations",
+      "source_location": "chars 1800-3800",
+      "properties": {},
+      "confidence": 0.9
+    },
+    {
+      "id": "implementation_hiding:Class Implementation",
+      "name": "Class Implementation",
+      "description": "The specific way instance variables and methods are coded within a class to provide its functionality.",
+      "domain": "implementation_hiding",
+      "source_id": "implementation_hiding:ch05_5_Hide_class_implementations",
+      "source_location": "chars 1800-3800",
+      "properties": {},
+      "confidence": 0.92
+    },
+    {
+      "id": "implementation_hiding:Private Attributes",
+      "name": "Private Attributes",
+      "description": "Instance variables that are hidden from external access and should only be used within the defining class.",
+      "domain": "implementation_hiding",
+      "source_id": "implementation_hiding:ch05_5_Hide_class_implementations",
+      "source_location": "chars 1800-3800",
+      "properties": {},
+      "confidence": 0.88
+    },
+    {
+      "id": "implementation_hiding:Public Interface",
+      "name": "Public Interface",
+      "description": "The exposed methods and properties that allow external classes to interact with an object without knowing its implementation.",
+      "domain": "implementation_hiding",
+      "source_id": "implementation_hiding:ch05_5_Hide_class_implementations",
+      "source_location": "chars 1800-3800",
+      "properties": {},
+      "confidence": 0.85
+    },
+    {
+      "id": "implementation_hiding:Principle Of Least Knowledge",
+      "name": "Principle Of Least Knowledge",
+      "description": "A design principle stating that classes should know as little as possible about each other's implementation details.",
+      "domain": "implementation_hiding",
+      "source_id": "implementation_hiding:ch05_5_Hide_class_implementations",
+      "source_location": "chars 1800-3800",
+      "properties": {},
+      "confidence": 0.93
+    },
+    {
+      "id": "implementation_hiding:Law Of Demeter",
+      "name": "Law Of Demeter",
+      "description": "An alternative name for the Principle of Least Knowledge, emphasizing loose coupling between software components.",
+      "domain": "implementation_hiding",
+      "source_id": "implementation_hiding:ch05_5_Hide_class_implementations",
+      "source_location": "chars 1800-3800",
+      "properties": {},
+      "confidence": 0.87
+    },
+    {
+      "id": "implementation_hiding:Implementation Hiding",
+      "name": "Implementation Hiding",
+      "description": "The practice of concealing internal class details from external access while providing necessary public interfaces.",
+      "domain": "implementation_hiding",
+      "source_id": "implementation_hiding:ch05_5_Hide_class_implementations",
+      "source_location": "chars 1800-3800",
+      "properties": {},
+      "confidence": 0.94
+    },
+    {
+      "id": "implementation_hiding:Encapsulation",
+      "name": "Encapsulation",
+      "description": "The bundling of data and methods within a class while controlling access to the internal implementation.",
+      "domain": "implementation_hiding",
+      "source_id": "implementation_hiding:ch05_5_Hide_class_implementations",
+      "source_location": "chars 1800-3800",
+      "properties": {},
+      "confidence": 0.91
+    },
+    {
+      "id": "implementation_hiding:Helper Methods",
+      "name": "Helper Methods",
+      "description": "Private methods within a class that are designed to be called only by other methods of the same class.",
+      "domain": "implementation_hiding",
+      "source_id": "implementation_hiding:ch05_5_Hide_class_implementations",
+      "source_location": "chars 1800-3800",
+      "properties": {},
+      "confidence": 0.83
+    },
+    {
+      "id": "implementation_hiding:Loose Coupling",
+      "name": "Loose Coupling",
+      "description": "A design approach where classes have minimal dependencies on each other's internal implementations.",
+      "domain": "implementation_hiding",
+      "source_id": "implementation_hiding:ch05_5_Hide_class_implementations",
+      "source_location": "chars 1800-3800",
+      "properties": {},
+      "confidence": 0.86
+    },
+    {
+      "id": "implementation_hiding:Class Dependencies",
+      "name": "Class Dependencies",
+      "description": "The relationships and reliances that exist between different classes in a software system.",
+      "domain": "implementation_hiding",
+      "source_id": "implementation_hiding:ch05_5_Hide_class_implementations",
+      "source_location": "chars 1800-3800",
+      "properties": {},
+      "confidence": 0.82
+    },
+    {
+      "id": "implementation_hiding:Python Naming Convention",
+      "name": "Python Naming Convention",
+      "description": "The practice of using underscore prefixes to indicate private variables and methods in Python classes.",
+      "domain": "implementation_hiding",
+      "source_id": "implementation_hiding:ch05_5_Hide_class_implementations",
+      "source_location": "chars 1800-3800",
+      "properties": {},
+      "confidence": 0.79
+    },
+    {
+      "id": "implementation_hiding:Hidden Implementation",
+      "name": "Hidden Implementation",
+      "description": "Code that is inaccessible and encapsulated, meaning it can be changed without affecting other code that uses the class.",
+      "domain": "implementation_hiding",
+      "source_id": "implementation_hiding:ch05_5_Hide_class_implementations",
+      "source_location": "chars 3600-5600",
+      "properties": {},
+      "confidence": 0.95
+    },
+    {
+      "id": "implementation_hiding:Encapsulation",
+      "name": "Encapsulation",
+      "description": "The practice of making implementation code effectively hidden and protected from external access.",
+      "domain": "implementation_hiding",
+      "source_id": "implementation_hiding:ch05_5_Hide_class_implementations",
+      "source_location": "chars 3600-5600",
+      "properties": {},
+      "confidence": 0.9
+    },
+    {
+      "id": "implementation_hiding:Privacy Convention",
+      "name": "Privacy Convention",
+      "description": "Python's naming convention where variables or methods starting with underscore are intended to be private implementation details.",
+      "domain": "implementation_hiding",
+      "source_id": "implementation_hiding:ch05_5_Hide_class_implementations",
+      "source_location": "chars 3600-5600",
+      "properties": {},
+      "confidence": 0.9
+    },
+    {
+      "id": "implementation_hiding:Private Instance Variable",
+      "name": "Private Instance Variable",
+      "description": "Class variables intended to be hidden from external access, typically prefixed with underscore in Python.",
+      "domain": "implementation_hiding",
+      "source_id": "implementation_hiding:ch05_5_Hide_class_implementations",
+      "source_location": "chars 3600-5600",
+      "properties": {},
+      "confidence": 0.85
+    },
+    {
+      "id": "implementation_hiding:Getter And Setter Methods",
+      "name": "Getter And Setter Methods",
+      "description": "Public methods that provide controlled access to hidden implementation details, also known as accessors and mutators.",
+      "domain": "implementation_hiding",
+      "source_id": "implementation_hiding:ch05_5_Hide_class_implementations",
+      "source_location": "chars 3600-5600",
+      "properties": {},
+      "confidence": 0.9
+    },
+    {
+      "id": "implementation_hiding:Public Interface",
+      "name": "Public Interface",
+      "description": "The parts of a class that are intentionally exposed for other code to use and interact with.",
+      "domain": "implementation_hiding",
+      "source_id": "implementation_hiding:ch05_5_Hide_class_implementations",
+      "source_location": "chars 3600-5600",
+      "properties": {},
+      "confidence": 0.8
+    },
+    {
+      "id": "implementation_hiding:Once Public Always Public",
+      "name": "Once Public Always Public",
+      "description": "The principle that making something public in a class interface creates a commitment that's difficult to change later.",
+      "domain": "implementation_hiding",
+      "source_id": "implementation_hiding:ch05_5_Hide_class_implementations",
+      "source_location": "chars 3600-5600",
+      "properties": {},
+      "confidence": 0.85
+    },
+    {
+      "id": "implementation_hiding:Property Decorator",
+      "name": "Property Decorator",
+      "description": "Python's @property decorator mechanism for creating read-only properties and associating getter methods.",
+      "domain": "implementation_hiding",
+      "source_id": "implementation_hiding:ch05_5_Hide_class_implementations",
+      "source_location": "chars 3600-5600",
+      "properties": {},
+      "confidence": 0.8
+    },
+    {
+      "id": "implementation_hiding:Access Control Design",
+      "name": "Access Control Design",
+      "description": "The design principle of making everything private by default except what must be public for the class to function.",
+      "domain": "implementation_hiding",
+      "source_id": "implementation_hiding:ch05_5_Hide_class_implementations",
+      "source_location": "chars 3600-5600",
+      "properties": {},
+      "confidence": 0.75
+    },
+    {
+      "id": "implementation_hiding:Implementation Dependency",
+      "name": "Implementation Dependency",
+      "description": "The problematic situation where external code relies on specific internal implementation details of a class.",
+      "domain": "implementation_hiding",
+      "source_id": "implementation_hiding:ch05_5_Hide_class_implementations",
+      "source_location": "chars 3600-5600",
+      "properties": {},
+      "confidence": 0.8
+    },
+    {
+      "id": "implementation_hiding:Property Decorator",
+      "name": "Property Decorator",
+      "description": "A Python decorator that creates a read-only property and associates a getter method with it.",
+      "domain": "implementation_hiding",
+      "source_id": "implementation_hiding:ch05_5_Hide_class_implementations",
+      "source_location": "chars 5400-6781",
+      "properties": {},
+      "confidence": 0.95
+    },
+    {
+      "id": "implementation_hiding:Property Setter",
+      "name": "Property Setter",
+      "description": "A decorator that associates a setter method with a property to set new values for private instance variables.",
+      "domain": "implementation_hiding",
+      "source_id": "implementation_hiding:ch05_5_Hide_class_implementations",
+      "source_location": "chars 5400-6781",
+      "properties": {},
+      "confidence": 0.95
+    },
+    {
+      "id": "implementation_hiding:Getter Method",
+      "name": "Getter Method",
+      "description": "A method that allows code to access an object's current state without revealing the implementation details.",
+      "domain": "implementation_hiding",
+      "source_id": "implementation_hiding:ch05_5_Hide_class_implementations",
+      "source_location": "chars 5400-6781",
+      "properties": {},
+      "confidence": 0.9
+    },
+    {
+      "id": "implementation_hiding:Setter Method",
+      "name": "Setter Method",
+      "description": "A method that allows code to modify an object's state while potentially validating new values and hiding implementation.",
+      "domain": "implementation_hiding",
+      "source_id": "implementation_hiding:ch05_5_Hide_class_implementations",
+      "source_location": "chars 5400-6781",
+      "properties": {},
+      "confidence": 0.9
+    },
+    {
+      "id": "implementation_hiding:Private Instance Variable",
+      "name": "Private Instance Variable",
+      "description": "An internal variable (prefixed with underscore) that stores object state and should not be accessed directly.",
+      "domain": "implementation_hiding",
+      "source_id": "implementation_hiding:ch05_5_Hide_class_implementations",
+      "source_location": "chars 5400-6781",
+      "properties": {},
+      "confidence": 0.9
+    },
+    {
+      "id": "implementation_hiding:Property Object",
+      "name": "Property Object",
+      "description": "An object created by the property decorator that simplifies code and provides controlled access to attributes.",
+      "domain": "implementation_hiding",
+      "source_id": "implementation_hiding:ch05_5_Hide_class_implementations",
+      "source_location": "chars 5400-6781",
+      "properties": {},
+      "confidence": 0.85
+    },
+    {
+      "id": "implementation_hiding:Implementation Hiding",
+      "name": "Implementation Hiding",
+      "description": "The practice of concealing internal implementation details while providing controlled access through public interfaces.",
+      "domain": "implementation_hiding",
+      "source_id": "implementation_hiding:ch05_5_Hide_class_implementations",
+      "source_location": "chars 5400-6781",
+      "properties": {},
+      "confidence": 0.95
+    },
+    {
+      "id": "implementation_hiding:Public Properties",
+      "name": "Public Properties",
+      "description": "Class attributes that are meant to be used by external code instead of directly accessing private variables.",
+      "domain": "implementation_hiding",
+      "source_id": "implementation_hiding:ch05_5_Hide_class_implementations",
+      "source_location": "chars 5400-6781",
+      "properties": {},
+      "confidence": 0.85
+    },
+    {
+      "id": "implementation_hiding:Value Validation",
+      "name": "Value Validation",
+      "description": "The process of checking that new values are valid before setting them in setter methods.",
+      "domain": "implementation_hiding",
+      "source_id": "implementation_hiding:ch05_5_Hide_class_implementations",
+      "source_location": "chars 5400-6781",
+      "properties": {},
+      "confidence": 0.8
+    },
+    {
+      "id": "implementation_hiding:State Encapsulation",
+      "name": "State Encapsulation",
+      "description": "The principle of controlling access to and modification of an object's internal state through methods.",
+      "domain": "implementation_hiding",
+      "source_id": "implementation_hiding:ch05_5_Hide_class_implementations",
+      "source_location": "chars 5400-6781",
+      "properties": {},
+      "confidence": 0.85
+    },
+    {
+      "id": "implementation_hiding:Private Instance Variables",
+      "name": "Private Instance Variables",
+      "description": "Internal class attributes prefixed with underscore to indicate they should not be accessed directly from outside the class.",
+      "domain": "implementation_hiding",
+      "source_id": "implementation_hiding:ch05_5_Hide_class_implementations",
+      "source_location": "chars 6581-8581",
+      "properties": {},
+      "confidence": 0.95
+    },
+    {
+      "id": "implementation_hiding:Property Decorator",
+      "name": "Property Decorator",
+      "description": "Python decorator that allows methods to be accessed like attributes while maintaining encapsulation.",
+      "domain": "implementation_hiding",
+      "source_id": "implementation_hiding:ch05_5_Hide_class_implementations",
+      "source_location": "chars 6581-8581",
+      "properties": {},
+      "confidence": 0.9
+    },
+    {
+      "id": "implementation_hiding:Getter Method",
+      "name": "Getter Method",
+      "description": "A method that provides controlled access to retrieve private attribute values without exposing internal implementation.",
+      "domain": "implementation_hiding",
+      "source_id": "implementation_hiding:ch05_5_Hide_class_implementations",
+      "source_location": "chars 6581-8581",
+      "properties": {},
+      "confidence": 0.95
+    },
+    {
+      "id": "implementation_hiding:Setter Method",
+      "name": "Setter Method",
+      "description": "A method that provides controlled access to modify private attribute values with validation or constraints.",
+      "domain": "implementation_hiding",
+      "source_id": "implementation_hiding:ch05_5_Hide_class_implementations",
+      "source_location": "chars 6581-8581",
+      "properties": {},
+      "confidence": 0.95
+    },
+    {
+      "id": "implementation_hiding:State Implementation Hiding",
+      "name": "State Implementation Hiding",
+      "description": "The practice of concealing how object state is internally stored and managed from external code.",
+      "domain": "implementation_hiding",
+      "source_id": "implementation_hiding:ch05_5_Hide_class_implementations",
+      "source_location": "chars 6581-8581",
+      "properties": {},
+      "confidence": 0.9
+    },
+    {
+      "id": "implementation_hiding:Public Interface",
+      "name": "Public Interface",
+      "description": "The exposed methods and properties that external code can use to interact with a class without knowing internal details.",
+      "domain": "implementation_hiding",
+      "source_id": "implementation_hiding:ch05_5_Hide_class_implementations",
+      "source_location": "chars 6581-8581",
+      "properties": {},
+      "confidence": 0.85
+    },
+    {
+      "id": "implementation_hiding:Implementation Independence",
+      "name": "Implementation Independence",
+      "description": "The principle that client code should not depend on specific internal implementation details of a class.",
+      "domain": "implementation_hiding",
+      "source_id": "implementation_hiding:ch05_5_Hide_class_implementations",
+      "source_location": "chars 6581-8581",
+      "properties": {},
+      "confidence": 0.8
+    },
+    {
+      "id": "implementation_hiding:Dynamic Value Lookup",
+      "name": "Dynamic Value Lookup",
+      "description": "The ability to retrieve values from external sources like databases rather than stored instance variables.",
+      "domain": "implementation_hiding",
+      "source_id": "implementation_hiding:ch05_5_Hide_class_implementations",
+      "source_location": "chars 6581-8581",
+      "properties": {},
+      "confidence": 0.75
+    },
+    {
+      "id": "implementation_hiding:Encapsulation",
+      "name": "Encapsulation",
+      "description": "The object-oriented principle of bundling data and methods together while restricting direct access to internal components.",
+      "domain": "implementation_hiding",
+      "source_id": "implementation_hiding:ch05_5_Hide_class_implementations",
+      "source_location": "chars 6581-8581",
+      "properties": {},
+      "confidence": 0.9
+    },
+    {
+      "id": "implementation_hiding:Input Validation",
+      "name": "Input Validation",
+      "description": "The practice of checking and constraining input values in setter methods to maintain object integrity.",
+      "domain": "implementation_hiding",
+      "source_id": "implementation_hiding:ch05_5_Hide_class_implementations",
+      "source_location": "chars 6581-8581",
+      "properties": {},
+      "confidence": 0.8
+    },
+    {
+      "id": "implementation_hiding:Hidden State Implementation",
+      "name": "Hidden State Implementation",
+      "description": "The practice of concealing how a class internally stores and manages its data from external code.",
+      "domain": "implementation_hiding",
+      "source_id": "implementation_hiding:ch05_5_Hide_class_implementations",
+      "source_location": "chars 8381-10381",
+      "properties": {},
+      "confidence": 0.95
+    },
+    {
+      "id": "implementation_hiding:Getter Methods",
+      "name": "Getter Methods",
+      "description": "Public methods that provide controlled read access to an object's private attributes.",
+      "domain": "implementation_hiding",
+      "source_id": "implementation_hiding:ch05_5_Hide_class_implementations",
+      "source_location": "chars 8381-10381",
+      "properties": {},
+      "confidence": 0.92
+    },
+    {
+      "id": "implementation_hiding:Setter Methods",
+      "name": "Setter Methods",
+      "description": "Public methods that provide controlled write access to an object's private attributes with validation.",
+      "domain": "implementation_hiding",
+      "source_id": "implementation_hiding:ch05_5_Hide_class_implementations",
+      "source_location": "chars 8381-10381",
+      "properties": {},
+      "confidence": 0.92
+    },
+    {
+      "id": "implementation_hiding:Read Only Properties",
+      "name": "Read Only Properties",
+      "description": "Object attributes that can be accessed but not modified directly from outside the class.",
+      "domain": "implementation_hiding",
+      "source_id": "implementation_hiding:ch05_5_Hide_class_implementations",
+      "source_location": "chars 8381-10381",
+      "properties": {},
+      "confidence": 0.88
+    },
+    {
+      "id": "implementation_hiding:Runtime Validation",
+      "name": "Runtime Validation",
+      "description": "The process of checking parameter values at execution time to prevent invalid object states.",
+      "domain": "implementation_hiding",
+      "source_id": "implementation_hiding:ch05_5_Hide_class_implementations",
+      "source_location": "chars 8381-10381",
+      "properties": {},
+      "confidence": 0.9
+    },
+    {
+      "id": "implementation_hiding:Defensive Programming",
+      "name": "Defensive Programming",
+      "description": "A programming approach that anticipates and guards against potential errors and invalid inputs.",
+      "domain": "implementation_hiding",
+      "source_id": "implementation_hiding:ch05_5_Hide_class_implementations",
+      "source_location": "chars 8381-10381",
+      "properties": {},
+      "confidence": 0.85
+    },
+    {
+      "id": "implementation_hiding:State Corruption Prevention",
+      "name": "State Corruption Prevention",
+      "description": "Mechanisms to prevent objects from being placed into invalid or inconsistent states.",
+      "domain": "implementation_hiding",
+      "source_id": "implementation_hiding:ch05_5_Hide_class_implementations",
+      "source_location": "chars 8381-10381",
+      "properties": {},
+      "confidence": 0.87
+    },
+    {
+      "id": "implementation_hiding:Dynamic Implementation",
+      "name": "Dynamic Implementation",
+      "description": "The ability to change how methods work internally without affecting their external interface.",
+      "domain": "implementation_hiding",
+      "source_id": "implementation_hiding:ch05_5_Hide_class_implementations",
+      "source_location": "chars 8381-10381",
+      "properties": {},
+      "confidence": 0.82
+    },
+    {
+      "id": "implementation_hiding:Property Decorator",
+      "name": "Property Decorator",
+      "description": "Python syntax using decorators like @property and @price.setter to create controlled attribute access.",
+      "domain": "implementation_hiding",
+      "source_id": "implementation_hiding:ch05_5_Hide_class_implementations",
+      "source_location": "chars 8381-10381",
+      "properties": {},
+      "confidence": 0.89
+    },
+    {
+      "id": "implementation_hiding:Interface Stability",
+      "name": "Interface Stability",
+      "description": "Maintaining consistent method signatures and behavior while allowing internal implementation changes.",
+      "domain": "implementation_hiding",
+      "source_id": "implementation_hiding:ch05_5_Hide_class_implementations",
+      "source_location": "chars 8381-10381",
+      "properties": {},
+      "confidence": 0.83
+    },
+    {
+      "id": "implementation_hiding:Assert Statement",
+      "name": "Assert Statement",
+      "description": "A runtime validation mechanism that aborts program execution with an error message when a condition is false.",
+      "domain": "implementation_hiding",
+      "source_id": "implementation_hiding:ch05_5_Hide_class_implementations",
+      "source_location": "chars 10181-12181",
+      "properties": {},
+      "confidence": 0.9
+    },
+    {
+      "id": "implementation_hiding:Getter Methods",
+      "name": "Getter Methods",
+      "description": "Methods that provide controlled access to retrieve private instance variable values.",
+      "domain": "implementation_hiding",
+      "source_id": "implementation_hiding:ch05_5_Hide_class_implementations",
+      "source_location": "chars 10181-12181",
+      "properties": {},
+      "confidence": 0.95
+    },
+    {
+      "id": "implementation_hiding:Setter Methods",
+      "name": "Setter Methods",
+      "description": "Methods that provide controlled access to modify private instance variable values with validation.",
+      "domain": "implementation_hiding",
+      "source_id": "implementation_hiding:ch05_5_Hide_class_implementations",
+      "source_location": "chars 10181-12181",
+      "properties": {},
+      "confidence": 0.95
+    },
+    {
+      "id": "implementation_hiding:Implicit Method Calls",
+      "name": "Implicit Method Calls",
+      "description": "Automatic invocation of getter and setter methods when accessing object properties.",
+      "domain": "implementation_hiding",
+      "source_id": "implementation_hiding:ch05_5_Hide_class_implementations",
+      "source_location": "chars 10181-12181",
+      "properties": {},
+      "confidence": 0.85
+    },
+    {
+      "id": "implementation_hiding:Runtime Error",
+      "name": "Runtime Error",
+      "description": "An error that occurs during program execution, causing the program to terminate abnormally.",
+      "domain": "implementation_hiding",
+      "source_id": "implementation_hiding:ch05_5_Hide_class_implementations",
+      "source_location": "chars 10181-12181",
+      "properties": {},
+      "confidence": 0.9
+    },
+    {
+      "id": "implementation_hiding:Public Method Signatures",
+      "name": "Public Method Signatures",
+      "description": "The interface definition of methods that external code can call, including method names and parameters.",
+      "domain": "implementation_hiding",
+      "source_id": "implementation_hiding:ch05_5_Hide_class_implementations",
+      "source_location": "chars 10181-12181",
+      "properties": {},
+      "confidence": 0.8
+    },
+    {
+      "id": "implementation_hiding:Private Instance Variables",
+      "name": "Private Instance Variables",
+      "description": "Internal object data members that are hidden from external access and manipulation.",
+      "domain": "implementation_hiding",
+      "source_id": "implementation_hiding:ch05_5_Hide_class_implementations",
+      "source_location": "chars 10181-12181",
+      "properties": {},
+      "confidence": 0.9
+    },
+    {
+      "id": "implementation_hiding:Implementation Hiding",
+      "name": "Implementation Hiding",
+      "description": "The practice of concealing internal class details while exposing only necessary public interfaces.",
+      "domain": "implementation_hiding",
+      "source_id": "implementation_hiding:ch05_5_Hide_class_implementations",
+      "source_location": "chars 10181-12181",
+      "properties": {},
+      "confidence": 0.95
+    },
+    {
+      "id": "implementation_hiding:State Encapsulation",
+      "name": "State Encapsulation",
+      "description": "The technique of protecting object state by controlling access through defined methods.",
+      "domain": "implementation_hiding",
+      "source_id": "implementation_hiding:ch05_5_Hide_class_implementations",
+      "source_location": "chars 10181-12181",
+      "properties": {},
+      "confidence": 0.85
+    },
+    {
+      "id": "implementation_hiding:Class Interface Stability",
+      "name": "Class Interface Stability",
+      "description": "Maintaining consistent public method signatures to avoid breaking dependent code when implementation changes.",
+      "domain": "implementation_hiding",
+      "source_id": "implementation_hiding:ch05_5_Hide_class_implementations",
+      "source_location": "chars 10181-12181",
+      "properties": {},
+      "confidence": 0.8
+    },
+    {
+      "id": "implementation_hiding:Input Validation",
+      "name": "Input Validation",
+      "description": "The process of checking that input values meet specified criteria before processing.",
+      "domain": "implementation_hiding",
+      "source_id": "implementation_hiding:ch05_5_Hide_class_implementations",
+      "source_location": "chars 10181-12181",
+      "properties": {},
+      "confidence": 0.85
+    },
+    {
+      "id": "implementation_hiding:Private Instance Variables",
+      "name": "Private Instance Variables",
+      "description": "Internal data members of a class that are not directly accessible from outside the class, used to store object state.",
+      "domain": "implementation_hiding",
+      "source_id": "implementation_hiding:ch05_5_Hide_class_implementations",
+      "source_location": "chars 11981-13117",
+      "properties": {},
+      "confidence": 0.95
+    },
+    {
+      "id": "implementation_hiding:Data Encapsulation",
+      "name": "Data Encapsulation",
+      "description": "The practice of bundling data within a class and controlling access through defined interfaces.",
+      "domain": "implementation_hiding",
+      "source_id": "implementation_hiding:ch05_5_Hide_class_implementations",
+      "source_location": "chars 11981-13117",
+      "properties": {},
+      "confidence": 0.9
+    },
+    {
+      "id": "implementation_hiding:Class Design",
+      "name": "Class Design",
+      "description": "The structure and organization of a class including its data members and their access levels.",
+      "domain": "implementation_hiding",
+      "source_id": "implementation_hiding:ch05_5_Hide_class_implementations",
+      "source_location": "chars 11981-13117",
+      "properties": {},
+      "confidence": 0.85
+    },
+    {
+      "id": "implementation_hiding:Information Hiding",
+      "name": "Information Hiding",
+      "description": "The principle of concealing internal implementation details while exposing only necessary public interfaces.",
+      "domain": "implementation_hiding",
+      "source_id": "implementation_hiding:ch05_5_Hide_class_implementations",
+      "source_location": "chars 11981-13117",
+      "properties": {},
+      "confidence": 0.8
+    },
+    {
+      "id": "implementation_hiding:Object State",
+      "name": "Object State",
+      "description": "The current values of an object's data members that define its condition at any given time.",
+      "domain": "implementation_hiding",
+      "source_id": "implementation_hiding:ch05_5_Hide_class_implementations",
+      "source_location": "chars 11981-13117",
+      "properties": {},
+      "confidence": 0.75
+    },
+    {
+      "id": "implementation_hiding:Data Representation",
+      "name": "Data Representation",
+      "description": "How complex real-world entities are modeled and stored using primitive data types within a class.",
+      "domain": "implementation_hiding",
+      "source_id": "implementation_hiding:ch05_5_Hide_class_implementations",
+      "source_location": "chars 11981-13117",
+      "properties": {},
+      "confidence": 0.7
+    },
+    {
+      "id": "implementation_hiding:Implementation Hiding",
+      "name": "Implementation Hiding",
+      "description": "A principle where internal details of a class are concealed from external access through private members.",
+      "domain": "implementation_hiding",
+      "source_id": "implementation_hiding:ch05_5_Hide_class_implementations",
+      "source_location": "chars 12917-14917",
+      "properties": {},
+      "confidence": 0.95
+    },
+    {
+      "id": "implementation_hiding:Private Instance Variables",
+      "name": "Private Instance Variables",
+      "description": "Class attributes that are marked as private (with underscore prefix) to restrict direct external access.",
+      "domain": "implementation_hiding",
+      "source_id": "implementation_hiding:ch05_5_Hide_class_implementations",
+      "source_location": "chars 12917-14917",
+      "properties": {},
+      "confidence": 0.9
+    },
+    {
+      "id": "implementation_hiding:Date Arithmetic",
+      "name": "Date Arithmetic",
+      "description": "Mathematical operations performed on date objects to calculate time differences or future/past dates.",
+      "domain": "implementation_hiding",
+      "source_id": "implementation_hiding:ch05_5_Hide_class_implementations",
+      "source_location": "chars 12917-14917",
+      "properties": {},
+      "confidence": 0.85
+    },
+    {
+      "id": "implementation_hiding:Gregorian Calendar Rules",
+      "name": "Gregorian Calendar Rules",
+      "description": "Complex date calculation rules including leap years, month lengths, and historical calendar transitions.",
+      "domain": "implementation_hiding",
+      "source_id": "implementation_hiding:ch05_5_Hide_class_implementations",
+      "source_location": "chars 12917-14917",
+      "properties": {},
+      "confidence": 0.8
+    },
+    {
+      "id": "implementation_hiding:One-to-One Aggregation",
+      "name": "One-to-One Aggregation",
+      "description": "A relationship where each object of one class contains exactly one reference to an object of another class.",
+      "domain": "implementation_hiding",
+      "source_id": "implementation_hiding:ch05_5_Hide_class_implementations",
+      "source_location": "chars 12917-14917",
+      "properties": {},
+      "confidence": 0.75
+    },
+    {
+      "id": "implementation_hiding:Getter Methods",
+      "name": "Getter Methods",
+      "description": "Public methods that provide controlled access to private instance variables.",
+      "domain": "implementation_hiding",
+      "source_id": "implementation_hiding:ch05_5_Hide_class_implementations",
+      "source_location": "chars 12917-14917",
+      "properties": {},
+      "confidence": 0.85
+    },
+    {
+      "id": "implementation_hiding:Special Methods",
+      "name": "Special Methods",
+      "description": "Python methods with double underscores that define object behavior for built-in operations.",
+      "domain": "implementation_hiding",
+      "source_id": "implementation_hiding:ch05_5_Hide_class_implementations",
+      "source_location": "chars 12917-14917",
+      "properties": {},
+      "confidence": 0.8
+    },
+    {
+      "id": "implementation_hiding:Private Class Constants",
+      "name": "Private Class Constants",
+      "description": "Class-level constant values that are marked as private and used internally for calculations.",
+      "domain": "implementation_hiding",
+      "source_id": "implementation_hiding:ch05_5_Hide_class_implementations",
+      "source_location": "chars 12917-14917",
+      "properties": {},
+      "confidence": 0.75
+    },
+    {
+      "id": "implementation_hiding:Leap Year Logic",
+      "name": "Leap Year Logic",
+      "description": "Complex rules for determining leap years including divisibility by 4, 100, and 400.",
+      "domain": "implementation_hiding",
+      "source_id": "implementation_hiding:ch05_5_Hide_class_implementations",
+      "source_location": "chars 12917-14917",
+      "properties": {},
+      "confidence": 0.7
+    },
+    {
+      "id": "implementation_hiding:Constructor Validation",
+      "name": "Constructor Validation",
+      "description": "The practice of checking parameter values in the __init__ method to ensure valid object state.",
+      "domain": "implementation_hiding",
+      "source_id": "implementation_hiding:ch05_5_Hide_class_implementations",
+      "source_location": "chars 12917-14917",
+      "properties": {},
+      "confidence": 0.65
+    },
+    {
+      "id": "implementation_hiding:Private Constants",
+      "name": "Private Constants",
+      "description": "Class-level constants with underscore prefix that define internal configuration values for calendar calculations.",
+      "domain": "implementation_hiding",
+      "source_id": "implementation_hiding:ch05_5_Hide_class_implementations",
+      "source_location": "chars 14717-16717",
+      "properties": {},
+      "confidence": 0.9
+    },
+    {
+      "id": "implementation_hiding:Property Decorators",
+      "name": "Property Decorators",
+      "description": "Python decorators that create getter methods to control access to private attributes.",
+      "domain": "implementation_hiding",
+      "source_id": "implementation_hiding:ch05_5_Hide_class_implementations",
+      "source_location": "chars 14717-16717",
+      "properties": {},
+      "confidence": 0.95
+    },
+    {
+      "id": "implementation_hiding:Private Attributes",
+      "name": "Private Attributes",
+      "description": "Instance variables with underscore prefix that store internal state data not directly accessible from outside the class.",
+      "domain": "implementation_hiding",
+      "source_id": "implementation_hiding:ch05_5_Hide_class_implementations",
+      "source_location": "chars 14717-16717",
+      "properties": {},
+      "confidence": 0.9
+    },
+    {
+      "id": "implementation_hiding:String Representation Method",
+      "name": "String Representation Method",
+      "description": "Special method __repr__() that defines how an object appears when converted to string format.",
+      "domain": "implementation_hiding",
+      "source_id": "implementation_hiding:ch05_5_Hide_class_implementations",
+      "source_location": "chars 14717-16717",
+      "properties": {},
+      "confidence": 0.85
+    },
+    {
+      "id": "implementation_hiding:Controlled Access Pattern",
+      "name": "Controlled Access Pattern",
+      "description": "Design pattern where private data is accessed only through public getter methods rather than direct attribute access.",
+      "domain": "implementation_hiding",
+      "source_id": "implementation_hiding:ch05_5_Hide_class_implementations",
+      "source_location": "chars 14717-16717",
+      "properties": {},
+      "confidence": 0.9
+    },
+    {
+      "id": "implementation_hiding:Private Static Methods",
+      "name": "Private Static Methods",
+      "description": "Class methods with underscore prefix that perform internal calculations without requiring instance state.",
+      "domain": "implementation_hiding",
+      "source_id": "implementation_hiding:ch05_5_Hide_class_implementations",
+      "source_location": "chars 14717-16717",
+      "properties": {},
+      "confidence": 0.9
+    },
+    {
+      "id": "implementation_hiding:Comparison Method",
+      "name": "Comparison Method",
+      "description": "Private method that compares two objects and returns standardized numeric values indicating their relationship.",
+      "domain": "implementation_hiding",
+      "source_id": "implementation_hiding:ch05_5_Hide_class_implementations",
+      "source_location": "chars 14717-16717",
+      "properties": {},
+      "confidence": 0.85
+    },
+    {
+      "id": "implementation_hiding:Gregorian Calendar Rules",
+      "name": "Gregorian Calendar Rules",
+      "description": "Historical calendar system constants that define the transition from Julian to Gregorian calendar dates.",
+      "domain": "implementation_hiding",
+      "source_id": "implementation_hiding:ch05_5_Hide_class_implementations",
+      "source_location": "chars 14717-16717",
+      "properties": {},
+      "confidence": 0.8
+    },
+    {
+      "id": "implementation_hiding:Data Encapsulation",
+      "name": "Data Encapsulation",
+      "description": "Programming principle where internal object state is hidden and accessed only through controlled interfaces.",
+      "domain": "implementation_hiding",
+      "source_id": "implementation_hiding:ch05_5_Hide_class_implementations",
+      "source_location": "chars 14717-16717",
+      "properties": {},
+      "confidence": 0.95
+    },
+    {
+      "id": "implementation_hiding:Month Days Lookup",
+      "name": "Month Days Lookup",
+      "description": "Data structure that maps month numbers to their corresponding number of days for date calculations.",
+      "domain": "implementation_hiding",
+      "source_id": "implementation_hiding:ch05_5_Hide_class_implementations",
+      "source_location": "chars 14717-16717",
+      "properties": {},
+      "confidence": 0.8
+    },
+    {
+      "id": "implementation_hiding:Static Methods",
+      "name": "Static Methods",
+      "description": "Class methods that don't require instance data and can be called without creating an object instance.",
+      "domain": "implementation_hiding",
+      "source_id": "implementation_hiding:ch05_5_Hide_class_implementations",
+      "source_location": "chars 16517-17673",
+      "properties": {},
+      "confidence": 0.9
+    },
+    {
+      "id": "implementation_hiding:Private Helper Methods",
+      "name": "Private Helper Methods",
+      "description": "Internal methods prefixed with underscore to indicate they are not part of the public interface.",
+      "domain": "implementation_hiding",
+      "source_id": "implementation_hiding:ch05_5_Hide_class_implementations",
+      "source_location": "chars 16517-17673",
+      "properties": {},
+      "confidence": 0.95
+    },
+    {
+      "id": "implementation_hiding:Leap Year Calculation",
+      "name": "Leap Year Calculation",
+      "description": "Algorithm to determine if a given year is a leap year based on divisibility rules.",
+      "domain": "implementation_hiding",
+      "source_id": "implementation_hiding:ch05_5_Hide_class_implementations",
+      "source_location": "chars 16517-17673",
+      "properties": {},
+      "confidence": 0.9
+    },
+    {
+      "id": "implementation_hiding:Gregorian Calendar Rules",
+      "name": "Gregorian Calendar Rules",
+      "description": "Calendar system rules that affect leap year calculations starting from a specific year.",
+      "domain": "implementation_hiding",
+      "source_id": "implementation_hiding:ch05_5_Hide_class_implementations",
+      "source_location": "chars 16517-17673",
+      "properties": {},
+      "confidence": 0.85
+    },
+    {
+      "id": "implementation_hiding:Date Comparison",
+      "name": "Date Comparison",
+      "description": "Method to compare two dates and return numeric result indicating their relative order.",
+      "domain": "implementation_hiding",
+      "source_id": "implementation_hiding:ch05_5_Hide_class_implementations",
+      "source_location": "chars 16517-17673",
+      "properties": {},
+      "confidence": 0.9
+    },
+    {
+      "id": "implementation_hiding:Month Length Calculation",
+      "name": "Month Length Calculation",
+      "description": "Logic to determine the number of days in a given month, accounting for leap years.",
+      "domain": "implementation_hiding",
+      "source_id": "implementation_hiding:ch05_5_Hide_class_implementations",
+      "source_location": "chars 16517-17673",
+      "properties": {},
+      "confidence": 0.9
+    },
+    {
+      "id": "implementation_hiding:Class Constants",
+      "name": "Class Constants",
+      "description": "Static values like month identifiers and days per month stored as class-level data.",
+      "domain": "implementation_hiding",
+      "source_id": "implementation_hiding:ch05_5_Hide_class_implementations",
+      "source_location": "chars 16517-17673",
+      "properties": {},
+      "confidence": 0.8
+    },
+    {
+      "id": "implementation_hiding:Private State Access",
+      "name": "Private State Access",
+      "description": "Access to internal object attributes through underscore-prefixed member variables.",
+      "domain": "implementation_hiding",
+      "source_id": "implementation_hiding:ch05_5_Hide_class_implementations",
+      "source_location": "chars 16517-17673",
+      "properties": {},
+      "confidence": 0.85
+    },
+    {
+      "id": "implementation_hiding:Tristate Return Values",
+      "name": "Tristate Return Values",
+      "description": "Method return pattern using positive, negative, or zero values to indicate different states.",
+      "domain": "implementation_hiding",
+      "source_id": "implementation_hiding:ch05_5_Hide_class_implementations",
+      "source_location": "chars 16517-17673",
+      "properties": {},
+      "confidence": 0.8
+    },
+    {
+      "id": "implementation_hiding:Encapsulation Boundaries",
+      "name": "Encapsulation Boundaries",
+      "description": "Clear separation between public interface methods and private implementation details.",
+      "domain": "implementation_hiding",
+      "source_id": "implementation_hiding:ch05_5_Hide_class_implementations",
+      "source_location": "chars 16517-17673",
+      "properties": {},
+      "confidence": 0.85
+    },
+    {
+      "id": "implementation_hiding:Implementation Hiding",
+      "name": "Implementation Hiding",
+      "description": "A design principle where internal implementation details are concealed from external users of a class or module.",
+      "domain": "implementation_hiding",
+      "source_id": "implementation_hiding:ch05_5_Hide_class_implementations",
+      "source_location": "chars 17473-19473",
+      "properties": {},
+      "confidence": 0.95
+    },
+    {
+      "id": "implementation_hiding:Private Methods",
+      "name": "Private Methods",
+      "description": "Methods prefixed with underscores that are intended for internal use within a class and not exposed to external callers.",
+      "domain": "implementation_hiding",
+      "source_id": "implementation_hiding:ch05_5_Hide_class_implementations",
+      "source_location": "chars 17473-19473",
+      "properties": {},
+      "confidence": 0.9
+    },
+    {
+      "id": "implementation_hiding:Gregorian Calendar Rules",
+      "name": "Gregorian Calendar Rules",
+      "description": "The set of rules governing date calculations in the Gregorian calendar system used for accurate date arithmetic.",
+      "domain": "implementation_hiding",
+      "source_id": "implementation_hiding:ch05_5_Hide_class_implementations",
+      "source_location": "chars 17473-19473",
+      "properties": {},
+      "confidence": 0.85
+    },
+    {
+      "id": "implementation_hiding:Date Arithmetic",
+      "name": "Date Arithmetic",
+      "description": "Mathematical operations performed on date objects to calculate future or past dates.",
+      "domain": "implementation_hiding",
+      "source_id": "implementation_hiding:ch05_5_Hide_class_implementations",
+      "source_location": "chars 17473-19473",
+      "properties": {},
+      "confidence": 0.9
+    },
+    {
+      "id": "implementation_hiding:Calendar Transition Handling",
+      "name": "Calendar Transition Handling",
+      "description": "Special logic to handle the transition from Julian to Gregorian calendar systems at specific historical dates.",
+      "domain": "implementation_hiding",
+      "source_id": "implementation_hiding:ch05_5_Hide_class_implementations",
+      "source_location": "chars 17473-19473",
+      "properties": {},
+      "confidence": 0.8
+    },
+    {
+      "id": "implementation_hiding:Month Boundary Logic",
+      "name": "Month Boundary Logic",
+      "description": "Code that handles date calculations when crossing from one month to another, including year transitions.",
+      "domain": "implementation_hiding",
+      "source_id": "implementation_hiding:ch05_5_Hide_class_implementations",
+      "source_location": "chars 17473-19473",
+      "properties": {},
+      "confidence": 0.75
+    },
+    {
+      "id": "implementation_hiding:Year Zero Handling",
+      "name": "Year Zero Handling",
+      "description": "Special case logic to skip year zero in historical date calculations since it doesn't exist in the calendar system.",
+      "domain": "implementation_hiding",
+      "source_id": "implementation_hiding:ch05_5_Hide_class_implementations",
+      "source_location": "chars 17473-19473",
+      "properties": {},
+      "confidence": 0.7
+    },
+    {
+      "id": "implementation_hiding:Object Immutability Pattern",
+      "name": "Object Immutability Pattern",
+      "description": "Design approach where methods return new objects rather than modifying existing ones to maintain object state integrity.",
+      "domain": "implementation_hiding",
+      "source_id": "implementation_hiding:ch05_5_Hide_class_implementations",
+      "source_location": "chars 17473-19473",
+      "properties": {},
+      "confidence": 0.8
+    },
+    {
+      "id": "implementation_hiding:Days In Month Calculation",
+      "name": "Days In Month Calculation",
+      "description": "Helper functionality to determine the number of days in a given month and year, accounting for leap years.",
+      "domain": "implementation_hiding",
+      "source_id": "implementation_hiding:ch05_5_Hide_class_implementations",
+      "source_location": "chars 17473-19473",
+      "properties": {},
+      "confidence": 0.75
+    },
+    {
+      "id": "implementation_hiding:Class Constants",
+      "name": "Class Constants",
+      "description": "Static values defined at the class level to represent fixed dates and calendar parameters used throughout the implementation.",
+      "domain": "implementation_hiding",
+      "source_id": "implementation_hiding:ch05_5_Hide_class_implementations",
+      "source_location": "chars 17473-19473",
+      "properties": {},
+      "confidence": 0.85
+    },
+    {
+      "id": "implementation_hiding:Date Arithmetic Methods",
+      "name": "Date Arithmetic Methods",
+      "description": "Methods that perform mathematical operations on date objects, such as adding days or calculating differences between dates.",
+      "domain": "implementation_hiding",
+      "source_id": "implementation_hiding:ch05_5_Hide_class_implementations",
+      "source_location": "chars 19273-21273",
+      "properties": {},
+      "confidence": 0.95
+    },
+    {
+      "id": "implementation_hiding:Iterative Day Calculation",
+      "name": "Iterative Day Calculation",
+      "description": "A technique that processes dates by looping day by day rather than using mathematical formulas.",
+      "domain": "implementation_hiding",
+      "source_id": "implementation_hiding:ch05_5_Hide_class_implementations",
+      "source_location": "chars 19273-21273",
+      "properties": {},
+      "confidence": 0.9
+    },
+    {
+      "id": "implementation_hiding:Private Helper Methods",
+      "name": "Private Helper Methods",
+      "description": "Internal methods like _previous_date(), _next_date(), and _compare_to() that encapsulate implementation details.",
+      "domain": "implementation_hiding",
+      "source_id": "implementation_hiding:ch05_5_Hide_class_implementations",
+      "source_location": "chars 19273-21273",
+      "properties": {},
+      "confidence": 0.92
+    },
+    {
+      "id": "implementation_hiding:Gregorian Calendar Rules",
+      "name": "Gregorian Calendar Rules",
+      "description": "The calendar system rules that must be applied when calculating previous and next dates.",
+      "domain": "implementation_hiding",
+      "source_id": "implementation_hiding:ch05_5_Hide_class_implementations",
+      "source_location": "chars 19273-21273",
+      "properties": {},
+      "confidence": 0.88
+    },
+    {
+      "id": "implementation_hiding:Inefficient Looping Algorithm",
+      "name": "Inefficient Looping Algorithm",
+      "description": "A performance problem where methods loop extensively when dates are far apart instead of using optimized calculations.",
+      "domain": "implementation_hiding",
+      "source_id": "implementation_hiding:ch05_5_Hide_class_implementations",
+      "source_location": "chars 19273-21273",
+      "properties": {},
+      "confidence": 0.93
+    },
+    {
+      "id": "implementation_hiding:Memory Allocation Waste",
+      "name": "Memory Allocation Waste",
+      "description": "The creation of unnecessary Date objects during iterations that are discarded, leading to memory inefficiency.",
+      "domain": "implementation_hiding",
+      "source_id": "implementation_hiding:ch05_5_Hide_class_implementations",
+      "source_location": "chars 19273-21273",
+      "properties": {},
+      "confidence": 0.87
+    },
+    {
+      "id": "implementation_hiding:Expensive Function Calls",
+      "name": "Expensive Function Calls",
+      "description": "Method calls that have high computational cost due to complex calendar rule processing.",
+      "domain": "implementation_hiding",
+      "source_id": "implementation_hiding:ch05_5_Hide_class_implementations",
+      "source_location": "chars 19273-21273",
+      "properties": {},
+      "confidence": 0.85
+    },
+    {
+      "id": "implementation_hiding:Bidirectional Date Navigation",
+      "name": "Bidirectional Date Navigation",
+      "description": "The ability to move forward or backward in time depending on positive or negative input values.",
+      "domain": "implementation_hiding",
+      "source_id": "implementation_hiding:ch05_5_Hide_class_implementations",
+      "source_location": "chars 19273-21273",
+      "properties": {},
+      "confidence": 0.89
+    },
+    {
+      "id": "implementation_hiding:Date Comparison Logic",
+      "name": "Date Comparison Logic",
+      "description": "The mechanism for determining temporal relationships between dates using comparison methods.",
+      "domain": "implementation_hiding",
+      "source_id": "implementation_hiding:ch05_5_Hide_class_implementations",
+      "source_location": "chars 19273-21273",
+      "properties": {},
+      "confidence": 0.86
+    },
+    {
+      "id": "implementation_hiding:Implementation Hiding Pattern",
+      "name": "Implementation Hiding Pattern",
+      "description": "The design approach of keeping internal date calculation details private while exposing simple public interfaces.",
+      "domain": "implementation_hiding",
+      "source_id": "implementation_hiding:ch05_5_Hide_class_implementations",
+      "source_location": "chars 19273-21273",
+      "properties": {},
+      "confidence": 0.91
+    },
+    {
+      "id": "implementation_hiding:Memory Leak",
+      "name": "Memory Leak",
+      "description": "Unused Date objects accumulate in memory from prior iterations when only the last iteration's result is returned.",
+      "domain": "implementation_hiding",
+      "source_id": "implementation_hiding:ch05_5_Hide_class_implementations",
+      "source_location": "chars 21073-23073",
+      "properties": {},
+      "confidence": 0.9
+    },
+    {
+      "id": "implementation_hiding:Date Arithmetic",
+      "name": "Date Arithmetic",
+      "description": "Operations that perform calculations with dates such as adding days or counting days between dates.",
+      "domain": "implementation_hiding",
+      "source_id": "implementation_hiding:ch05_5_Hide_class_implementations",
+      "source_location": "chars 21073-23073",
+      "properties": {},
+      "confidence": 0.95
+    },
+    {
+      "id": "implementation_hiding:Iterative Date Operations",
+      "name": "Iterative Date Operations",
+      "description": "Methods that loop through dates one day at a time using _next_date() and _previous_date() calls.",
+      "domain": "implementation_hiding",
+      "source_id": "implementation_hiding:ch05_5_Hide_class_implementations",
+      "source_location": "chars 21073-23073",
+      "properties": {},
+      "confidence": 0.9
+    },
+    {
+      "id": "implementation_hiding:Object Creation Overhead",
+      "name": "Object Creation Overhead",
+      "description": "Performance cost of creating new Date objects in each iteration of date calculation loops.",
+      "domain": "implementation_hiding",
+      "source_id": "implementation_hiding:ch05_5_Hide_class_implementations",
+      "source_location": "chars 21073-23073",
+      "properties": {},
+      "confidence": 0.85
+    },
+    {
+      "id": "implementation_hiding:Gregorian Calendar Rules",
+      "name": "Gregorian Calendar Rules",
+      "description": "Complex calendar calculations that make date operations computationally expensive.",
+      "domain": "implementation_hiding",
+      "source_id": "implementation_hiding:ch05_5_Hide_class_implementations",
+      "source_location": "chars 21073-23073",
+      "properties": {},
+      "confidence": 0.8
+    },
+    {
+      "id": "implementation_hiding:Implementation Inefficiency",
+      "name": "Implementation Inefficiency",
+      "description": "Poor algorithm design that results in excessive computational cost and memory usage.",
+      "domain": "implementation_hiding",
+      "source_id": "implementation_hiding:ch05_5_Hide_class_implementations",
+      "source_location": "chars 21073-23073",
+      "properties": {},
+      "confidence": 0.9
+    },
+    {
+      "id": "implementation_hiding:Method Chaining",
+      "name": "Method Chaining",
+      "description": "Calling methods like add_days() and days_from() that return Date objects for further operations.",
+      "domain": "implementation_hiding",
+      "source_id": "implementation_hiding:ch05_5_Hide_class_implementations",
+      "source_location": "chars 21073-23073",
+      "properties": {},
+      "confidence": 0.7
+    },
+    {
+      "id": "implementation_hiding:Loop Complexity",
+      "name": "Loop Complexity",
+      "description": "Performance degradation where methods must loop as many times as the number of days being processed.",
+      "domain": "implementation_hiding",
+      "source_id": "implementation_hiding:ch05_5_Hide_class_implementations",
+      "source_location": "chars 21073-23073",
+      "properties": {},
+      "confidence": 0.85
+    },
+    {
+      "id": "implementation_hiding:Date Comparison",
+      "name": "Date Comparison",
+      "description": "The _compare_to() method used to determine relationships between dates during calculations.",
+      "domain": "implementation_hiding",
+      "source_id": "implementation_hiding:ch05_5_Hide_class_implementations",
+      "source_location": "chars 21073-23073",
+      "properties": {},
+      "confidence": 0.8
+    },
+    {
+      "id": "implementation_hiding:Design Refactoring Need",
+      "name": "Design Refactoring Need",
+      "description": "Recognition that the current implementation requires a complete redesign for better performance.",
+      "domain": "implementation_hiding",
+      "source_id": "implementation_hiding:ch05_5_Hide_class_implementations",
+      "source_location": "chars 21073-23073",
+      "properties": {},
+      "confidence": 0.9
+    },
+    {
+      "id": "implementation_hiding:Date Object Creation",
+      "name": "Date Object Creation",
+      "description": "The process of creating and returning new Date objects for each operation, which can be computationally expensive.",
+      "domain": "implementation_hiding",
+      "source_id": "implementation_hiding:ch05_5_Hide_class_implementations",
+      "source_location": "chars 22873-24873",
+      "properties": {},
+      "confidence": 0.9
+    },
+    {
+      "id": "implementation_hiding:Gregorian Calendar Rules",
+      "name": "Gregorian Calendar Rules",
+      "description": "Complex calendar system rules that make date arithmetic computationally expensive when applied iteratively.",
+      "domain": "implementation_hiding",
+      "source_id": "implementation_hiding:ch05_5_Hide_class_implementations",
+      "source_location": "chars 22873-24873",
+      "properties": {},
+      "confidence": 0.95
+    },
+    {
+      "id": "implementation_hiding:Day-by-Day Looping",
+      "name": "Day-by-Day Looping",
+      "description": "An inefficient approach to date arithmetic that processes dates one day at a time using calendar rules.",
+      "domain": "implementation_hiding",
+      "source_id": "implementation_hiding:ch05_5_Hide_class_implementations",
+      "source_location": "chars 22873-24873",
+      "properties": {},
+      "confidence": 0.9
+    },
+    {
+      "id": "implementation_hiding:Julian Day Numbers",
+      "name": "Julian Day Numbers",
+      "description": "A numeric system that identifies each day as the number of days since noon on January 1, 4713 BCE.",
+      "domain": "implementation_hiding",
+      "source_id": "implementation_hiding:ch05_5_Hide_class_implementations",
+      "source_location": "chars 22873-24873",
+      "properties": {},
+      "confidence": 0.95
+    },
+    {
+      "id": "implementation_hiding:Date Arithmetic",
+      "name": "Date Arithmetic",
+      "description": "Mathematical operations performed on dates, such as calculating differences or adding/subtracting time periods.",
+      "domain": "implementation_hiding",
+      "source_id": "implementation_hiding:ch05_5_Hide_class_implementations",
+      "source_location": "chars 22873-24873",
+      "properties": {},
+      "confidence": 0.9
+    },
+    {
+      "id": "implementation_hiding:Performance Optimization",
+      "name": "Performance Optimization",
+      "description": "The process of improving computational efficiency by replacing expensive operations with more efficient alternatives.",
+      "domain": "implementation_hiding",
+      "source_id": "implementation_hiding:ch05_5_Hide_class_implementations",
+      "source_location": "chars 22873-24873",
+      "properties": {},
+      "confidence": 0.85
+    },
+    {
+      "id": "implementation_hiding:Calendar Conversion Algorithms",
+      "name": "Calendar Conversion Algorithms",
+      "description": "Complex computational procedures for converting between Julian day numbers and Gregorian calendar dates.",
+      "domain": "implementation_hiding",
+      "source_id": "implementation_hiding:ch05_5_Hide_class_implementations",
+      "source_location": "chars 22873-24873",
+      "properties": {},
+      "confidence": 0.8
+    },
+    {
+      "id": "implementation_hiding:Design Iteration",
+      "name": "Design Iteration",
+      "description": "The iterative process of improving software design by identifying problems and implementing better solutions.",
+      "domain": "implementation_hiding",
+      "source_id": "implementation_hiding:ch05_5_Hide_class_implementations",
+      "source_location": "chars 22873-24873",
+      "properties": {},
+      "confidence": 0.85
+    },
+    {
+      "id": "implementation_hiding:Implementation Hiding",
+      "name": "Implementation Hiding",
+      "description": "The practice of concealing internal computational details while maintaining the same external interface.",
+      "domain": "implementation_hiding",
+      "source_id": "implementation_hiding:ch05_5_Hide_class_implementations",
+      "source_location": "chars 22873-24873",
+      "properties": {},
+      "confidence": 0.9
+    },
+    {
+      "id": "implementation_hiding:Fractional Day Numbers",
+      "name": "Fractional Day Numbers",
+      "description": "Julian day numbers that can include fractional parts to account for specific times of day.",
+      "domain": "implementation_hiding",
+      "source_id": "implementation_hiding:ch05_5_Hide_class_implementations",
+      "source_location": "chars 22873-24873",
+      "properties": {},
+      "confidence": 0.75
+    },
+    {
+      "id": "implementation_hiding:Julian Day Numbers",
+      "name": "Julian Day Numbers",
+      "description": "A continuous count of days used for astronomical calculations and date conversions.",
+      "domain": "implementation_hiding",
+      "source_id": "implementation_hiding:ch05_5_Hide_class_implementations",
+      "source_location": "chars 24673-26673",
+      "properties": {},
+      "confidence": 0.95
+    },
+    {
+      "id": "implementation_hiding:Gregorian Calendar Conversion",
+      "name": "Gregorian Calendar Conversion",
+      "description": "Algorithms for converting between Julian day numbers and Gregorian year, month, and day values.",
+      "domain": "implementation_hiding",
+      "source_id": "implementation_hiding:ch05_5_Hide_class_implementations",
+      "source_location": "chars 24673-26673",
+      "properties": {},
+      "confidence": 0.9
+    },
+    {
+      "id": "implementation_hiding:Implementation Hiding",
+      "name": "Implementation Hiding",
+      "description": "The practice of concealing internal data structures and implementation details from external users of a class.",
+      "domain": "implementation_hiding",
+      "source_id": "implementation_hiding:ch05_5_Hide_class_implementations",
+      "source_location": "chars 24673-26673",
+      "properties": {},
+      "confidence": 0.95
+    },
+    {
+      "id": "implementation_hiding:Private Instance Variables",
+      "name": "Private Instance Variables",
+      "description": "Class attributes that are hidden from external access to encapsulate internal state.",
+      "domain": "implementation_hiding",
+      "source_id": "implementation_hiding:ch05_5_Hide_class_implementations",
+      "source_location": "chars 24673-26673",
+      "properties": {},
+      "confidence": 0.9
+    },
+    {
+      "id": "implementation_hiding:Class Constants",
+      "name": "Class Constants",
+      "description": "Fixed values defined at the class level that provide configuration or reference data.",
+      "domain": "implementation_hiding",
+      "source_id": "implementation_hiding:ch05_5_Hide_class_implementations",
+      "source_location": "chars 24673-26673",
+      "properties": {},
+      "confidence": 0.85
+    },
+    {
+      "id": "implementation_hiding:Static Methods",
+      "name": "Static Methods",
+      "description": "Class methods that don't require instance data and can be called without creating an object.",
+      "domain": "implementation_hiding",
+      "source_id": "implementation_hiding:ch05_5_Hide_class_implementations",
+      "source_location": "chars 24673-26673",
+      "properties": {},
+      "confidence": 0.8
+    },
+    {
+      "id": "implementation_hiding:Date Arithmetic",
+      "name": "Date Arithmetic",
+      "description": "Mathematical operations performed on date values for calculations and conversions.",
+      "domain": "implementation_hiding",
+      "source_id": "implementation_hiding:ch05_5_Hide_class_implementations",
+      "source_location": "chars 24673-26673",
+      "properties": {},
+      "confidence": 0.8
+    },
+    {
+      "id": "implementation_hiding:Calendar System Boundaries",
+      "name": "Calendar System Boundaries",
+      "description": "Specific dates that mark transitions between different calendar systems like Julian and Gregorian.",
+      "domain": "implementation_hiding",
+      "source_id": "implementation_hiding:ch05_5_Hide_class_implementations",
+      "source_location": "chars 24673-26673",
+      "properties": {},
+      "confidence": 0.75
+    },
+    {
+      "id": "implementation_hiding:Numerical Algorithms",
+      "name": "Numerical Algorithms",
+      "description": "Mathematical procedures from established sources used for complex date calculations.",
+      "domain": "implementation_hiding",
+      "source_id": "implementation_hiding:ch05_5_Hide_class_implementations",
+      "source_location": "chars 24673-26673",
+      "properties": {},
+      "confidence": 0.7
+    },
+    {
+      "id": "implementation_hiding:State Representation",
+      "name": "State Representation",
+      "description": "The internal data structure used to store an object's current condition or values.",
+      "domain": "implementation_hiding",
+      "source_id": "implementation_hiding:ch05_5_Hide_class_implementations",
+      "source_location": "chars 24673-26673",
+      "properties": {},
+      "confidence": 0.85
+    },
+    {
+      "id": "implementation_hiding:Private Static Method",
+      "name": "Private Static Method",
+      "description": "A method that belongs to the class rather than instances and is hidden from external access using underscore prefix.",
+      "domain": "implementation_hiding",
+      "source_id": "implementation_hiding:ch05_5_Hide_class_implementations",
+      "source_location": "chars 26473-28473",
+      "properties": {},
+      "confidence": 0.95
+    },
+    {
+      "id": "implementation_hiding:Julian Day Number",
+      "name": "Julian Day Number",
+      "description": "A continuous count of days from a reference date used for date calculations and conversions.",
+      "domain": "implementation_hiding",
+      "source_id": "implementation_hiding:ch05_5_Hide_class_implementations",
+      "source_location": "chars 26473-28473",
+      "properties": {},
+      "confidence": 0.9
+    },
+    {
+      "id": "implementation_hiding:Date Conversion Algorithm",
+      "name": "Date Conversion Algorithm",
+      "description": "Mathematical procedures to transform between different date representations like Gregorian and Julian formats.",
+      "domain": "implementation_hiding",
+      "source_id": "implementation_hiding:ch05_5_Hide_class_implementations",
+      "source_location": "chars 26473-28473",
+      "properties": {},
+      "confidence": 0.85
+    },
+    {
+      "id": "implementation_hiding:Gregorian Calendar Cutoff",
+      "name": "Gregorian Calendar Cutoff",
+      "description": "A specific date threshold used to handle the transition between Julian and Gregorian calendar systems.",
+      "domain": "implementation_hiding",
+      "source_id": "implementation_hiding:ch05_5_Hide_class_implementations",
+      "source_location": "chars 26473-28473",
+      "properties": {},
+      "confidence": 0.8
+    },
+    {
+      "id": "implementation_hiding:Implementation Hiding",
+      "name": "Implementation Hiding",
+      "description": "The practice of making internal methods and complex calculations private to hide implementation details from users.",
+      "domain": "implementation_hiding",
+      "source_id": "implementation_hiding:ch05_5_Hide_class_implementations",
+      "source_location": "chars 26473-28473",
+      "properties": {},
+      "confidence": 0.9
+    },
+    {
+      "id": "implementation_hiding:Static Method Pattern",
+      "name": "Static Method Pattern",
+      "description": "A design pattern where utility methods belong to the class itself rather than requiring instance creation.",
+      "domain": "implementation_hiding",
+      "source_id": "implementation_hiding:ch05_5_Hide_class_implementations",
+      "source_location": "chars 26473-28473",
+      "properties": {},
+      "confidence": 0.85
+    },
+    {
+      "id": "implementation_hiding:Date Arithmetic",
+      "name": "Date Arithmetic",
+      "description": "Mathematical operations performed on date values to enable calculations and comparisons.",
+      "domain": "implementation_hiding",
+      "source_id": "implementation_hiding:ch05_5_Hide_class_implementations",
+      "source_location": "chars 26473-28473",
+      "properties": {},
+      "confidence": 0.8
+    },
+    {
+      "id": "implementation_hiding:Calendar System Conversion",
+      "name": "Calendar System Conversion",
+      "description": "The process of translating dates between different calendar systems like Julian and Gregorian.",
+      "domain": "implementation_hiding",
+      "source_id": "implementation_hiding:ch05_5_Hide_class_implementations",
+      "source_location": "chars 26473-28473",
+      "properties": {},
+      "confidence": 0.75
+    },
+    {
+      "id": "implementation_hiding:Method Naming Convention",
+      "name": "Method Naming Convention",
+      "description": "The use of underscore prefixes to indicate private methods that should not be accessed externally.",
+      "domain": "implementation_hiding",
+      "source_id": "implementation_hiding:ch05_5_Hide_class_implementations",
+      "source_location": "chars 26473-28473",
+      "properties": {},
+      "confidence": 0.8
+    },
+    {
+      "id": "implementation_hiding:Mathematical Floor Function",
+      "name": "Mathematical Floor Function",
+      "description": "A mathematical operation used in date calculations to handle fractional values and ensure integer results.",
+      "domain": "implementation_hiding",
+      "source_id": "implementation_hiding:ch05_5_Hide_class_implementations",
+      "source_location": "chars 26473-28473",
+      "properties": {},
+      "confidence": 0.7
+    },
+    {
+      "id": "implementation_hiding:Julian Day Number",
+      "name": "Julian Day Number",
+      "description": "A continuous count of days used as an internal representation for date calculations.",
+      "domain": "implementation_hiding",
+      "source_id": "implementation_hiding:ch05_5_Hide_class_implementations",
+      "source_location": "chars 28273-29453",
+      "properties": {},
+      "confidence": 0.95
+    },
+    {
+      "id": "implementation_hiding:Date Conversion Algorithm",
+      "name": "Date Conversion Algorithm",
+      "description": "Mathematical formulas used to convert between Julian day numbers and calendar dates.",
+      "domain": "implementation_hiding",
+      "source_id": "implementation_hiding:ch05_5_Hide_class_implementations",
+      "source_location": "chars 28273-29453",
+      "properties": {},
+      "confidence": 0.9
+    },
+    {
+      "id": "implementation_hiding:Private Static Method",
+      "name": "Private Static Method",
+      "description": "A method that belongs to the class but is not intended for external use and doesn't require an instance.",
+      "domain": "implementation_hiding",
+      "source_id": "implementation_hiding:ch05_5_Hide_class_implementations",
+      "source_location": "chars 28273-29453",
+      "properties": {},
+      "confidence": 0.85
+    },
+    {
+      "id": "implementation_hiding:Constructor Overloading",
+      "name": "Constructor Overloading",
+      "description": "A design pattern where a constructor can accept different parameter combinations to initialize an object.",
+      "domain": "implementation_hiding",
+      "source_id": "implementation_hiding:ch05_5_Hide_class_implementations",
+      "source_location": "chars 28273-29453",
+      "properties": {},
+      "confidence": 0.88
+    },
+    {
+      "id": "implementation_hiding:Internal State Management",
+      "name": "Internal State Management",
+      "description": "The practice of maintaining object data in a specific internal format while providing different external interfaces.",
+      "domain": "implementation_hiding",
+      "source_id": "implementation_hiding:ch05_5_Hide_class_implementations",
+      "source_location": "chars 28273-29453",
+      "properties": {},
+      "confidence": 0.82
+    },
+    {
+      "id": "implementation_hiding:Getter Methods",
+      "name": "Getter Methods",
+      "description": "Public methods that provide controlled access to private object properties.",
+      "domain": "implementation_hiding",
+      "source_id": "implementation_hiding:ch05_5_Hide_class_implementations",
+      "source_location": "chars 28273-29453",
+      "properties": {},
+      "confidence": 0.9
+    },
+    {
+      "id": "implementation_hiding:Data Transformation",
+      "name": "Data Transformation",
+      "description": "The process of converting data from one format to another within an object's methods.",
+      "domain": "implementation_hiding",
+      "source_id": "implementation_hiding:ch05_5_Hide_class_implementations",
+      "source_location": "chars 28273-29453",
+      "properties": {},
+      "confidence": 0.85
+    },
+    {
+      "id": "implementation_hiding:Tuple Return Type",
+      "name": "Tuple Return Type",
+      "description": "A method design that returns multiple related values packaged together in a tuple structure.",
+      "domain": "implementation_hiding",
+      "source_id": "implementation_hiding:ch05_5_Hide_class_implementations",
+      "source_location": "chars 28273-29453",
+      "properties": {},
+      "confidence": 0.8
+    },
+    {
+      "id": "implementation_hiding:Calendar Constants",
+      "name": "Calendar Constants",
+      "description": "Predefined values representing specific months or calendar elements used in date calculations.",
+      "domain": "implementation_hiding",
+      "source_id": "implementation_hiding:ch05_5_Hide_class_implementations",
+      "source_location": "chars 28273-29453",
+      "properties": {},
+      "confidence": 0.75
+    },
+    {
+      "id": "implementation_hiding:Year Zero Handling",
+      "name": "Year Zero Handling",
+      "description": "Special logic to properly handle the transition between BCE and CE years in calendar systems.",
+      "domain": "implementation_hiding",
+      "source_id": "implementation_hiding:ch05_5_Hide_class_implementations",
+      "source_location": "chars 28273-29453",
+      "properties": {},
+      "confidence": 0.78
+    },
+    {
+      "id": "implementation_hiding:Julian Day Number",
+      "name": "Julian Day Number",
+      "description": "A continuous count of days used for efficient date arithmetic calculations.",
+      "domain": "implementation_hiding",
+      "source_id": "implementation_hiding:ch05_5_Hide_class_implementations",
+      "source_location": "chars 29253-31253",
+      "properties": {},
+      "confidence": 0.95
+    },
+    {
+      "id": "implementation_hiding:Implementation Hiding",
+      "name": "Implementation Hiding",
+      "description": "A design principle where internal implementation details are concealed from external code.",
+      "domain": "implementation_hiding",
+      "source_id": "implementation_hiding:ch05_5_Hide_class_implementations",
+      "source_location": "chars 29253-31253",
+      "properties": {},
+      "confidence": 0.98
+    },
+    {
+      "id": "implementation_hiding:Date Arithmetic",
+      "name": "Date Arithmetic",
+      "description": "Mathematical operations performed on dates such as adding days or calculating differences.",
+      "domain": "implementation_hiding",
+      "source_id": "implementation_hiding:ch05_5_Hide_class_implementations",
+      "source_location": "chars 29253-31253",
+      "properties": {},
+      "confidence": 0.92
+    },
+    {
+      "id": "implementation_hiding:Private Static Method",
+      "name": "Private Static Method",
+      "description": "A method that belongs to the class but is not accessible from outside the class.",
+      "domain": "implementation_hiding",
+      "source_id": "implementation_hiding:ch05_5_Hide_class_implementations",
+      "source_location": "chars 29253-31253",
+      "properties": {},
+      "confidence": 0.88
+    },
+    {
+      "id": "implementation_hiding:Public Getter Methods",
+      "name": "Public Getter Methods",
+      "description": "Methods that provide read-only access to object properties from external code.",
+      "domain": "implementation_hiding",
+      "source_id": "implementation_hiding:ch05_5_Hide_class_implementations",
+      "source_location": "chars 29253-31253",
+      "properties": {},
+      "confidence": 0.9
+    },
+    {
+      "id": "implementation_hiding:Property Decorator",
+      "name": "Property Decorator",
+      "description": "A Python feature that allows methods to be accessed like attributes.",
+      "domain": "implementation_hiding",
+      "source_id": "implementation_hiding:ch05_5_Hide_class_implementations",
+      "source_location": "chars 29253-31253",
+      "properties": {},
+      "confidence": 0.85
+    },
+    {
+      "id": "implementation_hiding:Constructor Overloading",
+      "name": "Constructor Overloading",
+      "description": "The ability to create objects using different parameter combinations in the constructor.",
+      "domain": "implementation_hiding",
+      "source_id": "implementation_hiding:ch05_5_Hide_class_implementations",
+      "source_location": "chars 29253-31253",
+      "properties": {},
+      "confidence": 0.87
+    },
+    {
+      "id": "implementation_hiding:Internal Representation",
+      "name": "Internal Representation",
+      "description": "The private data structure used internally by a class to store its state.",
+      "domain": "implementation_hiding",
+      "source_id": "implementation_hiding:ch05_5_Hide_class_implementations",
+      "source_location": "chars 29253-31253",
+      "properties": {},
+      "confidence": 0.91
+    },
+    {
+      "id": "implementation_hiding:API Stability",
+      "name": "API Stability",
+      "description": "The principle that public interfaces remain unchanged when internal implementation changes.",
+      "domain": "implementation_hiding",
+      "source_id": "implementation_hiding:ch05_5_Hide_class_implementations",
+      "source_location": "chars 29253-31253",
+      "properties": {},
+      "confidence": 0.89
+    },
+    {
+      "id": "implementation_hiding:Encapsulation",
+      "name": "Encapsulation",
+      "description": "The bundling of data and methods within a class while controlling access to internal details.",
+      "domain": "implementation_hiding",
+      "source_id": "implementation_hiding:ch05_5_Hide_class_implementations",
+      "source_location": "chars 29253-31253",
+      "properties": {},
+      "confidence": 0.93
+    },
+    {
+      "id": "implementation_hiding:Julian Day Number",
+      "name": "Julian Day Number",
+      "description": "A continuous count of days used internally to represent dates and enable efficient date arithmetic.",
+      "domain": "implementation_hiding",
+      "source_id": "implementation_hiding:ch05_5_Hide_class_implementations",
+      "source_location": "chars 31053-32254",
+      "properties": {},
+      "confidence": 0.95
+    },
+    {
+      "id": "implementation_hiding:Gregorian Calendar Rules",
+      "name": "Gregorian Calendar Rules",
+      "description": "Complex calendar system rules that complicate date conversions and calculations.",
+      "domain": "implementation_hiding",
+      "source_id": "implementation_hiding:ch05_5_Hide_class_implementations",
+      "source_location": "chars 31053-32254",
+      "properties": {},
+      "confidence": 0.9
+    },
+    {
+      "id": "implementation_hiding:Private Method",
+      "name": "Private Method",
+      "description": "Internal methods like _to_julian() and _to_ymd() that handle implementation details hidden from users.",
+      "domain": "implementation_hiding",
+      "source_id": "implementation_hiding:ch05_5_Hide_class_implementations",
+      "source_location": "chars 31053-32254",
+      "properties": {},
+      "confidence": 0.9
+    },
+    {
+      "id": "implementation_hiding:Date Arithmetic",
+      "name": "Date Arithmetic",
+      "description": "Mathematical operations on dates such as addition and subtraction of time periods.",
+      "domain": "implementation_hiding",
+      "source_id": "implementation_hiding:ch05_5_Hide_class_implementations",
+      "source_location": "chars 31053-32254",
+      "properties": {},
+      "confidence": 0.85
+    },
+    {
+      "id": "implementation_hiding:Data Conversion",
+      "name": "Data Conversion",
+      "description": "The process of transforming data between different representations like Julian numbers to year/month/day.",
+      "domain": "implementation_hiding",
+      "source_id": "implementation_hiding:ch05_5_Hide_class_implementations",
+      "source_location": "chars 31053-32254",
+      "properties": {},
+      "confidence": 0.85
+    },
+    {
+      "id": "implementation_hiding:Public Getter Methods",
+      "name": "Public Getter Methods",
+      "description": "External interface methods like year(), month(), and day() that provide access to date components.",
+      "domain": "implementation_hiding",
+      "source_id": "implementation_hiding:ch05_5_Hide_class_implementations",
+      "source_location": "chars 31053-32254",
+      "properties": {},
+      "confidence": 0.9
+    },
+    {
+      "id": "implementation_hiding:Implementation Inefficiency",
+      "name": "Implementation Inefficiency",
+      "description": "Performance costs introduced by design choices, such as repeated conversions in getter methods.",
+      "domain": "implementation_hiding",
+      "source_id": "implementation_hiding:ch05_5_Hide_class_implementations",
+      "source_location": "chars 31053-32254",
+      "properties": {},
+      "confidence": 0.85
+    },
+    {
+      "id": "implementation_hiding:Special Method",
+      "name": "Special Method",
+      "description": "Python magic methods like __repr__() that provide standard object behavior and string representation.",
+      "domain": "implementation_hiding",
+      "source_id": "implementation_hiding:ch05_5_Hide_class_implementations",
+      "source_location": "chars 31053-32254",
+      "properties": {},
+      "confidence": 0.8
+    },
+    {
+      "id": "implementation_hiding:Internal State Representation",
+      "name": "Internal State Representation",
+      "description": "How data is stored internally within an object, separate from its external interface.",
+      "domain": "implementation_hiding",
+      "source_id": "implementation_hiding:ch05_5_Hide_class_implementations",
+      "source_location": "chars 31053-32254",
+      "properties": {},
+      "confidence": 0.8
+    },
+    {
+      "id": "implementation_hiding:Constructor Overloading",
+      "name": "Constructor Overloading",
+      "description": "Supporting multiple ways to create objects, such as from Julian numbers or year/month/day parameters.",
+      "domain": "implementation_hiding",
+      "source_id": "implementation_hiding:ch05_5_Hide_class_implementations",
+      "source_location": "chars 31053-32254",
+      "properties": {},
+      "confidence": 0.75
+    },
+    {
+      "id": "implementation_hiding:Julian Day Numbers",
+      "name": "Julian Day Numbers",
+      "description": "A continuous count of days used for efficient date arithmetic operations.",
+      "domain": "implementation_hiding",
+      "source_id": "implementation_hiding:ch05_5_Hide_class_implementations",
+      "source_location": "chars 32054-34051",
+      "properties": {},
+      "confidence": 0.95
+    },
+    {
+      "id": "implementation_hiding:Date Arithmetic",
+      "name": "Date Arithmetic",
+      "description": "Mathematical operations performed on date objects such as addition and subtraction.",
+      "domain": "implementation_hiding",
+      "source_id": "implementation_hiding:ch05_5_Hide_class_implementations",
+      "source_location": "chars 32054-34051",
+      "properties": {},
+      "confidence": 0.9
+    },
+    {
+      "id": "implementation_hiding:Hybrid Approach",
+      "name": "Hybrid Approach",
+      "description": "A design pattern that combines multiple data representations to optimize different operations.",
+      "domain": "implementation_hiding",
+      "source_id": "implementation_hiding:ch05_5_Hide_class_implementations",
+      "source_location": "chars 32054-34051",
+      "properties": {},
+      "confidence": 0.9
+    },
+    {
+      "id": "implementation_hiding:Lazy Evaluation",
+      "name": "Lazy Evaluation",
+      "description": "A strategy that delays computation until the result is actually needed.",
+      "domain": "implementation_hiding",
+      "source_id": "implementation_hiding:ch05_5_Hide_class_implementations",
+      "source_location": "chars 32054-34051",
+      "properties": {},
+      "confidence": 0.85
+    },
+    {
+      "id": "implementation_hiding:Gregorian Calendar Rules",
+      "name": "Gregorian Calendar Rules",
+      "description": "The standard calendar system rules used for date calculations and conversions.",
+      "domain": "implementation_hiding",
+      "source_id": "implementation_hiding:ch05_5_Hide_class_implementations",
+      "source_location": "chars 32054-34051",
+      "properties": {},
+      "confidence": 0.8
+    },
+    {
+      "id": "implementation_hiding:Getter Functions",
+      "name": "Getter Functions",
+      "description": "Methods that retrieve specific properties or values from an object.",
+      "domain": "implementation_hiding",
+      "source_id": "implementation_hiding:ch05_5_Hide_class_implementations",
+      "source_location": "chars 32054-34051",
+      "properties": {},
+      "confidence": 0.85
+    },
+    {
+      "id": "implementation_hiding:Data Representation Trade-offs",
+      "name": "Data Representation Trade-offs",
+      "description": "The performance compromises that occur when optimizing one operation may slow down others.",
+      "domain": "implementation_hiding",
+      "source_id": "implementation_hiding:ch05_5_Hide_class_implementations",
+      "source_location": "chars 32054-34051",
+      "properties": {},
+      "confidence": 0.9
+    },
+    {
+      "id": "implementation_hiding:Private Instance Variables",
+      "name": "Private Instance Variables",
+      "description": "Internal object attributes that are not directly accessible from outside the class.",
+      "domain": "implementation_hiding",
+      "source_id": "implementation_hiding:ch05_5_Hide_class_implementations",
+      "source_location": "chars 32054-34051",
+      "properties": {},
+      "confidence": 0.85
+    },
+    {
+      "id": "implementation_hiding:Conversion Algorithm",
+      "name": "Conversion Algorithm",
+      "description": "A computational procedure that transforms data from one format to another.",
+      "domain": "implementation_hiding",
+      "source_id": "implementation_hiding:ch05_5_Hide_class_implementations",
+      "source_location": "chars 32054-34051",
+      "properties": {},
+      "confidence": 0.8
+    },
+    {
+      "id": "implementation_hiding:Validity Flags",
+      "name": "Validity Flags",
+      "description": "Boolean indicators that track whether cached data representations are current and accurate.",
+      "domain": "implementation_hiding",
+      "source_id": "implementation_hiding:ch05_5_Hide_class_implementations",
+      "source_location": "chars 32054-34051",
+      "properties": {},
+      "confidence": 0.85
+    },
+    {
+      "id": "implementation_hiding:Class Implementation Hiding",
+      "name": "Class Implementation Hiding",
+      "description": "The practice of concealing internal data structures and algorithms from external users of a class.",
+      "domain": "implementation_hiding",
+      "source_id": "implementation_hiding:ch05_5_Hide_class_implementations",
+      "source_location": "chars 32054-34051",
+      "properties": {},
+      "confidence": 0.9
+    },
+    {
+      "id": "implementation_hiding:Date Object Creation",
+      "name": "Date Object Creation",
+      "description": "The initialization process for date instances with different parameter configurations.",
+      "domain": "implementation_hiding",
+      "source_id": "implementation_hiding:ch05_5_Hide_class_implementations",
+      "source_location": "chars 32054-34051",
+      "properties": {},
+      "confidence": 0.8
+    },
+    {
+      "id": "implementation_hiding:Implementation Hiding",
+      "name": "Implementation Hiding",
+      "description": "A design principle that conceals internal implementation details from external users of a class.",
+      "domain": "implementation_hiding",
+      "source_id": "implementation_hiding:ch05_5_Hide_class_implementations",
+      "source_location": "chars 33851-35851",
+      "properties": {},
+      "confidence": 0.95
+    },
+    {
+      "id": "implementation_hiding:Private Instance Variables",
+      "name": "Private Instance Variables",
+      "description": "Internal variables prefixed with underscore that store object state and are not meant for external access.",
+      "domain": "implementation_hiding",
+      "source_id": "implementation_hiding:ch05_5_Hide_class_implementations",
+      "source_location": "chars 33851-35851",
+      "properties": {},
+      "confidence": 0.9
+    },
+    {
+      "id": "implementation_hiding:Data Synchronization",
+      "name": "Data Synchronization",
+      "description": "The process of ensuring that different representations of the same data remain consistent with each other.",
+      "domain": "implementation_hiding",
+      "source_id": "implementation_hiding:ch05_5_Hide_class_implementations",
+      "source_location": "chars 33851-35851",
+      "properties": {},
+      "confidence": 0.95
+    },
+    {
+      "id": "implementation_hiding:Lazy Validation",
+      "name": "Lazy Validation",
+      "description": "A technique that defers expensive validation or conversion operations until they are actually needed.",
+      "domain": "implementation_hiding",
+      "source_id": "implementation_hiding:ch05_5_Hide_class_implementations",
+      "source_location": "chars 33851-35851",
+      "properties": {},
+      "confidence": 0.85
+    },
+    {
+      "id": "implementation_hiding:Boolean Flags",
+      "name": "Boolean Flags",
+      "description": "Boolean variables used to track the validity state of cached data or computations.",
+      "domain": "implementation_hiding",
+      "source_id": "implementation_hiding:ch05_5_Hide_class_implementations",
+      "source_location": "chars 33851-35851",
+      "properties": {},
+      "confidence": 0.8
+    },
+    {
+      "id": "implementation_hiding:Private Methods",
+      "name": "Private Methods",
+      "description": "Internal methods prefixed with underscore that handle implementation details and are not part of the public interface.",
+      "domain": "implementation_hiding",
+      "source_id": "implementation_hiding:ch05_5_Hide_class_implementations",
+      "source_location": "chars 33851-35851",
+      "properties": {},
+      "confidence": 0.9
+    },
+    {
+      "id": "implementation_hiding:Dual Representation",
+      "name": "Dual Representation",
+      "description": "A design pattern where data is stored in multiple formats to optimize different types of operations.",
+      "domain": "implementation_hiding",
+      "source_id": "implementation_hiding:ch05_5_Hide_class_implementations",
+      "source_location": "chars 33851-35851",
+      "properties": {},
+      "confidence": 0.85
+    },
+    {
+      "id": "implementation_hiding:Julian Day Number",
+      "name": "Julian Day Number",
+      "description": "A continuous count of days used as an internal representation for efficient date arithmetic operations.",
+      "domain": "implementation_hiding",
+      "source_id": "implementation_hiding:ch05_5_Hide_class_implementations",
+      "source_location": "chars 33851-35851",
+      "properties": {},
+      "confidence": 0.9
+    },
+    {
+      "id": "implementation_hiding:Property Decorator",
+      "name": "Property Decorator",
+      "description": "A Python mechanism that allows methods to be accessed like attributes while maintaining encapsulation.",
+      "domain": "implementation_hiding",
+      "source_id": "implementation_hiding:ch05_5_Hide_class_implementations",
+      "source_location": "chars 33851-35851",
+      "properties": {},
+      "confidence": 0.8
+    },
+    {
+      "id": "implementation_hiding:Performance Optimization",
+      "name": "Performance Optimization",
+      "description": "The practice of avoiding unnecessary expensive operations through caching and validation flags.",
+      "domain": "implementation_hiding",
+      "source_id": "implementation_hiding:ch05_5_Hide_class_implementations",
+      "source_location": "chars 33851-35851",
+      "properties": {},
+      "confidence": 0.85
+    },
+    {
+      "id": "implementation_hiding:Date Arithmetic",
+      "name": "Date Arithmetic",
+      "description": "Mathematical operations performed on dates, such as adding days or calculating differences between dates.",
+      "domain": "implementation_hiding",
+      "source_id": "implementation_hiding:ch05_5_Hide_class_implementations",
+      "source_location": "chars 33851-35851",
+      "properties": {},
+      "confidence": 0.9
+    },
+    {
+      "id": "implementation_hiding:Property Decorator",
+      "name": "Property Decorator",
+      "description": "A Python decorator (@property) that allows methods to be accessed like attributes while maintaining encapsulation.",
+      "domain": "implementation_hiding",
+      "source_id": "implementation_hiding:ch05_5_Hide_class_implementations",
+      "source_location": "chars 35651-37651",
+      "properties": {},
+      "confidence": 0.9
+    },
+    {
+      "id": "implementation_hiding:Lazy Validation",
+      "name": "Lazy Validation",
+      "description": "A pattern where validation of internal state is performed only when the data is actually accessed or needed.",
+      "domain": "implementation_hiding",
+      "source_id": "implementation_hiding:ch05_5_Hide_class_implementations",
+      "source_location": "chars 35651-37651",
+      "properties": {},
+      "confidence": 0.95
+    },
+    {
+      "id": "implementation_hiding:Lazy Evaluation Principle",
+      "name": "Lazy Evaluation Principle",
+      "description": "A design principle that delays computation until the result is actually needed to improve performance.",
+      "domain": "implementation_hiding",
+      "source_id": "implementation_hiding:ch05_5_Hide_class_implementations",
+      "source_location": "chars 35651-37651",
+      "properties": {},
+      "confidence": 0.98
+    },
+    {
+      "id": "implementation_hiding:Data Validation",
+      "name": "Data Validation",
+      "description": "The process of checking internal object state for correctness before using or returning values.",
+      "domain": "implementation_hiding",
+      "source_id": "implementation_hiding:ch05_5_Hide_class_implementations",
+      "source_location": "chars 35651-37651",
+      "properties": {},
+      "confidence": 0.9
+    },
+    {
+      "id": "implementation_hiding:Hybrid Data Representation",
+      "name": "Hybrid Data Representation",
+      "description": "An implementation approach that maintains multiple internal representations of the same data for efficiency.",
+      "domain": "implementation_hiding",
+      "source_id": "implementation_hiding:ch05_5_Hide_class_implementations",
+      "source_location": "chars 35651-37651",
+      "properties": {},
+      "confidence": 0.85
+    },
+    {
+      "id": "implementation_hiding:Value Caching",
+      "name": "Value Caching",
+      "description": "A technique where computed values are stored internally and recomputed only when necessary.",
+      "domain": "implementation_hiding",
+      "source_id": "implementation_hiding:ch05_5_Hide_class_implementations",
+      "source_location": "chars 35651-37651",
+      "properties": {},
+      "confidence": 0.88
+    },
+    {
+      "id": "implementation_hiding:Internal State Management",
+      "name": "Internal State Management",
+      "description": "The practice of managing private object attributes while providing controlled access through public interfaces.",
+      "domain": "implementation_hiding",
+      "source_id": "implementation_hiding:ch05_5_Hide_class_implementations",
+      "source_location": "chars 35651-37651",
+      "properties": {},
+      "confidence": 0.87
+    },
+    {
+      "id": "implementation_hiding:Date Arithmetic",
+      "name": "Date Arithmetic",
+      "description": "Mathematical operations performed on date objects, such as adding days or calculating differences.",
+      "domain": "implementation_hiding",
+      "source_id": "implementation_hiding:ch05_5_Hide_class_implementations",
+      "source_location": "chars 35651-37651",
+      "properties": {},
+      "confidence": 0.92
+    },
+    {
+      "id": "implementation_hiding:Julian Day Conversion",
+      "name": "Julian Day Conversion",
+      "description": "The process of converting between calendar dates and Julian day numbers for efficient date calculations.",
+      "domain": "implementation_hiding",
+      "source_id": "implementation_hiding:ch05_5_Hide_class_implementations",
+      "source_location": "chars 35651-37651",
+      "properties": {},
+      "confidence": 0.85
+    },
+    {
+      "id": "implementation_hiding:Performance Optimization",
+      "name": "Performance Optimization",
+      "description": "Techniques used to improve code efficiency by avoiding unnecessary calculations and computations.",
+      "domain": "implementation_hiding",
+      "source_id": "implementation_hiding:ch05_5_Hide_class_implementations",
+      "source_location": "chars 35651-37651",
+      "properties": {},
+      "confidence": 0.83
+    },
+    {
+      "id": "implementation_hiding:Lazy Evaluation",
+      "name": "Lazy Evaluation",
+      "description": "A strategy that delays expensive calculations until they are actually needed.",
+      "domain": "implementation_hiding",
+      "source_id": "implementation_hiding:ch05_5_Hide_class_implementations",
+      "source_location": "chars 37451-39120",
+      "properties": {},
+      "confidence": 0.95
+    },
+    {
+      "id": "implementation_hiding:Caching",
+      "name": "Caching",
+      "description": "Storing computed values to avoid recalculating them repeatedly.",
+      "domain": "implementation_hiding",
+      "source_id": "implementation_hiding:ch05_5_Hide_class_implementations",
+      "source_location": "chars 37451-39120",
+      "properties": {},
+      "confidence": 0.9
+    },
+    {
+      "id": "implementation_hiding:Private Instance Variables",
+      "name": "Private Instance Variables",
+      "description": "Class variables that are hidden from external access to encapsulate implementation details.",
+      "domain": "implementation_hiding",
+      "source_id": "implementation_hiding:ch05_5_Hide_class_implementations",
+      "source_location": "chars 37451-39120",
+      "properties": {},
+      "confidence": 0.95
+    },
+    {
+      "id": "implementation_hiding:Public Getter Methods",
+      "name": "Public Getter Methods",
+      "description": "Methods that allow external code to access object state without revealing implementation details.",
+      "domain": "implementation_hiding",
+      "source_id": "implementation_hiding:ch05_5_Hide_class_implementations",
+      "source_location": "chars 37451-39120",
+      "properties": {},
+      "confidence": 0.95
+    },
+    {
+      "id": "implementation_hiding:Public Setter Methods",
+      "name": "Public Setter Methods",
+      "description": "Methods that allow external code to modify object state without revealing implementation details.",
+      "domain": "implementation_hiding",
+      "source_id": "implementation_hiding:ch05_5_Hide_class_implementations",
+      "source_location": "chars 37451-39120",
+      "properties": {},
+      "confidence": 0.9
+    },
+    {
+      "id": "implementation_hiding:Implementation Hiding",
+      "name": "Implementation Hiding",
+      "description": "Concealing the internal structure and mechanisms of a class from external users.",
+      "domain": "implementation_hiding",
+      "source_id": "implementation_hiding:ch05_5_Hide_class_implementations",
+      "source_location": "chars 37451-39120",
+      "properties": {},
+      "confidence": 0.95
+    },
+    {
+      "id": "implementation_hiding:Code Refactoring",
+      "name": "Code Refactoring",
+      "description": "Restructuring existing code to improve efficiency while maintaining functionality.",
+      "domain": "implementation_hiding",
+      "source_id": "implementation_hiding:ch05_5_Hide_class_implementations",
+      "source_location": "chars 37451-39120",
+      "properties": {},
+      "confidence": 0.85
+    },
+    {
+      "id": "implementation_hiding:Encapsulation",
+      "name": "Encapsulation",
+      "description": "Bundling data and methods together while restricting access to internal implementation.",
+      "domain": "implementation_hiding",
+      "source_id": "implementation_hiding:ch05_5_Hide_class_implementations",
+      "source_location": "chars 37451-39120",
+      "properties": {},
+      "confidence": 0.9
+    },
+    {
+      "id": "implementation_hiding:Immutable Objects",
+      "name": "Immutable Objects",
+      "description": "Objects whose state cannot be changed after they are created.",
+      "domain": "implementation_hiding",
+      "source_id": "implementation_hiding:ch05_5_Hide_class_implementations",
+      "source_location": "chars 37451-39120",
+      "properties": {},
+      "confidence": 0.9
+    },
+    {
+      "id": "implementation_hiding:Julian Day Numbers",
+      "name": "Julian Day Numbers",
+      "description": "A numerical representation of dates used internally to support efficient date arithmetic.",
+      "domain": "implementation_hiding",
+      "source_id": "implementation_hiding:ch05_5_Hide_class_implementations",
+      "source_location": "chars 37451-39120",
+      "properties": {},
+      "confidence": 0.85
+    },
+    {
+      "id": "implementation_hiding:Date Arithmetic",
+      "name": "Date Arithmetic",
+      "description": "Mathematical operations performed on date values to calculate time differences or new dates.",
+      "domain": "implementation_hiding",
+      "source_id": "implementation_hiding:ch05_5_Hide_class_implementations",
+      "source_location": "chars 37451-39120",
+      "properties": {},
+      "confidence": 0.85
+    },
+    {
+      "id": "implementation_hiding:State Validation",
+      "name": "State Validation",
+      "description": "Checking data integrity before performing operations on object state.",
+      "domain": "implementation_hiding",
+      "source_id": "implementation_hiding:ch05_5_Hide_class_implementations",
+      "source_location": "chars 37451-39120",
+      "properties": {},
+      "confidence": 0.8
+    },
+    {
+      "id": "implementation_hiding:Mutable Objects",
+      "name": "Mutable Objects",
+      "description": "Objects whose state can be changed after creation through setter methods.",
+      "domain": "implementation_hiding",
+      "source_id": "implementation_hiding:ch05_5_Hide_class_implementations",
+      "source_location": "chars 38920-40837",
+      "properties": {},
+      "confidence": 0.95
+    },
+    {
+      "id": "implementation_hiding:Julian Day Numbers",
+      "name": "Julian Day Numbers",
+      "description": "A continuous count of days used for date arithmetic calculations.",
+      "domain": "implementation_hiding",
+      "source_id": "implementation_hiding:ch05_5_Hide_class_implementations",
+      "source_location": "chars 38920-40837",
+      "properties": {},
+      "confidence": 0.9
+    },
+    {
+      "id": "implementation_hiding:Date Arithmetic",
+      "name": "Date Arithmetic",
+      "description": "Mathematical operations performed on dates to calculate differences or add/subtract time periods.",
+      "domain": "implementation_hiding",
+      "source_id": "implementation_hiding:ch05_5_Hide_class_implementations",
+      "source_location": "chars 38920-40837",
+      "properties": {},
+      "confidence": 0.85
+    },
+    {
+      "id": "implementation_hiding:Lazy Evaluation",
+      "name": "Lazy Evaluation",
+      "description": "A performance optimization technique that defers computation until the result is actually needed.",
+      "domain": "implementation_hiding",
+      "source_id": "implementation_hiding:ch05_5_Hide_class_implementations",
+      "source_location": "chars 38920-40837",
+      "properties": {},
+      "confidence": 0.9
+    },
+    {
+      "id": "implementation_hiding:Hybrid Approach",
+      "name": "Hybrid Approach",
+      "description": "A design strategy that combines multiple techniques to achieve optimal performance.",
+      "domain": "implementation_hiding",
+      "source_id": "implementation_hiding:ch05_5_Hide_class_implementations",
+      "source_location": "chars 38920-40837",
+      "properties": {},
+      "confidence": 0.8
+    },
+    {
+      "id": "implementation_hiding:Getter Methods",
+      "name": "Getter Methods",
+      "description": "Methods that provide controlled access to read private object data.",
+      "domain": "implementation_hiding",
+      "source_id": "implementation_hiding:ch05_5_Hide_class_implementations",
+      "source_location": "chars 38920-40837",
+      "properties": {},
+      "confidence": 0.95
+    },
+    {
+      "id": "implementation_hiding:Setter Methods",
+      "name": "Setter Methods",
+      "description": "Methods that provide controlled access to modify private object data.",
+      "domain": "implementation_hiding",
+      "source_id": "implementation_hiding:ch05_5_Hide_class_implementations",
+      "source_location": "chars 38920-40837",
+      "properties": {},
+      "confidence": 0.95
+    },
+    {
+      "id": "implementation_hiding:Validation",
+      "name": "Validation",
+      "description": "The process of checking data integrity before performing operations or state changes.",
+      "domain": "implementation_hiding",
+      "source_id": "implementation_hiding:ch05_5_Hide_class_implementations",
+      "source_location": "chars 38920-40837",
+      "properties": {},
+      "confidence": 0.9
+    },
+    {
+      "id": "implementation_hiding:Property Decorator",
+      "name": "Property Decorator",
+      "description": "A Python mechanism that allows methods to be accessed like attributes while maintaining encapsulation.",
+      "domain": "implementation_hiding",
+      "source_id": "implementation_hiding:ch05_5_Hide_class_implementations",
+      "source_location": "chars 38920-40837",
+      "properties": {},
+      "confidence": 0.85
+    },
+    {
+      "id": "implementation_hiding:Hidden Implementation",
+      "name": "Hidden Implementation",
+      "description": "Internal object details that are concealed from external access to maintain encapsulation.",
+      "domain": "implementation_hiding",
+      "source_id": "implementation_hiding:ch05_5_Hide_class_implementations",
+      "source_location": "chars 38920-40837",
+      "properties": {},
+      "confidence": 0.9
+    },
+    {
+      "id": "implementation_hiding:Defensive Programming",
+      "name": "Defensive Programming",
+      "description": "A coding practice that validates inputs and handles errors to prevent system failures.",
+      "domain": "implementation_hiding",
+      "source_id": "implementation_hiding:ch05_5_Hide_class_implementations",
+      "source_location": "chars 38920-40837",
+      "properties": {},
+      "confidence": 0.85
+    },
+    {
+      "id": "implementation_hiding:State Management",
+      "name": "State Management",
+      "description": "The control and tracking of object state changes through valid flags and careful modification.",
+      "domain": "implementation_hiding",
+      "source_id": "implementation_hiding:ch05_5_Hide_class_implementations",
+      "source_location": "chars 38920-40837",
+      "properties": {},
+      "confidence": 0.8
+    },
+    {
+      "id": "implementation_hiding:Gregorian Calendar Rules",
+      "name": "Gregorian Calendar Rules",
+      "description": "The standard calendar system rules used for date calculations and validation.",
+      "domain": "implementation_hiding",
+      "source_id": "implementation_hiding:ch05_5_Hide_class_implementations",
+      "source_location": "chars 38920-40837",
+      "properties": {},
+      "confidence": 0.75
+    },
+    {
+      "id": "implementation_hiding:Julian Day Number",
+      "name": "Julian Day Number",
+      "description": "A continuous count of days from a reference date, used for date calculations and conversions.",
+      "domain": "implementation_hiding",
+      "source_id": "implementation_hiding:ch05_5_Hide_class_implementations",
+      "source_location": "chars 40637-42477",
+      "properties": {},
+      "confidence": 0.95
+    },
+    {
+      "id": "implementation_hiding:Getter Method",
+      "name": "Getter Method",
+      "description": "A method that retrieves or accesses the value of a private or protected attribute.",
+      "domain": "implementation_hiding",
+      "source_id": "implementation_hiding:ch05_5_Hide_class_implementations",
+      "source_location": "chars 40637-42477",
+      "properties": {},
+      "confidence": 0.9
+    },
+    {
+      "id": "implementation_hiding:Setter Method",
+      "name": "Setter Method",
+      "description": "A method that modifies or sets the value of a private or protected attribute.",
+      "domain": "implementation_hiding",
+      "source_id": "implementation_hiding:ch05_5_Hide_class_implementations",
+      "source_location": "chars 40637-42477",
+      "properties": {},
+      "confidence": 0.9
+    },
+    {
+      "id": "implementation_hiding:Date Object",
+      "name": "Date Object",
+      "description": "A class representing calendar dates with year, month, and day components.",
+      "domain": "implementation_hiding",
+      "source_id": "implementation_hiding:ch05_5_Hide_class_implementations",
+      "source_location": "chars 40637-42477",
+      "properties": {},
+      "confidence": 0.85
+    },
+    {
+      "id": "implementation_hiding:Property Decorator",
+      "name": "Property Decorator",
+      "description": "Python's @property syntax used to create getter and setter methods for attributes.",
+      "domain": "implementation_hiding",
+      "source_id": "implementation_hiding:ch05_5_Hide_class_implementations",
+      "source_location": "chars 40637-42477",
+      "properties": {},
+      "confidence": 0.8
+    },
+    {
+      "id": "implementation_hiding:Implementation Hiding",
+      "name": "Implementation Hiding",
+      "description": "The practice of concealing internal class details while providing controlled access through methods.",
+      "domain": "implementation_hiding",
+      "source_id": "implementation_hiding:ch05_5_Hide_class_implementations",
+      "source_location": "chars 40637-42477",
+      "properties": {},
+      "confidence": 0.85
+    },
+    {
+      "id": "implementation_hiding:Data Validation",
+      "name": "Data Validation",
+      "description": "The process of checking that input values meet required constraints before assignment.",
+      "domain": "implementation_hiding",
+      "source_id": "implementation_hiding:ch05_5_Hide_class_implementations",
+      "source_location": "chars 40637-42477",
+      "properties": {},
+      "confidence": 0.75
+    },
+    {
+      "id": "implementation_hiding:Dangerous Setters",
+      "name": "Dangerous Setters",
+      "description": "Setter methods that can potentially compromise object integrity or violate class invariants.",
+      "domain": "implementation_hiding",
+      "source_id": "implementation_hiding:ch05_5_Hide_class_implementations",
+      "source_location": "chars 40637-42477",
+      "properties": {},
+      "confidence": 0.8
+    },
+    {
+      "id": "implementation_hiding:Private Attributes",
+      "name": "Private Attributes",
+      "description": "Class attributes marked with underscore prefix to indicate internal implementation details.",
+      "domain": "implementation_hiding",
+      "source_id": "implementation_hiding:ch05_5_Hide_class_implementations",
+      "source_location": "chars 40637-42477",
+      "properties": {},
+      "confidence": 0.7
+    },
+    {
+      "id": "implementation_hiding:Date Arithmetic",
+      "name": "Date Arithmetic",
+      "description": "Mathematical operations performed on date objects, often using Julian day numbers for calculation.",
+      "domain": "implementation_hiding",
+      "source_id": "implementation_hiding:ch05_5_Hide_class_implementations",
+      "source_location": "chars 40637-42477",
+      "properties": {},
+      "confidence": 0.85
+    },
+    {
+      "id": "implementation_hiding:Object Mutability",
+      "name": "Object Mutability",
+      "description": "The ability to modify an object's state after creation through setter methods.",
+      "domain": "implementation_hiding",
+      "source_id": "implementation_hiding:ch05_5_Hide_class_implementations",
+      "source_location": "chars 40637-42477",
+      "properties": {},
+      "confidence": 0.75
+    },
+    {
+      "id": "implementation_hiding:Cache Invalidation",
+      "name": "Cache Invalidation",
+      "description": "The process of marking cached values as invalid when underlying data changes.",
+      "domain": "implementation_hiding",
+      "source_id": "implementation_hiding:ch05_5_Hide_class_implementations",
+      "source_location": "chars 40637-42477",
+      "properties": {},
+      "confidence": 0.7
+    },
+    {
+      "id": "implementation_hiding:Getter Method",
+      "name": "Getter Method",
+      "description": "A method that retrieves the value of a private attribute, often called implicitly through property access.",
+      "domain": "implementation_hiding",
+      "source_id": "implementation_hiding:ch05_5_Hide_class_implementations",
+      "source_location": "chars 42277-44239",
+      "properties": {},
+      "confidence": 0.95
+    },
+    {
+      "id": "implementation_hiding:Setter Method",
+      "name": "Setter Method",
+      "description": "A method that modifies the value of a private attribute, often with validation logic.",
+      "domain": "implementation_hiding",
+      "source_id": "implementation_hiding:ch05_5_Hide_class_implementations",
+      "source_location": "chars 42277-44239",
+      "properties": {},
+      "confidence": 0.95
+    },
+    {
+      "id": "implementation_hiding:Implicit Method Call",
+      "name": "Implicit Method Call",
+      "description": "Automatic invocation of getter or setter methods when accessing or modifying properties.",
+      "domain": "implementation_hiding",
+      "source_id": "implementation_hiding:ch05_5_Hide_class_implementations",
+      "source_location": "chars 42277-44239",
+      "properties": {},
+      "confidence": 0.9
+    },
+    {
+      "id": "implementation_hiding:Property Decorator",
+      "name": "Property Decorator",
+      "description": "Python decorator that creates properties with getter and setter methods for controlled attribute access.",
+      "domain": "implementation_hiding",
+      "source_id": "implementation_hiding:ch05_5_Hide_class_implementations",
+      "source_location": "chars 42277-44239",
+      "properties": {},
+      "confidence": 0.85
+    },
+    {
+      "id": "implementation_hiding:Invalid Object State",
+      "name": "Invalid Object State",
+      "description": "A condition where an object's internal data represents an impossible or inconsistent state.",
+      "domain": "implementation_hiding",
+      "source_id": "implementation_hiding:ch05_5_Hide_class_implementations",
+      "source_location": "chars 42277-44239",
+      "properties": {},
+      "confidence": 0.9
+    },
+    {
+      "id": "implementation_hiding:Data Validation",
+      "name": "Data Validation",
+      "description": "The process of checking input parameters to ensure they meet required constraints before assignment.",
+      "domain": "implementation_hiding",
+      "source_id": "implementation_hiding:ch05_5_Hide_class_implementations",
+      "source_location": "chars 42277-44239",
+      "properties": {},
+      "confidence": 0.85
+    },
+    {
+      "id": "implementation_hiding:Private Instance Variable",
+      "name": "Private Instance Variable",
+      "description": "Object attributes prefixed with underscore to indicate they should not be accessed directly from outside the class.",
+      "domain": "implementation_hiding",
+      "source_id": "implementation_hiding:ch05_5_Hide_class_implementations",
+      "source_location": "chars 42277-44239",
+      "properties": {},
+      "confidence": 0.8
+    },
+    {
+      "id": "implementation_hiding:State Invalidation Flag",
+      "name": "State Invalidation Flag",
+      "description": "A boolean variable that tracks when cached or derived data needs to be recalculated due to state changes.",
+      "domain": "implementation_hiding",
+      "source_id": "implementation_hiding:ch05_5_Hide_class_implementations",
+      "source_location": "chars 42277-44239",
+      "properties": {},
+      "confidence": 0.75
+    },
+    {
+      "id": "implementation_hiding:Dangerous Setter Pattern",
+      "name": "Dangerous Setter Pattern",
+      "description": "A design flaw where setter methods can put objects into invalid states by allowing partial updates.",
+      "domain": "implementation_hiding",
+      "source_id": "implementation_hiding:ch05_5_Hide_class_implementations",
+      "source_location": "chars 42277-44239",
+      "properties": {},
+      "confidence": 0.9
+    },
+    {
+      "id": "implementation_hiding:Julian Day Conversion",
+      "name": "Julian Day Conversion",
+      "description": "A calendar system that represents dates as continuous day numbers for easier date arithmetic.",
+      "domain": "implementation_hiding",
+      "source_id": "implementation_hiding:ch05_5_Hide_class_implementations",
+      "source_location": "chars 42277-44239",
+      "properties": {},
+      "confidence": 0.7
+    },
+    {
+      "id": "implementation_hiding:Comprehensive Validation",
+      "name": "Comprehensive Validation",
+      "description": "Complete input checking that considers all relevant context and constraints, not just isolated parameter ranges.",
+      "domain": "implementation_hiding",
+      "source_id": "implementation_hiding:ch05_5_Hide_class_implementations",
+      "source_location": "chars 42277-44239",
+      "properties": {},
+      "confidence": 0.8
+    },
+    {
+      "id": "implementation_hiding:Invalid State Prevention",
+      "name": "Invalid State Prevention",
+      "description": "The principle that setter methods should never allow an object to be put into an invalid state.",
+      "domain": "implementation_hiding",
+      "source_id": "implementation_hiding:ch05_5_Hide_class_implementations",
+      "source_location": "chars 44039-46039",
+      "properties": {},
+      "confidence": 0.95
+    },
+    {
+      "id": "implementation_hiding:Defensive Programming",
+      "name": "Defensive Programming",
+      "description": "A programming practice that involves writing code to handle unexpected inputs and prevent errors.",
+      "domain": "implementation_hiding",
+      "source_id": "implementation_hiding:ch05_5_Hide_class_implementations",
+      "source_location": "chars 44039-46039",
+      "properties": {},
+      "confidence": 0.9
+    },
+    {
+      "id": "implementation_hiding:Setter Method Design",
+      "name": "Setter Method Design",
+      "description": "The design approach for creating methods that modify object properties safely and correctly.",
+      "domain": "implementation_hiding",
+      "source_id": "implementation_hiding:ch05_5_Hide_class_implementations",
+      "source_location": "chars 44039-46039",
+      "properties": {},
+      "confidence": 0.9
+    },
+    {
+      "id": "implementation_hiding:Private Member Variables",
+      "name": "Private Member Variables",
+      "description": "Internal object data that is hidden from external access and not directly accessible.",
+      "domain": "implementation_hiding",
+      "source_id": "implementation_hiding:ch05_5_Hide_class_implementations",
+      "source_location": "chars 44039-46039",
+      "properties": {},
+      "confidence": 0.85
+    },
+    {
+      "id": "implementation_hiding:Public Setter Functions",
+      "name": "Public Setter Functions",
+      "description": "Methods that provide controlled external access to modify private object properties.",
+      "domain": "implementation_hiding",
+      "source_id": "implementation_hiding:ch05_5_Hide_class_implementations",
+      "source_location": "chars 44039-46039",
+      "properties": {},
+      "confidence": 0.85
+    },
+    {
+      "id": "implementation_hiding:Atomic State Modification",
+      "name": "Atomic State Modification",
+      "description": "The practice of modifying multiple related properties together to maintain object validity.",
+      "domain": "implementation_hiding",
+      "source_id": "implementation_hiding:ch05_5_Hide_class_implementations",
+      "source_location": "chars 44039-46039",
+      "properties": {},
+      "confidence": 0.8
+    },
+    {
+      "id": "implementation_hiding:Law Of Demeter",
+      "name": "Law Of Demeter",
+      "description": "A design guideline that prescribes rules for method calls between objects to maintain loose coupling.",
+      "domain": "implementation_hiding",
+      "source_id": "implementation_hiding:ch05_5_Hide_class_implementations",
+      "source_location": "chars 44039-46039",
+      "properties": {},
+      "confidence": 0.95
+    },
+    {
+      "id": "implementation_hiding:Principle Of Least Knowledge",
+      "name": "Principle Of Least Knowledge",
+      "description": "A design principle stating that objects should have limited knowledge about other objects.",
+      "domain": "implementation_hiding",
+      "source_id": "implementation_hiding:ch05_5_Hide_class_implementations",
+      "source_location": "chars 44039-46039",
+      "properties": {},
+      "confidence": 0.9
+    },
+    {
+      "id": "implementation_hiding:Loose Coupling",
+      "name": "Loose Coupling",
+      "description": "A design approach where classes have minimal dependencies on each other's internal implementations.",
+      "domain": "implementation_hiding",
+      "source_id": "implementation_hiding:ch05_5_Hide_class_implementations",
+      "source_location": "chars 44039-46039",
+      "properties": {},
+      "confidence": 0.85
+    },
+    {
+      "id": "implementation_hiding:Method Call Rules",
+      "name": "Method Call Rules",
+      "description": "Specific guidelines that determine when one class method can legitimately call another class method.",
+      "domain": "implementation_hiding",
+      "source_id": "implementation_hiding:ch05_5_Hide_class_implementations",
+      "source_location": "chars 44039-46039",
+      "properties": {},
+      "confidence": 0.8
+    },
+    {
+      "id": "implementation_hiding:Object Aggregation",
+      "name": "Object Aggregation",
+      "description": "A relationship where one class contains instance variables that reference objects of another class.",
+      "domain": "implementation_hiding",
+      "source_id": "implementation_hiding:ch05_5_Hide_class_implementations",
+      "source_location": "chars 44039-46039",
+      "properties": {},
+      "confidence": 0.8
+    },
+    {
+      "id": "implementation_hiding:Method Chaining Restrictions",
+      "name": "Method Chaining Restrictions",
+      "description": "Limitations on calling methods on objects returned by other method calls to maintain proper coupling.",
+      "domain": "implementation_hiding",
+      "source_id": "implementation_hiding:ch05_5_Hide_class_implementations",
+      "source_location": "chars 44039-46039",
+      "properties": {},
+      "confidence": 0.75
+    },
+    {
+      "id": "implementation_hiding:Law Of Demeter",
+      "name": "Law Of Demeter",
+      "description": "A principle stating that a class should only call methods of objects that are close to it.",
+      "domain": "implementation_hiding",
+      "source_id": "implementation_hiding:ch05_5_Hide_class_implementations",
+      "source_location": "chars 45839-47839",
+      "properties": {},
+      "confidence": 0.95
+    },
+    {
+      "id": "implementation_hiding:Method Chaining",
+      "name": "Method Chaining",
+      "description": "The practice of calling methods on objects returned by other method calls, which can violate the Law of Demeter.",
+      "domain": "implementation_hiding",
+      "source_id": "implementation_hiding:ch05_5_Hide_class_implementations",
+      "source_location": "chars 45839-47839",
+      "properties": {},
+      "confidence": 0.85
+    },
+    {
+      "id": "implementation_hiding:Class Dependencies",
+      "name": "Class Dependencies",
+      "description": "The relationships and connections between classes that should be minimized for better design.",
+      "domain": "implementation_hiding",
+      "source_id": "implementation_hiding:ch05_5_Hide_class_implementations",
+      "source_location": "chars 45839-47839",
+      "properties": {},
+      "confidence": 0.9
+    },
+    {
+      "id": "implementation_hiding:Object Proximity",
+      "name": "Object Proximity",
+      "description": "The concept of how 'close' objects are to each other in terms of direct relationships and access.",
+      "domain": "implementation_hiding",
+      "source_id": "implementation_hiding:ch05_5_Hide_class_implementations",
+      "source_location": "chars 45839-47839",
+      "properties": {},
+      "confidence": 0.8
+    },
+    {
+      "id": "implementation_hiding:Private Instance Variables",
+      "name": "Private Instance Variables",
+      "description": "Class attributes prefixed with underscore to indicate they are part of the hidden implementation.",
+      "domain": "implementation_hiding",
+      "source_id": "implementation_hiding:ch05_5_Hide_class_implementations",
+      "source_location": "chars 45839-47839",
+      "properties": {},
+      "confidence": 0.9
+    },
+    {
+      "id": "implementation_hiding:Immutable Objects",
+      "name": "Immutable Objects",
+      "description": "Objects whose state cannot be changed after creation, often achieved by hiding implementation and avoiding setters.",
+      "domain": "implementation_hiding",
+      "source_id": "implementation_hiding:ch05_5_Hide_class_implementations",
+      "source_location": "chars 45839-47839",
+      "properties": {},
+      "confidence": 0.85
+    },
+    {
+      "id": "implementation_hiding:Property Decorator",
+      "name": "Property Decorator",
+      "description": "Python mechanism to create getter methods that provide controlled access to private attributes.",
+      "domain": "implementation_hiding",
+      "source_id": "implementation_hiding:ch05_5_Hide_class_implementations",
+      "source_location": "chars 45839-47839",
+      "properties": {},
+      "confidence": 0.8
+    },
+    {
+      "id": "implementation_hiding:Implementation Hiding",
+      "name": "Implementation Hiding",
+      "description": "The practice of concealing internal object details from external users while providing controlled access.",
+      "domain": "implementation_hiding",
+      "source_id": "implementation_hiding:ch05_5_Hide_class_implementations",
+      "source_location": "chars 45839-47839",
+      "properties": {},
+      "confidence": 0.9
+    },
+    {
+      "id": "implementation_hiding:Delegation Pattern",
+      "name": "Delegation Pattern",
+      "description": "The design pattern where one object forwards method calls to another object to perform operations.",
+      "domain": "implementation_hiding",
+      "source_id": "implementation_hiding:ch05_5_Hide_class_implementations",
+      "source_location": "chars 45839-47839",
+      "properties": {},
+      "confidence": 0.85
+    },
+    {
+      "id": "implementation_hiding:Setter Methods",
+      "name": "Setter Methods",
+      "description": "Methods that allow modification of object state, whose absence helps maintain immutability.",
+      "domain": "implementation_hiding",
+      "source_id": "implementation_hiding:ch05_5_Hide_class_implementations",
+      "source_location": "chars 45839-47839",
+      "properties": {},
+      "confidence": 0.75
+    },
+    {
+      "id": "implementation_hiding:Private Instance Variables",
+      "name": "Private Instance Variables",
+      "description": "Variables prefixed with underscore that indicate internal implementation details not meant for external access.",
+      "domain": "implementation_hiding",
+      "source_id": "implementation_hiding:ch05_5_Hide_class_implementations",
+      "source_location": "chars 47639-48883",
+      "properties": {},
+      "confidence": 0.95
+    },
+    {
+      "id": "implementation_hiding:Hidden State Implementation",
+      "name": "Hidden State Implementation",
+      "description": "The practice of keeping internal object state concealed from external code through access control mechanisms.",
+      "domain": "implementation_hiding",
+      "source_id": "implementation_hiding:ch05_5_Hide_class_implementations",
+      "source_location": "chars 47639-48883",
+      "properties": {},
+      "confidence": 0.9
+    },
+    {
+      "id": "implementation_hiding:Setter Methods",
+      "name": "Setter Methods",
+      "description": "Methods that provide controlled access to modify private or protected instance variables.",
+      "domain": "implementation_hiding",
+      "source_id": "implementation_hiding:ch05_5_Hide_class_implementations",
+      "source_location": "chars 47639-48883",
+      "properties": {},
+      "confidence": 0.85
+    },
+    {
+      "id": "implementation_hiding:Class Aggregation",
+      "name": "Class Aggregation",
+      "description": "A relationship where one class contains or uses instances of another class as part of its implementation.",
+      "domain": "implementation_hiding",
+      "source_id": "implementation_hiding:ch05_5_Hide_class_implementations",
+      "source_location": "chars 47639-48883",
+      "properties": {},
+      "confidence": 0.8
+    },
+    {
+      "id": "implementation_hiding:Mutable Version",
+      "name": "Mutable Version",
+      "description": "A variant of a class that allows modification of its internal state after instantiation.",
+      "domain": "implementation_hiding",
+      "source_id": "implementation_hiding:ch05_5_Hide_class_implementations",
+      "source_location": "chars 47639-48883",
+      "properties": {},
+      "confidence": 0.75
+    },
+    {
+      "id": "implementation_hiding:Public Julian Setter",
+      "name": "Public Julian Setter",
+      "description": "A publicly accessible method that allows modification of julian date values.",
+      "domain": "implementation_hiding",
+      "source_id": "implementation_hiding:ch05_5_Hide_class_implementations",
+      "source_location": "chars 47639-48883",
+      "properties": {},
+      "confidence": 0.7
+    },
+    {
+      "id": "implementation_hiding:Administrative User Access",
+      "name": "Administrative User Access",
+      "description": "Special privileges granted to admin users to modify data that regular users cannot change.",
+      "domain": "implementation_hiding",
+      "source_id": "implementation_hiding:ch05_5_Hide_class_implementations",
+      "source_location": "chars 47639-48883",
+      "properties": {},
+      "confidence": 0.85
+    },
+    {
+      "id": "implementation_hiding:Access Control Differentiation",
+      "name": "Access Control Differentiation",
+      "description": "The ability to provide different levels of data modification rights based on user roles or context.",
+      "domain": "implementation_hiding",
+      "source_id": "implementation_hiding:ch05_5_Hide_class_implementations",
+      "source_location": "chars 47639-48883",
+      "properties": {},
+      "confidence": 0.8
+    },
+    {
+      "id": "implementation_hiding:Property Decorator",
+      "name": "Property Decorator",
+      "description": "Python mechanism using @property to create getter methods for controlled attribute access.",
+      "domain": "implementation_hiding",
+      "source_id": "implementation_hiding:ch05_5_Hide_class_implementations",
+      "source_location": "chars 47639-48883",
+      "properties": {},
+      "confidence": 0.75
+    },
+    {
+      "id": "implementation_hiding:Law Of Demeter",
+      "name": "Law Of Demeter",
+      "description": "A design principle that limits object interactions to immediate neighbors to reduce coupling.",
+      "domain": "implementation_hiding",
+      "source_id": "implementation_hiding:ch05_5_Hide_class_implementations",
+      "source_location": "chars 47639-48883",
+      "properties": {},
+      "confidence": 0.9
+    },
+    {
+      "id": "implementation_hiding:Method Chaining Violation",
+      "name": "Method Chaining Violation",
+      "description": "Breaking encapsulation by accessing objects through chains of method calls or attribute access.",
+      "domain": "implementation_hiding",
+      "source_id": "implementation_hiding:ch05_5_Hide_class_implementations",
+      "source_location": "chars 47639-48883",
+      "properties": {},
+      "confidence": 0.85
+    },
+    {
+      "id": "implementation_hiding:Instance Variable Access Rules",
+      "name": "Instance Variable Access Rules",
+      "description": "Guidelines that define how objects should interact with instance variables of other objects.",
+      "domain": "implementation_hiding",
+      "source_id": "implementation_hiding:ch05_5_Hide_class_implementations",
+      "source_location": "chars 47639-48883",
+      "properties": {},
+      "confidence": 0.8
+    },
+    {
+      "id": "implementation_hiding:Property Decorator",
+      "name": "Property Decorator",
+      "description": "A Python decorator that creates getter methods for accessing private attributes.",
+      "domain": "implementation_hiding",
+      "source_id": "implementation_hiding:ch05_5_Hide_class_implementations",
+      "source_location": "chars 48683-50413",
+      "properties": {},
+      "confidence": 0.9
+    },
+    {
+      "id": "implementation_hiding:Private Attributes",
+      "name": "Private Attributes",
+      "description": "Class attributes prefixed with underscore to indicate internal implementation details.",
+      "domain": "implementation_hiding",
+      "source_id": "implementation_hiding:ch05_5_Hide_class_implementations",
+      "source_location": "chars 48683-50413",
+      "properties": {},
+      "confidence": 0.95
+    },
+    {
+      "id": "implementation_hiding:Immutable Object",
+      "name": "Immutable Object",
+      "description": "An object whose state cannot be modified after creation.",
+      "domain": "implementation_hiding",
+      "source_id": "implementation_hiding:ch05_5_Hide_class_implementations",
+      "source_location": "chars 48683-50413",
+      "properties": {},
+      "confidence": 0.9
+    },
+    {
+      "id": "implementation_hiding:Setter Methods",
+      "name": "Setter Methods",
+      "description": "Methods that allow modification of object attributes or state.",
+      "domain": "implementation_hiding",
+      "source_id": "implementation_hiding:ch05_5_Hide_class_implementations",
+      "source_location": "chars 48683-50413",
+      "properties": {},
+      "confidence": 0.8
+    },
+    {
+      "id": "implementation_hiding:Object Reference Sharing",
+      "name": "Object Reference Sharing",
+      "description": "Multiple variables or objects holding references to the same mutable object.",
+      "domain": "implementation_hiding",
+      "source_id": "implementation_hiding:ch05_5_Hide_class_implementations",
+      "source_location": "chars 48683-50413",
+      "properties": {},
+      "confidence": 0.85
+    },
+    {
+      "id": "implementation_hiding:Design Failure",
+      "name": "Design Failure",
+      "description": "Flawed implementation that violates intended design principles or constraints.",
+      "domain": "implementation_hiding",
+      "source_id": "implementation_hiding:ch05_5_Hide_class_implementations",
+      "source_location": "chars 48683-50413",
+      "properties": {},
+      "confidence": 0.8
+    },
+    {
+      "id": "implementation_hiding:Mutable Object Exposure",
+      "name": "Mutable Object Exposure",
+      "description": "Allowing external access to internal mutable objects that can compromise encapsulation.",
+      "domain": "implementation_hiding",
+      "source_id": "implementation_hiding:ch05_5_Hide_class_implementations",
+      "source_location": "chars 48683-50413",
+      "properties": {},
+      "confidence": 0.9
+    },
+    {
+      "id": "implementation_hiding:Employee Class",
+      "name": "Employee Class",
+      "description": "A class representing employee data with ID, name, and birthdate properties.",
+      "domain": "implementation_hiding",
+      "source_id": "implementation_hiding:ch05_5_Hide_class_implementations",
+      "source_location": "chars 48683-50413",
+      "properties": {},
+      "confidence": 0.7
+    },
+    {
+      "id": "implementation_hiding:Date Class",
+      "name": "Date Class",
+      "description": "A class representing date objects with julian day modification capability.",
+      "domain": "implementation_hiding",
+      "source_id": "implementation_hiding:ch05_5_Hide_class_implementations",
+      "source_location": "chars 48683-50413",
+      "properties": {},
+      "confidence": 0.75
+    },
+    {
+      "id": "implementation_hiding:String Representation",
+      "name": "String Representation",
+      "description": "The __str__ method that defines how an object is displayed as a string.",
+      "domain": "implementation_hiding",
+      "source_id": "implementation_hiding:ch05_5_Hide_class_implementations",
+      "source_location": "chars 48683-50413",
+      "properties": {},
+      "confidence": 0.7
+    },
+    {
+      "id": "implementation_hiding:Immutable Objects",
+      "name": "Immutable Objects",
+      "description": "Objects whose state cannot be changed after creation, providing data integrity and thread safety.",
+      "domain": "implementation_hiding",
+      "source_id": "implementation_hiding:ch05_5_Hide_class_implementations",
+      "source_location": "chars 50213-52213",
+      "properties": {},
+      "confidence": 0.95
+    },
+    {
+      "id": "implementation_hiding:Implementation Hiding",
+      "name": "Implementation Hiding",
+      "description": "The practice of concealing internal implementation details from external access to maintain encapsulation.",
+      "domain": "implementation_hiding",
+      "source_id": "implementation_hiding:ch05_5_Hide_class_implementations",
+      "source_location": "chars 50213-52213",
+      "properties": {},
+      "confidence": 0.9
+    },
+    {
+      "id": "implementation_hiding:Reference Leakage",
+      "name": "Reference Leakage",
+      "description": "A design flaw where internal object references are exposed, allowing unintended modification of supposedly protected data.",
+      "domain": "implementation_hiding",
+      "source_id": "implementation_hiding:ch05_5_Hide_class_implementations",
+      "source_location": "chars 50213-52213",
+      "properties": {},
+      "confidence": 0.85
+    },
+    {
+      "id": "implementation_hiding:Getter Methods",
+      "name": "Getter Methods",
+      "description": "Methods that provide controlled access to private object attributes, often implemented as properties.",
+      "domain": "implementation_hiding",
+      "source_id": "implementation_hiding:ch05_5_Hide_class_implementations",
+      "source_location": "chars 50213-52213",
+      "properties": {},
+      "confidence": 0.8
+    },
+    {
+      "id": "implementation_hiding:Defensive Copying",
+      "name": "Defensive Copying",
+      "description": "The practice of creating copies of objects to prevent external modification of internal state through shared references.",
+      "domain": "implementation_hiding",
+      "source_id": "implementation_hiding:ch05_5_Hide_class_implementations",
+      "source_location": "chars 50213-52213",
+      "properties": {},
+      "confidence": 0.9
+    },
+    {
+      "id": "implementation_hiding:Object State Modification",
+      "name": "Object State Modification",
+      "description": "The ability to change an object's internal data, which can compromise immutability if not properly controlled.",
+      "domain": "implementation_hiding",
+      "source_id": "implementation_hiding:ch05_5_Hide_class_implementations",
+      "source_location": "chars 50213-52213",
+      "properties": {},
+      "confidence": 0.8
+    },
+    {
+      "id": "implementation_hiding:Property Decorators",
+      "name": "Property Decorators",
+      "description": "Python language feature that allows methods to be accessed like attributes while maintaining encapsulation.",
+      "domain": "implementation_hiding",
+      "source_id": "implementation_hiding:ch05_5_Hide_class_implementations",
+      "source_location": "chars 50213-52213",
+      "properties": {},
+      "confidence": 0.75
+    },
+    {
+      "id": "implementation_hiding:Design Fault",
+      "name": "Design Fault",
+      "description": "A subtle error in class design that can lead to unintended behavior or security vulnerabilities.",
+      "domain": "implementation_hiding",
+      "source_id": "implementation_hiding:ch05_5_Hide_class_implementations",
+      "source_location": "chars 50213-52213",
+      "properties": {},
+      "confidence": 0.85
+    },
+    {
+      "id": "implementation_hiding:Embedded Objects",
+      "name": "Embedded Objects",
+      "description": "Objects that are contained within other objects as instance variables or attributes.",
+      "domain": "implementation_hiding",
+      "source_id": "implementation_hiding:ch05_5_Hide_class_implementations",
+      "source_location": "chars 50213-52213",
+      "properties": {},
+      "confidence": 0.8
+    },
+    {
+      "id": "implementation_hiding:Runtime Modification",
+      "name": "Runtime Modification",
+      "description": "The ability to change object state during program execution, which can break immutability guarantees.",
+      "domain": "implementation_hiding",
+      "source_id": "implementation_hiding:ch05_5_Hide_class_implementations",
+      "source_location": "chars 50213-52213",
+      "properties": {},
+      "confidence": 0.85
+    },
+    {
+      "id": "implementation_hiding:String Formatting",
+      "name": "String Formatting",
+      "description": "A technique for creating formatted string output using placeholders and variable interpolation.",
+      "domain": "implementation_hiding",
+      "source_id": "implementation_hiding:ch05_5_Hide_class_implementations",
+      "source_location": "chars 52013-53984",
+      "properties": {},
+      "confidence": 0.9
+    },
+    {
+      "id": "implementation_hiding:Private Attributes",
+      "name": "Private Attributes",
+      "description": "Class attributes that are intended for internal use only, typically prefixed with underscores in Python.",
+      "domain": "implementation_hiding",
+      "source_id": "implementation_hiding:ch05_5_Hide_class_implementations",
+      "source_location": "chars 52013-53984",
+      "properties": {},
+      "confidence": 0.95
+    },
+    {
+      "id": "implementation_hiding:Defensive Copying",
+      "name": "Defensive Copying",
+      "description": "A technique that stores and returns copies of mutable objects to prevent external modification of internal state.",
+      "domain": "implementation_hiding",
+      "source_id": "implementation_hiding:ch05_5_Hide_class_implementations",
+      "source_location": "chars 52013-53984",
+      "properties": {},
+      "confidence": 0.9
+    },
+    {
+      "id": "implementation_hiding:Open-Closed Principle",
+      "name": "Open-Closed Principle",
+      "description": "A design principle stating that classes should be closed for modification but open for extension through subclassing.",
+      "domain": "implementation_hiding",
+      "source_id": "implementation_hiding:ch05_5_Hide_class_implementations",
+      "source_location": "chars 52013-53984",
+      "properties": {},
+      "confidence": 0.95
+    },
+    {
+      "id": "implementation_hiding:Code Stability",
+      "name": "Code Stability",
+      "description": "The quality of code that remains unchanged and reliable over time, supported by proper design principles.",
+      "domain": "implementation_hiding",
+      "source_id": "implementation_hiding:ch05_5_Hide_class_implementations",
+      "source_location": "chars 52013-53984",
+      "properties": {},
+      "confidence": 0.85
+    },
+    {
+      "id": "implementation_hiding:Class Inheritance",
+      "name": "Class Inheritance",
+      "description": "A mechanism where classes can extend other classes to inherit their attributes and behaviors.",
+      "domain": "implementation_hiding",
+      "source_id": "implementation_hiding:ch05_5_Hide_class_implementations",
+      "source_location": "chars 52013-53984",
+      "properties": {},
+      "confidence": 0.9
+    },
+    {
+      "id": "implementation_hiding:Superclass Design",
+      "name": "Superclass Design",
+      "description": "The practice of designing base classes that capture common attributes and behaviors for a set of related objects.",
+      "domain": "implementation_hiding",
+      "source_id": "implementation_hiding:ch05_5_Hide_class_implementations",
+      "source_location": "chars 52013-53984",
+      "properties": {},
+      "confidence": 0.85
+    },
+    {
+      "id": "implementation_hiding:Subclass Extension",
+      "name": "Subclass Extension",
+      "description": "The process of creating specialized classes that inherit from and extend the functionality of a base class.",
+      "domain": "implementation_hiding",
+      "source_id": "implementation_hiding:ch05_5_Hide_class_implementations",
+      "source_location": "chars 52013-53984",
+      "properties": {},
+      "confidence": 0.8
+    },
+    {
+      "id": "implementation_hiding:Static Methods",
+      "name": "Static Methods",
+      "description": "Class methods that belong to the class rather than instances and can be called without creating an object.",
+      "domain": "implementation_hiding",
+      "source_id": "implementation_hiding:ch05_5_Hide_class_implementations",
+      "source_location": "chars 52013-53984",
+      "properties": {},
+      "confidence": 0.75
+    },
+    {
+      "id": "implementation_hiding:Encapsulation Pattern",
+      "name": "Encapsulation Pattern",
+      "description": "A design pattern that bundles data and methods together while hiding internal implementation details from external access.",
+      "domain": "implementation_hiding",
+      "source_id": "implementation_hiding:ch05_5_Hide_class_implementations",
+      "source_location": "chars 52013-53984",
+      "properties": {},
+      "confidence": 0.9
+    },
+    {
+      "id": "implementation_hiding:Open-Closed Principle",
+      "name": "Open-Closed Principle",
+      "description": "A design principle that allows classes to be closed for modification but open for extension through inheritance.",
+      "domain": "implementation_hiding",
+      "source_id": "implementation_hiding:ch05_5_Hide_class_implementations",
+      "source_location": "chars 53784-55784",
+      "properties": {},
+      "confidence": 0.95
+    },
+    {
+      "id": "implementation_hiding:Private Methods",
+      "name": "Private Methods",
+      "description": "Methods that are not accessible from outside the class, indicated by underlined names in UML diagrams.",
+      "domain": "implementation_hiding",
+      "source_id": "implementation_hiding:ch05_5_Hide_class_implementations",
+      "source_location": "chars 53784-55784",
+      "properties": {},
+      "confidence": 0.9
+    },
+    {
+      "id": "implementation_hiding:Static Methods",
+      "name": "Static Methods",
+      "description": "Methods that belong to the class rather than instances, indicated by underlining in class diagrams.",
+      "domain": "implementation_hiding",
+      "source_id": "implementation_hiding:ch05_5_Hide_class_implementations",
+      "source_location": "chars 53784-55784",
+      "properties": {},
+      "confidence": 0.85
+    },
+    {
+      "id": "implementation_hiding:Implementation Hiding",
+      "name": "Implementation Hiding",
+      "description": "The practice of concealing internal implementation details from external code through encapsulation.",
+      "domain": "implementation_hiding",
+      "source_id": "implementation_hiding:ch05_5_Hide_class_implementations",
+      "source_location": "chars 53784-55784",
+      "properties": {},
+      "confidence": 0.95
+    },
+    {
+      "id": "implementation_hiding:Inheritance",
+      "name": "Inheritance",
+      "description": "A mechanism where subclasses extend superclasses to inherit common attributes and behaviors.",
+      "domain": "implementation_hiding",
+      "source_id": "implementation_hiding:ch05_5_Hide_class_implementations",
+      "source_location": "chars 53784-55784",
+      "properties": {},
+      "confidence": 0.9
+    },
+    {
+      "id": "implementation_hiding:Private Instance Variables",
+      "name": "Private Instance Variables",
+      "description": "Class attributes that are hidden from external access, typically prefixed with underscores in Python.",
+      "domain": "implementation_hiding",
+      "source_id": "implementation_hiding:ch05_5_Hide_class_implementations",
+      "source_location": "chars 53784-55784",
+      "properties": {},
+      "confidence": 0.9
+    },
+    {
+      "id": "implementation_hiding:Abstract Methods",
+      "name": "Abstract Methods",
+      "description": "Methods declared without implementation that must be overridden by subclasses.",
+      "domain": "implementation_hiding",
+      "source_id": "implementation_hiding:ch05_5_Hide_class_implementations",
+      "source_location": "chars 53784-55784",
+      "properties": {},
+      "confidence": 0.85
+    },
+    {
+      "id": "implementation_hiding:Property Decorators",
+      "name": "Property Decorators",
+      "description": "Python decorators that allow methods to be accessed like attributes while maintaining encapsulation.",
+      "domain": "implementation_hiding",
+      "source_id": "implementation_hiding:ch05_5_Hide_class_implementations",
+      "source_location": "chars 53784-55784",
+      "properties": {},
+      "confidence": 0.8
+    },
+    {
+      "id": "implementation_hiding:Superclass",
+      "name": "Superclass",
+      "description": "The parent class that provides common attributes and behaviors to its subclasses.",
+      "domain": "implementation_hiding",
+      "source_id": "implementation_hiding:ch05_5_Hide_class_implementations",
+      "source_location": "chars 53784-55784",
+      "properties": {},
+      "confidence": 0.85
+    },
+    {
+      "id": "implementation_hiding:Subclass Extension",
+      "name": "Subclass Extension",
+      "description": "The process of creating specialized classes that inherit from and add to a base class.",
+      "domain": "implementation_hiding",
+      "source_id": "implementation_hiding:ch05_5_Hide_class_implementations",
+      "source_location": "chars 53784-55784",
+      "properties": {},
+      "confidence": 0.85
+    },
+    {
+      "id": "implementation_hiding:Code Stability",
+      "name": "Code Stability",
+      "description": "The ability to maintain existing code without modification while allowing new functionality through extension.",
+      "domain": "implementation_hiding",
+      "source_id": "implementation_hiding:ch05_5_Hide_class_implementations",
+      "source_location": "chars 53784-55784",
+      "properties": {},
+      "confidence": 0.8
+    },
+    {
+      "id": "implementation_hiding:Abstract Method",
+      "name": "Abstract Method",
+      "description": "A method declared in a superclass that must be implemented by subclasses.",
+      "domain": "implementation_hiding",
+      "source_id": "implementation_hiding:ch05_5_Hide_class_implementations",
+      "source_location": "chars 55584-57584",
+      "properties": {},
+      "confidence": 0.95
+    },
+    {
+      "id": "implementation_hiding:Private Instance Variable",
+      "name": "Private Instance Variable",
+      "description": "A class attribute prefixed with underscore to indicate internal implementation details.",
+      "domain": "implementation_hiding",
+      "source_id": "implementation_hiding:ch05_5_Hide_class_implementations",
+      "source_location": "chars 55584-57584",
+      "properties": {},
+      "confidence": 0.9
+    },
+    {
+      "id": "implementation_hiding:Inheritance Hierarchy",
+      "name": "Inheritance Hierarchy",
+      "description": "A parent-child relationship structure where subclasses extend a superclass.",
+      "domain": "implementation_hiding",
+      "source_id": "implementation_hiding:ch05_5_Hide_class_implementations",
+      "source_location": "chars 55584-57584",
+      "properties": {},
+      "confidence": 0.85
+    },
+    {
+      "id": "implementation_hiding:Method Overriding",
+      "name": "Method Overriding",
+      "description": "A subclass providing a specific implementation of a method defined in its superclass.",
+      "domain": "implementation_hiding",
+      "source_id": "implementation_hiding:ch05_5_Hide_class_implementations",
+      "source_location": "chars 55584-57584",
+      "properties": {},
+      "confidence": 0.9
+    },
+    {
+      "id": "implementation_hiding:Constructor Chaining",
+      "name": "Constructor Chaining",
+      "description": "A subclass constructor calling the superclass constructor using super().",
+      "domain": "implementation_hiding",
+      "source_id": "implementation_hiding:ch05_5_Hide_class_implementations",
+      "source_location": "chars 55584-57584",
+      "properties": {},
+      "confidence": 0.85
+    },
+    {
+      "id": "implementation_hiding:Encapsulation",
+      "name": "Encapsulation",
+      "description": "The practice of keeping internal state and implementation details hidden from external access.",
+      "domain": "implementation_hiding",
+      "source_id": "implementation_hiding:ch05_5_Hide_class_implementations",
+      "source_location": "chars 55584-57584",
+      "properties": {},
+      "confidence": 0.95
+    },
+    {
+      "id": "implementation_hiding:Protected Method",
+      "name": "Protected Method",
+      "description": "A method prefixed with underscore to indicate it's intended for internal class use.",
+      "domain": "implementation_hiding",
+      "source_id": "implementation_hiding:ch05_5_Hide_class_implementations",
+      "source_location": "chars 55584-57584",
+      "properties": {},
+      "confidence": 0.9
+    },
+    {
+      "id": "implementation_hiding:Polymorphism",
+      "name": "Polymorphism",
+      "description": "The ability for different subclasses to implement the same interface in different ways.",
+      "domain": "implementation_hiding",
+      "source_id": "implementation_hiding:ch05_5_Hide_class_implementations",
+      "source_location": "chars 55584-57584",
+      "properties": {},
+      "confidence": 0.8
+    },
+    {
+      "id": "implementation_hiding:Template Method Pattern",
+      "name": "Template Method Pattern",
+      "description": "A design pattern where a superclass defines common behavior while subclasses implement specific steps.",
+      "domain": "implementation_hiding",
+      "source_id": "implementation_hiding:ch05_5_Hide_class_implementations",
+      "source_location": "chars 55584-57584",
+      "properties": {},
+      "confidence": 0.75
+    },
+    {
+      "id": "implementation_hiding:State Hiding",
+      "name": "State Hiding",
+      "description": "The practice of keeping object state variables private to prevent external modification.",
+      "domain": "implementation_hiding",
+      "source_id": "implementation_hiding:ch05_5_Hide_class_implementations",
+      "source_location": "chars 55584-57584",
+      "properties": {},
+      "confidence": 0.9
+    },
+    {
+      "id": "implementation_hiding:Open Closed Principle",
+      "name": "Open Closed Principle",
+      "description": "Software entities should be open for extension but closed for modification.",
+      "domain": "implementation_hiding",
+      "source_id": "implementation_hiding:ch05_5_Hide_class_implementations",
+      "source_location": "chars 55584-57584",
+      "properties": {},
+      "confidence": 0.8
+    },
+    {
+      "id": "implementation_hiding:Abstract Methods",
+      "name": "Abstract Methods",
+      "description": "Methods declared in a superclass that must be implemented by subclasses.",
+      "domain": "implementation_hiding",
+      "source_id": "implementation_hiding:ch05_5_Hide_class_implementations",
+      "source_location": "chars 57384-58466",
+      "properties": {},
+      "confidence": 0.95
+    },
+    {
+      "id": "implementation_hiding:Subclass Implementation",
+      "name": "Subclass Implementation",
+      "description": "The process of providing concrete implementations for abstract methods in derived classes.",
+      "domain": "implementation_hiding",
+      "source_id": "implementation_hiding:ch05_5_Hide_class_implementations",
+      "source_location": "chars 57384-58466",
+      "properties": {},
+      "confidence": 0.92
+    },
+    {
+      "id": "implementation_hiding:Hidden State Implementation",
+      "name": "Hidden State Implementation",
+      "description": "Private instance variables that encapsulate internal data and are not directly accessible from outside the class.",
+      "domain": "implementation_hiding",
+      "source_id": "implementation_hiding:ch05_5_Hide_class_implementations",
+      "source_location": "chars 57384-58466",
+      "properties": {},
+      "confidence": 0.88
+    },
+    {
+      "id": "implementation_hiding:Hidden Behavior Implementation",
+      "name": "Hidden Behavior Implementation",
+      "description": "Private methods that encapsulate internal functionality and are not exposed to external classes.",
+      "domain": "implementation_hiding",
+      "source_id": "implementation_hiding:ch05_5_Hide_class_implementations",
+      "source_location": "chars 57384-58466",
+      "properties": {},
+      "confidence": 0.87
+    },
+    {
+      "id": "implementation_hiding:Superclass Initialization",
+      "name": "Superclass Initialization",
+      "description": "The process of invoking the parent class constructor to initialize inherited state.",
+      "domain": "implementation_hiding",
+      "source_id": "implementation_hiding:ch05_5_Hide_class_implementations",
+      "source_location": "chars 57384-58466",
+      "properties": {},
+      "confidence": 0.83
+    },
+    {
+      "id": "implementation_hiding:Extended State",
+      "name": "Extended State",
+      "description": "Additional instance variables that subclasses add beyond what is inherited from the superclass.",
+      "domain": "implementation_hiding",
+      "source_id": "implementation_hiding:ch05_5_Hide_class_implementations",
+      "source_location": "chars 57384-58466",
+      "properties": {},
+      "confidence": 0.8
+    },
+    {
+      "id": "implementation_hiding:Extended Behavior",
+      "name": "Extended Behavior",
+      "description": "Additional methods that subclasses implement beyond what is inherited from the superclass.",
+      "domain": "implementation_hiding",
+      "source_id": "implementation_hiding:ch05_5_Hide_class_implementations",
+      "source_location": "chars 57384-58466",
+      "properties": {},
+      "confidence": 0.79
+    },
+    {
+      "id": "implementation_hiding:Common State Hiding",
+      "name": "Common State Hiding",
+      "description": "The encapsulation of shared attributes in the superclass that are hidden from external access.",
+      "domain": "implementation_hiding",
+      "source_id": "implementation_hiding:ch05_5_Hide_class_implementations",
+      "source_location": "chars 57384-58466",
+      "properties": {},
+      "confidence": 0.75
+    },
+    {
+      "id": "implementation_hiding:Common Behavior Hiding",
+      "name": "Common Behavior Hiding",
+      "description": "The encapsulation of shared methods in the superclass that are hidden from external access.",
+      "domain": "implementation_hiding",
+      "source_id": "implementation_hiding:ch05_5_Hide_class_implementations",
+      "source_location": "chars 57384-58466",
+      "properties": {},
+      "confidence": 0.74
+    },
+    {
+      "id": "implementation_hiding:Polymorphic Interface",
+      "name": "Polymorphic Interface",
+      "description": "Public methods that provide a consistent interface across different subclass implementations.",
+      "domain": "implementation_hiding",
+      "source_id": "implementation_hiding:ch05_5_Hide_class_implementations",
+      "source_location": "chars 57384-58466",
+      "properties": {},
+      "confidence": 0.72
+    },
+    {
+      "id": "implementation_hiding:Abstract Method Implementation",
+      "name": "Abstract Method Implementation",
+      "description": "The concrete implementation of abstract methods defined in a superclass by subclasses.",
+      "domain": "implementation_hiding",
+      "source_id": "implementation_hiding:ch05_5_Hide_class_implementations",
+      "source_location": "chars 58266-59945",
+      "properties": {},
+      "confidence": 0.9
+    },
+    {
+      "id": "implementation_hiding:Subclass Extension",
+      "name": "Subclass Extension",
+      "description": "The ability of subclasses to extend and customize behavior inherited from a superclass.",
+      "domain": "implementation_hiding",
+      "source_id": "implementation_hiding:ch05_5_Hide_class_implementations",
+      "source_location": "chars 58266-59945",
+      "properties": {},
+      "confidence": 0.85
+    },
+    {
+      "id": "implementation_hiding:Implementation Hiding",
+      "name": "Implementation Hiding",
+      "description": "The practice of concealing internal implementation details from external code.",
+      "domain": "implementation_hiding",
+      "source_id": "implementation_hiding:ch05_5_Hide_class_implementations",
+      "source_location": "chars 58266-59945",
+      "properties": {},
+      "confidence": 0.95
+    },
+    {
+      "id": "implementation_hiding:Private Naming Convention",
+      "name": "Private Naming Convention",
+      "description": "Python convention using underscore prefix to indicate private variables and methods.",
+      "domain": "implementation_hiding",
+      "source_id": "implementation_hiding:ch05_5_Hide_class_implementations",
+      "source_location": "chars 58266-59945",
+      "properties": {},
+      "confidence": 0.9
+    },
+    {
+      "id": "implementation_hiding:Encapsulation",
+      "name": "Encapsulation",
+      "description": "Object-oriented principle of bundling data and methods while hiding internal state.",
+      "domain": "implementation_hiding",
+      "source_id": "implementation_hiding:ch05_5_Hide_class_implementations",
+      "source_location": "chars 58266-59945",
+      "properties": {},
+      "confidence": 0.9
+    },
+    {
+      "id": "implementation_hiding:Code Stability",
+      "name": "Code Stability",
+      "description": "The quality of code that remains unchanged and reliable by locking core implementations.",
+      "domain": "implementation_hiding",
+      "source_id": "implementation_hiding:ch05_5_Hide_class_implementations",
+      "source_location": "chars 58266-59945",
+      "properties": {},
+      "confidence": 0.8
+    },
+    {
+      "id": "implementation_hiding:Dependency Minimization",
+      "name": "Dependency Minimization",
+      "description": "Reducing external reliance on a class's internal implementation details.",
+      "domain": "implementation_hiding",
+      "source_id": "implementation_hiding:ch05_5_Hide_class_implementations",
+      "source_location": "chars 58266-59945",
+      "properties": {},
+      "confidence": 0.85
+    },
+    {
+      "id": "implementation_hiding:Polymorphic Behavior",
+      "name": "Polymorphic Behavior",
+      "description": "Different classes implementing the same interface with class-specific behavior.",
+      "domain": "implementation_hiding",
+      "source_id": "implementation_hiding:ch05_5_Hide_class_implementations",
+      "source_location": "chars 58266-59945",
+      "properties": {},
+      "confidence": 0.8
+    },
+    {
+      "id": "implementation_hiding:Superclass Core Implementation",
+      "name": "Superclass Core Implementation",
+      "description": "Common functionality implemented in a parent class that is shared by subclasses.",
+      "domain": "implementation_hiding",
+      "source_id": "implementation_hiding:ch05_5_Hide_class_implementations",
+      "source_location": "chars 58266-59945",
+      "properties": {},
+      "confidence": 0.85
+    },
+    {
+      "id": "implementation_hiding:Implementation Refactoring",
+      "name": "Implementation Refactoring",
+      "description": "The ability to improve internal implementation without affecting external code.",
+      "domain": "implementation_hiding",
+      "source_id": "implementation_hiding:ch05_5_Hide_class_implementations",
+      "source_location": "chars 58266-59945",
+      "properties": {},
+      "confidence": 0.9
+    },
+    {
+      "id": "implementation_hiding:Implementation Encapsulation",
+      "name": "Implementation Encapsulation",
+      "description": "The practice of hiding class implementation details so that refactoring can occur without affecting client code.",
+      "domain": "implementation_hiding",
+      "source_id": "implementation_hiding:ch05_5_Hide_class_implementations",
+      "source_location": "chars 59745-61745",
+      "properties": {},
+      "confidence": 0.95
+    },
+    {
+      "id": "implementation_hiding:Property Access Control",
+      "name": "Property Access Control",
+      "description": "Using properties to provide controlled access to hidden object state without revealing implementation details.",
+      "domain": "implementation_hiding",
+      "source_id": "implementation_hiding:ch05_5_Hide_class_implementations",
+      "source_location": "chars 59745-61745",
+      "properties": {},
+      "confidence": 0.9
+    },
+    {
+      "id": "implementation_hiding:Property Setter Validation",
+      "name": "Property Setter Validation",
+      "description": "The requirement that property setters must never allow an object to be put into an invalid state.",
+      "domain": "implementation_hiding",
+      "source_id": "implementation_hiding:ch05_5_Hide_class_implementations",
+      "source_location": "chars 59745-61745",
+      "properties": {},
+      "confidence": 0.85
+    },
+    {
+      "id": "implementation_hiding:Immutable Class",
+      "name": "Immutable Class",
+      "description": "A class that creates objects which cannot be modified after construction.",
+      "domain": "implementation_hiding",
+      "source_id": "implementation_hiding:ch05_5_Hide_class_implementations",
+      "source_location": "chars 59745-61745",
+      "properties": {},
+      "confidence": 0.9
+    },
+    {
+      "id": "implementation_hiding:Reference Exposure Prevention",
+      "name": "Reference Exposure Prevention",
+      "description": "The practice of not providing references to hidden state implementation to maintain immutability.",
+      "domain": "implementation_hiding",
+      "source_id": "implementation_hiding:ch05_5_Hide_class_implementations",
+      "source_location": "chars 59745-61745",
+      "properties": {},
+      "confidence": 0.8
+    },
+    {
+      "id": "implementation_hiding:Lazy Evaluation Principle",
+      "name": "Lazy Evaluation Principle",
+      "description": "A performance optimization principle that delays expensive calculations until their results are actually needed.",
+      "domain": "implementation_hiding",
+      "source_id": "implementation_hiding:ch05_5_Hide_class_implementations",
+      "source_location": "chars 59745-61745",
+      "properties": {},
+      "confidence": 0.85
+    },
+    {
+      "id": "implementation_hiding:Law of Demeter",
+      "name": "Law of Demeter",
+      "description": "A design principle that prescribes rules to minimize problematic dependencies between classes by restricting method calls.",
+      "domain": "implementation_hiding",
+      "source_id": "implementation_hiding:ch05_5_Hide_class_implementations",
+      "source_location": "chars 59745-61745",
+      "properties": {},
+      "confidence": 0.9
+    },
+    {
+      "id": "implementation_hiding:Open-Closed Principle",
+      "name": "Open-Closed Principle",
+      "description": "A design principle stating that classes should be closed for modification but open for extension through inheritance.",
+      "domain": "implementation_hiding",
+      "source_id": "implementation_hiding:ch05_5_Hide_class_implementations",
+      "source_location": "chars 59745-61745",
+      "properties": {},
+      "confidence": 0.9
+    },
+    {
+      "id": "implementation_hiding:State Encapsulation",
+      "name": "State Encapsulation",
+      "description": "The hiding of object internal state from external access while providing controlled interfaces.",
+      "domain": "implementation_hiding",
+      "source_id": "implementation_hiding:ch05_5_Hide_class_implementations",
+      "source_location": "chars 59745-61745",
+      "properties": {},
+      "confidence": 0.85
+    },
+    {
+      "id": "implementation_hiding:Code Stability",
+      "name": "Code Stability",
+      "description": "The quality of code that remains unchanged when implementation details are modified or extended.",
+      "domain": "implementation_hiding",
+      "source_id": "implementation_hiding:ch05_5_Hide_class_implementations",
+      "source_location": "chars 59745-61745",
+      "properties": {},
+      "confidence": 0.8
+    },
+    {
+      "id": "implementation_hiding:Method Call Restrictions",
+      "name": "Method Call Restrictions",
+      "description": "Rules governing which objects a method can call methods on based on relationship types like aggregation or parameter passing.",
+      "domain": "implementation_hiding",
+      "source_id": "implementation_hiding:ch05_5_Hide_class_implementations",
+      "source_location": "chars 59745-61745",
+      "properties": {},
+      "confidence": 0.75
+    },
+    {
+      "id": "implementation_hiding:Inheritance Encapsulation",
+      "name": "Inheritance Encapsulation",
+      "description": "The use of superclasses to hide and encapsulate common implementation details shared by subclasses.",
+      "domain": "implementation_hiding",
+      "source_id": "implementation_hiding:ch05_5_Hide_class_implementations",
+      "source_location": "chars 59745-61745",
+      "properties": {},
+      "confidence": 0.8
+    },
+    {
+      "id": "implementation_hiding:State Inheritance",
+      "name": "State Inheritance",
+      "description": "The mechanism by which subclasses inherit state attributes from their parent classes.",
+      "domain": "implementation_hiding",
+      "source_id": "implementation_hiding:ch05_5_Hide_class_implementations",
+      "source_location": "chars 61545-63545",
+      "properties": {},
+      "confidence": 0.9
+    },
+    {
+      "id": "implementation_hiding:Behavior Inheritance",
+      "name": "Behavior Inheritance",
+      "description": "The process of subclasses inheriting methods and behavioral characteristics from their parent classes.",
+      "domain": "implementation_hiding",
+      "source_id": "implementation_hiding:ch05_5_Hide_class_implementations",
+      "source_location": "chars 61545-63545",
+      "properties": {},
+      "confidence": 0.9
+    },
+    {
+      "id": "implementation_hiding:Subclass",
+      "name": "Subclass",
+      "description": "A class that inherits properties and methods from a parent or superclass.",
+      "domain": "implementation_hiding",
+      "source_id": "implementation_hiding:ch05_5_Hide_class_implementations",
+      "source_location": "chars 61545-63545",
+      "properties": {},
+      "confidence": 0.8
+    },
+    {
+      "id": "implementation_hiding:Code Stability",
+      "name": "Code Stability",
+      "description": "The principle that software code remains reliable and consistent over time through proper design patterns.",
+      "domain": "implementation_hiding",
+      "source_id": "implementation_hiding:ch05_5_Hide_class_implementations",
+      "source_location": "chars 61545-63545",
+      "properties": {},
+      "confidence": 0.85
+    },
+    {
+      "id": "implementation_hiding:Inheritance Principle",
+      "name": "Inheritance Principle",
+      "description": "A fundamental object-oriented programming concept that allows classes to inherit characteristics from other classes.",
+      "domain": "implementation_hiding",
+      "source_id": "implementation_hiding:ch05_5_Hide_class_implementations",
+      "source_location": "chars 61545-63545",
+      "properties": {},
+      "confidence": 0.9
+    }
+  ],
+  "edges": [
+    {
+      "source_id": "implementation_hiding:Implementation Hiding",
+      "target_id": "implementation_hiding:Encapsulation",
+      "relation_type": "part_of",
+      "properties": {},
+      "confidence": 0.9,
+      "bidirectional": false
+    },
+    {
+      "source_id": "implementation_hiding:Implementation Hiding",
+      "target_id": "implementation_hiding:Private Instance Variables",
+      "relation_type": "uses",
+      "properties": {},
+      "confidence": 0.9,
+      "bidirectional": false
+    },
+    {
+      "source_id": "implementation_hiding:Implementation Hiding",
+      "target_id": "implementation_hiding:Public Interface",
+      "relation_type": "uses",
+      "properties": {},
+      "confidence": 0.8,
+      "bidirectional": false
+    },
+    {
+      "source_id": "implementation_hiding:Principle Of Least Knowledge",
+      "target_id": "implementation_hiding:Law Of Demeter",
+      "relation_type": "similar_to",
+      "properties": {},
+      "confidence": 1.0,
+      "bidirectional": false
+    },
+    {
+      "source_id": "implementation_hiding:Principle Of Least Knowledge",
+      "target_id": "implementation_hiding:Loose Coupling",
+      "relation_type": "supports",
+      "properties": {},
+      "confidence": 0.9,
+      "bidirectional": false
+    },
+    {
+      "source_id": "implementation_hiding:Principle Of Least Knowledge",
+      "target_id": "implementation_hiding:Class Dependencies",
+      "relation_type": "challenges",
+      "properties": {},
+      "confidence": 0.8,
+      "bidirectional": false
+    },
+    {
+      "source_id": "implementation_hiding:Loose Coupling",
+      "target_id": "implementation_hiding:Class Dependencies",
+      "relation_type": "challenges",
+      "properties": {},
+      "confidence": 0.9,
+      "bidirectional": false
+    },
+    {
+      "source_id": "implementation_hiding:Instance Variables",
+      "target_id": "implementation_hiding:Object State",
+      "relation_type": "implements",
+      "properties": {},
+      "confidence": 0.9,
+      "bidirectional": false
+    },
+    {
+      "source_id": "implementation_hiding:Runtime Behavior",
+      "target_id": "implementation_hiding:Class Implementation",
+      "relation_type": "part_of",
+      "properties": {},
+      "confidence": 0.8,
+      "bidirectional": false
+    },
+    {
+      "source_id": "implementation_hiding:Private Instance Variables",
+      "target_id": "implementation_hiding:Python Naming Convention",
+      "relation_type": "uses",
+      "properties": {},
+      "confidence": 0.9,
+      "bidirectional": false
+    },
+    {
+      "source_id": "implementation_hiding:Python Naming Convention",
+      "target_id": "implementation_hiding:Privacy Convention",
+      "relation_type": "similar_to",
+      "properties": {},
+      "confidence": 0.9,
+      "bidirectional": false
+    },
+    {
+      "source_id": "implementation_hiding:Getter And Setter Methods",
+      "target_id": "implementation_hiding:Public Interface",
+      "relation_type": "part_of",
+      "properties": {},
+      "confidence": 0.8,
+      "bidirectional": false
+    },
+    {
+      "source_id": "implementation_hiding:Getter Method",
+      "target_id": "implementation_hiding:Getter And Setter Methods",
+      "relation_type": "part_of",
+      "properties": {},
+      "confidence": 0.9,
+      "bidirectional": false
+    },
+    {
+      "source_id": "implementation_hiding:Setter Method",
+      "target_id": "implementation_hiding:Getter And Setter Methods",
+      "relation_type": "part_of",
+      "properties": {},
+      "confidence": 0.9,
+      "bidirectional": false
+    },
+    {
+      "source_id": "implementation_hiding:Property Decorator",
+      "target_id": "implementation_hiding:Getter Method",
+      "relation_type": "implements",
+      "properties": {},
+      "confidence": 0.9,
+      "bidirectional": false
+    },
+    {
+      "source_id": "implementation_hiding:Property Setter",
+      "target_id": "implementation_hiding:Setter Method",
+      "relation_type": "implements",
+      "properties": {},
+      "confidence": 0.9,
+      "bidirectional": false
+    },
+    {
+      "source_id": "implementation_hiding:Helper Methods",
+      "target_id": "implementation_hiding:Private Attributes",
+      "relation_type": "similar_to",
+      "properties": {},
+      "confidence": 0.7,
+      "bidirectional": false
+    },
+    {
+      "source_id": "implementation_hiding:Hidden Implementation",
+      "target_id": "implementation_hiding:Implementation Hiding",
+      "relation_type": "similar_to",
+      "properties": {},
+      "confidence": 0.9,
+      "bidirectional": false
+    },
+    {
+      "source_id": "implementation_hiding:Access Control Design",
+      "target_id": "implementation_hiding:Once Public Always Public",
+      "relation_type": "supports",
+      "properties": {},
+      "confidence": 0.8,
+      "bidirectional": false
+    },
+    {
+      "source_id": "implementation_hiding:Implementation Dependency",
+      "target_id": "implementation_hiding:Loose Coupling",
+      "relation_type": "contradicts",
+      "properties": {},
+      "confidence": 0.8,
+      "bidirectional": false
+    },
+    {
+      "source_id": "implementation_hiding:Value Validation",
+      "target_id": "implementation_hiding:Setter Method",
+      "relation_type": "part_of",
+      "properties": {},
+      "confidence": 0.8,
+      "bidirectional": false
+    },
+    {
+      "source_id": "implementation_hiding:State Encapsulation",
+      "target_id": "implementation_hiding:Encapsulation",
+      "relation_type": "refines",
+      "properties": {},
+      "confidence": 0.9,
+      "bidirectional": false
+    },
+    {
+      "source_id": "implementation_hiding:Design Principles",
+      "target_id": "implementation_hiding:Design Patterns",
+      "relation_type": "supports",
+      "properties": {},
+      "confidence": 0.9,
+      "bidirectional": false
+    }
+  ],
+  "rules": [
+    {
+      "id": "implementation_hiding:rule:0",
+      "text": "Make every instance variable and method private (or protected) except those that must be public to enable other code to use the class.",
+      "domain": "implementation_hiding",
+      "source_id": "implementation_hiding:ch05_5_Hide_class_implementations",
+      "concept_ids": [
+        "implementation_hiding:Private Attributes",
+        "implementation_hiding:Public Interface",
+        "implementation_hiding:Implementation Hiding"
+      ],
+      "source_location": null,
+      "category": "best_practice",
+      "confidence": 0.95
+    },
+    {
+      "id": "implementation_hiding:rule:1",
+      "text": "Once public, always public - if you make an instance variable or method public, you might not be able to change it to private later without forcing code rewrites.",
+      "domain": "implementation_hiding",
+      "source_id": "implementation_hiding:ch05_5_Hide_class_implementations",
+      "concept_ids": [
+        "implementation_hiding:Once Public Always Public",
+        "implementation_hiding:Public Interface"
+      ],
+      "source_location": null,
+      "category": "warning",
+      "confidence": 0.9
+    },
+    {
+      "id": "implementation_hiding:rule:2",
+      "text": "Hide implementation by starting names of instance variables and methods with an underscore (_) to specify that they're private.",
+      "domain": "implementation_hiding",
+      "source_id": "implementation_hiding:ch05_5_Hide_class_implementations",
+      "concept_ids": [
+        "implementation_hiding:Python Naming Convention",
+        "implementation_hiding:Private Instance Variable",
+        "implementation_hiding:Privacy Convention"
+      ],
+      "source_location": null,
+      "category": "guideline",
+      "confidence": 0.9
+    },
+    {
+      "id": "implementation_hiding:rule:3",
+      "text": "Code outside a class should not reference private variables or call private methods (those starting with underscore), nor depend on their particular implementations.",
+      "domain": "implementation_hiding",
+      "source_id": "implementation_hiding:ch05_5_Hide_class_implementations",
+      "concept_ids": [
+        "implementation_hiding:Privacy Convention",
+        "implementation_hiding:Implementation Dependency",
+        "implementation_hiding:Hidden Implementation"
+      ],
+      "source_location": null,
+      "category": "principle",
+      "confidence": 0.85
+    },
+    {
+      "id": "implementation_hiding:rule:4",
+      "text": "Class A should know as little as possible about the implementation of class B to minimize dependencies.",
+      "domain": "implementation_hiding",
+      "source_id": "implementation_hiding:ch05_5_Hide_class_implementations",
+      "concept_ids": [
+        "implementation_hiding:Principle Of Least Knowledge",
+        "implementation_hiding:Class Dependencies",
+        "implementation_hiding:Loose Coupling"
+      ],
+      "source_location": null,
+      "category": "principle",
+      "confidence": 0.9
+    },
+    {
+      "id": "implementation_hiding:rule:5",
+      "text": "A class should expose only as much of itself as necessary for other code to use the class, hiding the rest.",
+      "domain": "implementation_hiding",
+      "source_id": "implementation_hiding:ch05_5_Hide_class_implementations",
+      "concept_ids": [
+        "implementation_hiding:Implementation Hiding",
+        "implementation_hiding:Public Interface",
+        "implementation_hiding:Encapsulation"
+      ],
+      "source_location": null,
+      "category": "principle",
+      "confidence": 0.9
+    },
+    {
+      "id": "implementation_hiding:rule:6",
+      "text": "Use public getter and setter methods to provide access to private instance variables while maintaining encapsulation.",
+      "domain": "implementation_hiding",
+      "source_id": "implementation_hiding:ch05_5_Hide_class_implementations",
+      "concept_ids": [
+        "implementation_hiding:Getter And Setter Methods",
+        "implementation_hiding:Private Instance Variable",
+        "implementation_hiding:Public Interface"
+      ],
+      "source_location": null,
+      "category": "best_practice",
+      "confidence": 0.85
+    }
+  ],
+  "extraction_confidence": 1.0,
+  "warnings": [],
+  "_saved_at": "2026-02-06T01:21:21.753364+00:00"
+}

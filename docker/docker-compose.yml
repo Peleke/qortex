@@ -1,36 +1,37 @@
-version: "3.8"
-
 services:
   memgraph:
     image: memgraph/memgraph-mage:latest
     container_name: qortex-memgraph
     ports:
       - "7687:7687"  # Bolt protocol
-      - "7444:7444"  # Lab (optional web UI)
+      - "7444:7444"  # Monitoring
     volumes:
       - memgraph_data:/var/lib/memgraph
       - memgraph_log:/var/log/memgraph
     environment:
-      - MEMGRAPH_USER=qortex
-      - MEMGRAPH_PASSWORD=qortex
+      - MEMGRAPH_USER=${QORTEX_MEMGRAPH_USER:-qortex}
+      - MEMGRAPH_PASSWORD=${QORTEX_MEMGRAPH_PASSWORD:-qortex}
     command: ["--also-log-to-stderr"]
     healthcheck:
-      test: ["CMD", "echo", ">", "/dev/tcp/localhost/7687"]
+      test: ["CMD", "python3", "-c", "import socket; s=socket.socket(); s.settimeout(2); s.connect(('localhost',7687)); s.close()"]
       interval: 10s
       timeout: 5s
       retries: 5
+      start_period: 10s
 
-  # Optional: Memgraph Lab for visual exploration
   memgraph-lab:
     image: memgraph/lab:latest
     container_name: qortex-lab
     ports:
       - "3000:3000"
     depends_on:
-      - memgraph
+      memgraph:
+        condition: service_healthy
     environment:
       - QUICK_CONNECT_MG_HOST=memgraph
       - QUICK_CONNECT_MG_PORT=7687
+      - QUICK_CONNECT_MG_USERNAME=${QORTEX_MEMGRAPH_USER:-qortex}
+      - QUICK_CONNECT_MG_PASSWORD=${QORTEX_MEMGRAPH_PASSWORD:-qortex}
 
 volumes:
   memgraph_data:

@@ -34,6 +34,7 @@ ENV/
 
 # Testing
 .pytest_cache/
+.hypothesis/
 .coverage
 htmlcov/
 .tox/
@@ -46,6 +47,9 @@ htmlcov/
 *.db
 *.sqlite
 data/
+
+# MkDocs
+site/
 
 # Secrets
 .env

@@ -1,0 +1,1133 @@
+
+
+cart
+PS
+chapter five
+published january 2026
+Hide class implementations
+
+
+
+This chapter covers
+
+The importance of hiding the implementation of a class
+The Principle of Least Knowledge
+Lazy evaluation
+Getter and setter methods and immutable objects
+Rules of the Law of Demeter
+The Open-Closed Principle
+Well-designed applications incorporate proven design principles. Chapter 4 discussed the importance of loose coupling in class design. Two loosely coupled classes have minimal dependencies on each other, which helps ensure that changes in one class don’t cause changes in another class.
+
+We can certainly be proud when other programmers admire and use the classes we wrote. But well-designed classes hide their implementations by making their instance variables and methods private. A class should expose by making public only those members that other programmers need to access.
+
+This chapter covers design principles that support a strategy to minimize the dependencies among classes. Implementation hiding is an important part of encapsulation. If we hide the implementation of a class, other classes can’t depend on what they can’t access. Therefore, we can make changes to the implementation without forcing other classes to change in response.
+
+The next chapter will cover more design principles. We’ll see how the principles support each other and work together. Later chapters will cover design patterns that provide models we can use to develop custom solutions to common software architecture problems. The design principles are the foundation for the design patterns.
+
+livebook features:
+highlight, annotate, and bookmark
+    
+You can automatically highlight a piece of text simply by selecting it. Create a note by clicking anywhere on the page and start typing.
+Disable quick notes and highlights?
+view how
+5.1 The Principle of Least Knowledge and hidden implementations
+Recall that a class’s instance variables represent state: each state of an object at run time is characterized by a unique set of values of its instance variables. A class’s methods represent an object’s runtime behavior. A class’s implementation is the way we code instance variables and methods of the class.
+
+For example, think again about the Book class from chapter 2 that represented a book in a catalogue. Its implementation may include components such as the book’s title and author that represent inherent attributes of a book. No other class should be concerned about how we implement these attributes—they could be string values already assigned to the Book object or values dynamically looked up in a database when we ask for them. Certainly, a class from a customer application shouldn’t be allowed to change a book’s title or author. Therefore, these attributes should be private. However, the class should provide a public means for another class to access a book’s title and author, but without needing to know their implementation.
+
+The primary way to minimize the dependencies that class A has on class B is for class A to know as little as possible about the implementation of class B. This, of course, is the Principle of Least Knowledge (sections 2.3.2 and 4.2.2). This principle is also known as the Law of Demeter, named after the ancient Greek goddess of agriculture, with the allusion to growing software with loosely coupled classes. Class B should expose only as much of itself as necessary for other code to use the class, hiding the rest. By convention, hiding is accomplished in a Python class by starting the names of instance variables and methods with an underscore (_) to specify that they’re private. Private methods, which should be called only by other methods of the class, are often called helper methods.
+
+Hidden doesn’t necessarily mean invisible. Hidden means inaccessible. Hidden implementation code is effectively encapsulated. We can make changes to the hidden implementation of a class without affecting any other code that uses the class. Because Python itself does not enforce privacy, we must trust all Python programmers to abide by the convention that an instance variable or method whose name starts with an underscore is intended to be a private and hidden implementation detail, and that whatever is hidden is subject to change.
+
+Therefore, if we use a class that has an instance variable named _x or a method named _calculate_pay(), our code, which is outside the class, should not reference the variable or call the method, let alone depend on particular implementations.
+
+A white background with black text
+
+Description automatically generated
+Indeed, a good rule of thumb is the following: when designing a class, make every instance variable and method private (or protected) except those that must be public to enable other code to use the class. There’s an old saying: “Once public, always public.” If we make an instance variable or method public, we might not be able to change it to private later without forcing code rewrites.
+
+livebook features:
+discuss
+    
+Ask a question, share an example, or respond to another reader. Start a thread by selecting any piece of text and clicking the discussion icon.
+view how
+open discussions
+5.2 Public getter and setter methods access hidden implementation selectively
+In listing 5.1, the Item class hides how it implements state by making its instance variables _name, _weight, and _price private. Then the class uses public getter and setter methods, more formally known as accessors and mutators. Section 2.3 discussed the @property decorator, which creates a read-only property and associates a getter method with it. In class Item, the @price.setter decorator associates a public setter method with the price property.
+
+Property setters
+After we’ve used @property to create a property object, we can associate a setter method with it that sets a new value for a private instance variable, often with checks to ensure that the new value is valid. In class Item, the decorator @price.setter is associated with the setter method price(self, new_price). Then we can write an assignment to the property object:
+
+item.price = 10.75
+which automatically calls the setter method to verify and set the private instance variable _price to 10.75.
+
+The @property decorator and property objects simplify and clarify our code and help to enforce hiding implementations.
+
+Public properties of a class are meant to be used by any code instead of directly accessing and setting private instance variables. A getter method allows code to probe an Item object’s current state without revealing how the state is implemented. A setter method allows code to modify an Item object’s state, such as by providing a new value for private instance variable _price, without revealing how the state is implemented.
+
+Listing 5.1 (Program 5.1 DemeterItem): item.py
+
+class Item:
+    def __init__(self, name, weight, price):
+        self._name = name    #1
+        self._weight = weight     #1
+        self._price = price     #1
+
+    @property
+    def name(self): return self._name    #2
+
+    @property
+    def weight(self): return self._weight    #2
+
+    @property
+    def price(self): return self._price    #2
+
+    @price.setter
+    def price(self, new_price):    #3
+        assert new_price > 0
+        self._price = new_price
+As suggested in figure 5.1, the caller of the public getter method for the price does not know how the class implements state. The method returns the current value of the private _price instance variable. In other versions of the application, the method could obtain the price by other hidden means, such as a dynamic lookup in a price database. Code that uses class Item should not depend on any particular implementation.
+
+Figure 5.1 A getter method enables code to obtain the price value from an Item object’s hidden state. A setter method enables code to modify the price value in an Item object’s hidden state. Neither method reveals how the class implements state. For example, we might later decide to have getter method price() dynamically look up the price from a database. We’ll be able to make this change without affecting the method’s caller.
+
+A screen shot of a computer
+
+Description automatically generated
+By hiding how the class implements state and then providing public getter and setter methods, we can control how code can probe or modify an object’s state at run time. For example, a runtime check can prevent a setter method from corrupting an object’s state with an invalid value:
+
+    @price.setter
+    def price(self, new_price):
+        assert new_price > 0
+        self._price = new_price
+ A white background with black text
+
+Description automatically generated
+Of course, in a real application, we should handle a bad parameter value much more gracefully than by immediately aborting the program.
+
+The test program main.py shows calling the getter and setter methods.
+
+Listing 5.2 (Program 5.1 DemeterItem): main.py
+
+from item import Item
+
+if __name__ == '__main__':
+    item = Item('whole chicken', 4.5, 10.31)
+
+    print(f'  name: {item.name}')      #1
+    print(f'weight: {item.weight}')     #1
+    print(f' price: ${item.price}')     #1
+    print()
+
+    item.price = 10.75    #2
+    print(f'new price: ${item.price}')  
+    print()  
+
+    item.price = -9.99    #2
+    print(f'new price: ${item.price}')
+The second call to the setter method attempts to set an erroneous price, causing the method to execute the assert statement to abort the program with a runtime error message. The program’s output is
+
+  name: whole chicken
+weight: 4.5
+ price: $10.31
+
+new price: $10.75
+
+------------------------------------------------------------------
+AssertionError                   Traceback (most recent call last)
+File ~/DemeterItem/main.py:15
+     12 print(f'new price: ${item.price}')  
+     13 print()  
+---> 15 item.price = -9.99
+     16 print(f'new price: ${item.price}')
+
+File ~/DemeterItem/item.py:18, in Item.price(self, price)
+     16 @price.setter
+     17 def price(self, price):
+---> 18     assert price > 0
+     19     self._price = price
+If we don’t change the signatures of the public getter and setter methods (i.e., if we don’t change how to call them), we’ll be able to modify how the class implements state without forcing changes on code using the class. Section 5.4 discusses further the role of setter methods.
+
+livebook features:
+settings
+    
+Update your profile, view your dashboard, tweak the text size, or turn on dark mode.
+view how
+5.3 Class Date: A case study of implementation hiding
+The development iterations of the following example application demonstrate the importance of hiding a class implementation and the problems we can run into if we don’t hide the implementation. Let’s suppose the application maintains the dates of scheduled appointments by using a Date class. A calendar date consists of a year, a month, and a day of the month. Therefore, class Date can hide its implementation by making its instance variables _year, _month, and _day private.
+
+Day and date
+Dates are important for many applications. Unfortunately, everyday terminology can be confusing. A day is any 24-hour period, which is midnight to midnight by convention. In the Gregorian calendar in use today throughout much of the world, a specific day is identified by a date consisting of three integer values: a year, a month, and a day of the month. An example date (written in the U.S. format) is 9/2/2025 for September 2, 2025.
+
+In common use, the meanings of the words day and date often overlap. We refer to special days using only a month and a day of the month (e.g., today is July 20, my birthday is September 2, New Year’s Day is January 1). However, Don’s birthdate was January 10, 1938. To add to the confusion, the day of the month is itself called a date (e.g., today’s date is the 12th). It should be clear from context which day is meant: for instance, Christmas Day is December 25, and there are 12 days of Christmas.
+
+In our examples, class Date comprises three private instance variables—_year, _month, and _day—where _day is short for day of the month.
+
+If we were to design a Day class, it would have a one-to-one aggregation with the Date class: each Day object would have an instance variable that references a Date object representing its identifying date.
+
+Next, suppose that the application must perform date arithmetic with the Date objects:
+
+What is the date n days from this date, where n can be positive (for a date after this date) or negative (for a date before this date)?
+How many days are there from this date to another date?
+Unfortunately, date arithmetic with the Gregorian calendar is notoriously difficult because of its rules:
+
+April, June, September, and November each have 30 days.
+February has 28 days, except for leap years when it has 29 days.
+All other months have 31 days.
+Years that are divisible by four are leap years, except that after 1582, years divisible by 100 but not 400 are not leap years.
+There is no year 0. Year 1 CE is preceded by year 1 BCE (year –1).
+During the switchover to the Gregorian calendar, 10 days were dropped. The next date after October 4, 1582, was October 15, 1582.
+5.3.1 Iteration 1: Date arithmetic with loops
+Listing 5.3 shows the beginning of class Date. The private class constants are needed to perform date arithmetic according to the Gregorian calendar rules. The private state consists of _year, _month, and _day, which the constructor __init__() initializes. In an actual application, the constructor should check the values of the parameters. The three getter methods allow access to a Date object’s state.
+
+Special method __repr__() returns the string representation of a Date object in the U.S. format: that is, month/day/year. For example, 9/2/2025 is September 2, 2025. It calls the getter methods self.year, self.month, and self.day.
+
+Listing 5.3 (Program 5.2 DateArithmetic-1): date.py (1 of 4; very inefficient!)
+
+class Date:
+    _JANUARY  = 1    #1
+    _FEBRUARY = 2     #1
+    _DECEMBER = 12     #1
+ #1
+    _GREGORIAN_START_YEAR = 1582     #1
+    _GREGORIAN_START_MONTH = 10     #1
+    _GREGORIAN_START_DATE = 15     #1
+    _JULIAN_END_DATE = 4     #1
+ #1
+    _DAYS_IN_MONTH = ( 31, 28, 31, 30, 31, 30,      #1
+                       31, 31, 30, 31, 30, 31 )     #1
+
+    def __init__(self, year, month, day): 
+        self._year = year    #2
+        self._month = month     #2
+        self._day = day     #2
+
+    @property
+    def year(self): return self._year    #3
+
+    @property
+    def month(self): return self._month    #3
+
+    @property
+    def day(self): return self._day    #3
+
+    def __repr__(self):
+        date_string = f'{self.month}/{self.day}/'
+        if self.year > 0: date_string += str(self.year)
+        else:             date_string += str(-self.year) + ' BCE'
+
+        return date_string
+In listing 5.4, the two private static methods return the number of days in a month and whether a year is a leap year, respectively. The private method _compare_to() compares the self date to the other date. If the former comes before the latter in time, the method returns –1. If the former comes after the latter in time, the method returns 1. If both dates are the same date, the method returns 0. What’s important is whether the return value is negative, zero, or positive.
+
+Listing 5.4 (Program 5.2 DateArithmetic-1): date.py (2 of 4; very inefficient!)
+
+    @staticmethod
+    def _days_in_month(year, month):
+        if (month == Date._FEBRUARY) and Date._is_leap_year(year): 
+            return 29
+        else: 
+            return Date._DAYS_IN_MONTH[month - 1]
+
+    @staticmethod
+    def _is_leap_year(year):
+        if year%4 != 0: return False
+        if year < Date._GREGORIAN_START_YEAR: return True
+
+        return (year%100 != 0) or (year%400 == 0)
+
+    def _compare_to(self, other):    #1
+        if self._year > other.year: return 1
+        if self._year < other.year: return -1
+
+        if self._month > other.month: return 1
+        if self._month < other.month: return -1
+
+        return self._day - other.day
+Methods _next_date() and _previous_date() in the following listing each apply the Gregorian calendar rules to calculate the date that follows the self date and the date that precedes the self date, respectively. Each method returns a new Date object.
+
+Listing 5.5 (Program 5.2 DateArithmetic-1): date.py (3 of 4; very inefficient!)
+
+    def _next_date(self):    #1
+        y = self._year
+        m = self._month
+        d = self._day
+
+        if (    (y == Date._GREGORIAN_START_YEAR)
+            and (m == Date._GREGORIAN_START_MONTH)
+            and (d == Date._JULIAN_END_DATE)
+        ): d = Date._GREGORIAN_START_DATE
+        elif d < Date._days_in_month(y, m): d += 1
+        else:
+            d = 1
+            m += 1
+
+            if m > Date._DECEMBER:
+                m = Date._JANUARY
+                y += 1
+
+                if y == 0: y += 1
+
+        return Date(y, m, d)
+
+    def _previous_date(self):    #2
+        y = self._year
+        m = self._month
+        d = self._day
+
+        if (    (y == Date._GREGORIAN_START_YEAR)
+            and (m == Date._GREGORIAN_START_MONTH)
+            and (d == Date._GREGORIAN_START_DATE)
+        ): d = Date._JULIAN_END_DATE
+        elif d > 1: d -= 1
+        else:
+            m -= 1
+
+            if m < Date._JANUARY:
+                m = Date._DECEMBER
+                y -= 1
+
+                if y == 0: y -= 1
+
+            d = Date._days_in_month(y, m)
+
+        return Date(y, m, d)
+Method add_days() in listing 5.6 starts with the self date and iterates day by day n days into the future if the value of argument n is positive, or n days into the past if the value of n is negative. Method days_from() starts with the self date and iterates day by day to count days either into the past or into the future, depending on whether this date falls after or before the Date argument, respectively. Both methods call private methods _previous_date() and _next_date() in their loops. The loops of method days_from() also calls private method _compare_to().
+
+Listing 5.6 (Program 5.2 DateArithmetic-1): date.py (4 of 4; very inefficient!)
+
+    def add_days(self, n):
+        date = self    #1
+
+        while n > 0:
+            date = date._next_date()    #2
+            n -= 1     #2
+
+        while n < 0:
+            date = date._previous_date()    #3
+            n += 1     #3
+
+        return date
+
+    def days_from(self, other):
+        date = self        #4
+
+        n = 0
+
+        while date._compare_to(other) > 0:
+            date = date._previous_date()    #5
+            n += 1     #5
+
+        while date._compare_to(other) < 0:
+            date = date._next_date()    #6
+            n -= 1     #6
+
+        return n
+ A close-up of a white background
+
+Description automatically generated
+It’s even worse than that. Each iteration of methods add_days() and days_from() gets a new Date object when it calls _previous_date() or _next_date(). Each call to methods add_days() and days_from() returns only the Date object created by the last iteration, so the prior iterations fill memory with unused Date objects.
+
+The next listing is a simple test program.
+
+Listing 5.7 (Program 5.2 DateArithmetic-1): main.py (very inefficient!)
+
+from date import Date
+
+if __name__ == '__main__':
+    date1 = Date(2025, 9, 2)
+    date2 = Date(2027, 4, 3)
+
+    print(f'{date1 = }')   
+    print(f'{date2 = }')
+
+    print()
+
+    count = date2.days_from(date1)
+    print(f'{count = }')
+
+    print(f'{date1.add_days(count) = }')    
+    print(f'      should be {date2 = }')
+
+    print()
+
+    count = date1.days_from(date2)
+    print(f'{count = }')
+
+    print(f'{date2.add_days(count) = }')    
+    print(f'      should be {date1 = }')
+The output is as follows:
+
+date1 = 9/2/2025
+date2 = 4/3/2027
+
+count = 578
+date1.add_days(count) = 4/3/2027
+      should be date2 = 4/3/2027
+
+count = -578
+date2.add_days(count) = 9/2/2025
+      should be date1 = 9/2/2025
+The application is functional and appears to perform the date arithmetic correctly. However, it is terribly inefficient. Method add_days() must loop as many times as the value of argument n. Method days_from() must loop as many times as there are days from the self date to the Date argument other and call method _compare_to() at the beginning of each loop. Calls to methods _next_date() and _previous_date() inside the loops are expensive because of the Gregorian calendar rules. Each call creates and returns a new Date object. This is clearly a poor design (figure 5.2). We need to backtrack and come up with a better design.
+
+Figure 5.2 The version of class Date from iteration 1 performs date arithmetic correctly, but it does it poorly because of expensive looping day by day with the Gregorian calendar rules. This version deserves a lump of coal.
+
+A black background with a pile of rocks and yellow ovals
+
+Description automatically generated
+5.3.2 Iteration 2: Julian day numbers simplify date arithmetic
+A much more efficient way to perform date arithmetic is to use a Julian day number to identify each day instead of the Gregorian year, month, and day of the month. The Julian day number of a particular day is the number of days since noon on January 1, 4713 BCE, of the Gregorian calendar. We’ll use a Julian day number only at noon so that the number is always a whole number. Date arithmetic is trivial with Julian day numbers.
+
+Julian day number
+Do not be puzzled by the various calendar uses of the name “Julian.” Astronomers use Julian day numbers to identify days rather than using the year, month, and day of the month.
+
+Julian day numbers are not related to the Julian calendar introduced by the Roman emperor Julius Caesar in 45 BCE. The 16th-century historian Josephus Justus Scaliger invented the concept and named it after his father, Julius.
+
+A Julian day number counts the number of days since noon on January 1, 4713 BCE, of the Gregorian calendar, so that day at noon has Julian day number 0. Because it takes hours of the day into account, a Julian day number can have a fractional part, but it’s whole at noon.
+
+There are complicated algorithms for converting between a day’s Julian day number and its corresponding Gregorian year, month, and day of the month. The algorithms in the following application are from Numerical Recipes, the Art of Scientific Computing, 3rd edition, by William H. Press et al. (Cambridge University Press, 2007).
+
+A useful milepost to check code that converts between Julian day numbers and Gregorian dates is Julian day number 2,440,000, which corresponds to the Gregorian date May 23, 1968.
+
+The second design iteration of class Date uses Julian day numbers. As in the previous version of the class, we want to hide how we implement the state of its objects, so instance variable julian is private. We no longer need private instance variables _year, _month, and _day. But we’ll need to be able to convert from year, month, and day values to a Julian number and vice versa. As seen in the next listing, this version needs two new class constants, _MAX_DAYS_IN_MONTH and _MONTHS_PER_YEAR.
+
+Listing 5.8 (Program 5.3 DateArithmetic-2): date.py (1 of 2; could be better!)
+
+import math
+
+class Date:
+    _JANUARY  = 1
+    _FEBRUARY = 2
+    _DECEMBER = 12
+
+    _GREGORIAN_START_YEAR = 1582
+    _GREGORIAN_START_MONTH = 10
+    _GREGORIAN_START_DATE = 15
+    _JULIAN_END_DATE = 4
+
+    _MAX_DAYS_IN_MONTH = 31
+    _MONTHS_PER_YEAR   = 12
+
+    _DAYS_IN_MONTH = ( 31, 28, 31, 30, 31, 30, 
+                       31, 31, 30, 31, 30, 31 )
+Private static method _to_julian() converts a year, month, and day of the month to a Julian day number using an established algorithm. Given year, month, and day values, it returns the calculated Julian day number.
+
+Listing 5.9 (Program 5.3 DateArithmetic-2): Date.Py (2 of 4; could be better!)
+
+    @staticmethod
+    def _to_julian(year, month, day):    #1
+
+        y = year
+        if year < 0: y += 1
+
+        m = month
+        if month > Date._FEBRUARY: m += 1
+        else:
+            y -= 1
+            m += 13
+
+        j = (math.floor(math.floor(365.25*y) + math.floor(30.6001*m))
+                    + day + 1720995)
+
+        term = (Date._MAX_DAYS_IN_MONTH
+                    *(month + Date._MONTHS_PER_YEAR*year))
+
+        GREGORIAN_CUTOFF = (
+            Date._GREGORIAN_START_DATE +
+            Date._MAX_DAYS_IN_MONTH
+                *(Date._GREGORIAN_START_MONTH +
+                  Date._MONTHS_PER_YEAR*Date._GREGORIAN_START_YEAR)
+            )
+
+        if day + term >= GREGORIAN_CUTOFF:
+            x = math.floor(0.01*y)
+            j += 2 - x + math.floor(0.25*x)
+
+        return j    #2
+Private static method _to_ymd() converts a Julian number to year, month, and day of the month values, which it returns as a tuple.
+
+Listing 5.10 (Program 5.3 DateArithmetic-2): date.py (3 of 4; could be better!)
+
+    @staticmethod
+    def _to_ymd(julian):    #1
+        GREGORIAN_CUTOFF = 2299161
+
+        ja = julian
+
+        if julian >= GREGORIAN_CUTOFF:
+            jalpha = math.floor(
+                (float(julian - 1867216) - 0.25)/36524.25)
+            ja += 1 + jalpha - math.floor(0.25*jalpha)
+
+        jb = ja + 1524
+        jc = math.floor(
+                6680.0 + (float(jb - 2439870) - 122.1)/365.25)
+        jd = math.floor(365*jc + (0.25*jc))
+        je = math.floor((jb - jd)/30.6001)
+
+        day = jb - jd - math.floor(30.6001*je)
+
+        month = je - 1
+        if month > Date._DECEMBER: month -= 12
+
+        year = jc - 4715
+        if month > Date._FEBRUARY: year -= 1
+        if year <= 0: year -= 1
+
+        return (year, month, day)    #2
+Listing 5.11 shows that the __init__() constructor receives its argument values in list parms to handle two cases. It can be called with a single argument, a Julian day number, in which case the constructor sets the value of _julian directly. Or the constructor can be called with three arguments—year, month, and day of the month values—in which case it must calculate the value of _julian by calling method _to_julian() with the three argument values. The public getter methods for the year, month, and day properties must first convert the Julian day number by calling _to_ymd() and then return the appropriate value from the tuple.
+
+Using Julian day numbers makes date arithmetic much more efficient. Method add_days() simply adds the value of argument n to the self date’s Julian day number to create and return a new Date object. Method days_from() subtracts the Julian day number of the other date from the self date’s Julian day number and returns the number of days.
+
+Because we hid the implementation of class Date, we were able to change the implementation radically without causing code that uses the class to change. We can call the Date constructor to create a Date object as before and call the public getter methods _year(), _month(), and _day() without change to get the date’s year, month, and day of the month. Furthermore, we can call the public methods add_days() and days_from() the same way as before and get the same expected results.
+
+Listing 5.11 (Program 5.3 DateArithmetic-2): date.py (4 of 4; could be better!)
+
+    def __init__(self, *parms):
+        if len(parms) == 1:
+            self._julian = parms[0]    #1
+        else:
+            self._julian = Date._to_julian(*parms)    #2
+
+    @property
+    def year(self):
+        year, _, _ = Date._to_ymd(self._julian)    #3
+        return year
+
+    @property
+    def month(self):
+        _, month, _ = Date._to_ymd(self._julian)    #3
+        return month
+
+    @property
+    def day(self):
+        _, _, day = Date._to_ymd(self._julian)    #3
+        return day
+
+    def add_days(self, n): 
+        return Date(self._julian + n)    #4
+
+    def days_from(self, other): 
+        return self._julian - other._julian    #5
+The same test program (listing 5.7) produces the same output.
+
+Although it may do date arithmetic very efficiently, the second iteration of class Date introduced a different inefficiency. Private method _to_julian() computes the Julian day number corresponding to a Gregorian year, month, and day of the month. Conversely, private method _to_ymd() converts the year, month, and day of the month to a corresponding Julian day number. Both are complicated due to the Gregorian calendar rules.
+
+Each of the public getter methods year(), month(), and day() must first call _to_ymd() before it can return the year, month, or day of the month, respectively. Special method __repr__() also relies on _to_ymd().
+
+A black background with a black square
+
+Description automatically generated with medium confidence
+We still don’t have a good design (figure 5.3). But we can improve the efficiency of class Date with a third iteration.
+
+Figure 5.3 The version of class Date from iteration 2 performs data arithmetic very efficiently using Julian day numbers, but getter methods for the year, month, or day of the month must each call an expensive conversion algorithm. We get yet another lump of coal.
+
+A diagram of a group of rocks
+
+Description automatically generated
+5.3.3 Iteration 3: A hybrid approach with lazy evaluation
+How can we have fast access to the year, month, and day of the month along with efficient date arithmetic? This third iteration of class Date takes a hybrid approach. As shown in the following listing, this version has all four private instance variables: _year, _month, _day, and _julian.
+
+Listing 5.12 (Program 5.4 DateArithmetic-3): date.py (1 of 2; efficient hybrid)
+
+class Date:
+    ...
+    def __init__(self, *parms):
+        if len(parms) == 1:
+            self._julian = parms[0]    #1
+            self._ymd_valid = False     #1
+            self._julian_valid = True     #1
+        else:
+            self._year, self._month, self._day = parms    #2
+            self._ymd_valid = True     #2
+            self._julian_valid = False     #2
+
+    def _validate_ymd(self):    #3
+        if not self._ymd_valid:
+            self._year, self._month, self._day = \
+                                    Date._to_ymd(self._julian)
+            self._ymd_valid = True
+
+    def _validate_julian(self):    #4
+        if not self._julian_valid:
+            self._julian = \
+                Date._to_julian(self._year, self._month, self._day)
+            self._julian_valid = True
+Boolean instance variables _ymd_valid and _julian_valid help to ensure that, whenever necessary, the value of _julian and the values of the trio _year, _month, and _day are synchronized. Private method _validate_ymd() synchronizes the values of the trio with the current value of _julian. Private method _validate_julian() synchronizes the value of _julian with the current values of the trio.
+
+This code is more efficient because instance variables _ymd_valid and _julian_valid prevent unnecessary calls to the expensive conversion methods _to_ymd() and _to_julian() when the values of _year, _month, and _day are already synchronized with the value of _julian.
+
+In the following listing, public getter methods year(), month(), and day() each must first call method _validate_ymd() to ensure that the value it returns is synchronized with the current value of _julian. Public methods add_days() and days_from(), both of which perform date arithmetic with Julian day numbers, must each call method _validate_julian() to ensure that the value of _julian is synchronized with the current values of _year, _month, and _day.
+
+Listing 5.13 (Program 5.4 DateArithmetic-3): date.py (2 of 2; efficient hybrid)
+
+    @property
+    def year(self):
+        self._validate_ymd()    #1
+        return self._year
+
+    @property
+    def month(self):
+        self._validate_ymd()    #1
+        return self._month
+
+    @property
+    def day(self):
+        self._validate_ymd()    #1
+        return self._day
+
+    def add_days(self, n): 
+        self._validate_julian()    #2
+        return Date(self._julian + n)
+
+    def days_from(self, other): 
+        self._validate_julian()    #2
+        other._validate_julian()    #2
+        return self._julian - other._julian
+We call method _to_ymd() only when we’re about to access the values of _year, _month, and _day. We call method _to_julian() only when we’re about to perform date arithmetic using the value of _julian. This is an example of the Lazy Evaluation Principle, where we delay performing a calculation until we need the result, which makes our code more efficient by preventing unnecessary calculations.
+
+The Lazy Evaluation Principle
+If at run time we don’t need the result of a calculation immediately, we should be lazy and postpone the calculation until we need the result. The Lazy Evaluation Principle is especially useful to improve performance if the calculation is expensive or time-consuming.
+
+A white background with black text
+
+Description automatically generated
+Because we hid the implementation of class Date with private instance variables and provided public getter methods, we were again able to refactor the code to further improve its efficiency. We encapsulated the implementation changes. Code that uses class Date only needs to know that a Date object’s state is characterized by its year, month, and day of the month, and that Date objects can perform date arithmetic efficiently. We’ve hidden the use of Julian day numbers to support date arithmetic (figure 5.4).
+
+livebook features:
+highlight, annotate, and bookmark
+    
+You can automatically highlight a piece of text simply by selecting it. Create a note by clicking anywhere on the page and start typing.
+Disable quick notes and highlights?
+view how
+5.4 Public setter methods carefully modify hidden implementation
+A public getter method allows code to probe an object’s state without revealing how the state is implemented. On the other hand, a public setter method allows code to modify an object’s state, also without revealing how the state is implemented.
+
+None of the three versions of class Date in this chapter so far have provided any public setter methods. Therefore, once we’ve constructed a Date object at run time with year, month, and day of the month values, the object is immutable—there is no way to change its state. Immutable objects are often justified by an application’s logic. We’ll learn more about immutable objects in section 5.7.
+
+Figure 5.4 The version of class Date from iteration 3 is a hybrid that uses lazy evaluation. It has the best performance of the three versions. This version deserves the pot of gold.
+
+A diagram of a pot of gold
+
+Description automatically generated
+Listing 5.14 shows another version of class Date. This version selectively allows access to another part of its implementation: its Julian day number. Public method julian() is now both a getter method and a setter method. As a setter method, it changes the state of a Date object, and it does it defensively in a safe manner. Therefore, in this version, Date objects are mutable.
+
+Listing 5.14 (Program 5.5 DateArithmetic-4): date.py (mutable)
+
+class Date:
+    ...
+    @property    #1
+    def julian(self):
+        self._validate_julian()
+        return self._julian
+
+    @julian.setter    #2
+    def julian(self, j):
+        assert(j >= 0)
+
+        self._julian = j
+        self._julian_valid = True
+        self._ymd_valid = False
+    ...
+}
+Method julian() behaves as both a getter and a setter. As a setter, it checks the value of its argument before using it and aborts the program if the value is negative. A real application should handle this error more gracefully than immediately aborting.
+
+The new test program exercises accessing and setting a Date object’s Julian day number.
+
+Listing 5.15 (Program 5.5 DateArithmetic-4): main.py (mutable)
+
+from date import Date
+
+if __name__ == '__main__':
+    date1 = Date(2025, 9, 2)
+    date2 = Date(2027, 4, 3)
+
+    print(f'{date1 = }')   
+    print(f'{date2 = }')    
+    print()
+
+    print(f'{date1 = } Julian number {date1.julian = :,d}')    #1
+
+    date2.julian = date1.julian    #2
+    print(f'{date2 = } Julian number {date2.julian = :,d}')
+    print()
+
+    for j in [0, 2440000, 3000000:
+        date1.julian = j
+        print(f'set Julian number {j = :9,d} ==> {date1 = }')
+The printed results are as follows:
+
+date1 = 9/2/2025
+date2 = 4/3/2027
+
+date1 = 9/2/2025 Julian number date1.julian = 2,460,921
+date2 = 9/2/2025 Julian number date2.julian = 2,460,921
+
+set Julian number j =         0 ==> date1 = 1/1/4713 BCE
+set Julian number j = 2,440,000 ==> date1 = 5/23/1968
+set Julian number j = 3,000,000 ==> date1 = 8/15/3501
+livebook features:
+discuss
+    
+Ask a question, share an example, or respond to another reader. Start a thread by selecting any piece of text and clicking the discussion icon.
+view how
+open discussions
+5.5 Beware of dangerous setter methods
+Should we always favor providing setter methods? What about the values of the trio year, month, and day of the month in the hidden implementation? Let’s see what can happen if we provide additional setter methods.
+
+Listing 5.16 (Program 5.6 DateArithmetic-5): date.py (dangerous setters)
+
+class Date:
+    ...
+    @year.setter
+    def year(self, y):
+        assert(y != 0)
+
+        self._validate_ymd()
+        self._year = y
+        self._julian_valid = False
+
+    @month.setter
+    def month(self, m):
+        assert(Date._JANUARY <= m <= Date._DECEMBER)
+
+        self._validate_ymd()
+        self._month = m
+        self._julian_valid = False
+
+    @day.setter
+    def day(self, d):
+        assert(1 <= d <= 31)
+
+        self._validate_ymd()
+        self._day = d
+        self._julian_valid = False
+    ...
+}
+In an actual application, setter method set_day() will need a much more comprehensive validation of its parameter value that takes into consideration the current month and year. The following listing is a test program for this poorly designed version of class Date.
+
+Listing 5.17 (Program 5.6 DateArithmetic-5): main.py (dangerous setters)
+
+from date import Date
+
+if __name__ == '__main__':
+    date = Date(2030, 1, 31)
+    print(f'starting: {date = } {date.julian = }')
+
+    date.month = 2    #1
+    print(f'modified: {date = } {date.julian = }')
+
+    j = date.julian
+    date.julian = j
+    print(f'surprise: {date = } {date.julian = }')
+The output is
+
+starting: date = 1/31/2030 date.julian = 2462533
+modified: date = 2/31/2030 date.julian = 2462564
+surprise: date = 3/3/2030 date.julian = 2462564
+By providing setter methods to set a Date object’s private _year, _month, and _day instance variables individually, we were able to put the object into an invalid state: the nonexistent date February 31, 2030. Then, by resetting the Julian day number of that nonexistent date, we ended up with March 3, 2030—a nasty surprise. We must never allow a setter method to put an object into an invalid state. The next chapter will discuss code surprises.
+
+A close-up of a white background
+
+Description automatically generated
+If we want to allow setting the year, month, and day of the month of an existing Date object, a much safer alternative is to provide a setter method that modifies all three at once. Then it will be much easier in an actual application for the setter method to check the arguments to ensure that the combination of all three values results in a valid Date object. Of course, the Date constructor that takes year, month, and day of the month values should also check those values.
+
+livebook features:
+settings
+    
+Update your profile, view your dashboard, tweak the text size, or turn on dark mode.
+view how
+5.6 Rules from the Law of Demeter support the Principle of Least Knowledge
+The Law of Demeter prescribes several rules that help us design proper loosely coupled classes and thereby support the Principle of Least Knowledge. By following these rules, we avoid designing a class that has certain problematic dependencies on another class. Specifically, they tell whether a method a() of class A can call a method b() of another class B:
+
+Method a() can call method b() on a class B object if class A aggregates the object (i.e., class A has an instance variable whose value is a reference to a class B object).
+Method a() can call method b() on a class B object if the object was passed as an argument to a().
+Method a() can call method b() on a class B object if a() instantiated the class B object.
+Method a() should not call method b() on a class B object that was returned by a call to method c() on a class C object.
+The Law of Demeter basically says that a class should only call methods of objects that are close to it. In rule 4, methods a() and b() are not considered to be close, because the class B object comes from class C. We want to minimize the dependencies of class A on class C.
+
+Classes DemeterAuto, Engine, and Sparkplug provide examples that obey and disobey the law’s rules.
+
+Listing 5.18 (Program 5.7 DemeterAuto): auto.py
+
+class Sparkplug:
+    def __init__(self, name):
+        self._name = name
+
+    def replace(self):
+        print(f'Replaced sparkplug {self._name}')
+
+class Engine:
+    def __init__(self, sparkplug):
+        self._sparkplug = sparkplug
+
+    @property
+    def sparkplug(self): return self._sparkplug
+
+    def replace_sparkplug(self):
+        self._sparkplug.replace()    #1
+
+class DemeterAuto:
+    def __init__(self, engine):
+        self._engine = engine
+
+    def service_sparkplug(self, plug):
+        plug.replace()    #2
+
+    def maintain_auto(self):
+        self._engine.replace_sparkplug()    #3
+
+        plug1 = self._engine.sparkplug
+        plug1.replace()    #4
+
+        plug2 = Sparkplug('plug2')
+        plug2.replace()    #5
+livebook features:
+highlight, annotate, and bookmark
+    
+You can automatically highlight a piece of text simply by selecting it. Create a note by clicking anywhere on the page and start typing.
+Disable quick notes and highlights?
+view how
+5.7 But is the implementation really hidden?
+To write an application that stores employee records, we could have a class Employee that records an employee’s birthdate via a reference to a Date object. We want an Employee object to be immutable by a regular user of the application: after we’ve created an object, the employee’s ID, name, and birthdate should not be changeable by such a user. All three private instance variables (_employee_id, _name, and _birthdate) are in the hidden state implementation, and the class itself has no setter methods.
+
+Let’s assume that a different class of the application, say EmployeeForAdmin, also aggregates class Date but needs to allow an administrative user to correct an error in an employee’s birthdate. Therefore, we can use our mutable version of class Date with its public julian() setter method. However, a regular user should not be able to modify an employee’s birthdate. Is making _birthdate private sufficient?
+
+Listing 5.19 (Program 5.8 HiddenDate-1): employee.py (faulty design)
+
+class Employee:
+    def __init__(self, employee_id, name, birthdate):
+        self._employee_id = employee_id
+        self._name = name
+        self._birthdate = birthdate
+
+    @property
+    def employee_id(self): return self._employee_id
+
+    @property
+    def name(self): return self._name
+
+    @property
+    def birthdate(self):  return self._birthdate
+
+    def __str__(self):
+        return (
+            f'Employee #{self._employee_id}\n'
+            f'  Name: {self._name}\n'
+            f'  Birthdate: {self._birthdate}\n'
+        )
+Because class Employee has no setter methods, is an Employee object truly immutable? The following listing is a test program.
+
+Listing 5.20 (Program 5.8 HiddenDate-1): main.py (faulty design)
+
+from date import Date
+from employee import Employee
+
+if __name__ == '__main__':
+    marys_birthdate = Date(2000, 1, 10)    #1
+    mary = Employee(1234567890, 'Mary', marys_birthdate)     #1
+    print(mary)
+
+    marys_birthdate.julian += 366    #2
+    print(mary)
+
+    date = mary.birthdate    #3
+    date.julian += 365     #3
+    print(mary)
+Here’s the output:
+
+Employee #1234567890
+  Name: Mary
+  Birthdate: 1/10/2000
+
+Employee #1234567890
+  Name: Mary
+  Birthdate: 1/10/2001
+
+Employee #1234567890
+  Name: Mary
+  Birthdate: 1/10/2002
+Obviously, the Employee object is not immutable. There were several design failures:
+
+We first dynamically created a new Birthday object and assigned it to variable marys_birthdate. We used marys_birthdate to create the Employee object.
+Because we had a reference to the Birthday object that is now embedded in the Employee object, we were able to use that reference, marys_birthdate, to change the employee’s birth year.
+Using the birthdate property, we set variable date to the Employee object’s embedded Birthday object. We used the variable to change the employee’s birth year again.
+A close-up of a person
+This surely is a subtle design fault. If a class instantiates objects that are supposed to be immutable, but it has improperly designed getter methods, we can inadvertently modify an object’s state at run time.
+
+There are remedies to ensure that the Employee objects are immutable, as shown in the following listing. The class constructor should store a copy of the Date object that is passed to it. The property should return a copy of the embedded Date object. Then it will not be possible to change the birthdate embedded in the Employee object.
+
+Listing 5.21 (Program 5.9 HiddenDate-2): employee.py (corrected design)
+
+from copy import copy
+
+class Employee:
+    def __init__(self, employee_id, name, birthdate):
+        self._employee_id = employee_id
+        self._name = name
+        self._birthdate = copy(birthdate)    #1
+
+    @property
+    def employee_id(self): return self._employee_id
+
+    @property
+    def name(self): return self._name
+
+    @property
+    def birthdate(self): return copy(self._birthdate)    #2
+
+    def __str__(self):
+        return (
+            f'Employee #{self._employee_id}\n'
+            f'  Name: {self._name}\n'
+            f'  Birthdate: {self._birthdate}\n'
+        )
+With the same test program, the output shows that the employee’s birthdate did not change:
+
+Employee #1234567890
+  Name: Mary
+  Birthdate: 1/10/2000
+
+Employee #1234567890
+  Name: Mary
+  Birthdate: 1/10/2000
+
+Employee #1234567890
+  Name: Mary
+  Birthdate: 1/10/2000
+livebook features:
+discuss
+    
+Ask a question, share an example, or respond to another reader. Start a thread by selecting any piece of text and clicking the discussion icon.
+view how
+open discussions
+5.8 The Open-Closed Principle supports code stability
+In chapter 2, during the third development iteration of the book catalogue application, we created several subclasses for the superclass Attributes. Figure 5.5 shows that ill-fated design.
+
+Although we ultimately determined that having many subclasses was a poor design for the application, figure 5.5 is a good example of the Open-Closed Principle, according to which we should close a class against modification but open it for subclassing (section 2.3.3). It assumes we are confident that a class has captured all the common attributes and behaviors of a set of objects and therefore the design of that class should not change. That supports code stability. However, we allow extending the class forobjects that have attributes and behaviors beyond the common ones. In other words, the closed class is the superclass, and the extensions are its subclasses.
+
+Figure 5.5 A design of the book catalogue application with superclass Attributes and its subclasses. In the class diagram for Attributes, the name of private method _equal_ignore_case() is underlined to indicate that it is static.
+
+A diagram of a computer
+
+Description automatically generated
+The Open-Closed Principle is another way to design classes with hidden implementations. By denoting the instance variables and methods of the superclass to be private, we can hide how we implement the common parts of the state and behavior inherited by its subclasses. In class Attributes, instance variables _title, _last, and _first are meant to be private. FictionAttrs extends Attributes, so a FictionAttrs object hides how it implements the _title, _last, and _first parts of its state. The subclass extends the hidden state implementation with the addition of private _year and _genre instance variables.
+
+The following listing is another example of the Open-Closed Principle. Suppose that class Mammal has all the common attributes and behaviors of mammals that a particular application needs. Therefore, we can close this class.
+
+Listing 5.22 (Program 5.10 Mammals): mammal.py
+
+from abc import abstractmethod
+
+class Mammal:
+    def __init__(self, weight, height):
+        self.__weight = weight    #1
+        self.__height = height     #1
+
+    @property
+    def weight(self): return self.__weight    #2
+
+    @property
+    def height(self): return self.__height    #2
+
+    def _snore(self):    #3
+        print('Zzzz')
+
+    @abstractmethod
+    def eat(self):     #4
+        pass
+
+    @abstractmethod
+    def perform(self):    #4
+        pass
+
+    def sleep(self):    #5
+        print('close eyes')
+        self._snore()
+We close class Mammal, but we can keep it open for extension. In the following two listings, subclasses Human and Cat each extend Mammal by adding their instance variables and methods. Each subclass must define abstract methods eat() and perform().
+
+Listing 5.23 (Program 5.10 Mammals): human.py
+
+from mammal import Mammal
+
+class Human(Mammal):
+    def __init__(self, weight, height, needs_glasses):
+        super().__init__(weight, height)    #1
+        self._needs_glasses = needs_glasses    #2
+
+    def _read_book(self):    #3
+        if self._needs_glasses:
+            print('squint')
+        print('turn pages')
+
+    def eat(self)    #4
+        print('eat with knife and fork')
+
+    def perform(self):    #4
+        self._read_book()
+        self.sleep()
+Subclass Human keeps the implementation of its part of the state (instance variable _needs_glasses) and behavior (method _read_book()) hidden.
+
+Listing 5.24 (Program 5.10 Mammals): cat.py
+
+from mammal import Mammal
+
+class Cat(Mammal):
+    def __init__(self, weight, height, fur_factor):
+        super().__init__(weight, height)    #1
+        self._fur_factor = fur_factor    #2
+
+    def _shed(self):    #3
+        if self._fur_factor > 1.0:
+            print('shed a lot')
+        else:
+            print('shed a little')
+
+    def eat(self):    #4
+        print('eat from a bowl')
+
+    def perform(self):    #4
+        self._shed()
+Subclass Cat keeps the implementation of its part of the state (instance variable _fur_factor) and behavior (method _shed()) hidden.
+
+Because they are declared to be abstract in superclass Mammal, both subclasses must implement the public methods eat() and perform(). The implementation of the common parts of the state (height and weight) and behavior (snoring) of each subclass is hidden by their superclass Mammal. The following listing is a test program.
+
+Listing 5.25 (Program 5.10 Mammals): main.py
+
+from human import Human
+from cat import Cat
+
+if __name__ == '__main__':
+    ron = Human(77.11, 1.85, True)
+    print('Human Ron')
+    print(f'{ron.weight = } kg, {ron.height = } m')
+    ron.eat()
+    ron.perform()
+
+    print()
+
+    buddy = Cat(5.55, 0.30, 1.25)
+    print('Cat Buddy')
+    print(f'{buddy.weight = } kg, {buddy.height = } m')
+    buddy.eat()
+    buddy.perform()
+The output is as follows:
+
+Human Ron
+ron.weight = 77.11 kg, ron.height = 1.85 m
+eat with knife and fork
+squint
+turn pages
+close eyes
+Zzzz
+
+Cat Buddy
+buddy.weight = 5.55 kg, buddy.height = 0.3 m
+eat from a bowl
+shed a lot
+We implement a common core implementation in a superclass and lock it from further changes to support code stability, but we can extend the implementation in subclasses. We can hide the common and extended implementations.
+
+Summary
+Python programmers must respect the convention that names of instance variables and methods that begin with an underscore are denoted to be private and therefore have hidden implementations.
+Minimize dependencies on a class by hiding how the class implements state to support encapsulation. Hide instance variables and methods by denoting them to be private. When the hidden implementation of a class is encapsulated, we can refactor the implementation to improve it without causing changes to any code using the class.
+Properties allow controlled access to hidden object state. A property can return values from an object’s state without revealing how the state is implemented. A property setter can modify an object’s state without revealing how the state is implemented.
+A property should never allow an object to be put into an invalid state. We must be careful what property setters to provide.
+An immutable class creates objects that cannot be modified after we’ve constructed them. Such a class should not provide property setters that modify an object’s state.
+A class whose objects are supposed to be immutable must not provide references to hidden state implementation because that would allow other code to use the references to modify an object’s state at run time.
+According to the Lazy Evaluation Principle, runtime performance should be improved by delaying an expensive calculation until its results are needed.
+The Law of Demeter prescribes rules to guide designing classes that have no problematic dependencies on other classes. Method a() of class A can call method b() on a class B object if class A aggregates class B, or if the class B object was passed as an argument to method a(), or if method a() instantiated the class B object. Method a() should not call method b() if the class B object was returned by another object’s method.
+The Open-Closed Principle says to close a superclass for modification but open it for extensions by subclasses. The superclass can hide and encapsulate the implementation of the common parts of the state and behavior inherited by its subclasses. This principle supports code stability.
+ Prev Part
+5 Hide class implementations
+Software Design for Python Programmers
+Next Chapter 
+test yourself with a liveTest
+cover
+ 
+ 
+
+
+Software Design for Python Programmers
+Ronald Mak
+
+table of contents
+notebook
+ Front matter
+Software Design for Python Programmers
+preface
+acknowledgments
+about this book
+about the author
+about the cover illustration
+Part
+1
+Introduction
+1
+The path to well-designed software
+2
+Iterate to achieve good design
+Part
+2
+Design the right application
+3
+Get requirements to build the right application
+4
+Good class design to build the application right
+Part
+3
+Design the application right
+5
+Hide class implementations
+5.1
+The Principle of Least Knowledge and hidden implementations
+5.2
+Public getter and setter methods access hidden implementation selectively
+5.3
+Class Date: A case study of implementation hiding
+Iteration 1: Date arithmetic with loops
+Iteration 2: Julian day numbers simplify date arithmetic
+Iteration 3: A hybrid approach with lazy evaluation
+5.4
+Public setter methods carefully modify hidden implementation
+5.5
+Beware of dangerous setter methods
+5.6
+Rules from the Law of Demeter support the Principle of Least Knowledge
+5.7
+But is the implementation really hidden?
+5.8
+The Open-Closed Principle supports code stability
+6
+Don’t surprise your users
+7
+Design subclasses right
+Part
+4
+Design patterns solve application architecture problems
+8
+The Template Method and Strategy Design Patterns
+9
+The Factory Method and Abstract Factory Design Patterns
+10
+The Adapter and Façade Design Patterns
+11
+The Iterator and Visitor Design Patterns
+12
+The Observer Design Pattern
+13
+The State Design Pattern
+14
+The Singleton, Composite, and Decorator Design Patterns
+Part
+5
+Additional design techniques
+15
+Designing solutions with recursion and backtracking
+16
+Designing multithreaded programs
+Up next...
+6 Don’t surprise your users
+The Principle of Least Astonishment and how to avoid surprising your users
+Preventing unexpectedly poor runtime performance
+Careful coding with Python lists, tuples, and arrays
+Refactoring code to improve performance
+Applying programming by contract to a class and its methods
+next chapter 

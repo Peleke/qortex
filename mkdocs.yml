@@ -1,0 +1,70 @@
+site_name: qortex
+site_url: https://peleke.github.io/qortex/
+site_description: Knowledge graph ingestion engine for automated rule generation
+repo_url: https://github.com/Peleke/qortex
+repo_name: Peleke/qortex
+
+theme:
+  name: readthedocs
+
+# Mermaid diagrams pre-rendered to SVG - see scripts/render-mermaid.py
+
+markdown_extensions:
+  - admonition
+  - attr_list
+  - md_in_html
+  - tables
+  - def_list
+  - toc:
+      permalink: true
+  - pymdownx.details
+  - pymdownx.highlight:
+      anchor_linenums: true
+  - pymdownx.inlinehilite
+  - pymdownx.snippets
+  - pymdownx.superfences:
+      custom_fences:
+        - name: mermaid
+          class: mermaid
+          format: !!python/name:pymdownx.superfences.fence_code_format
+  - pymdownx.tabbed:
+      alternate_style: true
+
+nav:
+  - Home: index.md
+  - Getting Started:
+    - Installation: getting-started/installation.md
+    - Quick Start: getting-started/quickstart.md
+    - Core Concepts: getting-started/concepts.md
+  - Guides:
+    - Projecting Rules: guides/projecting-rules.md
+    - Rule Enrichment: guides/enrichment.md
+    - Consumer Integration: guides/consumer-integration.md
+    - Using Memgraph: guides/memgraph.md
+    - Visualizing Your Graph: guides/visualization.md
+  - Theory:
+    - Overview: tutorials/index.md
+    - Why Knowledge Graphs:
+      - The Multi-Hop Problem: tutorials/part1-multi-hop-problem.md
+      - Knowledge Graphs 101: tutorials/part2-knowledge-graphs.md
+      - The Projection Pipeline: tutorials/part3-projection-pipeline.md
+      - The Consumer Loop: tutorials/part4-consumer-loop.md
+      - Pattern Completion: tutorials/part5-pattern-completion.md
+      - HippoRAG First Principles: tutorials/part6-hipporag.md
+    - Graph Analytics (Feast of Graphs):
+      - Overview: tutorials/graph-analytics/index.md
+      - Welcome to the Hall: tutorials/graph-analytics/part1-welcome.md
+      - The Tongue of Queries: tutorials/graph-analytics/part2-cypher.md
+      - Following the Thread: tutorials/graph-analytics/part3-multi-hop.md
+      - Measuring Worth: tutorials/graph-analytics/part4-centrality.md
+      - The Tribes Within: tutorials/graph-analytics/part5-communities.md
+      - Forging New Rules: tutorials/graph-analytics/part6-forging-rules.md
+  - Reference:
+    - CLI Commands: reference/cli.md
+    - Data Models: reference/models.md
+    - Interop Schema: reference/interop-schema.md
+    - API Reference: reference/api.md
+  - Architecture:
+    - Overview: architecture/overview.md
+    - Projection Pipeline: architecture/projection-pipeline.md
+  - Changelog: changelog.md

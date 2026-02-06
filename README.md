@@ -1,44 +1,82 @@
 # qortex
 
-Knowledge graph ingestion engine with HippoRAG-style cross-domain retrieval.
+Knowledge graph ingestion engine for automated rule generation.
 
-## Vision
+## What It Does
 
-qortex converts external knowledge (textbooks, documentation, blog posts) into structured, queryable knowledge graphs. It serves as the "long-term memory" layer for agent systems.
+qortex transforms unstructured content (books, docs, PDFs) into a knowledge graph, then projects actionable rules for AI agents and other consumers.
 
 ```
-📚 Sources    →    🧠 qortex    →    🤖 Agents
-(PDF/MD/Text)      (KG + HippoRAG)     (buildlog, OpenClaw, Claude Code)
+📚 Sources    →    🧠 qortex    →    📋 Rules    →    🤖 Consumers
+(PDF/MD/Text)      (Knowledge Graph)   (Universal Schema)  (buildlog, agents, CI)
 ```
 
-## Architecture
+## Core Features
 
-**Neural Analogy**:
-- **Domain Graphs** (Cortical regions): Dense, specialized knowledge stores
-- **Hippocampus** (HippoRAG): Cross-domain integration, pattern completion
-- **Ingestors** (Sensory): Transform raw input into structured form
-- **Projectors** (Motor): Translate knowledge into actionable rules
-
-**Key Design**: Ingest is separable from the KG core. The KG only knows about `IngestionManifest` - it doesn't care if input was PDF, Markdown, or custom format.
+- **Content Ingestion**: PDF, Markdown, and text into structured knowledge graphs
+- **Rich Type System**: 10 semantic relation types (REQUIRES, CONTRADICTS, REFINES, etc.)
+- **Rule Derivation**: 30 edge templates generate rules from concept relationships
+- **Rule Enrichment**: Add context, antipatterns, rationale via templates or LLM
+- **Universal Schema**: JSON Schema artifacts for any-language validation
+- **Consumer Interop**: Hybrid pull/push protocol for rule distribution
 
 ## Quick Start
 
 ```bash
-# Start Memgraph
-cd docker && docker-compose up -d
-
 # Install
-pip install -e ".[dev]"
+pip install qortex
 
-# Run tests
-pytest
+# Or with all optional dependencies
+pip install qortex[all]
 ```
 
-## Status
+```python
+from qortex.core.memory import InMemoryBackend
+from qortex.projectors.sources.flat import FlatRuleSource
+from qortex.projectors.targets.buildlog_seed import BuildlogSeedTarget
+from qortex.projectors.projection import Projection
 
-🚧 **Pre-alpha** - Architecture in place, implementations stubbed.
+# Set up backend
+backend = InMemoryBackend()
+backend.connect()
 
-See [Architecture Issue](https://github.com/Peleke/qortex/issues/1) for roadmap.
+# ... add concepts, edges, rules ...
+
+# Project rules
+projection = Projection(
+    source=FlatRuleSource(backend=backend),
+    target=BuildlogSeedTarget(persona_name="my_rules"),
+)
+result = projection.project(domains=["my_domain"])
+```
+
+Or use the CLI:
+
+```bash
+# Project rules to interop pending directory
+qortex project buildlog --domain my_domain --pending
+
+# Check interop status
+qortex interop status
+```
+
+## Architecture
+
+- **GraphBackend**: Protocol with InMemoryBackend (testing) and MemgraphBackend (production)
+- **Projection Pipeline**: Source → Enricher → Target composition
+- **Consumer Interop**: Pending directory + signal log for any consumer
+
+## Documentation
+
+Full documentation: https://peleke.github.io/qortex/
+
+## Roadmap
+
+- [x] Phase 1: KG core, projection pipeline, consumer interop
+- [ ] Phase 2: HippoRAG-style cross-domain retrieval (PPR-based pattern completion)
+- [ ] Phase 3: Causal DAG for confidence feedback loops
+
+See [Issues](https://github.com/Peleke/qortex/issues) for detailed roadmap.
 
 ## License
 

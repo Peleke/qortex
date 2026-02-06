@@ -1,7 +1,7 @@
 [project]
 name = "qortex"
 version = "0.1.0"
-description = "Knowledge graph ingestion engine with HippoRAG-style cross-domain retrieval"
+description = "Knowledge graph ingestion engine for automated rule generation"
 readme = "README.md"
 requires-python = ">=3.11"
 license = "MIT"
@@ -25,12 +25,8 @@ classifiers = [
 ]
 
 dependencies = [
-    # Core
-    # "gqlalchemy>=1.4",  # Memgraph driver - uncomment when implementing
-
-    # LLM (optional, for extraction)
-    # "anthropic>=0.18",
-    # "openai>=1.0",
+    "typer>=0.9",
+    "pyyaml>=6.0",
 ]
 
 [project.optional-dependencies]
@@ -48,9 +44,18 @@ dev = [
     "ruff>=0.2",
     "mypy>=1.8",
 ]
-all = [
-    "qortex[pdf,mcp,dev]",
+llm = [
+    "anthropic>=0.18",
 ]
+memgraph = [
+    "neo4j>=5.0",
+]
+all = [
+    "qortex[pdf,mcp,llm,memgraph,dev]",
+]
+
+[project.scripts]
+qortex = "qortex.cli:main"
 
 [project.urls]
 Homepage = "https://github.com/Peleke/qortex"
