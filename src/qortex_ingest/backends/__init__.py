@@ -10,7 +10,6 @@ from typing import Literal
 
 from qortex_ingest.base import LLMBackend, StubLLMBackend
 
-
 BackendType = Literal["anthropic", "ollama", "stub"]
 
 

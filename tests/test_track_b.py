@@ -7,9 +7,8 @@ and thorough unit tests for all components.
 from __future__ import annotations
 
 import json
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
-import pytest
 import yaml
 from hypothesis import given, settings
 from hypothesis import strategies as st
@@ -22,8 +21,7 @@ from qortex.core.models import (
     RelationType,
     Rule,
 )
-from qortex.core.templates import EDGE_RULE_TEMPLATE_REGISTRY
-from qortex.enrichment.pipeline import EnrichmentPipeline, TemplateEnrichmentFallback
+from qortex.enrichment.pipeline import EnrichmentPipeline
 from qortex.projectors.base import Enricher, ProjectionSource, ProjectionTarget
 from qortex.projectors.enrichers.llm import LLMEnricher
 from qortex.projectors.enrichers.passthrough import PassthroughEnricher
@@ -34,7 +32,6 @@ from qortex.projectors.sources.flat import FlatRuleSource
 from qortex.projectors.targets.buildlog_seed import BuildlogSeedTarget
 from qortex.projectors.targets.flat_json import FlatJSONTarget
 from qortex.projectors.targets.flat_yaml import FlatYAMLTarget
-
 
 # =========================================================================
 # Test fixtures
@@ -143,7 +140,7 @@ def _make_enriched_rule(
             rationale=f"Rationale for {id}",
             tags=[domain, "test"],
             enrichment_version=1,
-            enriched_at=datetime.now(timezone.utc),
+            enriched_at=datetime.now(UTC),
             enrichment_source="test",
         )
     return EnrichedRule(rule=rule, enrichment=enrichment)
@@ -758,7 +755,9 @@ class TestProjectionPipelineIntegration:
 # Use ASCII-printable strings for IDs/text to avoid YAML encoding issues
 # (YAML normalizes certain Unicode whitespace like \x85)
 _safe_text = st.text(
-    alphabet=st.characters(whitelist_categories=("L", "N", "P", "S", "Z"), whitelist_characters=" _-:./"),
+    alphabet=st.characters(
+        whitelist_categories=("L", "N", "P", "S", "Z"), whitelist_characters=" _-:./"
+    ),
     min_size=1,
     max_size=50,
 ).filter(lambda s: s.strip())

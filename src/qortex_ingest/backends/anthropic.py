@@ -12,6 +12,7 @@ if TYPE_CHECKING:
 # Lazy import to avoid hard dependency
 try:
     import anthropic
+
     ANTHROPIC_AVAILABLE = True
 except ImportError:
     ANTHROPIC_AVAILABLE = False
@@ -41,25 +42,38 @@ class AnthropicExtractionBackend:
         self,
         api_key: str,
         model: str | None = None,
+        max_concepts_per_call: int = 100,
     ):
         if not ANTHROPIC_AVAILABLE:
             raise ImportError(
-                "anthropic package not installed. "
-                "Install with: pip install anthropic"
+                "anthropic package not installed. Install with: pip install anthropic"
             )
 
         self.client = anthropic.Anthropic(api_key=api_key)
         self.model = model or "claude-sonnet-4-20250514"
+        self.max_concepts_per_call = max_concepts_per_call
 
     def _call(self, system: str, user: str, max_tokens: int = 4096) -> str:
-        """Make API call and return text response."""
-        response = self.client.messages.create(
-            model=self.model,
-            max_tokens=max_tokens,
-            system=system,
-            messages=[{"role": "user", "content": user}],
-        )
-        return response.content[0].text
+        """Make API call with rate limit retry."""
+        import time
+
+        max_retries = 3
+        for attempt in range(max_retries):
+            try:
+                response = self.client.messages.create(
+                    model=self.model,
+                    max_tokens=max_tokens,
+                    system=system,
+                    messages=[{"role": "user", "content": user}],
+                )
+                return response.content[0].text
+            except anthropic.RateLimitError:
+                if attempt < max_retries - 1:
+                    wait_time = 60 * (attempt + 1)  # 60s, 120s, 180s
+                    print(f"Rate limited, waiting {wait_time}s...")
+                    time.sleep(wait_time)
+                else:
+                    raise
 
     def _parse_json(self, text: str) -> list | dict:
         """Extract JSON from response, handling markdown code blocks."""
@@ -132,54 +146,124 @@ Return only valid JSON array."""
         self,
         concepts: list[ConceptNode],
         text: str,
+        chunk_location: str | None = None,
     ) -> list[dict]:
         """Extract relations between concepts.
 
-        Returns list of dicts with keys: source_id, target_id, relation_type, confidence
+        Returns list of dicts with keys: source_id, target_id, relation_type,
+        confidence, source_text, source_location
         """
         if not concepts:
             return []
 
-        concept_list = "\n".join(
-            f"- {c.id}: {c.name} - {c.description}" for c in concepts[:50]
-        )
+        # Limit concepts to avoid rate limits (100 concepts ~ 10K tokens)
+        limited_concepts = concepts[: self.max_concepts_per_call]
+        if len(concepts) > self.max_concepts_per_call:
+            print(f"  (limiting to {self.max_concepts_per_call}/{len(concepts)} concepts)")
 
-        relation_list = "\n".join(f"- {r}" for r in RELATION_TYPES)
+        concept_list = "\n".join(f"- {c.id}: {c.name} - {c.description}" for c in limited_concepts)
 
-        system = f"""You are a knowledge extraction system. Identify relationships between concepts.
+        system = """You are a precise knowledge graph extraction system.
 
-Available relation types:
-{relation_list}
+Your task is to identify TEXT-SUPPORTED relationships between the provided concepts, based strictly on the given text.
+Do NOT rely on outside knowledge. If a relationship is not clearly stated or directly supported by the text, do not extract it.
 
-Relation meanings:
-- REQUIRES: A needs B to function
-- CONTRADICTS: A and B conflict or are mutually exclusive
-- REFINES: A is a more specific form of B
-- IMPLEMENTS: A is a concrete implementation of B
-- PART_OF: A is a component of B
-- USES: A depends on or utilizes B
-- SIMILAR_TO: A and B are analogous
-- ALTERNATIVE_TO: A can substitute for B
-- SUPPORTS: A provides evidence for B
-- CHALLENGES: A provides counter-evidence for B
+RELATION TYPES (with disambiguation)
 
-Return JSON array of objects with:
-- source_id: ID of source concept (from the list provided)
-- target_id: ID of target concept (from the list provided)
-- relation_type: One of the relation types above
-- confidence: Float 0-1
+REQUIRES
+- Use when A cannot function, exist, or be correctly applied without B.
+- Strong dependency; removal of B breaks A.
+- NOT the same as USES (which may be optional or contextual).
 
-Only return relationships that are clearly supported by the text."""
+USES
+- Use when A leverages, depends on, or commonly employs B, but could exist without it.
+- Prefer USES when the dependency is practical rather than structural.
 
-        user = f"""Given these concepts:
+REFINES
+- Use when A is a more specific, constrained, or specialized form of B.
+- A narrows the scope or adds detail to B.
+- NOT an implementation.
+
+IMPLEMENTS
+- Use when A is a concrete realization, mechanism, or technique that puts B into practice.
+- B is abstract or conceptual; A makes it operational.
+
+PART_OF
+- Use when A is a component, sub-process, or constituent of B.
+- Structural or compositional relationship.
+
+SIMILAR_TO
+- Use when A and B address the same problem or role in a comparable way.
+- They may coexist; neither replaces the other.
+
+ALTERNATIVE_TO
+- Use when A and B serve similar purposes but are positioned as substitutes or competing choices.
+- Often signaled by "instead of," "can be replaced by," or explicit comparison.
+
+SUPPORTS
+- Use when A provides evidence, justification, or rationale for B.
+- Often argumentative or explanatory.
+
+CHALLENGES
+- Use when A questions, weakens, or argues against B.
+- Includes critiques, limitations, or counterexamples.
+
+CONTRADICTS
+- Use only when A and B are explicitly stated to be incompatible or mutually exclusive.
+
+DENSITY & COVERAGE GUIDANCE
+
+- Aim for 3-5 relationships per major concept when supported by the text.
+- Every significant concept should have at least one incoming or outgoing edge, if the text allows.
+- Prefer multiple precise edges over a few overly conservative ones.
+- Do not invent relations to satisfy density; precision remains mandatory.
+
+OUTPUT FORMAT
+
+Return a valid JSON array of objects with:
+- source_id: ID of the source concept (from the provided list)
+- target_id: ID of the target concept (from the provided list)
+- relation_type: One of the relation types above (uppercase)
+- confidence: Float 0-1 indicating extraction confidence
+- source_text: 1-2 sentence quote from the text that directly supports the relationship
+
+FEW-SHOT EXAMPLES
+
+Example 1:
+{"source_id": "design:Encapsulation", "target_id": "design:Information Hiding", "relation_type": "IMPLEMENTS", "confidence": 0.92, "source_text": "Encapsulation implements information hiding by bundling data with the methods that operate on that data."}
+
+Example 2:
+{"source_id": "design:Dependency Injection", "target_id": "design:Loose Coupling", "relation_type": "SUPPORTS", "confidence": 0.88, "source_text": "By supplying dependencies from the outside, dependency injection promotes loose coupling between components."}
+
+Example 3:
+{"source_id": "design:Inheritance", "target_id": "design:Composition", "relation_type": "ALTERNATIVE_TO", "confidence": 0.85, "source_text": "Many designers recommend composition over inheritance as a more flexible alternative."}
+
+Example 4:
+{"source_id": "design:Interface", "target_id": "design:Abstraction", "relation_type": "REFINES", "confidence": 0.83, "source_text": "Interfaces are a specific form of abstraction that define behavior without implementation."}
+
+Example 5:
+{"source_id": "design:Unit Testing", "target_id": "design:Testability", "relation_type": "SUPPORTS", "confidence": 0.9, "source_text": "Writing unit tests increases testability by forcing components to be isolated and observable."}
+
+FINAL INSTRUCTIONS
+
+- Extract only relationships clearly supported by the text.
+- Prefer explicit statements over vague implications.
+- Return ONLY the JSON array. No commentary or explanation."""
+
+        # No text truncation - use full chunk text
+        user = f"""Given the following concepts (with IDs, names, and descriptions):
+
 {concept_list}
 
-And this text:
-{text[:6000]}
+And the following text:
 
-Extract relationships between the concepts. Return only valid JSON array."""
+{text}
 
-        result = self._call(system, user)
+Extract all clearly text-supported relationships between the concepts.
+Follow the relation definitions, density guidance, and output format exactly.
+Return ONLY a valid JSON array."""
+
+        result = self._call(system, user, max_tokens=8192)
         parsed = self._parse_json(result)
 
         valid_ids = {c.id for c in concepts}
@@ -191,6 +275,8 @@ Extract relationships between the concepts. Return only valid JSON array."""
                     "target_id": r["target_id"],
                     "relation_type": r["relation_type"],
                     "confidence": float(r.get("confidence", 0.8)),
+                    "source_text": r.get("source_text", ""),
+                    "source_location": chunk_location,
                 }
                 for r in parsed
                 if isinstance(r, dict)
@@ -244,9 +330,7 @@ Extract explicit rules and principles. Return only valid JSON array."""
             return [
                 {
                     "text": r["text"],
-                    "concept_ids": [
-                        cid for cid in r.get("concept_ids", []) if cid in valid_ids
-                    ],
+                    "concept_ids": [cid for cid in r.get("concept_ids", []) if cid in valid_ids],
                     "category": r.get("category", "principle"),
                     "confidence": float(r.get("confidence", 0.8)),
                 }
@@ -279,3 +363,74 @@ Suggest a domain name:"""
         name = re.sub(r"[^a-z0-9_]", "_", name)
         name = re.sub(r"_+", "_", name).strip("_")
         return name or "unknown"
+
+    def extract_code_examples(
+        self,
+        text: str,
+        concepts: list[ConceptNode],
+        domain: str,
+    ) -> list[dict]:
+        """Extract code examples and link them to concepts.
+
+        Returns list of dicts matching CodeExample dataclass structure
+        for direct deserialization to SQLA model.
+        """
+        concept_list = "\n".join(f"- {c.id}: {c.name}" for c in concepts[:50])
+
+        system = """You are a code extraction system. Extract code examples from text and link them to concepts.
+
+For each code block or inline code example:
+1. Extract the complete code
+2. Identify the programming language
+3. Write a brief description of what it demonstrates
+4. Link it to relevant concept IDs from the provided list
+5. Identify if it's an antipattern (bad example) vs good practice
+6. Add relevant tags for retrieval
+
+Return JSON array of objects with:
+- code: The complete code snippet (preserve formatting)
+- language: Programming language (python, java, typescript, etc.)
+- description: 1-2 sentence explanation of what this demonstrates
+- concept_ids: Array of concept IDs this example illustrates
+- is_antipattern: Boolean, true if this is a "what not to do" example
+- tags: Array of relevant tags for retrieval
+
+Extract ALL code examples. Include both good examples and antipatterns.
+If no code examples exist, return empty array []."""
+
+        user = f"""Given these concepts:
+{concept_list}
+
+And this text:
+{text[:8000]}
+
+Extract all code examples. Return only valid JSON array."""
+
+        result = self._call(system, user, max_tokens=8192)
+        parsed = self._parse_json(result)
+
+        valid_ids = {c.id for c in concepts}
+
+        if isinstance(parsed, list):
+            examples = []
+            for i, ex in enumerate(parsed):
+                if not isinstance(ex, dict) or not ex.get("code"):
+                    continue
+                examples.append(
+                    {
+                        "id": f"{domain}:example:{i}",
+                        "code": ex["code"],
+                        "language": ex.get("language", "unknown"),
+                        "description": ex.get("description"),
+                        "source_location": None,  # Set by caller if needed
+                        "concept_ids": [
+                            cid for cid in ex.get("concept_ids", []) if cid in valid_ids
+                        ],
+                        "rule_ids": [],  # Linked later if needed
+                        "tags": ex.get("tags", []),
+                        "is_antipattern": bool(ex.get("is_antipattern", False)),
+                        "properties": {},
+                    }
+                )
+            return examples
+        return []

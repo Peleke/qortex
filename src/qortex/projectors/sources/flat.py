@@ -120,7 +120,9 @@ class FlatRuleSource:
             return None
 
         # Select template
-        template = select_template(edge.relation_type, category_hint=filt.categories[0] if filt.categories else None)
+        template = select_template(
+            edge.relation_type, category_hint=filt.categories[0] if filt.categories else None
+        )
 
         # Expand template
         text = template.template.format(
@@ -156,10 +158,7 @@ class FlatRuleSource:
         if filt.domains and rule.domain not in filt.domains:
             return False
 
-        if filt.categories and rule.category not in filt.categories:
-            return False
-
-        return True
+        return not (filt.categories and rule.category not in filt.categories)
 
     def _all_domain_names(self) -> list[str]:
         """Get all domain names from the backend."""

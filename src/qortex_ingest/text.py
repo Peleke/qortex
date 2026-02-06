@@ -2,9 +2,12 @@
 
 from __future__ import annotations
 
-from qortex.core.models import IngestionManifest
+from typing import TYPE_CHECKING
 
 from .base import Chunk, Ingestor, LLMBackend, Source
+
+if TYPE_CHECKING:
+    from qortex.core.pruning import PruningConfig
 
 
 class TextIngestor(Ingestor):
@@ -19,8 +22,9 @@ class TextIngestor(Ingestor):
         llm: LLMBackend,
         chunk_size: int = 2000,
         chunk_overlap: int = 200,
+        pruning_config: PruningConfig | None = None,
     ):
-        super().__init__(llm)
+        super().__init__(llm, pruning_config=pruning_config)
         self.chunk_size = chunk_size
         self.chunk_overlap = chunk_overlap
 
@@ -51,11 +55,13 @@ class TextIngestor(Ingestor):
                     chunk_text = chunk_text[:last_para]
                     end = start + last_para
 
-            chunks.append(Chunk(
-                id=f"chunk_{chunk_num}",
-                content=chunk_text.strip(),
-                location=f"chars {start}-{end}",
-            ))
+            chunks.append(
+                Chunk(
+                    id=f"chunk_{chunk_num}",
+                    content=chunk_text.strip(),
+                    location=f"chars {start}-{end}",
+                )
+            )
 
             start = end - self.chunk_overlap
             chunk_num += 1

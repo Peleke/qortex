@@ -12,7 +12,7 @@ Standard RAG embeds documents as vectors and retrieves by similarity. Works grea
 
 The fix: build a graph of concepts and relationships alongside your embeddings. When a query arrives, match it to concepts in the graph, then *spread activation* through connected nodes. Retrieve documents linked to the high-scoring nodes.
 
-That's HippoRAG — named after your hippocampus, which does exactly this for memory retrieval.
+That's HippoRAG, named after your hippocampus, which does exactly this for memory retrieval.
 
 qortex builds the graph. These tutorials explain why it works.
 
@@ -29,9 +29,9 @@ qortex builds the graph. These tutorials explain why it works.
 
 ## What these tutorials are (and aren't)
 
-These are intentionally light. You'll get working intuition — enough to use qortex and understand what it's doing. You won't get rigorous math or deep theory.
+These are intentionally light. You'll get working intuition, enough to use qortex and understand what it's doing. You won't get rigorous math or deep theory.
 
-For the full treatment — probability from first principles, the linear algebra behind PageRank, information geometry for embeddings — there's [Aegir](https://github.com/Peleke/aegir). It's an in-progress curriculum I'm building alongside my own learning journey. Think of it as a super-notebook that'll become a proper book over the next year or two.
+For the full treatment (probability from first principles, the linear algebra behind PageRank, information geometry for embeddings), there's [Aegir](https://github.com/Peleke/aegir). It's an in-progress curriculum I'm building alongside my own learning journey. Think of it as a super-notebook that'll become a proper book over the next year or two.
 
 ## Prerequisites
 
@@ -41,4 +41,4 @@ For the full treatment — probability from first principles, the linear algebra
 
 ## Ready?
 
-Start with [The Multi-Hop Problem](part1-multi-hop-problem.md) — a 2am hospital story about a two-million-dollar system that couldn't answer a simple question.
+Start with [The Multi-Hop Problem](part1-multi-hop-problem.md), a 2am hospital story about a two-million-dollar system that couldn't answer a simple question.

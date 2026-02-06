@@ -86,6 +86,47 @@ RelationType.SUPPORTS      # A provides evidence for B
 RelationType.CHALLENGES    # A provides counter-evidence for B
 ```
 
+### CodeExample
+
+A code example linked to concepts and rules. Structure matches SQLAlchemy model for direct deserialization.
+
+```python
+from qortex.core.models import CodeExample
+
+example = CodeExample(
+    id="patterns:example:iterator",
+    code="""class Iterator:
+    def __iter__(self): return self
+    def __next__(self): raise StopIteration""",
+    language="python",
+    description="Shows the iterator protocol",
+    source_location="ch11:p42",
+    concept_ids=["patterns:Iterator", "patterns:Protocol"],
+    rule_ids=["patterns:rule:0"],
+    tags=["iterator", "design-pattern"],
+    is_antipattern=False,
+    properties={"complexity": "low"},
+)
+```
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `id` | str | Yes | Unique example identifier |
+| `code` | str | Yes | The code snippet (preserves formatting) |
+| `language` | str | Yes | Programming language |
+| `description` | str | No | What this example demonstrates |
+| `source_location` | str | No | Location within source (e.g., "ch11:p42") |
+| `concept_ids` | list[str] | No | Concepts this example illustrates |
+| `rule_ids` | list[str] | No | Rules this example demonstrates |
+| `tags` | list[str] | No | Tags for retrieval |
+| `is_antipattern` | bool | No | True if this is a "what not to do" example |
+| `properties` | dict | No | Extensible metadata |
+
+**Use cases:**
+- **Few-shot prompting**: Rule -> Examples -> prompt context
+- **2nd-order retrieval**: Query -> similar code -> linked concepts -> related rules
+- **Contrastive learning**: Good example vs antipattern for the same rule
+
 ### ExplicitRule
 
 A rule explicitly stated in source material.
@@ -191,12 +232,24 @@ manifest = IngestionManifest(
     concepts=[...],
     edges=[...],
     rules=[...],
+    examples=[...],  # Code examples linked to concepts
     extraction_confidence=0.95,
     warnings=["Low confidence on some extractions"],
 )
 ```
 
 This is the contract between ingestion and storage. The KG doesn't know about PDFs or Markdown - it just knows manifests.
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `source` | SourceMetadata | Yes | Source information |
+| `domain` | str | Yes | Domain name |
+| `concepts` | list[ConceptNode] | Yes | Extracted concepts |
+| `edges` | list[ConceptEdge] | Yes | Extracted relationships |
+| `rules` | list[ExplicitRule] | Yes | Extracted rules |
+| `examples` | list[CodeExample] | No | Extracted code examples |
+| `extraction_confidence` | float | No | Overall confidence |
+| `warnings` | list[str] | No | Extraction warnings |
 
 ### SourceMetadata
 

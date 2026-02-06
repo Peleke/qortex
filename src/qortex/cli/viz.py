@@ -38,8 +38,7 @@ def query(
             typer.echo(row)
     except NotImplementedError:
         typer.echo(
-            "Cypher queries require Memgraph backend.\n"
-            "InMemoryBackend does not support Cypher.",
+            "Cypher queries require Memgraph backend.\nInMemoryBackend does not support Cypher.",
             err=True,
         )
         raise typer.Exit(1)

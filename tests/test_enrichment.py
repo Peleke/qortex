@@ -2,8 +2,7 @@
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
-from unittest.mock import MagicMock, patch
+from datetime import UTC, datetime
 
 import pytest
 
@@ -11,11 +10,9 @@ from qortex.core.models import Rule
 from qortex.enrichment.base import EnrichmentBackend
 from qortex.enrichment.pipeline import (
     EnrichmentPipeline,
-    EnrichmentStats,
     TemplateEnrichmentFallback,
 )
 from qortex.projectors.models import EnrichedRule, RuleEnrichment
-
 
 # -------------------------------------------------------------------------
 # Fixtures
@@ -115,15 +112,13 @@ class MockEnrichmentBackend:
                 rationale=f"Rationale for {r.id}",
                 tags=[domain, r.id],
                 enrichment_version=1,
-                enriched_at=datetime.now(timezone.utc),
+                enriched_at=datetime.now(UTC),
                 enrichment_source="mock",
             )
             for r in rules
         ]
 
-    def re_enrich(
-        self, rule: Rule, existing: RuleEnrichment, new_context: str
-    ) -> RuleEnrichment:
+    def re_enrich(self, rule: Rule, existing: RuleEnrichment, new_context: str) -> RuleEnrichment:
         self.calls.append(("re_enrich", rule.id, new_context))
         if self._fail:
             raise RuntimeError("API failed")
@@ -133,7 +128,7 @@ class MockEnrichmentBackend:
             rationale=f"{existing.rationale}. Also: {new_context}",
             tags=existing.tags,
             enrichment_version=existing.enrichment_version + 1,
-            enriched_at=datetime.now(timezone.utc),
+            enriched_at=datetime.now(UTC),
             enrichment_source="mock",
             source_contexts=[*existing.source_contexts, new_context],
         )

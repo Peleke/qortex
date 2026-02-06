@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import json
 from dataclasses import asdict
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Literal
 
@@ -12,7 +12,7 @@ import typer
 
 from qortex.cli._errors import handle_error
 
-app = typer.Typer(help="Ingest content into the knowledge graph.")
+app = typer.Typer(help="Ingest content into the knowledge graph.", no_args_is_help=True)
 
 
 BackendChoice = Literal["anthropic", "ollama", "auto"]
@@ -43,14 +43,13 @@ def _serialize_manifest(manifest) -> dict:
 def _save_manifest_to_file(manifest, output_path: Path) -> None:
     """Save manifest to JSON file."""
     data = _serialize_manifest(manifest)
-    data["_saved_at"] = datetime.now(timezone.utc).isoformat()
+    data["_saved_at"] = datetime.now(UTC).isoformat()
     output_path.write_text(json.dumps(data, indent=2, default=str))
 
 
-@app.callback(invoke_without_command=True)
-def ingest(
-    ctx: typer.Context,
-    path: Path = typer.Argument(None, help="Path to file to ingest"),
+@app.command("file")
+def ingest_file(
+    path: Path = typer.Argument(..., help="Path to file to ingest"),
     domain: str = typer.Option(
         None, "--domain", "-d", help="Domain name (default: auto-suggested)"
     ),
@@ -60,9 +59,7 @@ def ingest(
         "-b",
         help="Extraction backend: anthropic, ollama, or auto",
     ),
-    model: str = typer.Option(
-        None, "--model", "-m", help="Model override for extraction backend"
-    ),
+    model: str = typer.Option(None, "--model", "-m", help="Model override for extraction backend"),
     dry_run: bool = typer.Option(
         False, "--dry-run", help="Show what would be extracted without saving"
     ),
@@ -82,17 +79,11 @@ def ingest(
     for recovery if graph save fails, or for offline inspection.
 
     Examples:
-        qortex ingest chapter.txt --domain software_design
-        qortex ingest book.pdf --backend ollama --model llama3.2
-        qortex ingest notes.md --dry-run
-        qortex ingest chapter.txt -d my_domain -o manifest.json
+        qortex ingest file chapter.txt --domain software_design
+        qortex ingest file book.pdf --backend ollama --model llama3.2
+        qortex ingest file notes.md --dry-run
+        qortex ingest file chapter.txt -d my_domain -o manifest.json
     """
-    # If no path provided or subcommand invoked, show help
-    if ctx.invoked_subcommand is not None or path is None:
-        if path is None and ctx.invoked_subcommand is None:
-            raise typer.Exit(ctx.get_help())
-        return
-
     if not path.exists():
         handle_error(f"File not found: {path}")
 
@@ -138,9 +129,7 @@ def ingest(
             ingestor = PDFIngestor(llm=llm)
             source_type = "pdf"
         except ImportError:
-            handle_error(
-                "PDF support requires pymupdf. Install with: pip install pymupdf"
-            )
+            handle_error("PDF support requires pymupdf. Install with: pip install pymupdf")
     else:
         # Default to text
         ingestor = TextIngestor(llm=llm)
@@ -165,6 +154,7 @@ def ingest(
     typer.echo(f"Concepts extracted: {len(manifest.concepts)}")
     typer.echo(f"Relations extracted: {len(manifest.edges)}")
     typer.echo(f"Rules extracted: {len(manifest.rules)}")
+    typer.echo(f"Code examples extracted: {len(manifest.examples)}")
 
     # Always save manifest if path provided (before graph save attempt)
     if save_manifest:
@@ -182,12 +172,21 @@ def ingest(
         if manifest.edges:
             typer.echo("\nSample relations:")
             for e in manifest.edges[:5]:
-                rel_type = e.relation_type.value if hasattr(e.relation_type, 'value') else e.relation_type
+                rel_type = (
+                    e.relation_type.value if hasattr(e.relation_type, "value") else e.relation_type
+                )
                 typer.echo(f"  - {e.source_id} --{rel_type}--> {e.target_id}")
         if manifest.rules:
             typer.echo("\nSample rules:")
             for r in manifest.rules[:3]:
                 typer.echo(f"  - {r.text[:80]}...")
+        if manifest.examples:
+            typer.echo("\nSample code examples:")
+            for ex in manifest.examples[:3]:
+                code_preview = ex.code[:60].replace("\n", " ")
+                typer.echo(f"  - [{ex.language}] {code_preview}...")
+                if ex.concept_ids:
+                    typer.echo(f"    Links: {', '.join(ex.concept_ids[:3])}")
         return
 
     # Save to graph - connect to Memgraph
@@ -230,9 +229,9 @@ def ingest(
         # Ingest manifest
         graph_backend.ingest_manifest(manifest)
 
-        typer.echo(f"\nSaved to graph backend.")
-        typer.echo(f"View with: qortex inspect domains")
-        typer.echo(f"Visualize with: qortex viz open")
+        typer.echo("\nSaved to graph backend.")
+        typer.echo("View with: qortex inspect domains")
+        typer.echo("Visualize with: qortex viz open")
 
     except Exception as e:
         # Auto-save manifest on graph failure if not already saved
@@ -288,14 +287,16 @@ def load_manifest(
             rel_type = e["relation_type"]
             if isinstance(rel_type, str):
                 rel_type = RelationType(rel_type)
-            edges.append(ConceptEdge(
-                source_id=e["source_id"],
-                target_id=e["target_id"],
-                relation_type=rel_type,
-                confidence=e.get("confidence", 1.0),
-                bidirectional=e.get("bidirectional", False),
-                properties=e.get("properties", {}),
-            ))
+            edges.append(
+                ConceptEdge(
+                    source_id=e["source_id"],
+                    target_id=e["target_id"],
+                    relation_type=rel_type,
+                    confidence=e.get("confidence", 1.0),
+                    bidirectional=e.get("bidirectional", False),
+                    properties=e.get("properties", {}),
+                )
+            )
 
         rules = [ExplicitRule(**r) for r in data.get("rules", [])]
 
@@ -344,8 +345,8 @@ def load_manifest(
 
         graph_backend.ingest_manifest(manifest)
 
-        typer.echo(f"\nSaved to graph backend.")
-        typer.echo(f"View with: qortex inspect domains")
+        typer.echo("\nSaved to graph backend.")
+        typer.echo("View with: qortex inspect domains")
 
     except Exception as e:
         handle_error(f"Failed to save to graph: {e}")

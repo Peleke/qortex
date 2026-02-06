@@ -9,9 +9,13 @@ from __future__ import annotations
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Literal, Protocol, runtime_checkable
+from typing import TYPE_CHECKING, Literal, Protocol, runtime_checkable
+
+if TYPE_CHECKING:
+    from qortex.core.pruning import PruningConfig
 
 from qortex.core.models import (
+    CodeExample,
     ConceptEdge,
     ConceptNode,
     ExplicitRule,
@@ -23,6 +27,7 @@ from qortex.core.models import (
 @dataclass
 class Chunk:
     """A chunk of source content for processing."""
+
     id: str
     content: str
 
@@ -38,6 +43,7 @@ class Chunk:
 @dataclass
 class Source:
     """Input source to be ingested."""
+
     path: Path | None = None
     url: str | None = None
     raw_content: str | None = None  # For paste-in content
@@ -62,12 +68,25 @@ class LLMBackend(Protocol):
         self,
         concepts: list[ConceptNode],
         text: str,
+        chunk_location: str | None = None,
     ) -> list[dict]:
         """Extract relations between concepts."""
         ...
 
     def extract_rules(self, text: str, concepts: list[ConceptNode]) -> list[dict]:
         """Extract explicit rules from text."""
+        ...
+
+    def extract_code_examples(
+        self,
+        text: str,
+        concepts: list[ConceptNode],
+        domain: str,
+    ) -> list[dict]:
+        """Extract code examples and link to concepts.
+
+        Optional method - returns empty list if not implemented.
+        """
         ...
 
     def suggest_domain_name(self, source_name: str, sample_text: str) -> str:
@@ -82,8 +101,15 @@ class Ingestor(ABC):
     LLM extraction is shared across all ingestors.
     """
 
-    def __init__(self, llm: LLMBackend):
+    def __init__(
+        self,
+        llm: LLMBackend,
+        pruning_config: PruningConfig | None = None,
+    ):
+        from qortex.core.pruning import PruningConfig
+
         self.llm = llm
+        self.pruning_config = pruning_config or PruningConfig()
 
     @abstractmethod
     def chunk(self, source: Source) -> list[Chunk]:
@@ -120,38 +146,81 @@ class Ingestor(ABC):
         for chunk in chunks:
             extracted = self.llm.extract_concepts(chunk.content, domain)
             for c in extracted:
-                concepts.append(ConceptNode(
-                    id=f"{domain}:{c['name']}",
-                    name=c["name"],
-                    description=c.get("description", ""),
-                    domain=domain,
-                    source_id=source_id,
-                    source_location=chunk.location,
-                    confidence=c.get("confidence", 1.0),
-                ))
+                concepts.append(
+                    ConceptNode(
+                        id=f"{domain}:{c['name']}",
+                        name=c["name"],
+                        description=c.get("description", ""),
+                        domain=domain,
+                        source_id=source_id,
+                        source_location=chunk.location,
+                        confidence=c.get("confidence", 1.0),
+                    )
+                )
 
-        # 4. Extract relations between concepts
-        all_text = "\n\n".join(c.content for c in chunks)
-        relation_dicts = self.llm.extract_relations(concepts, all_text)
+        # 4. Extract relations per chunk (for full coverage + provenance)
+        from qortex.core.models import RelationType
+        from qortex.core.pruning import PruningConfig, prune_edges
+
+        all_relations: list[dict] = []
+        seen_edges: set[tuple[str, str, str]] = set()  # Dedupe across chunks
+
+        for chunk in chunks:
+            relation_dicts = self.llm.extract_relations(
+                concepts, chunk.content, chunk_location=chunk.location
+            )
+            for r in relation_dicts:
+                # Dedupe: same source->target->type only counted once
+                rel_type_str = (
+                    r["relation_type"].lower()
+                    if isinstance(r["relation_type"], str)
+                    else r["relation_type"]
+                )
+                edge_key = (r["source_id"], r["target_id"], rel_type_str)
+                if edge_key in seen_edges:
+                    continue
+                seen_edges.add(edge_key)
+                all_relations.append(r)
+
+        # 4b. Prune edges (online mode, enabled by default)
+        pruning_config = getattr(self, "pruning_config", None) or PruningConfig()
+        prune_result = prune_edges(all_relations, pruning_config)
+        pruned_relations = prune_result.edges
+
+        # Convert to ConceptEdge objects
         edges = []
-        for r in relation_dicts:
-            # Convert string relation_type to enum (lowercase to match enum values)
+        for r in pruned_relations:
             rel_type = r["relation_type"]
             if isinstance(rel_type, str):
                 try:
-                    from qortex.core.models import RelationType
                     rel_type = RelationType(rel_type.lower())
                 except ValueError:
                     continue  # Skip invalid relation types
-            edges.append(ConceptEdge(
-                source_id=r["source_id"],
-                target_id=r["target_id"],
-                relation_type=rel_type,
-                confidence=r.get("confidence", 1.0),
-            ))
 
-        # 5. Extract explicit rules
-        rule_dicts = self.llm.extract_rules(all_text, concepts)
+            # Store provenance + pruning metadata in properties
+            properties = {}
+            if r.get("source_text"):
+                properties["source_text"] = r["source_text"]
+            if r.get("source_location"):
+                properties["source_location"] = r["source_location"]
+            if r.get("layer"):
+                properties["layer"] = r["layer"]
+            if r.get("strength"):
+                properties["strength"] = r["strength"]
+
+            edges.append(
+                ConceptEdge(
+                    source_id=r["source_id"],
+                    target_id=r["target_id"],
+                    relation_type=rel_type,
+                    confidence=r.get("confidence", 1.0),
+                    properties=properties,
+                )
+            )
+
+        # 5. Extract explicit rules (use first few chunks for rule extraction)
+        all_text = "\n\n".join(chunk.content for chunk in chunks[:5])
+        rule_dicts = self.llm.extract_rules(all_text, concepts[:50])
         rules = [
             ExplicitRule(
                 id=f"{domain}:rule:{i}",
@@ -165,7 +234,27 @@ class Ingestor(ABC):
             for i, r in enumerate(rule_dicts)
         ]
 
-        # 6. Build manifest
+        # 6. Extract code examples (if backend supports it)
+        examples: list[CodeExample] = []
+        if hasattr(self.llm, "extract_code_examples"):
+            example_dicts = self.llm.extract_code_examples(all_text, concepts[:50], domain)
+            for ex in example_dicts:
+                examples.append(
+                    CodeExample(
+                        id=ex["id"],
+                        code=ex["code"],
+                        language=ex["language"],
+                        description=ex.get("description"),
+                        source_location=ex.get("source_location"),
+                        concept_ids=ex.get("concept_ids", []),
+                        rule_ids=ex.get("rule_ids", []),
+                        tags=ex.get("tags", []),
+                        is_antipattern=ex.get("is_antipattern", False),
+                        properties=ex.get("properties", {}),
+                    )
+                )
+
+        # 7. Build manifest
         source_meta = SourceMetadata(
             id=source_id,
             name=source.name or "unknown",
@@ -182,6 +271,7 @@ class Ingestor(ABC):
             concepts=concepts,
             edges=edges,
             rules=rules,
+            examples=examples,
         )
 
 
@@ -203,10 +293,19 @@ class StubLLMBackend:
         self,
         concepts: list[ConceptNode],
         text: str,
+        chunk_location: str | None = None,
     ) -> list[dict]:
         return []
 
     def extract_rules(self, text: str, concepts: list[ConceptNode]) -> list[dict]:
+        return []
+
+    def extract_code_examples(
+        self,
+        text: str,
+        concepts: list[ConceptNode],
+        domain: str,
+    ) -> list[dict]:
         return []
 
     def suggest_domain_name(self, source_name: str, sample_text: str) -> str:

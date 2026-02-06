@@ -8,9 +8,7 @@ services:
     volumes:
       - memgraph_data:/var/lib/memgraph
       - memgraph_log:/var/log/memgraph
-    environment:
-      - MEMGRAPH_USER=${QORTEX_MEMGRAPH_USER:-qortex}
-      - MEMGRAPH_PASSWORD=${QORTEX_MEMGRAPH_PASSWORD:-qortex}
+    # Note: Memgraph Community doesn't support auth, Enterprise required
     command: ["--also-log-to-stderr"]
     healthcheck:
       test: ["CMD", "python3", "-c", "import socket; s=socket.socket(); s.settimeout(2); s.connect(('localhost',7687)); s.close()"]
@@ -28,10 +26,12 @@ services:
       memgraph:
         condition: service_healthy
     environment:
+      # Quick Connect settings (host is Docker service name, not localhost)
       - QUICK_CONNECT_MG_HOST=memgraph
       - QUICK_CONNECT_MG_PORT=7687
-      - QUICK_CONNECT_MG_USERNAME=${QORTEX_MEMGRAPH_USER:-qortex}
-      - QUICK_CONNECT_MG_PASSWORD=${QORTEX_MEMGRAPH_PASSWORD:-qortex}
+      - QUICK_CONNECT_MG_IS_ENCRYPTED=false
+      # Note: Lab Quick Connect doesn't support auth via env vars
+      # Users must manually enter credentials or use saved connections
 
 volumes:
   memgraph_data:

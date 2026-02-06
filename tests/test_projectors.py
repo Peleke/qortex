@@ -3,11 +3,10 @@
 import pytest
 
 from qortex.core.models import RelationType, Rule
+from qortex.projectors import registry
 from qortex.projectors.base import Enricher, ProjectionSource, ProjectionTarget
 from qortex.projectors.models import EnrichedRule, ProjectionFilter, RuleEnrichment
 from qortex.projectors.projection import Projection
-from qortex.projectors import registry
-
 
 # -------------------------------------------------------------------------
 # Fixtures
@@ -49,10 +48,7 @@ class StubSource:
 
 class StubEnricher:
     def enrich(self, rules):
-        return [
-            EnrichedRule(rule=r, enrichment=_make_enrichment())
-            for r in rules
-        ]
+        return [EnrichedRule(rule=r, enrichment=_make_enrichment()) for r in rules]
 
 
 class StubTarget:
@@ -94,9 +90,7 @@ class TestRuleEnrichment:
         assert e.enrichment_source is None
 
     def test_defaults(self):
-        e = RuleEnrichment(
-            context="c", antipattern="a", rationale="r", tags=["t"]
-        )
+        e = RuleEnrichment(context="c", antipattern="a", rationale="r", tags=["t"])
         assert e.enrichment_version == 1
         assert e.source_contexts == []
 

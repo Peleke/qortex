@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import json
 import logging
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import Any
 
 from qortex.core.models import Rule
@@ -66,9 +66,7 @@ class AnthropicEnrichmentBackend:
         try:
             import anthropic
         except ImportError as e:
-            raise ImportError(
-                "anthropic package required: pip install 'qortex[anthropic]'"
-            ) from e
+            raise ImportError("anthropic package required: pip install 'qortex[anthropic]'") from e
 
         self._client = anthropic.Anthropic(api_key=api_key)
         self._model = model or self.DEFAULT_MODEL
@@ -118,7 +116,7 @@ class AnthropicEnrichmentBackend:
             rationale=data.get("rationale", existing.rationale),
             tags=data.get("tags", existing.tags),
             enrichment_version=existing.enrichment_version + 1,
-            enriched_at=datetime.now(timezone.utc),
+            enriched_at=datetime.now(UTC),
             enrichment_source="anthropic",
             source_contexts=[*existing.source_contexts, new_context],
         )
@@ -129,9 +127,7 @@ class AnthropicEnrichmentBackend:
         domain: str,
     ) -> list[RuleEnrichment]:
         """Send one batch to Claude and parse response."""
-        rules_text = "\n".join(
-            f"{i + 1}. [{r.id}] {r.text}" for i, r in enumerate(rules)
-        )
+        rules_text = "\n".join(f"{i + 1}. [{r.id}] {r.text}" for i, r in enumerate(rules))
 
         response = self._client.messages.create(
             model=self._model,
@@ -172,7 +168,7 @@ class AnthropicEnrichmentBackend:
             rationale=data.get("rationale", ""),
             tags=data.get("tags", []),
             enrichment_version=1,
-            enriched_at=datetime.now(timezone.utc),
+            enriched_at=datetime.now(UTC),
             enrichment_source="anthropic",
         )
 
@@ -184,7 +180,7 @@ class AnthropicEnrichmentBackend:
             rationale=rule.text,
             tags=[rule.domain],
             enrichment_version=1,
-            enriched_at=datetime.now(timezone.utc),
+            enriched_at=datetime.now(UTC),
             enrichment_source="template",
         )
 
@@ -195,6 +191,6 @@ class AnthropicEnrichmentBackend:
         if text.startswith("```"):
             lines = text.split("\n")
             # Remove first and last fence lines
-            lines = [l for l in lines if not l.strip().startswith("```")]
+            lines = [line for line in lines if not line.strip().startswith("```")]
             text = "\n".join(lines)
         return json.loads(text)

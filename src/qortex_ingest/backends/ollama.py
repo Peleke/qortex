@@ -54,15 +54,17 @@ class OllamaExtractionBackend:
 
     def _call(self, prompt: str) -> str:
         """Make API call to Ollama and return response."""
-        payload = json.dumps({
-            "model": self.model,
-            "prompt": prompt,
-            "stream": False,
-            "options": {
-                "temperature": 0.3,
-                "num_predict": 4096,
-            },
-        }).encode("utf-8")
+        payload = json.dumps(
+            {
+                "model": self.model,
+                "prompt": prompt,
+                "stream": False,
+                "options": {
+                    "temperature": 0.3,
+                    "num_predict": 4096,
+                },
+            }
+        ).encode("utf-8")
 
         req = Request(
             f"{self.host}/api/generate",
@@ -144,14 +146,14 @@ JSON:"""
         self,
         concepts: list[ConceptNode],
         text: str,
+        chunk_location: str | None = None,
     ) -> list[dict]:
         """Extract relations between concepts."""
         if not concepts:
             return []
 
-        concept_list = "\n".join(
-            f"- {c.id}: {c.name}" for c in concepts[:30]
-        )
+        # Use all concepts (Ollama is local, no API cost)
+        concept_list = "\n".join(f"- {c.id}: {c.name}" for c in concepts)
 
         prompt = f"""You are a knowledge extraction system. Identify relationships between concepts.
 
@@ -166,9 +168,12 @@ Return ONLY a JSON array of objects with:
 - target_id: ID from the list above
 - relation_type: One of the relation types
 - confidence: Float 0-1
+- source_text: Quote from text supporting this relation
+
+Aim for 3-5 relations per major concept.
 
 TEXT:
-{text[:4000]}
+{text}
 
 JSON:"""
 
@@ -184,6 +189,8 @@ JSON:"""
                     "target_id": r["target_id"],
                     "relation_type": r["relation_type"],
                     "confidence": float(r.get("confidence", 0.8)),
+                    "source_text": r.get("source_text", ""),
+                    "source_location": chunk_location,
                 }
                 for r in parsed
                 if isinstance(r, dict)
@@ -228,9 +235,7 @@ JSON:"""
             return [
                 {
                     "text": r["text"],
-                    "concept_ids": [
-                        cid for cid in r.get("concept_ids", []) if cid in valid_ids
-                    ],
+                    "concept_ids": [cid for cid in r.get("concept_ids", []) if cid in valid_ids],
                     "category": r.get("category", "principle"),
                     "confidence": float(r.get("confidence", 0.8)),
                 }

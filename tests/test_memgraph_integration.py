@@ -20,17 +20,25 @@ from qortex.core.models import (
 )
 
 # ---------------------------------------------------------------------------
-# Skip guard: detect if Memgraph is running
+# Skip guard: detect if Memgraph is running and accessible
 # ---------------------------------------------------------------------------
 
 MEMGRAPH_AVAILABLE = False
 try:
+    # First check if port is open
     _s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     _s.settimeout(1)
     _s.connect(("localhost", 7687))
     _s.close()
+    # Then verify actual connectivity (handles auth issues)
+    from qortex.core.backend import MemgraphBackend
+
+    _b = MemgraphBackend(host="localhost", port=7687)
+    _b.connect()
+    _b.disconnect()
     MEMGRAPH_AVAILABLE = True
-except (OSError, ConnectionRefusedError):
+except Exception:
+    # Any error (socket, auth, driver) means tests should skip
     pass
 
 pytestmark = pytest.mark.skipif(
@@ -75,33 +83,49 @@ def sample_manifest():
         domain="test_domain",
         concepts=[
             ConceptNode(
-                id="c1", name="Alpha", description="First concept",
-                domain="test_domain", source_id="test-src",
+                id="c1",
+                name="Alpha",
+                description="First concept",
+                domain="test_domain",
+                source_id="test-src",
             ),
             ConceptNode(
-                id="c2", name="Beta", description="Second concept",
-                domain="test_domain", source_id="test-src",
+                id="c2",
+                name="Beta",
+                description="Second concept",
+                domain="test_domain",
+                source_id="test-src",
             ),
             ConceptNode(
-                id="c3", name="Gamma", description="Third concept",
-                domain="test_domain", source_id="test-src",
+                id="c3",
+                name="Gamma",
+                description="Third concept",
+                domain="test_domain",
+                source_id="test-src",
             ),
         ],
         edges=[
             ConceptEdge(
-                source_id="c1", target_id="c2",
-                relation_type=RelationType.REQUIRES, confidence=0.9,
+                source_id="c1",
+                target_id="c2",
+                relation_type=RelationType.REQUIRES,
+                confidence=0.9,
             ),
             ConceptEdge(
-                source_id="c2", target_id="c3",
-                relation_type=RelationType.SUPPORTS, confidence=0.8,
+                source_id="c2",
+                target_id="c3",
+                relation_type=RelationType.SUPPORTS,
+                confidence=0.8,
             ),
         ],
         rules=[
             ExplicitRule(
-                id="r1", text="Always do X before Y",
-                domain="test_domain", source_id="test-src",
-                category="process", confidence=0.95,
+                id="r1",
+                text="Always do X before Y",
+                domain="test_domain",
+                source_id="test-src",
+                category="process",
+                confidence=0.95,
             ),
         ],
     )
@@ -159,8 +183,11 @@ class TestNodeOperations:
     def test_add_and_get_node(self, backend):
         backend.create_domain("d")
         node = ConceptNode(
-            id="n1", name="TestNode", description="A test",
-            domain="d", source_id="src",
+            id="n1",
+            name="TestNode",
+            description="A test",
+            domain="d",
+            source_id="src",
         )
         backend.add_node(node)
 
@@ -172,10 +199,15 @@ class TestNodeOperations:
     def test_get_node_with_domain_filter(self, backend):
         backend.create_domain("d1")
         backend.create_domain("d2")
-        backend.add_node(ConceptNode(
-            id="n1", name="Node", description="",
-            domain="d1", source_id="s",
-        ))
+        backend.add_node(
+            ConceptNode(
+                id="n1",
+                name="Node",
+                description="",
+                domain="d1",
+                source_id="s",
+            )
+        )
 
         assert backend.get_node("n1", domain="d1") is not None
         assert backend.get_node("n1", domain="d2") is None
@@ -245,10 +277,12 @@ class TestManifestIngestion:
 class TestQuery:
     def test_query_cypher(self, backend, sample_manifest):
         backend.ingest_manifest(sample_manifest)
-        results = list(backend.query_cypher(
-            "MATCH (c:Concept {domain: $d}) RETURN c.id AS id ORDER BY c.id",
-            {"d": "test_domain"},
-        ))
+        results = list(
+            backend.query_cypher(
+                "MATCH (c:Concept {domain: $d}) RETURN c.id AS id ORDER BY c.id",
+                {"d": "test_domain"},
+            )
+        )
         ids = [r["id"] for r in results]
         assert ids == ["c1", "c2", "c3"]
 

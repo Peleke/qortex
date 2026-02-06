@@ -56,7 +56,7 @@ def status() -> None:
         for p, err in failed[-3:]:  # Show last 3
             typer.echo(f"  {p.name}")
             if err:
-                first_line = err.split('\n')[0][:60]
+                first_line = err.split("\n")[0][:60]
                 typer.echo(f"    Error: {first_line}...")
         typer.echo()
 
@@ -102,7 +102,9 @@ def signals(
     recent = all_signals[-limit:]
     typer.echo(f"Recent signals (showing {len(recent)} of {len(all_signals)}):")
     for sig in recent:
-        typer.echo(f"  [{sig.event}] persona={sig.persona} domain={sig.domain} rules={sig.rule_count}")
+        typer.echo(
+            f"  [{sig.event}] persona={sig.persona} domain={sig.domain} rules={sig.rule_count}"
+        )
         typer.echo(f"    path: {sig.path}")
         typer.echo(f"    ts:   {sig.ts}")
         typer.echo()
@@ -129,7 +131,7 @@ def config(
     write_default: bool = typer.Option(False, "--write-default", help="Write default config file"),
 ) -> None:
     """Show or write interop configuration."""
-    from qortex.interop import InteropConfig, get_interop_config, write_config, _CONFIG_PATH
+    from qortex.interop import _CONFIG_PATH, InteropConfig, get_interop_config, write_config
 
     if write_default:
         default_config = InteropConfig()
@@ -163,11 +165,11 @@ def schema(
     import json
 
     from qortex.interop_schemas import (
-        SEED_SCHEMA_VERSION,
         EVENT_SCHEMA_VERSION,
-        get_seed_schema,
-        get_event_schema,
+        SEED_SCHEMA_VERSION,
         export_schemas,
+        get_event_schema,
+        get_seed_schema,
     )
 
     if output:
@@ -183,6 +185,7 @@ def schema(
     def format_schema(schema: dict) -> str:
         if format == "yaml":
             import yaml
+
             return yaml.dump(schema, default_flow_style=False, sort_keys=False)
         return json.dumps(schema, indent=2)
 
@@ -204,9 +207,10 @@ def validate(
 ) -> None:
     """Validate a seed file or event against the schema."""
     import json
+
     import yaml
 
-    from qortex.interop_schemas import validate_seed, validate_event
+    from qortex.interop_schemas import validate_event, validate_seed
 
     if not path.exists():
         typer.echo(f"File not found: {path}", err=True)
@@ -231,7 +235,9 @@ def validate(
                 typer.echo(f"  - {err}")
             raise typer.Exit(1)
         else:
-            typer.echo(f"Valid seed: {data.get('persona', 'unknown')} ({data.get('metadata', {}).get('rule_count', '?')} rules)")
+            typer.echo(
+                f"Valid seed: {data.get('persona', 'unknown')} ({data.get('metadata', {}).get('rule_count', '?')} rules)"
+            )
 
     elif type == "event":
         # Validate each line of JSONL

@@ -5,10 +5,11 @@ from __future__ import annotations
 import copy
 import fnmatch
 import uuid
-from datetime import datetime, timezone
-from typing import Iterator, Literal
+from collections.abc import Iterator
+from datetime import UTC, datetime
+from typing import Literal
 
-from .backend import GraphBackend, GraphPattern
+from .backend import GraphPattern
 from .models import ConceptEdge, ConceptNode, Domain, ExplicitRule, IngestionManifest
 
 
@@ -50,8 +51,8 @@ class InMemoryBackend:
         domain = Domain(
             name=name,
             description=description,
-            created_at=datetime.now(timezone.utc),
-            updated_at=datetime.now(timezone.utc),
+            created_at=datetime.now(UTC),
+            updated_at=datetime.now(UTC),
         )
         self._domains[name] = domain
         return domain
@@ -67,21 +68,17 @@ class InMemoryBackend:
             return False
         del self._domains[name]
         # Cascade: remove nodes in this domain
-        node_ids_to_remove = {
-            nid for nid, node in self._nodes.items() if node.domain == name
-        }
+        node_ids_to_remove = {nid for nid, node in self._nodes.items() if node.domain == name}
         for nid in node_ids_to_remove:
             del self._nodes[nid]
         # Cascade: remove edges referencing removed nodes
         self._edges = [
-            e for e in self._edges
-            if e.source_id not in node_ids_to_remove
-            and e.target_id not in node_ids_to_remove
+            e
+            for e in self._edges
+            if e.source_id not in node_ids_to_remove and e.target_id not in node_ids_to_remove
         ]
         # Cascade: remove rules in this domain
-        rule_ids_to_remove = {
-            rid for rid, rule in self._rules.items() if rule.domain == name
-        }
+        rule_ids_to_remove = {rid for rid, rule in self._rules.items() if rule.domain == name}
         for rid in rule_ids_to_remove:
             del self._rules[rid]
         return True
@@ -139,11 +136,14 @@ class InMemoryBackend:
         for edge in self._edges:
             if relation_type and edge.relation_type.value != relation_type:
                 continue
-            if direction == "out" and edge.source_id == node_id:
-                yield edge
-            elif direction == "in" and edge.target_id == node_id:
-                yield edge
-            elif direction == "both" and (edge.source_id == node_id or edge.target_id == node_id):
+            if (
+                direction == "out"
+                and edge.source_id == node_id
+                or direction == "in"
+                and edge.target_id == node_id
+                or direction == "both"
+                and (edge.source_id == node_id or edge.target_id == node_id)
+            ):
                 yield edge
 
     # -------------------------------------------------------------------------
@@ -188,7 +188,7 @@ class InMemoryBackend:
 
         # Update domain stats and timestamp
         self._recount_domain(manifest.domain)
-        domain.updated_at = datetime.now(timezone.utc)
+        domain.updated_at = datetime.now(UTC)
 
     # -------------------------------------------------------------------------
     # Query (limited — no Cypher support)
@@ -230,7 +230,7 @@ class InMemoryBackend:
         # BFS expansion
         frontier = list(scores.keys())
         for depth in range(1, 3):  # 2-hop
-            decay = damping_factor ** depth
+            decay = damping_factor**depth
             next_frontier: list[str] = []
             for nid in frontier:
                 for edge in self._edges:
@@ -261,9 +261,15 @@ class InMemoryBackend:
             # Partial checkpoint
             nodes = {nid: copy.deepcopy(n) for nid, n in self._nodes.items() if n.domain in domains}
             node_ids = set(nodes.keys())
-            edges = [copy.deepcopy(e) for e in self._edges if e.source_id in node_ids or e.target_id in node_ids]
+            edges = [
+                copy.deepcopy(e)
+                for e in self._edges
+                if e.source_id in node_ids or e.target_id in node_ids
+            ]
             rules = {rid: copy.deepcopy(r) for rid, r in self._rules.items() if r.domain in domains}
-            domain_objs = {d: copy.deepcopy(self._domains[d]) for d in domains if d in self._domains}
+            domain_objs = {
+                d: copy.deepcopy(self._domains[d]) for d in domains if d in self._domains
+            }
         else:
             nodes = copy.deepcopy(self._nodes)
             edges = copy.deepcopy(self._edges)
@@ -276,7 +282,7 @@ class InMemoryBackend:
             "nodes": nodes,
             "edges": edges,
             "rules": rules,
-            "created_at": datetime.now(timezone.utc),
+            "created_at": datetime.now(UTC),
         }
         return checkpoint_id
 
@@ -311,7 +317,8 @@ class InMemoryBackend:
         domain.concept_count = sum(1 for n in self._nodes.values() if n.domain == domain_name)
         domain_node_ids = {nid for nid, n in self._nodes.items() if n.domain == domain_name}
         domain.edge_count = sum(
-            1 for e in self._edges
+            1
+            for e in self._edges
             if e.source_id in domain_node_ids or e.target_id in domain_node_ids
         )
         domain.rule_count = sum(1 for r in self._rules.values() if r.domain == domain_name)

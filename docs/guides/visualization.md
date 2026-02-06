@@ -142,6 +142,6 @@ This is what qortex builds. The visualization is just the proof.
 
 ## Next Steps
 
-- [Using Memgraph](memgraph.md) — Full Memgraph backend reference
-- [Projecting Rules](projecting-rules.md) — Turn this graph into actionable rules
-- [Quick Start](../getting-started/quickstart.md) — Ingest your first content
+- [Using Memgraph](memgraph.md): Full Memgraph backend reference
+- [Projecting Rules](projecting-rules.md): Turn this graph into actionable rules
+- [Quick Start](../getting-started/quickstart.md): Ingest your first content

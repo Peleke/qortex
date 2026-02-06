@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import logging
 from dataclasses import dataclass, field
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 from qortex.core.models import Rule
 from qortex.enrichment.base import EnrichmentBackend
@@ -45,7 +45,7 @@ class TemplateEnrichmentFallback:
             rationale=f"{existing.rationale} Additionally: {new_context}",
             tags=existing.tags,
             enrichment_version=existing.enrichment_version + 1,
-            enriched_at=datetime.now(timezone.utc),
+            enriched_at=datetime.now(UTC),
             enrichment_source="template",
             source_contexts=[*existing.source_contexts, new_context],
         )
@@ -64,7 +64,7 @@ class TemplateEnrichmentFallback:
             rationale=rule.text,
             tags=tags,
             enrichment_version=1,
-            enriched_at=datetime.now(timezone.utc),
+            enriched_at=datetime.now(UTC),
             enrichment_source="template",
         )
 
@@ -79,9 +79,7 @@ class EnrichmentPipeline:
     """
 
     backend: EnrichmentBackend | None = None
-    fallback: TemplateEnrichmentFallback = field(
-        default_factory=TemplateEnrichmentFallback
-    )
+    fallback: TemplateEnrichmentFallback = field(default_factory=TemplateEnrichmentFallback)
     stats: EnrichmentStats = field(default_factory=EnrichmentStats)
 
     def enrich(

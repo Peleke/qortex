@@ -26,13 +26,12 @@ from qortex.core.models import (
 )
 from qortex.projectors.enrichers.passthrough import PassthroughEnricher
 from qortex.projectors.enrichers.template import TemplateEnricher
-from qortex.projectors.models import EnrichedRule, ProjectionFilter
+from qortex.projectors.models import ProjectionFilter
 from qortex.projectors.projection import Projection
 from qortex.projectors.sources.flat import FlatRuleSource
 from qortex.projectors.targets.buildlog_seed import BuildlogSeedTarget
 from qortex.projectors.targets.flat_json import FlatJSONTarget
 from qortex.projectors.targets.flat_yaml import FlatYAMLTarget
-
 
 # =============================================================================
 # Chapter 5 fixture data: real concepts from the book
@@ -498,6 +497,7 @@ class TestE2EWithoutMemgraph:
 
         json_proj = Projection(source=source, target=FlatJSONTarget())
         import json
+
         json_result = json.loads(json_proj.project(domains=[DOMAIN]))
 
         assert buildlog_result["metadata"]["rule_count"] == len(yaml_result["rules"])
@@ -698,10 +698,12 @@ class TestE2EWithMemgraph:
         manifest = _build_chapter_manifest()
         self.backend.ingest_manifest(manifest)
 
-        results = list(self.backend.query_cypher(
-            "MATCH (c:Concept {domain: $d}) RETURN c.id AS id",
-            {"d": DOMAIN},
-        ))
+        results = list(
+            self.backend.query_cypher(
+                "MATCH (c:Concept {domain: $d}) RETURN c.id AS id",
+                {"d": DOMAIN},
+            )
+        )
         ids = {r["id"] for r in results}
         assert len(ids) == len(CONCEPTS)
 

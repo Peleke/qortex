@@ -11,6 +11,7 @@ from qortex.core.backend import GraphBackend
 @dataclass
 class Checkpoint:
     """A saved state of the knowledge graph."""
+
     id: str
     name: str
     timestamp: datetime
@@ -26,6 +27,7 @@ class Checkpoint:
 @dataclass
 class CheckpointDiff:
     """Difference between two checkpoints."""
+
     added_concepts: int
     removed_concepts: int
     added_rules: int
