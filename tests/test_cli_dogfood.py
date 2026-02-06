@@ -4,6 +4,7 @@ Tests every command, flag combination, and error path that might be missed by un
 """
 
 import json
+import re
 from unittest.mock import Mock, patch
 
 import pytest
@@ -11,6 +12,11 @@ import yaml
 from typer.testing import CliRunner
 
 from qortex.cli import app
+
+
+def _strip_ansi(text: str) -> str:
+    """Strip ANSI escape codes from text for reliable assertions."""
+    return re.sub(r"\x1b\[[0-9;]*m", "", text)
 from qortex.core.memory import InMemoryBackend
 from qortex.core.models import ConceptEdge, ConceptNode, ExplicitRule, RelationType
 
@@ -534,9 +540,11 @@ class TestHelpText:
         """Test qortex project buildlog --help."""
         result = runner.invoke(app, ["project", "buildlog", "--help"])
         assert result.exit_code == 0
-        assert "--domain" in result.stdout
-        assert "--persona" in result.stdout
-        assert "--enrich" in result.stdout
+        # Strip ANSI codes since typer rich output splits options like "--domain"
+        output = _strip_ansi(result.stdout)
+        assert "--domain" in output
+        assert "--persona" in output
+        assert "--enrich" in output
 
     def test_inspect_help(self):
         """Test qortex inspect --help."""
