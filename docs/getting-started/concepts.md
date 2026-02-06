@@ -4,26 +4,7 @@ qortex is built around a knowledge graph model that captures concepts, their rel
 
 ## The Knowledge Graph
 
-```mermaid
-graph TB
-    subgraph Domain["Domain: error_handling"]
-        CB[Circuit Breaker]
-        TO[Timeout]
-        RT[Retry]
-        FF[Fail Fast]
-
-        CB -->|REQUIRES| TO
-        RT -->|CONTRADICTS| FF
-    end
-
-    subgraph Rules
-        R1[Explicit Rule]
-        R2[Derived Rule]
-    end
-
-    CB -.->|source| R2
-    TO -.->|source| R2
-```
+![subgraph-domain-domain-error-h](../images/diagrams/concepts-1-subgraph-domain-domain-error-h.svg)
 
 ## Domains
 
@@ -121,19 +102,7 @@ Rules generated from edges using templates. qortex has 30 built-in templates (3 
 
 ## The Projection Pipeline
 
-```mermaid
-flowchart LR
-    KG[(Knowledge Graph)] --> Source
-    Source --> Enricher
-    Enricher --> Target
-    Target --> Output[YAML/JSON/Seed]
-
-    subgraph Pipeline
-        Source[FlatRuleSource]
-        Enricher[TemplateEnricher]
-        Target[BuildlogSeedTarget]
-    end
-```
+![kg-knowledge-graph-source](../images/diagrams/concepts-2-kg-knowledge-graph-source.svg)
 
 1. **Source**: Extracts rules from the graph (explicit + derived)
 2. **Enricher**: Adds context, antipatterns, rationale, tags

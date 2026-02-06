@@ -57,21 +57,40 @@ qortex infra status
 
 ## ingest
 
-Ingest content into the knowledge graph.
+Ingest content into the knowledge graph using LLM-powered extraction.
 
 ### `qortex ingest <path>`
 
-Ingest a file or directory.
+Extract concepts, relations, and rules from a file.
 
 ```bash
-qortex ingest book.pdf --domain software_design
-qortex ingest ./chapters/ --domain patterns
+# Basic usage (auto-detects backend)
+qortex ingest chapter.txt --domain software_design
+
+# Specify extraction backend
+qortex ingest chapter.txt --backend anthropic --domain patterns
+qortex ingest chapter.txt --backend ollama --model dolphin-mistral
+
+# Preview without saving
+qortex ingest chapter.txt --domain test --dry-run
 ```
 
 Options:
-- `--domain / -d`: Target domain (required)
-- `--source-id`: Source identifier (default: filename)
-- `--format`: Force format (pdf, markdown, text)
+- `--domain / -d`: Target domain (default: auto-suggested by LLM)
+- `--backend / -b`: Extraction backend: `anthropic`, `ollama`, or `auto` (default: auto)
+- `--model / -m`: Model override for the extraction backend
+- `--dry-run`: Show extracted concepts/relations/rules without saving to graph
+
+**Backend auto-detection:**
+
+1. `anthropic` if `ANTHROPIC_API_KEY` is set
+2. `ollama` if server is reachable at `OLLAMA_HOST` (default: localhost:11434)
+3. Falls back to stub backend (empty results, for testing pipeline)
+
+**Supported formats:**
+- `.txt`, `.text` — Plain text
+- `.md`, `.markdown` — Markdown (preserves structure)
+- `.pdf` — PDF (not yet implemented)
 
 ---
 

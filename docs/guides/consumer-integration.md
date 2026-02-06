@@ -4,37 +4,7 @@ qortex uses a consumer interop protocol that allows ANY system to consume projec
 
 ## Architecture
 
-```mermaid
-flowchart LR
-    subgraph qortex
-        Project[Projection]
-        Write[Write Seed]
-        Signal[Emit Signal]
-    end
-
-    subgraph Interop["~/.qortex/"]
-        Pending[seeds/pending/]
-        Signals[signals/projections.jsonl]
-    end
-
-    subgraph Consumers
-        Buildlog[buildlog]
-        MCP[MCP Server]
-        Agent[AI Agent]
-        CI[CI/CD]
-    end
-
-    Project --> Write --> Pending
-    Write --> Signal --> Signals
-
-    Pending --> Buildlog
-    Pending --> MCP
-    Pending --> Agent
-    Pending --> CI
-
-    Signals -.->|subscribe| Buildlog
-    Signals -.->|subscribe| Agent
-```
+![subgraph-qortex](../images/diagrams/consumer-integration-1-subgraph-qortex.svg)
 
 ## The Protocol
 

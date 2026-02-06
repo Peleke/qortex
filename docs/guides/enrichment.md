@@ -16,18 +16,7 @@ Raw rules like "Use timeouts" become rich guidelines:
 
 ## Enrichment Pipeline
 
-```mermaid
-flowchart LR
-    Rules --> Pipeline
-    Pipeline --> EnrichedRules
-
-    subgraph Pipeline
-        Backend[LLM Backend]
-        Fallback[Template Fallback]
-    end
-
-    Backend -.->|on failure| Fallback
-```
+![rules-pipeline](../images/diagrams/enrichment-1-rules-pipeline.svg)
 
 ```python
 from qortex.enrichment.pipeline import EnrichmentPipeline

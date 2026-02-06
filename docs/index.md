@@ -4,21 +4,7 @@
 
 qortex transforms unstructured content (books, docs, PDFs) into a knowledge graph, then projects actionable rules for AI agents, buildlog, and other consumers.
 
-```mermaid
-flowchart LR
-    subgraph Ingest
-        PDF[PDF/Markdown] --> KG[(Knowledge Graph)]
-    end
-    subgraph Project
-        KG --> Rules[Rule Projection]
-        Rules --> Enrich[Enrichment]
-    end
-    subgraph Consume
-        Enrich --> Buildlog[buildlog]
-        Enrich --> MCP[MCP Server]
-        Enrich --> Agents[AI Agents]
-    end
-```
+![qortex pipeline](images/diagrams/pipeline.svg)
 
 ## Features
 

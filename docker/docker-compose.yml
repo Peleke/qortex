@@ -13,7 +13,7 @@ services:
       - MEMGRAPH_PASSWORD=${QORTEX_MEMGRAPH_PASSWORD:-qortex}
     command: ["--also-log-to-stderr"]
     healthcheck:
-      test: ["CMD-SHELL", "echo > /dev/tcp/localhost/7687"]
+      test: ["CMD", "python3", "-c", "import socket; s=socket.socket(); s.settimeout(2); s.connect(('localhost',7687)); s.close()"]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -30,6 +30,8 @@ services:
     environment:
       - QUICK_CONNECT_MG_HOST=memgraph
       - QUICK_CONNECT_MG_PORT=7687
+      - QUICK_CONNECT_MG_USERNAME=${QORTEX_MEMGRAPH_USER:-qortex}
+      - QUICK_CONNECT_MG_PASSWORD=${QORTEX_MEMGRAPH_PASSWORD:-qortex}
 
 volumes:
   memgraph_data:

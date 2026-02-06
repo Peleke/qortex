@@ -211,6 +211,36 @@ class GraphBackend(Protocol):
 # =============================================================================
 
 
+class MemgraphCredentials:
+    """Secure wrapper for Memgraph authentication.
+
+    Can be initialized from a tuple or from the CLI config's MemgraphCredentials.
+    Password is hidden from repr/str to avoid accidental logging.
+    """
+
+    __slots__ = ("_user", "_password")
+
+    def __init__(self, user: str = "", password: str = ""):
+        self._user = user
+        self._password = password
+
+    @classmethod
+    def from_tuple(cls, auth: tuple[str, str]) -> "MemgraphCredentials":
+        """Create from (user, password) tuple."""
+        return cls(user=auth[0], password=auth[1])
+
+    @property
+    def auth_tuple(self) -> tuple[str, str]:
+        """Get (user, password) tuple for neo4j driver."""
+        return (self._user, self._password)
+
+    def __repr__(self) -> str:
+        return f"MemgraphCredentials(user={self._user!r})"
+
+    def __str__(self) -> str:
+        return f"MemgraphCredentials(user={self._user!r})"
+
+
 class MemgraphBackend:
     """Primary backend using Memgraph via the neo4j Bolt driver.
 
@@ -224,10 +254,23 @@ class MemgraphBackend:
         (:Rule {id, text, domain, source_id, source_location, category, confidence, concept_ids})
     """
 
-    def __init__(self, host: str = "localhost", port: int = 7687, auth: tuple[str, str] | None = None):
-        self.host = host
-        self.port = port
-        self._auth = auth or ("", "")
+    def __init__(
+        self,
+        uri: str | None = None,
+        host: str = "localhost",
+        port: int = 7687,
+        credentials: MemgraphCredentials | None = None,
+    ):
+        """Initialize MemgraphBackend.
+
+        Args:
+            uri: Full bolt:// URI (takes precedence over host/port)
+            host: Memgraph host (default: localhost)
+            port: Memgraph port (default: 7687)
+            credentials: Secure credentials wrapper (default: empty auth)
+        """
+        self._uri = uri or f"bolt://{host}:{port}"
+        self._credentials = credentials or MemgraphCredentials()
         self._driver: Any = None
 
     def connect(self) -> None:
@@ -237,10 +280,11 @@ class MemgraphBackend:
             raise ImportError(
                 "neo4j driver required: pip install qortex[memgraph]"
             ) from e
-        uri = f"bolt://{self.host}:{self.port}"
-        self._driver = neo4j.GraphDatabase.driver(uri, auth=self._auth)
+        self._driver = neo4j.GraphDatabase.driver(
+            self._uri, auth=self._credentials.auth_tuple
+        )
         self._driver.verify_connectivity()
-        logger.info("Connected to Memgraph at %s", uri)
+        logger.info("Connected to Memgraph at %s", self._uri)
 
     def disconnect(self) -> None:
         if self._driver:

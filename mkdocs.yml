@@ -7,6 +7,8 @@ repo_name: Peleke/qortex
 theme:
   name: readthedocs
 
+# Mermaid diagrams pre-rendered to SVG - see scripts/render-mermaid.py
+
 markdown_extensions:
   - admonition
   - attr_list
@@ -30,8 +32,6 @@ markdown_extensions:
 
 nav:
   - Home: index.md
-  - Tutorials:
-    - "Series: RAG to HippoRAG": tutorials/series-outline.md
   - Getting Started:
     - Installation: getting-started/installation.md
     - Quick Start: getting-started/quickstart.md
@@ -41,6 +41,24 @@ nav:
     - Rule Enrichment: guides/enrichment.md
     - Consumer Integration: guides/consumer-integration.md
     - Using Memgraph: guides/memgraph.md
+    - Visualizing Your Graph: guides/visualization.md
+  - Theory:
+    - Overview: tutorials/index.md
+    - Why Knowledge Graphs:
+      - The Multi-Hop Problem: tutorials/part1-multi-hop-problem.md
+      - Knowledge Graphs 101: tutorials/part2-knowledge-graphs.md
+      - The Projection Pipeline: tutorials/part3-projection-pipeline.md
+      - The Consumer Loop: tutorials/part4-consumer-loop.md
+      - Pattern Completion: tutorials/part5-pattern-completion.md
+      - HippoRAG First Principles: tutorials/part6-hipporag.md
+    - Graph Analytics (Feast of Graphs):
+      - Overview: tutorials/graph-analytics/index.md
+      - Welcome to the Hall: tutorials/graph-analytics/part1-welcome.md
+      - The Tongue of Queries: tutorials/graph-analytics/part2-cypher.md
+      - Following the Thread: tutorials/graph-analytics/part3-multi-hop.md
+      - Measuring Worth: tutorials/graph-analytics/part4-centrality.md
+      - The Tribes Within: tutorials/graph-analytics/part5-communities.md
+      - Forging New Rules: tutorials/graph-analytics/part6-forging-rules.md
   - Reference:
     - CLI Commands: reference/cli.md
     - Data Models: reference/models.md

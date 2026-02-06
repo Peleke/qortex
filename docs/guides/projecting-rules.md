@@ -4,19 +4,7 @@ The projection pipeline transforms your knowledge graph into actionable rules fo
 
 ## Pipeline Architecture
 
-```mermaid
-flowchart LR
-    KG[(Knowledge Graph)] --> Source
-    Source --> Enricher
-    Enricher --> Target
-    Target --> Output[YAML/JSON]
-
-    subgraph Pipeline
-        Source[ProjectionSource]
-        Enricher[Enricher]
-        Target[ProjectionTarget]
-    end
-```
+![kg-knowledge-graph-source](../images/diagrams/projecting-rules-1-kg-knowledge-graph-source.svg)
 
 The pipeline has three stages:
 

@@ -4,64 +4,7 @@ qortex is a knowledge graph ingestion engine that transforms unstructured conten
 
 ## High-Level Architecture
 
-```mermaid
-flowchart TB
-    subgraph Sources["Source Material"]
-        PDF[PDF]
-        MD[Markdown]
-        Text[Text]
-    end
-
-    subgraph Ingest["Ingestion Layer"]
-        Parser[Parsers]
-        Extract[Concept Extraction]
-        Manifest[IngestionManifest]
-    end
-
-    subgraph KG["Knowledge Graph"]
-        Backend[GraphBackend]
-        InMem[InMemoryBackend]
-        Memgraph[MemgraphBackend]
-    end
-
-    subgraph Project["Projection Layer"]
-        Source[ProjectionSource]
-        Enricher[Enricher]
-        Target[ProjectionTarget]
-    end
-
-    subgraph Interop["Interop Layer"]
-        Pending[pending/]
-        Signals[signals.jsonl]
-        Schema[JSON Schema]
-    end
-
-    subgraph Consumers["Consumers"]
-        Buildlog[buildlog]
-        MCP[MCP Server]
-        Agent[AI Agents]
-    end
-
-    PDF --> Parser
-    MD --> Parser
-    Text --> Parser
-    Parser --> Extract --> Manifest
-
-    Manifest --> Backend
-    Backend --> InMem
-    Backend --> Memgraph
-
-    Backend --> Source
-    Source --> Enricher --> Target
-
-    Target --> Pending
-    Target --> Signals
-    Schema --> Consumers
-
-    Pending --> Buildlog
-    Pending --> MCP
-    Pending --> Agent
-```
+![subgraph-sources-source-materi](../images/diagrams/overview-1-subgraph-sources-source-materi.svg)
 
 ## Design Principles
 
@@ -175,46 +118,11 @@ qortex/
 
 ### Ingestion Flow
 
-```mermaid
-sequenceDiagram
-    participant User
-    participant CLI
-    participant Parser
-    participant Extractor
-    participant Backend
-
-    User->>CLI: qortex ingest book.pdf --domain patterns
-    CLI->>Parser: parse(book.pdf)
-    Parser-->>CLI: chunks[]
-    CLI->>Extractor: extract(chunks)
-    Extractor-->>CLI: IngestionManifest
-    CLI->>Backend: ingest_manifest(manifest)
-    Backend-->>CLI: success
-    CLI-->>User: Ingested 45 concepts, 67 edges, 23 rules
-```
+![sequencediagram](../images/diagrams/overview-2-sequencediagram.svg)
 
 ### Projection Flow
 
-```mermaid
-sequenceDiagram
-    participant User
-    participant CLI
-    participant Source
-    participant Enricher
-    participant Target
-    participant Interop
-
-    User->>CLI: qortex project buildlog --domain patterns --pending
-    CLI->>Source: derive(domains=["patterns"])
-    Source-->>CLI: rules[]
-    CLI->>Enricher: enrich(rules)
-    Enricher-->>CLI: enriched_rules[]
-    CLI->>Target: serialize(enriched_rules)
-    Target-->>CLI: seed_dict
-    CLI->>Interop: write_seed_to_pending(seed_dict)
-    Interop-->>CLI: /path/to/seed.yaml
-    CLI-->>User: Projected 35 rules to pending/
-```
+![sequencediagram](../images/diagrams/overview-3-sequencediagram.svg)
 
 ## Key Abstractions
 
@@ -291,13 +199,7 @@ class MyTarget:
 
 Cross-domain retrieval using Personalized PageRank for pattern completion:
 
-```mermaid
-flowchart LR
-    Query[Query] --> PPR[Personalized PageRank]
-    PPR --> Concepts[Relevant Concepts]
-    Concepts --> Rules[Related Rules]
-    Rules --> Context[Augmented Context]
-```
+![query-query-ppr-personalized-p](../images/diagrams/overview-4-query-query-ppr-personalized-p.svg)
 
 The scaffolding exists in `src/qortex/hippocampus/` but is not yet fully implemented.
 
@@ -305,12 +207,7 @@ The scaffolding exists in `src/qortex/hippocampus/` but is not yet fully impleme
 
 Confidence feedback loops from reward events:
 
-```mermaid
-flowchart LR
-    Rewards[Reward Events] --> DAG[Causal DAG]
-    DAG --> Confidence[Updated Confidence]
-    Confidence --> Rules[Better Rules]
-```
+![rewards-reward-events-dag-caus](../images/diagrams/overview-5-rewards-reward-events-dag-caus.svg)
 
 See [GitHub Issues](https://github.com/Peleke/qortex/issues) for detailed roadmap.
 

@@ -4,19 +4,7 @@ The projection pipeline transforms knowledge graph data into actionable rules fo
 
 ## Pipeline Stages
 
-```mermaid
-flowchart LR
-    KG[(Knowledge Graph)]
-    Source[Source]
-    Enricher[Enricher]
-    Target[Target]
-    Output[Output]
-
-    KG --> Source
-    Source -->|rules| Enricher
-    Enricher -->|enriched_rules| Target
-    Target --> Output
-```
+![kg-knowledge-graph](../images/diagrams/projection-pipeline-1-kg-knowledge-graph.svg)
 
 | Stage | Input | Output | Responsibility |
 |-------|-------|--------|----------------|
@@ -56,22 +44,7 @@ The default source extracts:
 1. **Explicit rules**: Directly from `ExplicitRule` records
 2. **Derived rules**: Generated from edges using templates
 
-```mermaid
-flowchart TB
-    subgraph FlatRuleSource
-        Explicit[Get Explicit Rules]
-        Edges[Get Edges]
-        Template[Apply Templates]
-        Merge[Merge + Dedupe]
-    end
-
-    Backend[(Backend)] --> Explicit
-    Backend --> Edges
-    Edges --> Template
-    Explicit --> Merge
-    Template --> Merge
-    Merge --> Rules[rules]
-```
+![subgraph-flatrulesource](../images/diagrams/projection-pipeline-2-subgraph-flatrulesource.svg)
 
 ### Rule Derivation
 
@@ -143,17 +116,7 @@ def _enrich_one(self, rule: Rule) -> RuleEnrichment:
 
 Rich, contextual enrichment using Claude:
 
-```mermaid
-flowchart LR
-    Rules[rules] --> Batch[Batch]
-    Batch --> Anthropic[Claude API]
-    Anthropic --> Parse[Parse Response]
-    Parse --> Enrichments[enrichments]
-
-    Fallback[Template Fallback]
-    Anthropic -.->|on failure| Fallback
-    Fallback -.-> Enrichments
-```
+![rules-rules-batch-batch](../images/diagrams/projection-pipeline-3-rules-rules-batch-batch.svg)
 
 The `EnrichmentPipeline` handles:
 
@@ -211,13 +174,7 @@ def serialize(self, rules: list[EnrichedRule]) -> dict[str, Any]:
 
 Template metadata flows from derivation through to output:
 
-```mermaid
-flowchart LR
-    Edge[Edge] --> Derive[Derive Rule]
-    Derive --> Metadata[rule.metadata]
-    Metadata --> Serialize[Serialize]
-    Serialize --> Provenance[provenance block]
-```
+![edge-edge-derive-derive-rule](../images/diagrams/projection-pipeline-4-edge-edge-derive-derive-rule.svg)
 
 ```yaml
 provenance:

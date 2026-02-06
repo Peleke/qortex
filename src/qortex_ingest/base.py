@@ -133,15 +133,22 @@ class Ingestor(ABC):
         # 4. Extract relations between concepts
         all_text = "\n\n".join(c.content for c in chunks)
         relation_dicts = self.llm.extract_relations(concepts, all_text)
-        edges = [
-            ConceptEdge(
+        edges = []
+        for r in relation_dicts:
+            # Convert string relation_type to enum (lowercase to match enum values)
+            rel_type = r["relation_type"]
+            if isinstance(rel_type, str):
+                try:
+                    from qortex.core.models import RelationType
+                    rel_type = RelationType(rel_type.lower())
+                except ValueError:
+                    continue  # Skip invalid relation types
+            edges.append(ConceptEdge(
                 source_id=r["source_id"],
                 target_id=r["target_id"],
-                relation_type=r["relation_type"],
+                relation_type=rel_type,
                 confidence=r.get("confidence", 1.0),
-            )
-            for r in relation_dicts
-        ]
+            ))
 
         # 5. Extract explicit rules
         rule_dicts = self.llm.extract_rules(all_text, concepts)

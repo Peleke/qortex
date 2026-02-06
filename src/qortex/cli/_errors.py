@@ -33,18 +33,22 @@ def require_memgraph(f: Callable) -> Callable:
         global _current_backend
         config = get_config()
         try:
-            from qortex.core.backend import MemgraphBackend
+            from qortex.core.backend import MemgraphBackend, MemgraphCredentials
 
+            # Convert CLI credentials to backend credentials
+            creds = MemgraphCredentials.from_tuple(
+                config.memgraph_credentials.auth_tuple
+            )
             backend = MemgraphBackend(
-                host=config.memgraph_host,
-                port=config.memgraph_port,
+                uri=config.get_memgraph_uri(),
+                credentials=creds,
             )
             backend.connect()
         except Exception:
             logger.debug("Memgraph connection failed", exc_info=True)
+            uri = config.get_memgraph_uri()
             typer.echo(
-                f"Could not connect to Memgraph at "
-                f"{config.memgraph_host}:{config.memgraph_port}.\n"
+                f"Could not connect to Memgraph at {uri}.\n"
                 f"\n"
                 f"Start it with: qortex infra up\n"
                 f"Or check: qortex infra status",
