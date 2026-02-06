@@ -220,11 +220,11 @@ class TestInfraStatus:
 class TestIngest:
     @skip_if_memgraph_running
     def test_ingest_requires_memgraph(self):
-        result = runner.invoke(app, ["ingest", "ingest", "/nonexistent/file.md"])
+        result = runner.invoke(app, ["ingest", "file", "/nonexistent/file.md"])
         assert result.exit_code == 1
 
     def test_ingest_help(self):
-        result = runner.invoke(app, ["ingest", "ingest", "--help"])
+        result = runner.invoke(app, ["ingest", "file", "--help"])
         assert result.exit_code == 0
         assert "path" in result.output.lower()
 

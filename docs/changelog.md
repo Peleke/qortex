@@ -9,6 +9,30 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **CodeExample Entity** for few-shot retrieval and code grounding
+  - Associate code snippets with concepts and rules
+  - SQLA-compatible structure for direct deserialization
+  - Antipattern support for contrastive learning
+  - Automatic extraction from source text during ingestion
+  - See Issue #19 for full plan
+
+- **Extraction Density Improvements**
+  - 4.3x edge density improvement (0.097 -> 0.418 edges/concept)
+  - Enhanced relation extraction prompts with disambiguation
+  - Density guidance in system prompts
+  - Rate limit handling with exponential backoff
+  - Concept limiting (100/call) to stay under token limits
+
+- **Edge Pruning Pipeline**
+  - 6-step deterministic pruning (evidence, confidence, Jaccard, competing, isolated, layer tagging)
+  - `qortex prune manifest` and `qortex prune stats` CLI commands
+  - Configurable confidence floor and evidence thresholds
+
+- **Manifest Save/Load**
+  - `qortex ingest file --save-manifest` to persist extraction results
+  - Auto-save on graph connection failure
+  - `qortex ingest load` to reload manifests without re-extraction
+
 - **Consumer Interop Protocol** (Track G)
   - Hybrid pull/push model for seed distribution
   - `write_seed_to_pending()` for publishing seeds
@@ -49,7 +73,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - **CLI Commands**
   - `qortex infra up/down/status` - Infrastructure management
-  - `qortex ingest <path>` - Content ingestion
+  - `qortex ingest file <path>` - Content ingestion with LLM extraction
+  - `qortex ingest load <manifest>` - Load saved manifest
+  - `qortex prune manifest/stats` - Edge pruning and analysis
   - `qortex project buildlog/flat/json` - Rule projection
   - `qortex inspect domains/rules/stats` - Graph inspection
   - `qortex viz open/query` - Visualization and Cypher

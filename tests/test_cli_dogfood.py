@@ -191,31 +191,32 @@ class TestInfraCommands:
 
 class TestIngestCommand:
     """Test qortex ingest subcommands."""
-    
-    def test_ingest_missing_path(self):
-        """ingest without path should fail."""
+
+    def test_ingest_shows_help_without_subcommand(self):
+        """ingest without subcommand shows help."""
         result = runner.invoke(app, ["ingest"])
-        assert result.exit_code != 0
+        assert result.exit_code == 2  # no_args_is_help returns 2
+        assert "file" in result.output.lower()
 
     def test_ingest_nonexistent_file(self):
-        """ingest with nonexistent file should fail gracefully."""
-        result = runner.invoke(app, ["ingest", "/nonexistent/file.txt"])
+        """ingest file with nonexistent file should fail gracefully."""
+        result = runner.invoke(app, ["ingest", "file", "/nonexistent/file.txt"])
         assert result.exit_code == 1
 
     @skip_if_memgraph_running
     def test_ingest_with_domain(self, tmp_path):
-        """ingest with --domain flag (will fail at Memgraph check)."""
+        """ingest file with --domain flag (will fail at Memgraph check)."""
         test_file = tmp_path / "test.txt"
         test_file.write_text("Test content")
-        result = runner.invoke(app, ["ingest", str(test_file), "--domain", "custom-domain"])
+        result = runner.invoke(app, ["ingest", "file", str(test_file), "--domain", "custom-domain"])
         assert result.exit_code == 1  # Fails because no Memgraph
 
     @skip_if_memgraph_running
     def test_ingest_empty_domain(self, tmp_path):
-        """ingest with empty --domain string."""
+        """ingest file with empty --domain string."""
         test_file = tmp_path / "test.txt"
         test_file.write_text("Test content")
-        result = runner.invoke(app, ["ingest", str(test_file), "--domain", ""])
+        result = runner.invoke(app, ["ingest", "file", str(test_file), "--domain", ""])
         assert result.exit_code == 1
 
 

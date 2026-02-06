@@ -56,32 +56,42 @@ The default Docker Compose configuration:
 services:
   memgraph:
     image: memgraph/memgraph-mage:latest
+    container_name: qortex-memgraph
     ports:
-      - "7687:7687"
-      - "7444:7444"
+      - "7687:7687"  # Bolt protocol
+      - "7444:7444"  # Monitoring
     volumes:
-      - memgraph-data:/var/lib/memgraph
-    environment:
-      - MEMGRAPH_USER=${MEMGRAPH_USER:-}
-      - MEMGRAPH_PASSWORD=${MEMGRAPH_PASSWORD:-}
+      - memgraph_data:/var/lib/memgraph
+      - memgraph_log:/var/log/memgraph
+    # Note: Memgraph Community doesn't support auth
+    command: ["--also-log-to-stderr"]
+    healthcheck:
+      test: ["CMD", "python3", "-c", "..."]
+      interval: 10s
 
-  lab:
+  memgraph-lab:
     image: memgraph/lab:latest
+    container_name: qortex-lab
     ports:
       - "3000:3000"
     depends_on:
-      - memgraph
+      memgraph:
+        condition: service_healthy
+    environment:
+      # Quick Connect settings (host is Docker service name)
+      - QUICK_CONNECT_MG_HOST=memgraph
+      - QUICK_CONNECT_MG_PORT=7687
+      - QUICK_CONNECT_MG_IS_ENCRYPTED=false
 ```
 
-### Custom Configuration
+**Note:** Memgraph Community edition doesn't support authentication. For auth, you need Memgraph Enterprise.
 
-Set credentials via environment:
+### Connecting to Lab
 
-```bash
-export MEMGRAPH_USER=admin
-export MEMGRAPH_PASSWORD=secret
-qortex infra up
-```
+1. Start infrastructure: `qortex infra up`
+2. Open http://localhost:3000
+3. Use "Connect manually" with host `memgraph`, port `7687`
+4. Run queries: `MATCH (n)-[r]->(m) RETURN n, r, m LIMIT 50`
 
 ## Cypher Queries
 
@@ -278,6 +288,25 @@ Solution: Check credentials:
 export MEMGRAPH_USER=admin
 export MEMGRAPH_PASSWORD=your_password
 ```
+
+### Memgraph Lab "Quick Connect" fails
+
+If Memgraph Lab shows "Memgraph not detected" with Quick Connect:
+
+**Problem:** Quick Connect uses `localhost` but within Docker, the Memgraph container is named `memgraph` (not localhost).
+
+**Solution:** Use Manual Connection instead:
+
+1. Open Memgraph Lab at http://localhost:3000
+2. Click "Connect manually" (not Quick Connect)
+3. Enter:
+   - **Host:** `memgraph` (the Docker service name)
+   - **Port:** `7687`
+   - **Username/Password:** Leave empty (Community edition) or enter credentials
+
+**Why this happens:** The Lab container and Memgraph container are on the same Docker network. Within Docker, containers reference each other by service name, not `localhost`.
+
+The `docker-compose.yml` sets `QUICK_CONNECT_MG_HOST=memgraph` but Quick Connect doesn't support all configurations via env vars. Manual connection is more reliable.
 
 ### Out of memory
 

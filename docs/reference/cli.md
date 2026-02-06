@@ -59,27 +59,40 @@ qortex infra status
 
 Ingest content into the knowledge graph using LLM-powered extraction.
 
-### `qortex ingest <path>`
+### `qortex ingest file <path>`
 
-Extract concepts, relations, and rules from a file.
+Extract concepts, relations, rules, and code examples from a file.
 
 ```bash
 # Basic usage (auto-detects backend)
-qortex ingest chapter.txt --domain software_design
+qortex ingest file chapter.txt --domain software_design
 
 # Specify extraction backend
-qortex ingest chapter.txt --backend anthropic --domain patterns
-qortex ingest chapter.txt --backend ollama --model dolphin-mistral
+qortex ingest file chapter.txt --backend anthropic --domain patterns
+qortex ingest file chapter.txt --backend ollama --model dolphin-mistral
 
 # Preview without saving
-qortex ingest chapter.txt --domain test --dry-run
+qortex ingest file chapter.txt --domain test --dry-run
+
+# Save manifest for recovery/inspection
+qortex ingest file chapter.txt -d patterns -o manifest.json
 ```
 
 Options:
 - `--domain / -d`: Target domain (default: auto-suggested by LLM)
 - `--backend / -b`: Extraction backend: `anthropic`, `ollama`, or `auto` (default: auto)
 - `--model / -m`: Model override for the extraction backend
-- `--dry-run`: Show extracted concepts/relations/rules without saving to graph
+- `--dry-run`: Show extracted content without saving to graph
+- `--save-manifest / -o`: Save extraction manifest to JSON (useful for recovery)
+
+**Output:**
+```
+Domain: design_patterns
+Concepts extracted: 285
+Relations extracted: 119
+Rules extracted: 6
+Code examples extracted: 12
+```
 
 **Backend auto-detection:**
 
@@ -87,10 +100,25 @@ Options:
 2. `ollama` if server is reachable at `OLLAMA_HOST` (default: localhost:11434)
 3. Falls back to stub backend (empty results, for testing pipeline)
 
+**Manifest auto-save:** If graph connection fails, the manifest is automatically saved to `<source>.manifest.json` so you don't lose extraction results.
+
 **Supported formats:**
 - `.txt`, `.text` — Plain text
 - `.md`, `.markdown` — Markdown (preserves structure)
-- `.pdf` — PDF (not yet implemented)
+- `.pdf` — PDF (requires `pymupdf`)
+
+### `qortex ingest load <manifest>`
+
+Load a previously saved manifest into the graph (skip re-extraction).
+
+```bash
+qortex ingest load manifest.json
+```
+
+Useful for:
+- Retrying after connection failures
+- Loading extractions done offline
+- Sharing manifests between systems
 
 ---
 
@@ -367,16 +395,20 @@ signals:
 qortex infra up
 
 # 2. Ingest content
-qortex ingest book.pdf --domain software_design
+qortex ingest file book.txt --domain software_design -o manifest.json
 
 # 3. Inspect what was ingested
 qortex inspect domains
 qortex inspect rules --domain software_design
 
-# 4. Project rules
+# 4. Visualize in Memgraph Lab
+qortex viz open
+# Query: MATCH (n)-[r]->(m) RETURN n, r, m LIMIT 50
+
+# 5. Project rules
 qortex project buildlog --domain software_design --pending
 
-# 5. Check interop
+# 6. Check interop
 qortex interop status
 ```
 
