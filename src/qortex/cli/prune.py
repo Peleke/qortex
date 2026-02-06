@@ -166,9 +166,12 @@ def prune_stats(
         for layer, count in layers.items():
             typer.echo(f"  {layer}: {count}")
 
-    # Evidence stats
-    evidence_lengths = [len(e.get("source_text", "").split()) for e in edges]
-    with_evidence = sum(1 for e in edges if e.get("source_text"))
+    # Evidence stats (check both top-level and properties.source_text)
+    def get_source_text(e: dict) -> str:
+        return e.get("source_text") or e.get("properties", {}).get("source_text", "")
+
+    evidence_lengths = [len(get_source_text(e).split()) for e in edges]
+    with_evidence = sum(1 for e in edges if get_source_text(e))
     typer.echo(f"\nEvidence:")
     typer.echo(f"  Edges with source_text: {with_evidence}/{len(edges)}")
     if evidence_lengths:
