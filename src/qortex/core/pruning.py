@@ -148,7 +148,7 @@ class PruningConfig:
 @dataclass
 class PruningResult:
     """Result of pruning pipeline."""
-    edges: list[dict]  # Surviving edges (may have new fields)
+    edges: list[dict] = field(default_factory=list)  # Surviving edges
 
     # Statistics
     input_count: int = 0
