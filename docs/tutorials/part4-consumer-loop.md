@@ -96,4 +96,4 @@ The universal schema and interop protocol are the contract. Everything else is i
 
 ## Next
 
-[Part 5: Pattern Completion](part5-pattern-completion.md) — How do you retrieve rules by spreading activation through the graph?
+[Part 5: Pattern Completion](part5-pattern-completion.md): How do you retrieve rules by spreading activation through the graph?

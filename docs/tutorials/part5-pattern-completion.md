@@ -9,7 +9,7 @@ Your system needs to:
 3. Discover that metformin connects to "lactic acidosis" which connects to "renal impairment"
 4. Return rules about all these connected concepts
 
-This isn't keyword search. It's **pattern completion** — starting from partial cues and filling in the rest.
+This isn't keyword search. It's **pattern completion**: starting from partial cues and filling in the rest.
 
 ## How your brain does it
 
@@ -39,7 +39,7 @@ Step 1: Match to graph nodes
 Step 2: Random walks from these seeds
    - Metformin → connects to → Lactic Acidosis
    - Lactic Acidosis → INCREASES_RISK_WITH → Renal Impairment
-   - Renal Impairment was already a seed — reinforced!
+   - Renal Impairment was already a seed (reinforced!)
 
 Step 3: After many walks, nodes have scores
    - Lactic Acidosis: high score (connects both seeds)
@@ -59,9 +59,9 @@ Think of it like this:
 
 You're looking for someone at a party. You know two things about them: they're a doctor and they play guitar.
 
-You could ask everyone "are you a doctor who plays guitar?" That's vector similarity — one shot, hope for a direct match.
+You could ask everyone "are you a doctor who plays guitar?" That's vector similarity: one shot, hope for a direct match.
 
-Or you could ask the doctors "who here plays guitar?" and ask the guitar players "who here is a doctor?" Then find the overlap. That's pattern completion — spread from multiple starting points, see what connects.
+Or you could ask the doctors "who here plays guitar?" and ask the guitar players "who here is a doctor?" Then find the overlap. That's pattern completion: spread from multiple starting points, see what connects.
 
 The second approach finds the answer even if nobody self-describes as "doctor who plays guitar."
 
@@ -100,4 +100,4 @@ That's it. The magic is in letting uncertainty propagate through structure.
 
 ## Next
 
-[Part 6: HippoRAG First Principles](part6-hipporag.md) — The full algorithm, from indexing to retrieval.
+[Part 6: HippoRAG First Principles](part6-hipporag.md): The full algorithm, from indexing to retrieval.

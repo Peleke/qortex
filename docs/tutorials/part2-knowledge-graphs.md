@@ -60,7 +60,7 @@ Rich typing is what enables automated rule derivation later. If you know the rel
 
 ## Domains
 
-Concepts belong to **domains** — isolated subgraphs like schemas in a database.
+Concepts belong to **domains**, isolated subgraphs like schemas in a database.
 
 You might have:
 - A "pharmacology" domain with drug concepts
@@ -117,4 +117,4 @@ But a graph sitting in memory doesn't help anyone. You need to *extract actionab
 
 ## Next
 
-[Part 3: The Projection Pipeline](part3-projection-pipeline.md) — How do you turn a graph into actionable rules?
+[Part 3: The Projection Pipeline](part3-projection-pipeline.md): How do you turn a graph into actionable rules?

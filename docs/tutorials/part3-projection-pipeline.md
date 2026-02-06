@@ -44,7 +44,7 @@ Graph ──→ [Source] ──→ [Enricher] ──→ [Target] ──→ Outpu
 
 **Enricher**: Adds context, antipatterns, and rationale. Can be template-based (fast, deterministic) or LLM-based (rich, contextual).
 
-**Target**: Serializes to an output format. buildlog YAML, flat JSON, Markdown docs — whatever the consumer needs.
+**Target**: Serializes to an output format. buildlog YAML, flat JSON, Markdown docs, whatever the consumer needs.
 
 ## Edge rule templates
 
@@ -98,7 +98,7 @@ metadata:
   rule_count: 1
 ```
 
-Notice the **provenance** block. It tracks where the rule came from — which edge, which template, what confidence. Full audit trail.
+Notice the **provenance** block. It tracks where the rule came from: which edge, which template, what confidence. Full audit trail.
 
 ## Why buildlog isn't special
 
@@ -116,4 +116,4 @@ buildlog happens to be the first consumer we built for. But the architecture doe
 
 ## Next
 
-[Part 4: The Consumer Loop](part4-consumer-loop.md) — Who uses these rules, and how do you know if they work?
+[Part 4: The Consumer Loop](part4-consumer-loop.md): Who uses these rules, and how do you know if they work?

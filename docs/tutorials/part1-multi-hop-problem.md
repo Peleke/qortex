@@ -4,7 +4,7 @@ There's a particular kind of frustration that visits you at 2am in a hospital wh
 
 You're a nurse. Patient in room 4 has chest pain. She's 67, arrived an hour ago, already on warfarin for her heart valve and ibuprofen for her knees. The attending wants to know if she can have aspirin.
 
-Simple question. You type it into the clinical decision support system — the one the hospital paid two million dollars for, the one connected to every drug database ever compiled, the one that was supposed to make moments like this easy.
+Simple question. You type it into the clinical decision support system, the one the hospital paid two million dollars for, the one connected to every drug database ever compiled, the one that was supposed to make moments like this easy.
 
 "Can this patient take aspirin for chest pain?"
 
@@ -26,7 +26,7 @@ The system has all of this information. It has the aspirin monograph. It has the
 
 The two-million-dollar system failed a question a first-year pharmacy student could answer.
 
-This is the **multi-hop problem**. The answer exists, scattered across three documents, linked only by concepts the embedding model never learned to represent. And vector similarity — "what documents look like this query?" — is the wrong question to ask.
+This is the **multi-hop problem**. The answer exists, scattered across three documents, linked only by concepts the embedding model never learned to represent. And vector similarity ("what documents look like this query?") is the wrong question to ask.
 
 ## The failure pattern
 
@@ -63,4 +63,4 @@ That's a knowledge graph. That's what qortex builds.
 
 ## Next
 
-[Part 2: Knowledge Graphs 101](part2-knowledge-graphs.md) — What are concepts, edges, and semantic types?
+[Part 2: Knowledge Graphs 101](part2-knowledge-graphs.md): What are concepts, edges, and semantic types?

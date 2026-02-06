@@ -34,7 +34,7 @@ Metformin node → Passage 1, Passage 7
 Ready for retrieval
 ```
 
-The key insight: **extraction creates discrete representations**. "Metformin" is its own node, not a point in embedding space that might blur with similar drugs. This is pattern separation — distinct concepts get distinct representations.
+The key insight: **extraction creates discrete representations**. "Metformin" is its own node, not a point in embedding space that might blur with similar drugs. This is pattern separation: distinct concepts get distinct representations.
 
 ## Phase 2: Retrieval
 
@@ -62,7 +62,7 @@ Passage 1 (contains Metformin only): score 0.9
 [Return top passages to LLM]
 ```
 
-The retrieval found Lactic Acidosis — a crucial concept for this query — even though the query never mentioned it. Pattern completion discovered the connection.
+The retrieval found Lactic Acidosis (a crucial concept for this query) even though the query never mentioned it. Pattern completion discovered the connection.
 
 ## The brain analogy
 
