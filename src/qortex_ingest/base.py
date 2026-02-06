@@ -62,6 +62,7 @@ class LLMBackend(Protocol):
         self,
         concepts: list[ConceptNode],
         text: str,
+        chunk_location: str | None = None,
     ) -> list[dict]:
         """Extract relations between concepts."""
         ...
@@ -130,25 +131,45 @@ class Ingestor(ABC):
                     confidence=c.get("confidence", 1.0),
                 ))
 
-        # 4. Extract relations between concepts
-        all_text = "\n\n".join(c.content for c in chunks)
-        relation_dicts = self.llm.extract_relations(concepts, all_text)
+        # 4. Extract relations per chunk (for full coverage + provenance)
+        from qortex.core.models import RelationType
+
         edges = []
-        for r in relation_dicts:
-            # Convert string relation_type to enum (lowercase to match enum values)
-            rel_type = r["relation_type"]
-            if isinstance(rel_type, str):
-                try:
-                    from qortex.core.models import RelationType
-                    rel_type = RelationType(rel_type.lower())
-                except ValueError:
-                    continue  # Skip invalid relation types
-            edges.append(ConceptEdge(
-                source_id=r["source_id"],
-                target_id=r["target_id"],
-                relation_type=rel_type,
-                confidence=r.get("confidence", 1.0),
-            ))
+        seen_edges: set[tuple[str, str, str]] = set()  # Dedupe across chunks
+
+        for chunk in chunks:
+            relation_dicts = self.llm.extract_relations(
+                concepts, chunk.content, chunk_location=chunk.location
+            )
+            for r in relation_dicts:
+                # Convert string relation_type to enum
+                rel_type = r["relation_type"]
+                if isinstance(rel_type, str):
+                    try:
+                        rel_type = RelationType(rel_type.lower())
+                    except ValueError:
+                        continue  # Skip invalid relation types
+
+                # Dedupe: same source->target->type only counted once
+                edge_key = (r["source_id"], r["target_id"], rel_type.value)
+                if edge_key in seen_edges:
+                    continue
+                seen_edges.add(edge_key)
+
+                # Store provenance in properties
+                properties = {}
+                if r.get("source_text"):
+                    properties["source_text"] = r["source_text"]
+                if r.get("source_location"):
+                    properties["source_location"] = r["source_location"]
+
+                edges.append(ConceptEdge(
+                    source_id=r["source_id"],
+                    target_id=r["target_id"],
+                    relation_type=rel_type,
+                    confidence=r.get("confidence", 1.0),
+                    properties=properties,
+                ))
 
         # 5. Extract explicit rules
         rule_dicts = self.llm.extract_rules(all_text, concepts)
@@ -203,6 +224,7 @@ class StubLLMBackend:
         self,
         concepts: list[ConceptNode],
         text: str,
+        chunk_location: str | None = None,
     ) -> list[dict]:
         return []
 

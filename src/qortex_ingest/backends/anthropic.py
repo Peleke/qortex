@@ -132,16 +132,19 @@ Return only valid JSON array."""
         self,
         concepts: list[ConceptNode],
         text: str,
+        chunk_location: str | None = None,
     ) -> list[dict]:
         """Extract relations between concepts.
 
-        Returns list of dicts with keys: source_id, target_id, relation_type, confidence
+        Returns list of dicts with keys: source_id, target_id, relation_type,
+        confidence, source_text, source_location
         """
         if not concepts:
             return []
 
+        # No concept limit - use all concepts (was: concepts[:50])
         concept_list = "\n".join(
-            f"- {c.id}: {c.name} - {c.description}" for c in concepts[:50]
+            f"- {c.id}: {c.name} - {c.description}" for c in concepts
         )
 
         relation_list = "\n".join(f"- {r}" for r in RELATION_TYPES)
@@ -152,34 +155,38 @@ Available relation types:
 {relation_list}
 
 Relation meanings:
-- REQUIRES: A needs B to function
-- CONTRADICTS: A and B conflict or are mutually exclusive
-- REFINES: A is a more specific form of B
-- IMPLEMENTS: A is a concrete implementation of B
-- PART_OF: A is a component of B
-- USES: A depends on or utilizes B
-- SIMILAR_TO: A and B are analogous
-- ALTERNATIVE_TO: A can substitute for B
-- SUPPORTS: A provides evidence for B
-- CHALLENGES: A provides counter-evidence for B
+- REQUIRES: A needs B to function or exist (dependency)
+- CONTRADICTS: A and B are mutually exclusive or incompatible
+- REFINES: A is a more specific or detailed version of B
+- IMPLEMENTS: A is a concrete realization of abstract B
+- PART_OF: A is a component or element of B
+- USES: A utilizes or depends on B (weaker than REQUIRES)
+- SIMILAR_TO: A and B share significant characteristics
+- ALTERNATIVE_TO: A can substitute for B in some contexts
+- SUPPORTS: A provides evidence or justification for B
+- CHALLENGES: A raises problems or counterarguments for B
 
 Return JSON array of objects with:
-- source_id: ID of source concept (from the list provided)
-- target_id: ID of target concept (from the list provided)
-- relation_type: One of the relation types above
-- confidence: Float 0-1
+- source_id: ID of source concept (exact match from list)
+- target_id: ID of target concept (exact match from list)
+- relation_type: One of the relation types above (uppercase)
+- confidence: Float 0-1 based on how explicitly the text states this
+- source_text: 1-2 sentence quote from the text that supports this relation
 
-Only return relationships that are clearly supported by the text."""
+Aim for 3-5 relations per major concept mentioned in the text.
+Only return relationships clearly supported by the text - include the source_text that justifies each."""
 
+        # No text truncation - use full text (was: text[:6000])
         user = f"""Given these concepts:
 {concept_list}
 
 And this text:
-{text[:6000]}
+{text}
 
-Extract relationships between the concepts. Return only valid JSON array."""
+Extract relationships between the concepts. For each relationship, include the source_text quote that supports it.
+Return only valid JSON array."""
 
-        result = self._call(system, user)
+        result = self._call(system, user, max_tokens=8192)
         parsed = self._parse_json(result)
 
         valid_ids = {c.id for c in concepts}
@@ -191,6 +198,8 @@ Extract relationships between the concepts. Return only valid JSON array."""
                     "target_id": r["target_id"],
                     "relation_type": r["relation_type"],
                     "confidence": float(r.get("confidence", 0.8)),
+                    "source_text": r.get("source_text", ""),
+                    "source_location": chunk_location,
                 }
                 for r in parsed
                 if isinstance(r, dict)
