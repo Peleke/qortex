@@ -83,8 +83,15 @@ class Ingestor(ABC):
     LLM extraction is shared across all ingestors.
     """
 
-    def __init__(self, llm: LLMBackend):
+    def __init__(
+        self,
+        llm: LLMBackend,
+        pruning_config: "PruningConfig | None" = None,
+    ):
+        from qortex.core.pruning import PruningConfig
+
         self.llm = llm
+        self.pruning_config = pruning_config or PruningConfig()
 
     @abstractmethod
     def chunk(self, source: Source) -> list[Chunk]:
@@ -133,8 +140,9 @@ class Ingestor(ABC):
 
         # 4. Extract relations per chunk (for full coverage + provenance)
         from qortex.core.models import RelationType
+        from qortex.core.pruning import PruningConfig, prune_edges
 
-        edges = []
+        all_relations: list[dict] = []
         seen_edges: set[tuple[str, str, str]] = set()  # Dedupe across chunks
 
         for chunk in chunks:
@@ -142,34 +150,47 @@ class Ingestor(ABC):
                 concepts, chunk.content, chunk_location=chunk.location
             )
             for r in relation_dicts:
-                # Convert string relation_type to enum
-                rel_type = r["relation_type"]
-                if isinstance(rel_type, str):
-                    try:
-                        rel_type = RelationType(rel_type.lower())
-                    except ValueError:
-                        continue  # Skip invalid relation types
-
                 # Dedupe: same source->target->type only counted once
-                edge_key = (r["source_id"], r["target_id"], rel_type.value)
+                rel_type_str = r["relation_type"].lower() if isinstance(r["relation_type"], str) else r["relation_type"]
+                edge_key = (r["source_id"], r["target_id"], rel_type_str)
                 if edge_key in seen_edges:
                     continue
                 seen_edges.add(edge_key)
+                all_relations.append(r)
 
-                # Store provenance in properties
-                properties = {}
-                if r.get("source_text"):
-                    properties["source_text"] = r["source_text"]
-                if r.get("source_location"):
-                    properties["source_location"] = r["source_location"]
+        # 4b. Prune edges (online mode, enabled by default)
+        pruning_config = getattr(self, 'pruning_config', None) or PruningConfig()
+        prune_result = prune_edges(all_relations, pruning_config)
+        pruned_relations = prune_result.edges
 
-                edges.append(ConceptEdge(
-                    source_id=r["source_id"],
-                    target_id=r["target_id"],
-                    relation_type=rel_type,
-                    confidence=r.get("confidence", 1.0),
-                    properties=properties,
-                ))
+        # Convert to ConceptEdge objects
+        edges = []
+        for r in pruned_relations:
+            rel_type = r["relation_type"]
+            if isinstance(rel_type, str):
+                try:
+                    rel_type = RelationType(rel_type.lower())
+                except ValueError:
+                    continue  # Skip invalid relation types
+
+            # Store provenance + pruning metadata in properties
+            properties = {}
+            if r.get("source_text"):
+                properties["source_text"] = r["source_text"]
+            if r.get("source_location"):
+                properties["source_location"] = r["source_location"]
+            if r.get("layer"):
+                properties["layer"] = r["layer"]
+            if r.get("strength"):
+                properties["strength"] = r["strength"]
+
+            edges.append(ConceptEdge(
+                source_id=r["source_id"],
+                target_id=r["target_id"],
+                relation_type=rel_type,
+                confidence=r.get("confidence", 1.0),
+                properties=properties,
+            ))
 
         # 5. Extract explicit rules
         rule_dicts = self.llm.extract_rules(all_text, concepts)
