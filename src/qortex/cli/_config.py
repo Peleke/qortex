@@ -26,9 +26,9 @@ class MemgraphCredentials:
     Password is hidden from repr/str to avoid accidental logging.
     """
 
-    user: str = field(default_factory=lambda: os.environ.get("QORTEX_MEMGRAPH_USER", "qortex"))
+    user: str = field(default_factory=lambda: os.environ.get("QORTEX_MEMGRAPH_USER", "memgraph"))
     _password: str = field(
-        default_factory=lambda: os.environ.get("QORTEX_MEMGRAPH_PASSWORD", "qortex"),
+        default_factory=lambda: os.environ.get("QORTEX_MEMGRAPH_PASSWORD", "memgraph"),
         repr=False,
     )
 

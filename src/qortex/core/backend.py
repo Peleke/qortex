@@ -474,14 +474,15 @@ class MemgraphBackend:
     # -------------------------------------------------------------------------
 
     def add_edge(self, edge: ConceptEdge) -> None:
+        # Use relation_type as actual edge label for proper graph analytics
+        rel_type = edge.relation_type.value.upper()
         self._run(
-            "MATCH (s:Concept {id: $src}), (t:Concept {id: $tgt}) "
-            "CREATE (s)-[:REL {type: $type, confidence: $conf, "
-            "bidirectional: $bidir, properties: $props}]->(t)",
+            f"MATCH (s:Concept {{id: $src}}), (t:Concept {{id: $tgt}}) "
+            f"CREATE (s)-[:{rel_type} {{confidence: $conf, "
+            f"bidirectional: $bidir, properties: $props}}]->(t)",
             {
                 "src": edge.source_id,
                 "tgt": edge.target_id,
-                "type": edge.relation_type.value,
                 "conf": edge.confidence,
                 "bidir": edge.bidirectional,
                 "props": json.dumps(edge.properties),
@@ -494,33 +495,27 @@ class MemgraphBackend:
         direction: Literal["in", "out", "both"] = "both",
         relation_type: str | None = None,
     ) -> Iterator[ConceptEdge]:
-        if direction == "out":
-            pattern = "(s:Concept {id: $nid})-[r:REL]->(t:Concept)"
-        elif direction == "in":
-            pattern = "(t:Concept)-[r:REL]->(s:Concept {id: $nid})"
-        else:
-            pattern = "(s:Concept)-[r:REL]-(t:Concept) WHERE s.id = $nid OR t.id = $nid"
+        # Edge types are now actual labels (REQUIRES, SIMILAR_TO, etc.)
+        # Use specific type if provided, otherwise match any relationship
+        rel_pattern = f":{relation_type.upper()}" if relation_type else ""
 
-        # Adjust WHERE clause
-        if direction in ("out", "in"):
-            where = "WHERE r.type = $rtype" if relation_type else ""
+        if direction == "out":
+            pattern = f"(s:Concept {{id: $nid}})-[r{rel_pattern}]->(t:Concept)"
+            where = ""
+        elif direction == "in":
+            pattern = f"(t:Concept)-[r{rel_pattern}]->(s:Concept {{id: $nid}})"
+            where = ""
         else:
-            where_parts = ["(s.id = $nid OR t.id = $nid)"]
-            if relation_type:
-                where_parts.append("r.type = $rtype")
-            where = "WHERE " + " AND ".join(where_parts)
-            # Override pattern to not include WHERE in it
-            pattern = "(s:Concept)-[r:REL]->(t:Concept)"
+            pattern = f"(s:Concept)-[r{rel_pattern}]-(t:Concept)"
+            where = "WHERE s.id = $nid OR t.id = $nid"
 
         cypher = (
             f"MATCH {pattern} {where} "
-            "RETURN s.id AS src, t.id AS tgt, r.type AS type, "
+            "RETURN s.id AS src, t.id AS tgt, type(r) AS type, "
             "r.confidence AS confidence, r.bidirectional AS bidirectional, "
             "r.properties AS properties"
         )
         params: dict[str, Any] = {"nid": node_id}
-        if relation_type:
-            params["rtype"] = relation_type
 
         records = self._run(cypher, params)
         seen: set[tuple[str, str, str]] = set()
@@ -532,7 +527,7 @@ class MemgraphBackend:
             yield ConceptEdge(
                 source_id=r["src"],
                 target_id=r["tgt"],
-                relation_type=RelationType(r["type"]),
+                relation_type=RelationType(r["type"].lower()),
                 confidence=r.get("confidence", 1.0),
                 bidirectional=r.get("bidirectional", False),
                 properties=json.loads(r["properties"]) if r.get("properties") else {},

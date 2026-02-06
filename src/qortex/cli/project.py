@@ -16,15 +16,19 @@ def _get_backend():
     """Get the appropriate backend. Tries Memgraph, falls back to InMemory."""
     config = get_config()
     try:
-        from qortex.core.backend import MemgraphBackend
+        from qortex.core.backend import MemgraphBackend, MemgraphCredentials
 
+        creds = MemgraphCredentials.from_tuple(config.memgraph_credentials.auth_tuple)
         backend = MemgraphBackend(
             host=config.memgraph_host,
             port=config.memgraph_port,
+            credentials=creds,
         )
         backend.connect()
         return backend
-    except Exception:
+    except Exception as e:
+        import sys
+        print(f"Warning: Could not connect to Memgraph ({e}), using empty InMemoryBackend", file=sys.stderr)
         from qortex.core.memory import InMemoryBackend
 
         backend = InMemoryBackend()

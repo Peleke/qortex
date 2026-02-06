@@ -8,7 +8,9 @@ services:
     volumes:
       - memgraph_data:/var/lib/memgraph
       - memgraph_log:/var/log/memgraph
-    # Note: Memgraph Community doesn't support auth, Enterprise required
+    environment:
+      - MEMGRAPH_USER=memgraph
+      - MEMGRAPH_PASSWORD=memgraph
     command: ["--also-log-to-stderr"]
     healthcheck:
       test: ["CMD", "python3", "-c", "import socket; s=socket.socket(); s.settimeout(2); s.connect(('localhost',7687)); s.close()"]
