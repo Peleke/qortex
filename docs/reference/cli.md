@@ -103,9 +103,9 @@ Code examples extracted: 12
 **Manifest auto-save:** If graph connection fails, the manifest is automatically saved to `<source>.manifest.json` so you don't lose extraction results.
 
 **Supported formats:**
-- `.txt`, `.text` — Plain text
-- `.md`, `.markdown` — Markdown (preserves structure)
-- `.pdf` — PDF (requires `pymupdf`)
+- `.txt`, `.text`: Plain text
+- `.md`, `.markdown`: Markdown (preserves structure)
+- `.pdf`: PDF (requires `pymupdf`)
 
 ### `qortex ingest load <manifest>`
 
