@@ -147,44 +147,105 @@ Return only valid JSON array."""
             f"- {c.id}: {c.name} - {c.description}" for c in concepts
         )
 
-        relation_list = "\n".join(f"- {r}" for r in RELATION_TYPES)
+        system = """You are a precise knowledge graph extraction system.
 
-        system = f"""You are a knowledge extraction system. Identify relationships between concepts.
+Your task is to identify TEXT-SUPPORTED relationships between the provided concepts, based strictly on the given text.
+Do NOT rely on outside knowledge. If a relationship is not clearly stated or directly supported by the text, do not extract it.
 
-Available relation types:
-{relation_list}
+RELATION TYPES (with disambiguation)
 
-Relation meanings:
-- REQUIRES: A needs B to function or exist (dependency)
-- CONTRADICTS: A and B are mutually exclusive or incompatible
-- REFINES: A is a more specific or detailed version of B
-- IMPLEMENTS: A is a concrete realization of abstract B
-- PART_OF: A is a component or element of B
-- USES: A utilizes or depends on B (weaker than REQUIRES)
-- SIMILAR_TO: A and B share significant characteristics
-- ALTERNATIVE_TO: A can substitute for B in some contexts
-- SUPPORTS: A provides evidence or justification for B
-- CHALLENGES: A raises problems or counterarguments for B
+REQUIRES
+- Use when A cannot function, exist, or be correctly applied without B.
+- Strong dependency; removal of B breaks A.
+- NOT the same as USES (which may be optional or contextual).
 
-Return JSON array of objects with:
-- source_id: ID of source concept (exact match from list)
-- target_id: ID of target concept (exact match from list)
+USES
+- Use when A leverages, depends on, or commonly employs B, but could exist without it.
+- Prefer USES when the dependency is practical rather than structural.
+
+REFINES
+- Use when A is a more specific, constrained, or specialized form of B.
+- A narrows the scope or adds detail to B.
+- NOT an implementation.
+
+IMPLEMENTS
+- Use when A is a concrete realization, mechanism, or technique that puts B into practice.
+- B is abstract or conceptual; A makes it operational.
+
+PART_OF
+- Use when A is a component, sub-process, or constituent of B.
+- Structural or compositional relationship.
+
+SIMILAR_TO
+- Use when A and B address the same problem or role in a comparable way.
+- They may coexist; neither replaces the other.
+
+ALTERNATIVE_TO
+- Use when A and B serve similar purposes but are positioned as substitutes or competing choices.
+- Often signaled by "instead of," "can be replaced by," or explicit comparison.
+
+SUPPORTS
+- Use when A provides evidence, justification, or rationale for B.
+- Often argumentative or explanatory.
+
+CHALLENGES
+- Use when A questions, weakens, or argues against B.
+- Includes critiques, limitations, or counterexamples.
+
+CONTRADICTS
+- Use only when A and B are explicitly stated to be incompatible or mutually exclusive.
+
+DENSITY & COVERAGE GUIDANCE
+
+- Aim for 3-5 relationships per major concept when supported by the text.
+- Every significant concept should have at least one incoming or outgoing edge, if the text allows.
+- Prefer multiple precise edges over a few overly conservative ones.
+- Do not invent relations to satisfy density; precision remains mandatory.
+
+OUTPUT FORMAT
+
+Return a valid JSON array of objects with:
+- source_id: ID of the source concept (from the provided list)
+- target_id: ID of the target concept (from the provided list)
 - relation_type: One of the relation types above (uppercase)
-- confidence: Float 0-1 based on how explicitly the text states this
-- source_text: 1-2 sentence quote from the text that supports this relation
+- confidence: Float 0-1 indicating extraction confidence
+- source_text: 1-2 sentence quote from the text that directly supports the relationship
 
-Aim for 3-5 relations per major concept mentioned in the text.
-Only return relationships clearly supported by the text - include the source_text that justifies each."""
+FEW-SHOT EXAMPLES
 
-        # No text truncation - use full text (was: text[:6000])
-        user = f"""Given these concepts:
+Example 1:
+{"source_id": "design:Encapsulation", "target_id": "design:Information Hiding", "relation_type": "IMPLEMENTS", "confidence": 0.92, "source_text": "Encapsulation implements information hiding by bundling data with the methods that operate on that data."}
+
+Example 2:
+{"source_id": "design:Dependency Injection", "target_id": "design:Loose Coupling", "relation_type": "SUPPORTS", "confidence": 0.88, "source_text": "By supplying dependencies from the outside, dependency injection promotes loose coupling between components."}
+
+Example 3:
+{"source_id": "design:Inheritance", "target_id": "design:Composition", "relation_type": "ALTERNATIVE_TO", "confidence": 0.85, "source_text": "Many designers recommend composition over inheritance as a more flexible alternative."}
+
+Example 4:
+{"source_id": "design:Interface", "target_id": "design:Abstraction", "relation_type": "REFINES", "confidence": 0.83, "source_text": "Interfaces are a specific form of abstraction that define behavior without implementation."}
+
+Example 5:
+{"source_id": "design:Unit Testing", "target_id": "design:Testability", "relation_type": "SUPPORTS", "confidence": 0.9, "source_text": "Writing unit tests increases testability by forcing components to be isolated and observable."}
+
+FINAL INSTRUCTIONS
+
+- Extract only relationships clearly supported by the text.
+- Prefer explicit statements over vague implications.
+- Return ONLY the JSON array. No commentary or explanation."""
+
+        # No text truncation - use full chunk text
+        user = f"""Given the following concepts (with IDs, names, and descriptions):
+
 {concept_list}
 
-And this text:
+And the following text:
+
 {text}
 
-Extract relationships between the concepts. For each relationship, include the source_text quote that supports it.
-Return only valid JSON array."""
+Extract all clearly text-supported relationships between the concepts.
+Follow the relation definitions, density guidance, and output format exactly.
+Return ONLY a valid JSON array."""
 
         result = self._call(system, user, max_tokens=8192)
         parsed = self._parse_json(result)
