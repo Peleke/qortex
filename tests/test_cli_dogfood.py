@@ -12,15 +12,15 @@ import yaml
 from typer.testing import CliRunner
 
 from qortex.cli import app
+from qortex.core.memory import InMemoryBackend
+from qortex.core.models import ConceptEdge, ConceptNode, ExplicitRule, RelationType
+
+runner = CliRunner()
 
 
 def _strip_ansi(text: str) -> str:
     """Strip ANSI escape codes from text for reliable assertions."""
     return re.sub(r"\x1b\[[0-9;]*m", "", text)
-from qortex.core.memory import InMemoryBackend
-from qortex.core.models import ConceptEdge, ConceptNode, ExplicitRule, RelationType
-
-runner = CliRunner()
 
 
 def _memgraph_available() -> bool:

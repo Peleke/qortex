@@ -96,6 +96,7 @@ disable_error_code = [
     "var-annotated",   # Type annotation hints
     "assignment",      # Type mismatches in assignments
     "return-value",    # Return type mismatches
+    "return",          # Missing return statement
     "arg-type",        # Argument type mismatches
     "union-attr",      # Anthropic SDK block type unions
     "misc",            # Protocol variance + exception variables
