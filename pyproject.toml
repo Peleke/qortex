@@ -75,7 +75,13 @@ target-version = "py311"
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "UP", "B", "SIM"]
-ignore = ["E501"]  # Line length handled by formatter
+ignore = [
+    "E501",   # Line length handled by formatter
+    "B008",   # typer.Argument/Option in defaults is standard pattern
+    "B904",   # typer.Exit doesn't need exception chaining
+    "B905",   # zip strict not needed for Python 3.10+
+    "SIM105", # contextlib.suppress is less readable for simple cases
+]
 
 [tool.mypy]
 python_version = "3.11"

@@ -3,7 +3,6 @@
 import json
 from dataclasses import asdict
 
-import pytest
 from qortex.core.models import (
     CodeExample,
     ConceptEdge,
@@ -11,7 +10,6 @@ from qortex.core.models import (
     ExplicitRule,
     IngestionManifest,
     RelationType,
-    Rule,
     SourceMetadata,
 )
 

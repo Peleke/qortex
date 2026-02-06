@@ -3,14 +3,15 @@ Comprehensive CLI dogfooding tests.
 Tests every command, flag combination, and error path that might be missed by unit tests.
 """
 import json
-import yaml
-import pytest
-from pathlib import Path
-from typer.testing import CliRunner
 from unittest.mock import Mock, patch
+
+import pytest
+import yaml
+from typer.testing import CliRunner
+
 from qortex.cli import app
 from qortex.core.memory import InMemoryBackend
-from qortex.core.models import ConceptNode, ConceptEdge, ExplicitRule, RelationType
+from qortex.core.models import ConceptEdge, ConceptNode, ExplicitRule, RelationType
 
 runner = CliRunner()
 

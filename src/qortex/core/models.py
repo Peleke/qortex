@@ -9,10 +9,9 @@ These models define the contract between components:
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from datetime import datetime, timezone
-from enum import Enum
+from datetime import UTC, datetime
+from enum import StrEnum
 from typing import Any, Literal
-
 
 # =============================================================================
 # Ingestion Manifest (Contract: Ingestors → KG)
@@ -23,7 +22,7 @@ from typing import Any, Literal
 # This allows ingest to be a separate package/service later.
 
 
-class RelationType(str, Enum):
+class RelationType(StrEnum):
     """Semantic relationship types between concepts.
 
     Rich typing from the start enables Phase B rule derivation.
@@ -139,7 +138,7 @@ class SourceMetadata:
     path_or_url: str
 
     # Ingestion info
-    ingested_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
+    ingested_at: datetime = field(default_factory=lambda: datetime.now(UTC))
     content_hash: str | None = None  # For change detection
 
     # Statistics
@@ -188,8 +187,8 @@ class Domain:
     edge_count: int = 0
     rule_count: int = 0
 
-    created_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
-    updated_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
+    created_at: datetime = field(default_factory=lambda: datetime.now(UTC))
+    updated_at: datetime = field(default_factory=lambda: datetime.now(UTC))
 
 
 # =============================================================================

@@ -3,11 +3,10 @@
 import pytest
 
 from qortex.core.models import RelationType, Rule
+from qortex.projectors import registry
 from qortex.projectors.base import Enricher, ProjectionSource, ProjectionTarget
 from qortex.projectors.models import EnrichedRule, ProjectionFilter, RuleEnrichment
 from qortex.projectors.projection import Projection
-from qortex.projectors import registry
-
 
 # -------------------------------------------------------------------------
 # Fixtures

@@ -10,13 +10,9 @@ Tests cover:
 
 from __future__ import annotations
 
-import json
-from datetime import datetime, timezone
-from pathlib import Path
+from datetime import UTC, datetime
 
-import pytest
 import yaml
-
 
 # =============================================================================
 # Config Tests
@@ -69,7 +65,7 @@ class TestInteropConfig:
         assert config.seeds.pending.name == "pending"
 
     def test_write_config(self, tmp_path):
-        from qortex.interop import InteropConfig, write_config, get_interop_config
+        from qortex.interop import InteropConfig, get_interop_config, write_config
 
         config = InteropConfig()
         config_path = tmp_path / "written.yaml"
@@ -80,7 +76,7 @@ class TestInteropConfig:
         assert loaded.seeds.pending.name == config.seeds.pending.name
 
     def test_ensure_dirs_creates_directories(self, tmp_path):
-        from qortex.interop import SeedsConfig, SignalsConfig, InteropConfig
+        from qortex.interop import InteropConfig, SeedsConfig, SignalsConfig
 
         seeds = SeedsConfig(
             pending=tmp_path / "s" / "pending",
@@ -170,8 +166,8 @@ class TestSignalAppending:
         from qortex.interop import (
             InteropConfig,
             ProjectionEvent,
-            SignalsConfig,
             SeedsConfig,
+            SignalsConfig,
             append_signal,
         )
 
@@ -196,8 +192,8 @@ class TestSignalAppending:
         from qortex.interop import (
             InteropConfig,
             ProjectionEvent,
-            SignalsConfig,
             SeedsConfig,
+            SignalsConfig,
             append_signal,
         )
 
@@ -220,7 +216,7 @@ class TestSignalAppending:
 
 class TestSignalReading:
     def test_read_signals_empty(self, tmp_path):
-        from qortex.interop import InteropConfig, SignalsConfig, SeedsConfig, read_signals
+        from qortex.interop import InteropConfig, SeedsConfig, SignalsConfig, read_signals
 
         config = InteropConfig(
             seeds=SeedsConfig(
@@ -237,8 +233,8 @@ class TestSignalReading:
         from qortex.interop import (
             InteropConfig,
             ProjectionEvent,
-            SignalsConfig,
             SeedsConfig,
+            SignalsConfig,
             append_signal,
             read_signals,
         )
@@ -265,8 +261,8 @@ class TestSignalReading:
         from qortex.interop import (
             InteropConfig,
             ProjectionEvent,
-            SignalsConfig,
             SeedsConfig,
+            SignalsConfig,
             append_signal,
             read_signals,
         )
@@ -292,8 +288,8 @@ class TestSignalReading:
         from qortex.interop import (
             InteropConfig,
             ProjectionEvent,
-            SignalsConfig,
             SeedsConfig,
+            SignalsConfig,
             append_signal,
             read_signals,
         )
@@ -311,13 +307,13 @@ class TestSignalReading:
         append_signal(ProjectionEvent(persona="old", ts="2020-01-01T00:00:00"), config)
         append_signal(ProjectionEvent(persona="new", ts="2026-01-01T00:00:00"), config)
 
-        cutoff = datetime(2025, 1, 1, tzinfo=timezone.utc)
+        cutoff = datetime(2025, 1, 1, tzinfo=UTC)
         signals = read_signals(config, since=cutoff)
         assert len(signals) == 1
         assert signals[0].persona == "new"
 
     def test_read_signals_skips_malformed_lines(self, tmp_path):
-        from qortex.interop import InteropConfig, SignalsConfig, SeedsConfig, read_signals
+        from qortex.interop import InteropConfig, SeedsConfig, SignalsConfig, read_signals
 
         signals_path = tmp_path / "signals.jsonl"
         signals_path.parent.mkdir(parents=True, exist_ok=True)
@@ -375,7 +371,7 @@ class TestGenerateSeedFilename:
     def test_includes_persona_and_timestamp(self):
         from qortex.interop import generate_seed_filename
 
-        ts = datetime(2026, 2, 5, 14, 30, 0, tzinfo=timezone.utc)
+        ts = datetime(2026, 2, 5, 14, 30, 0, tzinfo=UTC)
         filename = generate_seed_filename("test_persona", ts)
 
         assert "test_persona" in filename
@@ -665,10 +661,9 @@ class TestInteropCLI:
     def test_init_command(self, tmp_path, monkeypatch):
         from typer.testing import CliRunner
 
-        from qortex.cli.interop_cmd import app
-
         # Monkeypatch to use tmp_path
         from qortex import interop
+        from qortex.cli.interop_cmd import app
         monkeypatch.setattr(
             interop, "_CONFIG_PATH", tmp_path / "config.yaml"
         )
@@ -722,8 +717,8 @@ class TestProjectBuildlogPending:
         """Test that --pending flag writes to interop directory."""
         from typer.testing import CliRunner
 
-        from qortex.cli import app
         from qortex import interop
+        from qortex.cli import app
         from qortex.interop import InteropConfig, SeedsConfig, SignalsConfig
 
         # Create a custom config for testing
@@ -777,14 +772,14 @@ class TestSchemas:
         assert "event" in EVENT_SCHEMA["properties"]
 
     def test_get_seed_schema_returns_copy(self):
-        from qortex.interop_schemas import get_seed_schema, SEED_SCHEMA
+        from qortex.interop_schemas import SEED_SCHEMA, get_seed_schema
 
         schema = get_seed_schema()
         schema["modified"] = True
         assert "modified" not in SEED_SCHEMA
 
     def test_get_event_schema_returns_copy(self):
-        from qortex.interop_schemas import get_event_schema, EVENT_SCHEMA
+        from qortex.interop_schemas import EVENT_SCHEMA, get_event_schema
 
         schema = get_event_schema()
         schema["modified"] = True
@@ -874,6 +869,7 @@ class TestSchemas:
 class TestSchemaCLI:
     def test_schema_command_shows_seed(self):
         from typer.testing import CliRunner
+
         from qortex.cli.interop_cmd import app
 
         runner = CliRunner()
@@ -885,6 +881,7 @@ class TestSchemaCLI:
 
     def test_schema_command_shows_event(self):
         from typer.testing import CliRunner
+
         from qortex.cli.interop_cmd import app
 
         runner = CliRunner()
@@ -896,6 +893,7 @@ class TestSchemaCLI:
 
     def test_schema_command_exports(self, tmp_path):
         from typer.testing import CliRunner
+
         from qortex.cli.interop_cmd import app
 
         runner = CliRunner()
@@ -908,6 +906,7 @@ class TestSchemaCLI:
     def test_validate_command_valid_seed(self, tmp_path):
         import yaml
         from typer.testing import CliRunner
+
         from qortex.cli.interop_cmd import app
 
         seed_file = tmp_path / "test.yaml"
@@ -927,6 +926,7 @@ class TestSchemaCLI:
     def test_validate_command_invalid_seed(self, tmp_path):
         import yaml
         from typer.testing import CliRunner
+
         from qortex.cli.interop_cmd import app
 
         seed_file = tmp_path / "bad.yaml"

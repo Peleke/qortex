@@ -8,7 +8,6 @@ from typing import Any
 import typer
 
 from qortex.cli._config import get_config
-from qortex.cli._errors import handle_error
 
 app = typer.Typer(help="Project rules from the knowledge graph.")
 
@@ -80,9 +79,9 @@ def buildlog(
     Use --output to write to a specific file path.
     If neither is specified, prints to stdout.
     """
-    from qortex.projectors.targets.buildlog_seed import BuildlogSeedTarget
-
     import yaml
+
+    from qortex.projectors.targets.buildlog_seed import BuildlogSeedTarget
 
     target = BuildlogSeedTarget(persona_name=persona)
     result = _run_projection(target, domain, enrich)

@@ -172,7 +172,7 @@ def prune_stats(
 
     evidence_lengths = [len(get_source_text(e).split()) for e in edges]
     with_evidence = sum(1 for e in edges if get_source_text(e))
-    typer.echo(f"\nEvidence:")
+    typer.echo("\nEvidence:")
     typer.echo(f"  Edges with source_text: {with_evidence}/{len(edges)}")
     if evidence_lengths:
         typer.echo(f"  Avg evidence length: {sum(evidence_lengths)/len(evidence_lengths):.1f} words")

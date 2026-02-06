@@ -5,7 +5,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 
 from qortex.core.backend import GraphBackend
-from qortex.core.models import ConceptNode, Rule
+from qortex.core.models import Rule
 
 
 @dataclass

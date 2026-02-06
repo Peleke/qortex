@@ -156,10 +156,7 @@ class FlatRuleSource:
         if filt.domains and rule.domain not in filt.domains:
             return False
 
-        if filt.categories and rule.category not in filt.categories:
-            return False
-
-        return True
+        return not (filt.categories and rule.category not in filt.categories)
 
     def _all_domain_names(self) -> list[str]:
         """Get all domain names from the backend."""

@@ -7,12 +7,14 @@ Fallback: SQLite (limited features, no PPR)
 
 from __future__ import annotations
 
+import contextlib
 import json
 import logging
 import uuid
 from abc import abstractmethod
-from datetime import datetime, timezone
-from typing import Any, Iterator, Literal, Protocol, runtime_checkable
+from collections.abc import Iterator
+from datetime import UTC, datetime
+from typing import Any, Literal, Protocol, runtime_checkable
 
 from .models import ConceptEdge, ConceptNode, Domain, ExplicitRule, IngestionManifest, RelationType
 
@@ -225,7 +227,7 @@ class MemgraphCredentials:
         self._password = password
 
     @classmethod
-    def from_tuple(cls, auth: tuple[str, str]) -> "MemgraphCredentials":
+    def from_tuple(cls, auth: tuple[str, str]) -> MemgraphCredentials:
         """Create from (user, password) tuple."""
         return cls(user=auth[0], password=auth[1])
 
@@ -316,7 +318,7 @@ class MemgraphBackend:
     # -------------------------------------------------------------------------
 
     def create_domain(self, name: str, description: str | None = None) -> Domain:
-        now = datetime.now(timezone.utc).isoformat()
+        now = datetime.now(UTC).isoformat()
         record = self._run_single(
             "MERGE (d:Domain {name: $name}) "
             "ON CREATE SET d.description = $desc, d.created_at = $now, d.updated_at = $now "
@@ -588,7 +590,7 @@ class MemgraphBackend:
         self.create_domain(manifest.domain)
 
         # Update domain source tracking
-        now = datetime.now(timezone.utc).isoformat()
+        now = datetime.now(UTC).isoformat()
         self._run(
             "MATCH (d:Domain {name: $name}) "
             "SET d.updated_at = $now",
@@ -689,7 +691,7 @@ class MemgraphBackend:
                 "id": checkpoint_id,
                 "name": name,
                 "domains": json.dumps(domains) if domains else "[]",
-                "now": datetime.now(timezone.utc).isoformat(),
+                "now": datetime.now(UTC).isoformat(),
             },
         )
         return checkpoint_id
@@ -735,21 +737,19 @@ class MemgraphBackend:
 def _parse_iso(val: str | None) -> datetime:
     """Parse an ISO timestamp string, or return now(utc) as default."""
     if not val:
-        return datetime.now(timezone.utc)
+        return datetime.now(UTC)
     try:
         return datetime.fromisoformat(val)
     except (ValueError, TypeError):
-        return datetime.now(timezone.utc)
+        return datetime.now(UTC)
 
 
 def _record_to_concept(record: dict) -> ConceptNode:
     """Convert a Cypher record dict to a ConceptNode."""
     props = {}
     if record.get("properties"):
-        try:
+        with contextlib.suppress(json.JSONDecodeError, TypeError):
             props = json.loads(record["properties"])
-        except (json.JSONDecodeError, TypeError):
-            pass
     return ConceptNode(
         id=record["id"],
         name=record["name"],
@@ -766,10 +766,8 @@ def _record_to_rule(record: dict) -> ExplicitRule:
     """Convert a Cypher record dict to an ExplicitRule."""
     concept_ids: list[str] = []
     if record.get("concept_ids"):
-        try:
+        with contextlib.suppress(json.JSONDecodeError, TypeError):
             concept_ids = json.loads(record["concept_ids"])
-        except (json.JSONDecodeError, TypeError):
-            pass
     return ExplicitRule(
         id=record["id"],
         text=record["text"],

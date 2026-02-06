@@ -3,15 +3,14 @@
 import pytest
 
 from qortex.core.pruning import (
+    CAUSAL_RELATIONS,
+    STRUCTURAL_RELATIONS,
     PruningConfig,
-    PruningResult,
     classify_layer,
     jaccard_similarity,
     prune_edges,
     prune_edges_dry_run,
     tokenize,
-    STRUCTURAL_RELATIONS,
-    CAUSAL_RELATIONS,
 )
 
 

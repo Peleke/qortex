@@ -26,13 +26,12 @@ from qortex.core.models import (
 )
 from qortex.projectors.enrichers.passthrough import PassthroughEnricher
 from qortex.projectors.enrichers.template import TemplateEnricher
-from qortex.projectors.models import EnrichedRule, ProjectionFilter
+from qortex.projectors.models import ProjectionFilter
 from qortex.projectors.projection import Projection
 from qortex.projectors.sources.flat import FlatRuleSource
 from qortex.projectors.targets.buildlog_seed import BuildlogSeedTarget
 from qortex.projectors.targets.flat_json import FlatJSONTarget
 from qortex.projectors.targets.flat_yaml import FlatYAMLTarget
-
 
 # =============================================================================
 # Chapter 5 fixture data: real concepts from the book

@@ -14,9 +14,9 @@ def _int_env(var: str, default: int) -> int:
         return default
     try:
         return int(raw)
-    except ValueError:
+    except ValueError as err:
         print(f"Error: {var}={raw!r} is not a valid integer", file=sys.stderr)
-        raise SystemExit(1)
+        raise SystemExit(1) from err
 
 
 @dataclass

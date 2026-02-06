@@ -308,7 +308,7 @@ def prune_edges(
         groups[key].append((i, edge))
 
     after_dedup = []
-    for key, group in groups.items():
+    for _key, group in groups.items():
         if len(group) == 1:
             after_dedup.append(group[0])
         else:
@@ -317,7 +317,7 @@ def prune_edges(
             for i, edge in sorted(group, key=lambda x: -x[1].get("confidence", 0)):
                 tokens_i = edge_tokens[i]
                 is_dup = False
-                for j, kept_edge in kept:
+                for j, _kept_edge in kept:
                     tokens_j = edge_tokens[j]
                     if jaccard_similarity(tokens_i, tokens_j) > config.jaccard_duplicate_threshold:
                         is_dup = True
@@ -335,7 +335,7 @@ def prune_edges(
         pair_groups[key].append((i, edge))
 
     after_competing = []
-    for key, group in pair_groups.items():
+    for _key, group in pair_groups.items():
         if len(group) == 1:
             after_competing.append(group[0])
         else:
@@ -359,7 +359,7 @@ def prune_edges(
     # Count degrees
     from collections import Counter
     degree: Counter[str] = Counter()
-    for i, edge in after_competing:
+    for _i, edge in after_competing:
         degree[edge["source_id"]] += 1
         degree[edge["target_id"]] += 1
 
@@ -380,7 +380,7 @@ def prune_edges(
 
     # Step 6: Layer tagging
     final_edges = []
-    for i, edge in after_isolated:
+    for _i, edge in after_isolated:
         edge = dict(edge)
         if config.tag_layers:
             edge["layer"] = classify_layer(edge.get("relation_type", ""))

@@ -5,7 +5,6 @@ import pytest
 from qortex.core.models import RelationType
 from qortex.core.templates import (
     EDGE_RULE_TEMPLATE_REGISTRY,
-    EdgeRuleTemplate,
     get_default_template,
     get_templates,
     select_template,

@@ -67,7 +67,7 @@ class AnthropicExtractionBackend:
                     messages=[{"role": "user", "content": user}],
                 )
                 return response.content[0].text
-            except anthropic.RateLimitError as e:
+            except anthropic.RateLimitError:
                 if attempt < max_retries - 1:
                     wait_time = 60 * (attempt + 1)  # 60s, 120s, 180s
                     print(f"Rate limited, waiting {wait_time}s...")

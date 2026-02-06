@@ -119,14 +119,12 @@ class TestConfig:
         assert isinstance(config, QortexConfig)
 
     def test_invalid_port_gives_helpful_error(self):
-        with patch.dict(os.environ, {"QORTEX_MEMGRAPH_PORT": "not_a_number"}):
-            with pytest.raises(SystemExit):
-                QortexConfig()
+        with patch.dict(os.environ, {"QORTEX_MEMGRAPH_PORT": "not_a_number"}), pytest.raises(SystemExit):
+            QortexConfig()
 
     def test_invalid_lab_port_gives_helpful_error(self):
-        with patch.dict(os.environ, {"QORTEX_LAB_PORT": "abc"}):
-            with pytest.raises(SystemExit):
-                QortexConfig()
+        with patch.dict(os.environ, {"QORTEX_LAB_PORT": "abc"}), pytest.raises(SystemExit):
+            QortexConfig()
 
     def test_compose_file_default(self):
         config = QortexConfig()

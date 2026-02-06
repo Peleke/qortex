@@ -27,12 +27,11 @@ from __future__ import annotations
 
 import json
 from dataclasses import dataclass, field
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
 import yaml
-
 
 # =============================================================================
 # Config
@@ -195,7 +194,7 @@ class ProjectionEvent:
         return d
 
     @classmethod
-    def from_dict(cls, data: dict[str, Any]) -> "ProjectionEvent":
+    def from_dict(cls, data: dict[str, Any]) -> ProjectionEvent:
         """Parse an event from a dict."""
         known_keys = {"event", "persona", "domain", "path", "rule_count", "ts", "source", "source_version"}
         extra = {k: v for k, v in data.items() if k not in known_keys}
@@ -269,8 +268,8 @@ def read_signals(
                     event_ts = datetime.fromisoformat(event.ts.replace("Z", "+00:00"))
                     # Normalize both to aware datetimes for comparison
                     if event_ts.tzinfo is None:
-                        event_ts = event_ts.replace(tzinfo=timezone.utc)
-                    since_aware = since if since.tzinfo else since.replace(tzinfo=timezone.utc)
+                        event_ts = event_ts.replace(tzinfo=UTC)
+                    since_aware = since if since.tzinfo else since.replace(tzinfo=UTC)
                     if event_ts <= since_aware:
                         continue
                 except ValueError:
@@ -324,7 +323,7 @@ def generate_seed_filename(persona: str, timestamp: datetime | None = None) -> s
         Filename like "qortex_impl_hiding_2026-02-05T14-30-00.yaml"
     """
     if timestamp is None:
-        timestamp = datetime.now(timezone.utc)
+        timestamp = datetime.now(UTC)
 
     safe_persona = _sanitize_filename(persona)
     ts_str = timestamp.strftime("%Y-%m-%dT%H-%M-%S")
@@ -378,7 +377,7 @@ def write_seed_to_pending(
 
     config.seeds.ensure_dirs()
 
-    timestamp = datetime.now(timezone.utc)
+    timestamp = datetime.now(UTC)
     filename = generate_seed_filename(persona, timestamp)  # Sanitizes persona
     seed_path = config.seeds.pending / filename
 

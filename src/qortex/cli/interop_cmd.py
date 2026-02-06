@@ -129,7 +129,7 @@ def config(
     write_default: bool = typer.Option(False, "--write-default", help="Write default config file"),
 ) -> None:
     """Show or write interop configuration."""
-    from qortex.interop import InteropConfig, get_interop_config, write_config, _CONFIG_PATH
+    from qortex.interop import _CONFIG_PATH, InteropConfig, get_interop_config, write_config
 
     if write_default:
         default_config = InteropConfig()
@@ -163,11 +163,11 @@ def schema(
     import json
 
     from qortex.interop_schemas import (
-        SEED_SCHEMA_VERSION,
         EVENT_SCHEMA_VERSION,
-        get_seed_schema,
-        get_event_schema,
+        SEED_SCHEMA_VERSION,
         export_schemas,
+        get_event_schema,
+        get_seed_schema,
     )
 
     if output:
@@ -204,9 +204,10 @@ def validate(
 ) -> None:
     """Validate a seed file or event against the schema."""
     import json
+
     import yaml
 
-    from qortex.interop_schemas import validate_seed, validate_event
+    from qortex.interop_schemas import validate_event, validate_seed
 
     if not path.exists():
         typer.echo(f"File not found: {path}", err=True)

@@ -5,10 +5,11 @@ from __future__ import annotations
 import copy
 import fnmatch
 import uuid
-from datetime import datetime, timezone
-from typing import Iterator, Literal
+from collections.abc import Iterator
+from datetime import UTC, datetime
+from typing import Literal
 
-from .backend import GraphBackend, GraphPattern
+from .backend import GraphPattern
 from .models import ConceptEdge, ConceptNode, Domain, ExplicitRule, IngestionManifest
 
 
@@ -50,8 +51,8 @@ class InMemoryBackend:
         domain = Domain(
             name=name,
             description=description,
-            created_at=datetime.now(timezone.utc),
-            updated_at=datetime.now(timezone.utc),
+            created_at=datetime.now(UTC),
+            updated_at=datetime.now(UTC),
         )
         self._domains[name] = domain
         return domain
@@ -139,11 +140,7 @@ class InMemoryBackend:
         for edge in self._edges:
             if relation_type and edge.relation_type.value != relation_type:
                 continue
-            if direction == "out" and edge.source_id == node_id:
-                yield edge
-            elif direction == "in" and edge.target_id == node_id:
-                yield edge
-            elif direction == "both" and (edge.source_id == node_id or edge.target_id == node_id):
+            if direction == "out" and edge.source_id == node_id or direction == "in" and edge.target_id == node_id or direction == "both" and (edge.source_id == node_id or edge.target_id == node_id):
                 yield edge
 
     # -------------------------------------------------------------------------
@@ -188,7 +185,7 @@ class InMemoryBackend:
 
         # Update domain stats and timestamp
         self._recount_domain(manifest.domain)
-        domain.updated_at = datetime.now(timezone.utc)
+        domain.updated_at = datetime.now(UTC)
 
     # -------------------------------------------------------------------------
     # Query (limited — no Cypher support)
@@ -276,7 +273,7 @@ class InMemoryBackend:
             "nodes": nodes,
             "edges": edges,
             "rules": rules,
-            "created_at": datetime.now(timezone.utc),
+            "created_at": datetime.now(UTC),
         }
         return checkpoint_id
 

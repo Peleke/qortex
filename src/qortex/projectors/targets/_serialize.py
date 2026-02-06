@@ -6,7 +6,7 @@ BuildlogSeedTarget, FlatYAMLTarget, etc. are thin wrappers over these.
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import Any
 
 from qortex.core.models import Rule
@@ -138,7 +138,7 @@ def serialize_ruleset(
         graph_version: ISO timestamp of the graph state used for projection.
         extra_metadata: Additional metadata to include.
     """
-    projected_at = datetime.now(timezone.utc).isoformat()
+    projected_at = datetime.now(UTC).isoformat()
 
     seed_rules = [
         _rule_to_seed_entry(r, graph_version=graph_version)

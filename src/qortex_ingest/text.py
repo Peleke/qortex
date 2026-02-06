@@ -4,8 +4,6 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-from qortex.core.models import IngestionManifest
-
 from .base import Chunk, Ingestor, LLMBackend, Source
 
 if TYPE_CHECKING:
@@ -24,7 +22,7 @@ class TextIngestor(Ingestor):
         llm: LLMBackend,
         chunk_size: int = 2000,
         chunk_overlap: int = 200,
-        pruning_config: "PruningConfig | None" = None,
+        pruning_config: PruningConfig | None = None,
     ):
         super().__init__(llm, pruning_config=pruning_config)
         self.chunk_size = chunk_size

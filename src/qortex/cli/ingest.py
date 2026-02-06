@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import json
 from dataclasses import asdict
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Literal
 
@@ -43,7 +43,7 @@ def _serialize_manifest(manifest) -> dict:
 def _save_manifest_to_file(manifest, output_path: Path) -> None:
     """Save manifest to JSON file."""
     data = _serialize_manifest(manifest)
-    data["_saved_at"] = datetime.now(timezone.utc).isoformat()
+    data["_saved_at"] = datetime.now(UTC).isoformat()
     output_path.write_text(json.dumps(data, indent=2, default=str))
 
 
@@ -231,9 +231,9 @@ def ingest_file(
         # Ingest manifest
         graph_backend.ingest_manifest(manifest)
 
-        typer.echo(f"\nSaved to graph backend.")
-        typer.echo(f"View with: qortex inspect domains")
-        typer.echo(f"Visualize with: qortex viz open")
+        typer.echo("\nSaved to graph backend.")
+        typer.echo("View with: qortex inspect domains")
+        typer.echo("Visualize with: qortex viz open")
 
     except Exception as e:
         # Auto-save manifest on graph failure if not already saved
@@ -345,8 +345,8 @@ def load_manifest(
 
         graph_backend.ingest_manifest(manifest)
 
-        typer.echo(f"\nSaved to graph backend.")
-        typer.echo(f"View with: qortex inspect domains")
+        typer.echo("\nSaved to graph backend.")
+        typer.echo("View with: qortex inspect domains")
 
     except Exception as e:
         handle_error(f"Failed to save to graph: {e}")
