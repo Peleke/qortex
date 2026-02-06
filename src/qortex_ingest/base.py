@@ -12,6 +12,7 @@ from pathlib import Path
 from typing import Literal, Protocol, runtime_checkable
 
 from qortex.core.models import (
+    CodeExample,
     ConceptEdge,
     ConceptNode,
     ExplicitRule,
@@ -69,6 +70,18 @@ class LLMBackend(Protocol):
 
     def extract_rules(self, text: str, concepts: list[ConceptNode]) -> list[dict]:
         """Extract explicit rules from text."""
+        ...
+
+    def extract_code_examples(
+        self,
+        text: str,
+        concepts: list[ConceptNode],
+        domain: str,
+    ) -> list[dict]:
+        """Extract code examples and link to concepts.
+
+        Optional method - returns empty list if not implemented.
+        """
         ...
 
     def suggest_domain_name(self, source_name: str, sample_text: str) -> str:
@@ -208,7 +221,25 @@ class Ingestor(ABC):
             for i, r in enumerate(rule_dicts)
         ]
 
-        # 6. Build manifest
+        # 6. Extract code examples (if backend supports it)
+        examples: list[CodeExample] = []
+        if hasattr(self.llm, "extract_code_examples"):
+            example_dicts = self.llm.extract_code_examples(all_text, concepts[:50], domain)
+            for ex in example_dicts:
+                examples.append(CodeExample(
+                    id=ex["id"],
+                    code=ex["code"],
+                    language=ex["language"],
+                    description=ex.get("description"),
+                    source_location=ex.get("source_location"),
+                    concept_ids=ex.get("concept_ids", []),
+                    rule_ids=ex.get("rule_ids", []),
+                    tags=ex.get("tags", []),
+                    is_antipattern=ex.get("is_antipattern", False),
+                    properties=ex.get("properties", {}),
+                ))
+
+        # 7. Build manifest
         source_meta = SourceMetadata(
             id=source_id,
             name=source.name or "unknown",
@@ -225,6 +256,7 @@ class Ingestor(ABC):
             concepts=concepts,
             edges=edges,
             rules=rules,
+            examples=examples,
         )
 
 
@@ -251,6 +283,14 @@ class StubLLMBackend:
         return []
 
     def extract_rules(self, text: str, concepts: list[ConceptNode]) -> list[dict]:
+        return []
+
+    def extract_code_examples(
+        self,
+        text: str,
+        concepts: list[ConceptNode],
+        domain: str,
+    ) -> list[dict]:
         return []
 
     def suggest_domain_name(self, source_name: str, sample_text: str) -> str:

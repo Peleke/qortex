@@ -158,6 +158,7 @@ def ingest_file(
     typer.echo(f"Concepts extracted: {len(manifest.concepts)}")
     typer.echo(f"Relations extracted: {len(manifest.edges)}")
     typer.echo(f"Rules extracted: {len(manifest.rules)}")
+    typer.echo(f"Code examples extracted: {len(manifest.examples)}")
 
     # Always save manifest if path provided (before graph save attempt)
     if save_manifest:
@@ -181,6 +182,13 @@ def ingest_file(
             typer.echo("\nSample rules:")
             for r in manifest.rules[:3]:
                 typer.echo(f"  - {r.text[:80]}...")
+        if manifest.examples:
+            typer.echo("\nSample code examples:")
+            for ex in manifest.examples[:3]:
+                code_preview = ex.code[:60].replace("\n", " ")
+                typer.echo(f"  - [{ex.language}] {code_preview}...")
+                if ex.concept_ids:
+                    typer.echo(f"    Links: {', '.join(ex.concept_ids[:3])}")
         return
 
     # Save to graph - connect to Memgraph

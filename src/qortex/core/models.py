@@ -78,6 +78,36 @@ class ConceptEdge:
 
 
 @dataclass
+class CodeExample:
+    """A code example linked to concepts and rules.
+
+    Structure matches future SQLA model for direct deserialization:
+        CodeExample(**example_dict) works for both dataclass and SQLA.
+
+    Used for:
+    - Few-shot prompting: Rule -> Examples -> prompt context
+    - 2nd-order retrieval: Query -> similar code -> linked concepts
+    - Contrastive learning: Good example vs antipattern
+    """
+    id: str
+    code: str
+    language: str
+    description: str | None = None
+    source_location: str | None = None  # e.g., "ch11:p42"
+
+    # Links (M2M in SQLA, stored as IDs here)
+    concept_ids: list[str] = field(default_factory=list)
+    rule_ids: list[str] = field(default_factory=list)
+
+    # Classification
+    tags: list[str] = field(default_factory=list)
+    is_antipattern: bool = False  # For contrastive learning
+
+    # Extensible
+    properties: dict[str, Any] = field(default_factory=dict)
+
+
+@dataclass
 class ExplicitRule:
     """A rule explicitly stated in source material.
 
@@ -132,6 +162,7 @@ class IngestionManifest:
     concepts: list[ConceptNode]
     edges: list[ConceptEdge]
     rules: list[ExplicitRule]
+    examples: list[CodeExample] = field(default_factory=list)
 
     # Quality metrics
     extraction_confidence: float = 1.0

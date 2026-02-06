@@ -367,3 +367,73 @@ Suggest a domain name:"""
         name = re.sub(r"[^a-z0-9_]", "_", name)
         name = re.sub(r"_+", "_", name).strip("_")
         return name or "unknown"
+
+    def extract_code_examples(
+        self,
+        text: str,
+        concepts: list[ConceptNode],
+        domain: str,
+    ) -> list[dict]:
+        """Extract code examples and link them to concepts.
+
+        Returns list of dicts matching CodeExample dataclass structure
+        for direct deserialization to SQLA model.
+        """
+        concept_list = "\n".join(f"- {c.id}: {c.name}" for c in concepts[:50])
+
+        system = """You are a code extraction system. Extract code examples from text and link them to concepts.
+
+For each code block or inline code example:
+1. Extract the complete code
+2. Identify the programming language
+3. Write a brief description of what it demonstrates
+4. Link it to relevant concept IDs from the provided list
+5. Identify if it's an antipattern (bad example) vs good practice
+6. Add relevant tags for retrieval
+
+Return JSON array of objects with:
+- code: The complete code snippet (preserve formatting)
+- language: Programming language (python, java, typescript, etc.)
+- description: 1-2 sentence explanation of what this demonstrates
+- concept_ids: Array of concept IDs this example illustrates
+- is_antipattern: Boolean, true if this is a "what not to do" example
+- tags: Array of relevant tags for retrieval
+
+Extract ALL code examples. Include both good examples and antipatterns.
+If no code examples exist, return empty array []."""
+
+        user = f"""Given these concepts:
+{concept_list}
+
+And this text:
+{text[:8000]}
+
+Extract all code examples. Return only valid JSON array."""
+
+        result = self._call(system, user, max_tokens=8192)
+        parsed = self._parse_json(result)
+
+        valid_ids = {c.id for c in concepts}
+
+        if isinstance(parsed, list):
+            examples = []
+            for i, ex in enumerate(parsed):
+                if not isinstance(ex, dict) or not ex.get("code"):
+                    continue
+                examples.append({
+                    "id": f"{domain}:example:{i}",
+                    "code": ex["code"],
+                    "language": ex.get("language", "unknown"),
+                    "description": ex.get("description"),
+                    "source_location": None,  # Set by caller if needed
+                    "concept_ids": [
+                        cid for cid in ex.get("concept_ids", [])
+                        if cid in valid_ids
+                    ],
+                    "rule_ids": [],  # Linked later if needed
+                    "tags": ex.get("tags", []),
+                    "is_antipattern": bool(ex.get("is_antipattern", False)),
+                    "properties": {},
+                })
+            return examples
+        return []
