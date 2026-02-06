@@ -21,6 +21,25 @@ from qortex.cli._config import QortexConfig, get_config
 runner = CliRunner()
 
 
+def _memgraph_available() -> bool:
+    """Check if Memgraph is reachable."""
+    try:
+        import socket
+        s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        s.settimeout(1)
+        s.connect(("localhost", 7687))
+        s.close()
+        return True
+    except Exception:
+        return False
+
+
+MEMGRAPH_RUNNING = _memgraph_available()
+skip_if_memgraph_running = pytest.mark.skipif(
+    MEMGRAPH_RUNNING, reason="Test expects Memgraph to be down but it's running"
+)
+
+
 # =========================================================================
 # App structure
 # =========================================================================
@@ -80,8 +99,8 @@ class TestConfig:
         config = QortexConfig()
         assert config.memgraph_host == "localhost"
         assert config.memgraph_port == 7687
-        assert config.memgraph_user == "qortex"
-        assert config.memgraph_password == "qortex"
+        assert config.memgraph_credentials.user == "qortex"
+        assert config.memgraph_credentials.auth_tuple == ("qortex", "qortex")
         assert config.lab_port == 3000
 
     def test_config_from_env(self):
@@ -199,6 +218,7 @@ class TestInfraStatus:
 
 
 class TestIngest:
+    @skip_if_memgraph_running
     def test_ingest_requires_memgraph(self):
         result = runner.invoke(app, ["ingest", "ingest", "/nonexistent/file.md"])
         assert result.exit_code == 1
@@ -365,14 +385,17 @@ class TestProjectWithData:
 
 
 class TestInspect:
+    @skip_if_memgraph_running
     def test_domains_requires_memgraph(self):
         result = runner.invoke(app, ["inspect", "domains"])
         assert result.exit_code == 1
 
+    @skip_if_memgraph_running
     def test_rules_requires_memgraph(self):
         result = runner.invoke(app, ["inspect", "rules"])
         assert result.exit_code == 1
 
+    @skip_if_memgraph_running
     def test_stats_requires_memgraph(self):
         result = runner.invoke(app, ["inspect", "stats"])
         assert result.exit_code == 1
@@ -412,6 +435,7 @@ class TestVizOpen:
 
 
 class TestVizQuery:
+    @skip_if_memgraph_running
     def test_query_requires_memgraph(self):
         result = runner.invoke(app, ["viz", "query", "MATCH (n) RETURN n"])
         assert result.exit_code == 1
@@ -481,6 +505,7 @@ class TestDockerCompose:
 
 
 class TestRequireMemgraph:
+    @skip_if_memgraph_running
     def test_decorator_fails_without_memgraph(self):
         from click.exceptions import Exit as ClickExit
 

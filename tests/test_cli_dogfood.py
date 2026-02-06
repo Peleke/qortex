@@ -15,6 +15,25 @@ from qortex.core.models import ConceptNode, ConceptEdge, ExplicitRule, RelationT
 runner = CliRunner()
 
 
+def _memgraph_available() -> bool:
+    """Check if Memgraph is reachable."""
+    try:
+        import socket
+        s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        s.settimeout(1)
+        s.connect(("localhost", 7687))
+        s.close()
+        return True
+    except Exception:
+        return False
+
+
+MEMGRAPH_RUNNING = _memgraph_available()
+skip_if_memgraph_running = pytest.mark.skipif(
+    MEMGRAPH_RUNNING, reason="Test expects Memgraph to be down but it's running"
+)
+
+
 # ============================================================================
 # Fixtures
 # ============================================================================
@@ -175,26 +194,28 @@ class TestIngestCommand:
     
     def test_ingest_missing_path(self):
         """ingest without path should fail."""
-        result = runner.invoke(app, ["ingest", "ingest"])
+        result = runner.invoke(app, ["ingest"])
         assert result.exit_code != 0
-    
+
     def test_ingest_nonexistent_file(self):
         """ingest with nonexistent file should fail gracefully."""
-        result = runner.invoke(app, ["ingest", "ingest", "/nonexistent/file.txt"])
+        result = runner.invoke(app, ["ingest", "/nonexistent/file.txt"])
         assert result.exit_code == 1
-    
+
+    @skip_if_memgraph_running
     def test_ingest_with_domain(self, tmp_path):
         """ingest with --domain flag (will fail at Memgraph check)."""
         test_file = tmp_path / "test.txt"
         test_file.write_text("Test content")
-        result = runner.invoke(app, ["ingest", "ingest", str(test_file), "--domain", "custom-domain"])
+        result = runner.invoke(app, ["ingest", str(test_file), "--domain", "custom-domain"])
         assert result.exit_code == 1  # Fails because no Memgraph
-    
+
+    @skip_if_memgraph_running
     def test_ingest_empty_domain(self, tmp_path):
         """ingest with empty --domain string."""
         test_file = tmp_path / "test.txt"
         test_file.write_text("Test content")
-        result = runner.invoke(app, ["ingest", "ingest", str(test_file), "--domain", ""])
+        result = runner.invoke(app, ["ingest", str(test_file), "--domain", ""])
         assert result.exit_code == 1
 
 
@@ -389,22 +410,26 @@ class TestProjectCommands:
 
 class TestInspectCommands:
     """Test qortex inspect subcommands."""
-    
+
+    @skip_if_memgraph_running
     def test_inspect_domains_no_memgraph(self):
         """inspect domains should fail without Memgraph."""
         result = runner.invoke(app, ["inspect", "domains"])
         assert result.exit_code == 1
-    
+
+    @skip_if_memgraph_running
     def test_inspect_rules_no_memgraph(self):
         """inspect rules should fail without Memgraph."""
         result = runner.invoke(app, ["inspect", "rules"])
         assert result.exit_code == 1
-    
+
+    @skip_if_memgraph_running
     def test_inspect_rules_with_domain_no_memgraph(self):
         """inspect rules --domain should fail without Memgraph."""
         result = runner.invoke(app, ["inspect", "rules", "--domain", "test-domain"])
         assert result.exit_code == 1
-    
+
+    @skip_if_memgraph_running
     def test_inspect_stats_no_memgraph(self):
         """inspect stats should fail without Memgraph."""
         result = runner.invoke(app, ["inspect", "stats"])
@@ -427,6 +452,7 @@ class TestVizCommands:
         assert "Opening Memgraph Lab" in result.stdout
         mock_open.assert_called_once_with("http://localhost:3000")
     
+    @skip_if_memgraph_running
     def test_viz_query_no_memgraph(self):
         """viz query should fail without Memgraph."""
         result = runner.invoke(app, ["viz", "query", "MATCH (n) RETURN n"])

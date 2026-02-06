@@ -665,9 +665,10 @@ class TestE2EWithMemgraph:
 
     @pytest.fixture(autouse=True)
     def _setup_backend(self):
-        from qortex.core.backend import MemgraphBackend
+        from qortex.core.backend import MemgraphBackend, MemgraphCredentials
 
-        self.backend = MemgraphBackend(host="localhost", port=7687)
+        creds = MemgraphCredentials(user="qortex", password="qortex")
+        self.backend = MemgraphBackend(uri="bolt://localhost:7687", credentials=creds)
         self.backend.connect()
         self.backend._run("MATCH (n) DETACH DELETE n")
         yield
