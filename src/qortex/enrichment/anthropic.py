@@ -66,9 +66,7 @@ class AnthropicEnrichmentBackend:
         try:
             import anthropic
         except ImportError as e:
-            raise ImportError(
-                "anthropic package required: pip install 'qortex[anthropic]'"
-            ) from e
+            raise ImportError("anthropic package required: pip install 'qortex[anthropic]'") from e
 
         self._client = anthropic.Anthropic(api_key=api_key)
         self._model = model or self.DEFAULT_MODEL
@@ -129,9 +127,7 @@ class AnthropicEnrichmentBackend:
         domain: str,
     ) -> list[RuleEnrichment]:
         """Send one batch to Claude and parse response."""
-        rules_text = "\n".join(
-            f"{i + 1}. [{r.id}] {r.text}" for i, r in enumerate(rules)
-        )
+        rules_text = "\n".join(f"{i + 1}. [{r.id}] {r.text}" for i, r in enumerate(rules))
 
         response = self._client.messages.create(
             model=self._model,

@@ -120,7 +120,9 @@ class FlatRuleSource:
             return None
 
         # Select template
-        template = select_template(edge.relation_type, category_hint=filt.categories[0] if filt.categories else None)
+        template = select_template(
+            edge.relation_type, category_hint=filt.categories[0] if filt.categories else None
+        )
 
         # Expand template
         text = template.template.format(

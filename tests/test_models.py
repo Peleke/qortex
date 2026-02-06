@@ -219,8 +219,13 @@ class TestCodeExample:
 
         # SQLA model expected columns
         sqla_columns = {
-            "id", "code", "language", "description", "source_location",
-            "is_antipattern", "properties"
+            "id",
+            "code",
+            "language",
+            "description",
+            "source_location",
+            "is_antipattern",
+            "properties",
         }
 
         # All SQLA columns present
@@ -234,12 +239,12 @@ class TestCodeExample:
 
     def test_code_example_multiline_code(self):
         """CodeExample preserves multiline code formatting."""
-        code = '''class Visitor:
+        code = """class Visitor:
     def visit_element_a(self, element):
         pass
 
     def visit_element_b(self, element):
-        pass'''
+        pass"""
 
         example = CodeExample(
             id="test:multiline",

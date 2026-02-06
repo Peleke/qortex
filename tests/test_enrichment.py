@@ -118,9 +118,7 @@ class MockEnrichmentBackend:
             for r in rules
         ]
 
-    def re_enrich(
-        self, rule: Rule, existing: RuleEnrichment, new_context: str
-    ) -> RuleEnrichment:
+    def re_enrich(self, rule: Rule, existing: RuleEnrichment, new_context: str) -> RuleEnrichment:
         self.calls.append(("re_enrich", rule.id, new_context))
         if self._fail:
             raise RuntimeError("API failed")

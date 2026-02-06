@@ -22,9 +22,7 @@ def domains() -> None:
     typer.echo(f"{'Domain':<25} {'Concepts':>10} {'Edges':>8} {'Rules':>8}")
     typer.echo("-" * 55)
     for d in domain_list:
-        typer.echo(
-            f"{d.name:<25} {d.concept_count:>10} {d.edge_count:>8} {d.rule_count:>8}"
-        )
+        typer.echo(f"{d.name:<25} {d.concept_count:>10} {d.edge_count:>8} {d.rule_count:>8}")
 
 
 @app.command()

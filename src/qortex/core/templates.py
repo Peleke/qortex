@@ -351,5 +351,3 @@ def select_template(
                 return t
 
     return templates[0]
-
-

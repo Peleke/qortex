@@ -497,6 +497,7 @@ class TestE2EWithoutMemgraph:
 
         json_proj = Projection(source=source, target=FlatJSONTarget())
         import json
+
         json_result = json.loads(json_proj.project(domains=[DOMAIN]))
 
         assert buildlog_result["metadata"]["rule_count"] == len(yaml_result["rules"])
@@ -697,10 +698,12 @@ class TestE2EWithMemgraph:
         manifest = _build_chapter_manifest()
         self.backend.ingest_manifest(manifest)
 
-        results = list(self.backend.query_cypher(
-            "MATCH (c:Concept {domain: $d}) RETURN c.id AS id",
-            {"d": DOMAIN},
-        ))
+        results = list(
+            self.backend.query_cypher(
+                "MATCH (c:Concept {domain: $d}) RETURN c.id AS id",
+                {"d": DOMAIN},
+            )
+        )
         ids = {r["id"] for r in results}
         assert len(ids) == len(CONCEPTS)
 

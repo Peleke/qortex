@@ -38,11 +38,7 @@ def rule_to_dict(
     if r.metadata:
         d["metadata"] = r.metadata
 
-    if (
-        include_enrichment
-        and isinstance(rule, EnrichedRule)
-        and rule.enrichment
-    ):
+    if include_enrichment and isinstance(rule, EnrichedRule) and rule.enrichment:
         d["enrichment"] = {
             "context": rule.enrichment.context,
             "antipattern": rule.enrichment.antipattern,
@@ -140,10 +136,7 @@ def serialize_ruleset(
     """
     projected_at = datetime.now(UTC).isoformat()
 
-    seed_rules = [
-        _rule_to_seed_entry(r, graph_version=graph_version)
-        for r in rules
-    ]
+    seed_rules = [_rule_to_seed_entry(r, graph_version=graph_version) for r in rules]
 
     metadata: dict[str, Any] = {
         "source": source,

@@ -12,6 +12,7 @@ if TYPE_CHECKING:
 # Lazy import to avoid hard dependency
 try:
     import anthropic
+
     ANTHROPIC_AVAILABLE = True
 except ImportError:
     ANTHROPIC_AVAILABLE = False
@@ -45,8 +46,7 @@ class AnthropicExtractionBackend:
     ):
         if not ANTHROPIC_AVAILABLE:
             raise ImportError(
-                "anthropic package not installed. "
-                "Install with: pip install anthropic"
+                "anthropic package not installed. Install with: pip install anthropic"
             )
 
         self.client = anthropic.Anthropic(api_key=api_key)
@@ -157,13 +157,11 @@ Return only valid JSON array."""
             return []
 
         # Limit concepts to avoid rate limits (100 concepts ~ 10K tokens)
-        limited_concepts = concepts[:self.max_concepts_per_call]
+        limited_concepts = concepts[: self.max_concepts_per_call]
         if len(concepts) > self.max_concepts_per_call:
             print(f"  (limiting to {self.max_concepts_per_call}/{len(concepts)} concepts)")
 
-        concept_list = "\n".join(
-            f"- {c.id}: {c.name} - {c.description}" for c in limited_concepts
-        )
+        concept_list = "\n".join(f"- {c.id}: {c.name} - {c.description}" for c in limited_concepts)
 
         system = """You are a precise knowledge graph extraction system.
 
@@ -332,9 +330,7 @@ Extract explicit rules and principles. Return only valid JSON array."""
             return [
                 {
                     "text": r["text"],
-                    "concept_ids": [
-                        cid for cid in r.get("concept_ids", []) if cid in valid_ids
-                    ],
+                    "concept_ids": [cid for cid in r.get("concept_ids", []) if cid in valid_ids],
                     "category": r.get("category", "principle"),
                     "confidence": float(r.get("confidence", 0.8)),
                 }
@@ -420,20 +416,21 @@ Extract all code examples. Return only valid JSON array."""
             for i, ex in enumerate(parsed):
                 if not isinstance(ex, dict) or not ex.get("code"):
                     continue
-                examples.append({
-                    "id": f"{domain}:example:{i}",
-                    "code": ex["code"],
-                    "language": ex.get("language", "unknown"),
-                    "description": ex.get("description"),
-                    "source_location": None,  # Set by caller if needed
-                    "concept_ids": [
-                        cid for cid in ex.get("concept_ids", [])
-                        if cid in valid_ids
-                    ],
-                    "rule_ids": [],  # Linked later if needed
-                    "tags": ex.get("tags", []),
-                    "is_antipattern": bool(ex.get("is_antipattern", False)),
-                    "properties": {},
-                })
+                examples.append(
+                    {
+                        "id": f"{domain}:example:{i}",
+                        "code": ex["code"],
+                        "language": ex.get("language", "unknown"),
+                        "description": ex.get("description"),
+                        "source_location": None,  # Set by caller if needed
+                        "concept_ids": [
+                            cid for cid in ex.get("concept_ids", []) if cid in valid_ids
+                        ],
+                        "rule_ids": [],  # Linked later if needed
+                        "tags": ex.get("tags", []),
+                        "is_antipattern": bool(ex.get("is_antipattern", False)),
+                        "properties": {},
+                    }
+                )
             return examples
         return []

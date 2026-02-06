@@ -56,7 +56,7 @@ def status() -> None:
         for p, err in failed[-3:]:  # Show last 3
             typer.echo(f"  {p.name}")
             if err:
-                first_line = err.split('\n')[0][:60]
+                first_line = err.split("\n")[0][:60]
                 typer.echo(f"    Error: {first_line}...")
         typer.echo()
 
@@ -102,7 +102,9 @@ def signals(
     recent = all_signals[-limit:]
     typer.echo(f"Recent signals (showing {len(recent)} of {len(all_signals)}):")
     for sig in recent:
-        typer.echo(f"  [{sig.event}] persona={sig.persona} domain={sig.domain} rules={sig.rule_count}")
+        typer.echo(
+            f"  [{sig.event}] persona={sig.persona} domain={sig.domain} rules={sig.rule_count}"
+        )
         typer.echo(f"    path: {sig.path}")
         typer.echo(f"    ts:   {sig.ts}")
         typer.echo()
@@ -183,6 +185,7 @@ def schema(
     def format_schema(schema: dict) -> str:
         if format == "yaml":
             import yaml
+
             return yaml.dump(schema, default_flow_style=False, sort_keys=False)
         return json.dumps(schema, indent=2)
 
@@ -232,7 +235,9 @@ def validate(
                 typer.echo(f"  - {err}")
             raise typer.Exit(1)
         else:
-            typer.echo(f"Valid seed: {data.get('persona', 'unknown')} ({data.get('metadata', {}).get('rule_count', '?')} rules)")
+            typer.echo(
+                f"Valid seed: {data.get('persona', 'unknown')} ({data.get('metadata', {}).get('rule_count', '?')} rules)"
+            )
 
     elif type == "event":
         # Validate each line of JSONL

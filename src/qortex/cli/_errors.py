@@ -37,9 +37,7 @@ def require_memgraph(f: Callable) -> Callable:
             from qortex.core.backend import MemgraphBackend, MemgraphCredentials
 
             # Convert CLI credentials to backend credentials
-            creds = MemgraphCredentials.from_tuple(
-                config.memgraph_credentials.auth_tuple
-            )
+            creds = MemgraphCredentials.from_tuple(config.memgraph_credentials.auth_tuple)
             backend = MemgraphBackend(
                 uri=config.get_memgraph_uri(),
                 credentials=creds,

@@ -755,7 +755,9 @@ class TestProjectionPipelineIntegration:
 # Use ASCII-printable strings for IDs/text to avoid YAML encoding issues
 # (YAML normalizes certain Unicode whitespace like \x85)
 _safe_text = st.text(
-    alphabet=st.characters(whitelist_categories=("L", "N", "P", "S", "Z"), whitelist_characters=" _-:./"),
+    alphabet=st.characters(
+        whitelist_categories=("L", "N", "P", "S", "Z"), whitelist_characters=" _-:./"
+    ),
     min_size=1,
     max_size=50,
 ).filter(lambda s: s.strip())

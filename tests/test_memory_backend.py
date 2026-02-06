@@ -155,9 +155,7 @@ class TestDomains:
 
     def test_delete_domain_cascades_rules(self, backend):
         backend.create_domain("test")
-        rule = ExplicitRule(
-            id="rule:1", text="Test rule", domain="test", source_id="src"
-        )
+        rule = ExplicitRule(id="rule:1", text="Test rule", domain="test", source_id="src")
         backend.add_rule(rule)
         backend.delete_domain("test")
         assert backend.get_rules("test") == []
@@ -287,14 +285,10 @@ class TestEdges:
         for edge in sample_edges:
             backend.add_edge(edge)
 
-        requires = list(
-            backend.get_edges("err:circuit_breaker", relation_type="requires")
-        )
+        requires = list(backend.get_edges("err:circuit_breaker", relation_type="requires"))
         assert len(requires) == 1
 
-        contradicts = list(
-            backend.get_edges("err:circuit_breaker", relation_type="contradicts")
-        )
+        contradicts = list(backend.get_edges("err:circuit_breaker", relation_type="contradicts"))
         assert len(contradicts) == 0
 
     def test_get_edges_empty(self, backend):
@@ -328,20 +322,14 @@ class TestRules:
     def test_get_rules_all_domains(self, backend):
         backend.create_domain("a")
         backend.create_domain("b")
-        backend.add_rule(
-            ExplicitRule(id="r1", text="Rule A", domain="a", source_id="s")
-        )
-        backend.add_rule(
-            ExplicitRule(id="r2", text="Rule B", domain="b", source_id="s")
-        )
+        backend.add_rule(ExplicitRule(id="r1", text="Rule A", domain="a", source_id="s"))
+        backend.add_rule(ExplicitRule(id="r2", text="Rule B", domain="b", source_id="s"))
         all_rules = backend.get_rules()
         assert len(all_rules) == 2
 
     def test_add_rule_updates_domain_stats(self, backend):
         backend.create_domain("test")
-        backend.add_rule(
-            ExplicitRule(id="r1", text="Rule", domain="test", source_id="s")
-        )
+        backend.add_rule(ExplicitRule(id="r1", text="Rule", domain="test", source_id="s"))
         domain = backend.get_domain("test")
         assert domain.rule_count == 1
 
@@ -396,9 +384,7 @@ class TestManifestIngestion:
         assert len(rules) == 1
 
     def test_ingest_manifest_creates_domain(self, backend):
-        source = SourceMetadata(
-            id="s1", name="S1", source_type="text", path_or_url="/s1.txt"
-        )
+        source = SourceMetadata(id="s1", name="S1", source_type="text", path_or_url="/s1.txt")
         manifest = IngestionManifest(
             source=source,
             domain="new_domain",
@@ -411,9 +397,7 @@ class TestManifestIngestion:
 
     def test_ingest_manifest_preserves_existing_domain(self, backend):
         backend.create_domain("existing", "Original description")
-        source = SourceMetadata(
-            id="s1", name="S1", source_type="text", path_or_url="/s1.txt"
-        )
+        source = SourceMetadata(id="s1", name="S1", source_type="text", path_or_url="/s1.txt")
         manifest = IngestionManifest(
             source=source,
             domain="existing",
@@ -453,9 +437,7 @@ class TestPersonalizedPageRank:
         for edge in sample_edges:
             backend.add_edge(edge)
 
-        scores = backend.personalized_pagerank(
-            ["err:circuit_breaker"], domain="error_handling"
-        )
+        scores = backend.personalized_pagerank(["err:circuit_breaker"], domain="error_handling")
         # fp:pure_function should NOT be in results
         assert "fp:pure_function" not in scores
 
@@ -529,4 +511,5 @@ class TestQuery:
     def test_query_raises(self, backend):
         with pytest.raises(NotImplementedError):
             from qortex.core.backend import GraphPattern
+
             list(backend.query(GraphPattern()))

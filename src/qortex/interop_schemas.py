@@ -32,113 +32,106 @@ SEED_SCHEMA: dict[str, Any] = {
             "type": "string",
             "description": "Flat string identifier. Consumers may use as filename.",
             "minLength": 1,
-            "examples": ["qortex_implementation_hiding", "security_rules"]
+            "examples": ["qortex_implementation_hiding", "security_rules"],
         },
         "version": {
             "type": "integer",
             "description": "Schema version as integer. Consumers compare numerically.",
             "minimum": 1,
-            "examples": [1, 2]
+            "examples": [1, 2],
         },
         "rules": {
             "type": "array",
             "description": "List of rules with enrichment and provenance.",
-            "items": {"$ref": "#/$defs/rule"}
+            "items": {"$ref": "#/$defs/rule"},
         },
-        "metadata": {"$ref": "#/$defs/metadata"}
+        "metadata": {"$ref": "#/$defs/metadata"},
     },
     "$defs": {
         "rule": {
             "type": "object",
             "required": ["rule", "category", "provenance"],
             "properties": {
-                "rule": {
-                    "type": "string",
-                    "description": "The rule text itself.",
-                    "minLength": 1
-                },
+                "rule": {"type": "string", "description": "The rule text itself.", "minLength": 1},
                 "category": {
                     "type": "string",
                     "description": "Rule category for filtering. Falls back to domain if not specified.",
-                    "examples": ["architectural", "testing", "security"]
+                    "examples": ["architectural", "testing", "security"],
                 },
                 "context": {
                     "type": "string",
-                    "description": "When this rule applies (from enrichment)."
+                    "description": "When this rule applies (from enrichment).",
                 },
                 "antipattern": {
                     "type": "string",
-                    "description": "What violating this rule looks like (from enrichment)."
+                    "description": "What violating this rule looks like (from enrichment).",
                 },
                 "rationale": {
                     "type": "string",
-                    "description": "Why this rule matters (from enrichment)."
+                    "description": "Why this rule matters (from enrichment).",
                 },
                 "tags": {
                     "type": "array",
                     "items": {"type": "string"},
-                    "description": "Searchable tags (from enrichment)."
+                    "description": "Searchable tags (from enrichment).",
                 },
-                "provenance": {"$ref": "#/$defs/provenance"}
-            }
+                "provenance": {"$ref": "#/$defs/provenance"},
+            },
         },
         "provenance": {
             "type": "object",
             "description": "Origin and derivation metadata. Opaque to most consumers.",
             "required": ["id", "domain", "derivation", "confidence"],
             "properties": {
-                "id": {
-                    "type": "string",
-                    "description": "Unique rule identifier."
-                },
+                "id": {"type": "string", "description": "Unique rule identifier."},
                 "domain": {
                     "type": "string",
-                    "description": "Knowledge domain this rule belongs to."
+                    "description": "Knowledge domain this rule belongs to.",
                 },
                 "derivation": {
                     "type": "string",
                     "enum": ["explicit", "derived"],
-                    "description": "Whether rule was explicit in source or derived from edges."
+                    "description": "Whether rule was explicit in source or derived from edges.",
                 },
                 "confidence": {
                     "type": "number",
                     "minimum": 0,
                     "maximum": 1,
-                    "description": "Confidence score (0-1). Consumers may use for ranking."
+                    "description": "Confidence score (0-1). Consumers may use for ranking.",
                 },
                 "relevance": {
                     "type": "number",
                     "minimum": 0,
                     "maximum": 1,
-                    "description": "Relevance score from retrieval (e.g., PPR)."
+                    "description": "Relevance score from retrieval (e.g., PPR).",
                 },
                 "source_concepts": {
                     "type": "array",
                     "items": {"type": "string"},
-                    "description": "Concept IDs this rule derives from."
+                    "description": "Concept IDs this rule derives from.",
                 },
                 "relation_type": {
                     "type": ["string", "null"],
                     "description": "Edge relation type (for derived rules).",
-                    "examples": ["requires", "contradicts", "supports"]
+                    "examples": ["requires", "contradicts", "supports"],
                 },
                 "template_id": {
                     "type": ["string", "null"],
-                    "description": "Template ID used for derivation."
+                    "description": "Template ID used for derivation.",
                 },
                 "template_variant": {
                     "type": ["string", "null"],
-                    "description": "Template variant (imperative, conditional, warning)."
+                    "description": "Template variant (imperative, conditional, warning).",
                 },
                 "template_severity": {
                     "type": ["string", "null"],
-                    "description": "Template severity level."
+                    "description": "Template severity level.",
                 },
                 "graph_version": {
                     "type": ["string", "null"],
-                    "description": "ISO timestamp of graph state used for projection."
-                }
-            }
+                    "description": "ISO timestamp of graph state used for projection.",
+                },
+            },
         },
         "metadata": {
             "type": "object",
@@ -147,25 +140,25 @@ SEED_SCHEMA: dict[str, Any] = {
                 "source": {
                     "type": "string",
                     "description": "Origin system identifier.",
-                    "examples": ["qortex", "manual"]
+                    "examples": ["qortex", "manual"],
                 },
                 "source_version": {
                     "type": "string",
-                    "description": "Version of the source system."
+                    "description": "Version of the source system.",
                 },
                 "projected_at": {
                     "type": "string",
                     "format": "date-time",
-                    "description": "ISO timestamp of projection."
+                    "description": "ISO timestamp of projection.",
                 },
                 "rule_count": {
                     "type": "integer",
                     "minimum": 0,
-                    "description": "Number of rules in this seed."
-                }
-            }
-        }
-    }
+                    "description": "Number of rules in this seed.",
+                },
+            },
+        },
+    },
 }
 
 # =============================================================================
@@ -184,45 +177,30 @@ EVENT_SCHEMA: dict[str, Any] = {
             "type": "string",
             "description": "Event type identifier.",
             "enum": ["projection_complete", "seed_ingested", "seed_failed"],
-            "examples": ["projection_complete"]
+            "examples": ["projection_complete"],
         },
-        "persona": {
-            "type": "string",
-            "description": "Persona identifier for the seed."
-        },
-        "domain": {
-            "type": "string",
-            "description": "Domain that was projected."
-        },
-        "path": {
-            "type": "string",
-            "description": "Filesystem path to the seed file."
-        },
+        "persona": {"type": "string", "description": "Persona identifier for the seed."},
+        "domain": {"type": "string", "description": "Domain that was projected."},
+        "path": {"type": "string", "description": "Filesystem path to the seed file."},
         "rule_count": {
             "type": "integer",
             "minimum": 0,
-            "description": "Number of rules in the projection."
+            "description": "Number of rules in the projection.",
         },
         "ts": {
             "type": "string",
             "format": "date-time",
-            "description": "ISO timestamp of the event."
+            "description": "ISO timestamp of the event.",
         },
         "source": {
             "type": "string",
             "description": "System that emitted the event.",
-            "examples": ["qortex", "buildlog"]
+            "examples": ["qortex", "buildlog"],
         },
-        "source_version": {
-            "type": "string",
-            "description": "Version of the emitting system."
-        },
-        "error": {
-            "type": "string",
-            "description": "Error message (for seed_failed events)."
-        }
+        "source_version": {"type": "string", "description": "Version of the emitting system."},
+        "error": {"type": "string", "description": "Error message (for seed_failed events)."},
     },
-    "additionalProperties": True
+    "additionalProperties": True,
 }
 
 
@@ -291,6 +269,7 @@ def validate_seed(seed: dict[str, Any]) -> list[str]:
     # Try full JSON Schema validation if available
     try:
         import jsonschema
+
         validator = jsonschema.Draft202012Validator(SEED_SCHEMA)
         for error in validator.iter_errors(seed):
             errors.append(f"{error.json_path}: {error.message}")
@@ -322,6 +301,7 @@ def validate_event(event: dict[str, Any]) -> list[str]:
     # Try full JSON Schema validation if available
     try:
         import jsonschema
+
         validator = jsonschema.Draft202012Validator(EVENT_SCHEMA)
         for error in validator.iter_errors(event):
             errors.append(f"{error.json_path}: {error.message}")

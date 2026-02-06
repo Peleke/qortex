@@ -11,6 +11,7 @@ from qortex.core.models import Rule
 @dataclass
 class RetrievalResult:
     """Result of a hippocampus query."""
+
     rules: list[Rule]
     activated_concepts: dict[str, list[str]]  # domain -> concept names
     scores: dict[str, float]  # concept_id -> relevance score
@@ -132,8 +133,7 @@ class Hippocampus:
         # Filter by domains if specified
         if domains:
             scores = {
-                nid: score for nid, score in scores.items()
-                if self._node_in_domains(nid, domains)
+                nid: score for nid, score in scores.items() if self._node_in_domains(nid, domains)
             }
 
         return scores
@@ -154,7 +154,7 @@ class Hippocampus:
 
         for depth in range(max_depth + 1):
             next_frontier = []
-            decay = 0.5 ** depth
+            decay = 0.5**depth
 
             for node_id, base_score in frontier:
                 if node_id in visited:

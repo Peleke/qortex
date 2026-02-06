@@ -21,12 +21,8 @@ def prune_manifest(
     min_confidence: float = typer.Option(
         0.55, "--min-confidence", "-c", help="Confidence floor (drop below this)"
     ),
-    min_evidence: int = typer.Option(
-        8, "--min-evidence", "-e", help="Minimum evidence tokens"
-    ),
-    output: Path = typer.Option(
-        None, "--output", "-o", help="Output path for pruned manifest"
-    ),
+    min_evidence: int = typer.Option(8, "--min-evidence", "-e", help="Minimum evidence tokens"),
+    output: Path = typer.Option(None, "--output", "-o", help="Output path for pruned manifest"),
     show_dropped: bool = typer.Option(
         False, "--show-dropped", help="Show details of dropped edges"
     ),
@@ -69,10 +65,14 @@ def prune_manifest(
     # Run pruning
     if dry_run:
         from qortex.core.pruning import prune_edges_dry_run
-        result = prune_edges_dry_run(edges, PruningConfig(
-            min_evidence_tokens=min_evidence,
-            confidence_floor=min_confidence,
-        ))
+
+        result = prune_edges_dry_run(
+            edges,
+            PruningConfig(
+                min_evidence_tokens=min_evidence,
+                confidence_floor=min_confidence,
+            ),
+        )
         typer.echo("\n[DRY RUN - no changes made]\n")
     else:
         result = prune_edges(edges, config)
@@ -82,11 +82,17 @@ def prune_manifest(
     if show_dropped and not dry_run:
         # Show what was dropped (compare input to output)
         output_ids = {(e["source_id"], e["target_id"], e["relation_type"]) for e in result.edges}
-        dropped = [e for e in edges if (e["source_id"], e["target_id"], e["relation_type"]) not in output_ids]
+        dropped = [
+            e
+            for e in edges
+            if (e["source_id"], e["target_id"], e["relation_type"]) not in output_ids
+        ]
         if dropped:
             typer.echo("\nDropped edges:")
             for e in dropped[:20]:  # Limit output
-                typer.echo(f"  {e['source_id'].split(':')[-1]} -[{e['relation_type']}]-> {e['target_id'].split(':')[-1]} (conf={e.get('confidence', '?')})")
+                typer.echo(
+                    f"  {e['source_id'].split(':')[-1]} -[{e['relation_type']}]-> {e['target_id'].split(':')[-1]} (conf={e.get('confidence', '?')})"
+                )
             if len(dropped) > 20:
                 typer.echo(f"  ... and {len(dropped) - 20} more")
 
@@ -144,7 +150,9 @@ def prune_stats(
     typer.echo(f"Edge Statistics for: {manifest_path.name}")
     typer.echo(f"  Total edges: {len(edges)}")
     typer.echo(f"  Total concepts: {len(concepts)}")
-    typer.echo(f"  Edge density: {len(edges) / len(concepts):.2f} edges/concept" if concepts else "")
+    typer.echo(
+        f"  Edge density: {len(edges) / len(concepts):.2f} edges/concept" if concepts else ""
+    )
 
     typer.echo("\nConfidence distribution:")
     for bucket, count in buckets.items():
@@ -154,6 +162,7 @@ def prune_stats(
 
     # Relation type breakdown
     from collections import Counter
+
     rel_types = Counter(e.get("relation_type", "unknown") for e in edges)
     typer.echo("\nRelation types:")
     for rel, count in rel_types.most_common():
@@ -175,4 +184,6 @@ def prune_stats(
     typer.echo("\nEvidence:")
     typer.echo(f"  Edges with source_text: {with_evidence}/{len(edges)}")
     if evidence_lengths:
-        typer.echo(f"  Avg evidence length: {sum(evidence_lengths)/len(evidence_lengths):.1f} words")
+        typer.echo(
+            f"  Avg evidence length: {sum(evidence_lengths) / len(evidence_lengths):.1f} words"
+        )

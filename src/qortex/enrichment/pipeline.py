@@ -79,9 +79,7 @@ class EnrichmentPipeline:
     """
 
     backend: EnrichmentBackend | None = None
-    fallback: TemplateEnrichmentFallback = field(
-        default_factory=TemplateEnrichmentFallback
-    )
+    fallback: TemplateEnrichmentFallback = field(default_factory=TemplateEnrichmentFallback)
     stats: EnrichmentStats = field(default_factory=EnrichmentStats)
 
     def enrich(

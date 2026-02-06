@@ -55,11 +55,13 @@ class TextIngestor(Ingestor):
                     chunk_text = chunk_text[:last_para]
                     end = start + last_para
 
-            chunks.append(Chunk(
-                id=f"chunk_{chunk_num}",
-                content=chunk_text.strip(),
-                location=f"chars {start}-{end}",
-            ))
+            chunks.append(
+                Chunk(
+                    id=f"chunk_{chunk_num}",
+                    content=chunk_text.strip(),
+                    location=f"chars {start}-{end}",
+                )
+            )
 
             start = end - self.chunk_overlap
             chunk_num += 1

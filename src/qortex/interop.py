@@ -61,9 +61,7 @@ class SeedsConfig:
 class SignalsConfig:
     """Paths for signal files."""
 
-    projections: Path = field(
-        default_factory=lambda: Path("~/.qortex/signals/projections.jsonl")
-    )
+    projections: Path = field(default_factory=lambda: Path("~/.qortex/signals/projections.jsonl"))
 
     def __post_init__(self):
         self.projections = Path(self.projections).expanduser()
@@ -196,7 +194,16 @@ class ProjectionEvent:
     @classmethod
     def from_dict(cls, data: dict[str, Any]) -> ProjectionEvent:
         """Parse an event from a dict."""
-        known_keys = {"event", "persona", "domain", "path", "rule_count", "ts", "source", "source_version"}
+        known_keys = {
+            "event",
+            "persona",
+            "domain",
+            "path",
+            "rule_count",
+            "ts",
+            "source",
+            "source_version",
+        }
         extra = {k: v for k, v in data.items() if k not in known_keys}
         return cls(
             event=data.get("event", "projection_complete"),
@@ -296,16 +303,16 @@ def _sanitize_filename(name: str) -> str:
     Removes path separators and other dangerous characters.
     """
     # Remove path separators and null bytes
-    dangerous = ['/', '\\', '\x00', '..', '~']
+    dangerous = ["/", "\\", "\x00", "..", "~"]
     result = name
     for char in dangerous:
-        result = result.replace(char, '_')
+        result = result.replace(char, "_")
     # Only allow alphanumeric, underscore, dash, dot
-    result = ''.join(c if c.isalnum() or c in '_-.' else '_' for c in result)
+    result = "".join(c if c.isalnum() or c in "_-." else "_" for c in result)
     # Collapse multiple underscores
-    while '__' in result:
-        result = result.replace('__', '_')
-    return result.strip('_') or 'unnamed'
+    while "__" in result:
+        result = result.replace("__", "_")
+    return result.strip("_") or "unnamed"
 
 
 def generate_seed_filename(persona: str, timestamp: datetime | None = None) -> str:
@@ -395,7 +402,9 @@ def write_seed_to_pending(
             persona=persona,
             domain=domain,
             path=str(seed_path),
-            rule_count=seed_data.get("metadata", {}).get("rule_count", len(seed_data.get("rules", []))),
+            rule_count=seed_data.get("metadata", {}).get(
+                "rule_count", len(seed_data.get("rules", []))
+            ),
             ts=timestamp.isoformat(),
             source="qortex",
             source_version=seed_data.get("metadata", {}).get("source_version", "0.1.0"),

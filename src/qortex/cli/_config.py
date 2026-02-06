@@ -26,9 +26,7 @@ class MemgraphCredentials:
     Password is hidden from repr/str to avoid accidental logging.
     """
 
-    user: str = field(
-        default_factory=lambda: os.environ.get("QORTEX_MEMGRAPH_USER", "qortex")
-    )
+    user: str = field(default_factory=lambda: os.environ.get("QORTEX_MEMGRAPH_USER", "qortex"))
     _password: str = field(
         default_factory=lambda: os.environ.get("QORTEX_MEMGRAPH_PASSWORD", "qortex"),
         repr=False,
@@ -61,31 +59,21 @@ class QortexConfig:
     """
 
     # Connection - URI takes precedence over host/port
-    memgraph_uri: str | None = field(
-        default_factory=lambda: os.environ.get("QORTEX_MEMGRAPH_URI")
-    )
+    memgraph_uri: str | None = field(default_factory=lambda: os.environ.get("QORTEX_MEMGRAPH_URI"))
     memgraph_host: str = field(
         default_factory=lambda: os.environ.get("QORTEX_MEMGRAPH_HOST", "localhost")
     )
-    memgraph_port: int = field(
-        default_factory=lambda: _int_env("QORTEX_MEMGRAPH_PORT", 7687)
-    )
+    memgraph_port: int = field(default_factory=lambda: _int_env("QORTEX_MEMGRAPH_PORT", 7687))
 
     # Credentials (wrapped for security)
-    memgraph_credentials: MemgraphCredentials = field(
-        default_factory=MemgraphCredentials
-    )
+    memgraph_credentials: MemgraphCredentials = field(default_factory=MemgraphCredentials)
 
     # Lab UI
-    lab_port: int = field(
-        default_factory=lambda: _int_env("QORTEX_LAB_PORT", 3000)
-    )
+    lab_port: int = field(default_factory=lambda: _int_env("QORTEX_LAB_PORT", 3000))
 
     # Docker
     compose_file: str = field(
-        default_factory=lambda: os.environ.get(
-            "QORTEX_COMPOSE_FILE", "docker/docker-compose.yml"
-        )
+        default_factory=lambda: os.environ.get("QORTEX_COMPOSE_FILE", "docker/docker-compose.yml")
     )
 
     # API keys (not wrapped since they're optional and used differently)

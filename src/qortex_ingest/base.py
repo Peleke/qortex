@@ -27,6 +27,7 @@ from qortex.core.models import (
 @dataclass
 class Chunk:
     """A chunk of source content for processing."""
+
     id: str
     content: str
 
@@ -42,6 +43,7 @@ class Chunk:
 @dataclass
 class Source:
     """Input source to be ingested."""
+
     path: Path | None = None
     url: str | None = None
     raw_content: str | None = None  # For paste-in content
@@ -144,15 +146,17 @@ class Ingestor(ABC):
         for chunk in chunks:
             extracted = self.llm.extract_concepts(chunk.content, domain)
             for c in extracted:
-                concepts.append(ConceptNode(
-                    id=f"{domain}:{c['name']}",
-                    name=c["name"],
-                    description=c.get("description", ""),
-                    domain=domain,
-                    source_id=source_id,
-                    source_location=chunk.location,
-                    confidence=c.get("confidence", 1.0),
-                ))
+                concepts.append(
+                    ConceptNode(
+                        id=f"{domain}:{c['name']}",
+                        name=c["name"],
+                        description=c.get("description", ""),
+                        domain=domain,
+                        source_id=source_id,
+                        source_location=chunk.location,
+                        confidence=c.get("confidence", 1.0),
+                    )
+                )
 
         # 4. Extract relations per chunk (for full coverage + provenance)
         from qortex.core.models import RelationType
@@ -167,7 +171,11 @@ class Ingestor(ABC):
             )
             for r in relation_dicts:
                 # Dedupe: same source->target->type only counted once
-                rel_type_str = r["relation_type"].lower() if isinstance(r["relation_type"], str) else r["relation_type"]
+                rel_type_str = (
+                    r["relation_type"].lower()
+                    if isinstance(r["relation_type"], str)
+                    else r["relation_type"]
+                )
                 edge_key = (r["source_id"], r["target_id"], rel_type_str)
                 if edge_key in seen_edges:
                     continue
@@ -175,7 +183,7 @@ class Ingestor(ABC):
                 all_relations.append(r)
 
         # 4b. Prune edges (online mode, enabled by default)
-        pruning_config = getattr(self, 'pruning_config', None) or PruningConfig()
+        pruning_config = getattr(self, "pruning_config", None) or PruningConfig()
         prune_result = prune_edges(all_relations, pruning_config)
         pruned_relations = prune_result.edges
 
@@ -200,13 +208,15 @@ class Ingestor(ABC):
             if r.get("strength"):
                 properties["strength"] = r["strength"]
 
-            edges.append(ConceptEdge(
-                source_id=r["source_id"],
-                target_id=r["target_id"],
-                relation_type=rel_type,
-                confidence=r.get("confidence", 1.0),
-                properties=properties,
-            ))
+            edges.append(
+                ConceptEdge(
+                    source_id=r["source_id"],
+                    target_id=r["target_id"],
+                    relation_type=rel_type,
+                    confidence=r.get("confidence", 1.0),
+                    properties=properties,
+                )
+            )
 
         # 5. Extract explicit rules (use first few chunks for rule extraction)
         all_text = "\n\n".join(chunk.content for chunk in chunks[:5])
@@ -229,18 +239,20 @@ class Ingestor(ABC):
         if hasattr(self.llm, "extract_code_examples"):
             example_dicts = self.llm.extract_code_examples(all_text, concepts[:50], domain)
             for ex in example_dicts:
-                examples.append(CodeExample(
-                    id=ex["id"],
-                    code=ex["code"],
-                    language=ex["language"],
-                    description=ex.get("description"),
-                    source_location=ex.get("source_location"),
-                    concept_ids=ex.get("concept_ids", []),
-                    rule_ids=ex.get("rule_ids", []),
-                    tags=ex.get("tags", []),
-                    is_antipattern=ex.get("is_antipattern", False),
-                    properties=ex.get("properties", {}),
-                ))
+                examples.append(
+                    CodeExample(
+                        id=ex["id"],
+                        code=ex["code"],
+                        language=ex["language"],
+                        description=ex.get("description"),
+                        source_location=ex.get("source_location"),
+                        concept_ids=ex.get("concept_ids", []),
+                        rule_ids=ex.get("rule_ids", []),
+                        tags=ex.get("tags", []),
+                        is_antipattern=ex.get("is_antipattern", False),
+                        properties=ex.get("properties", {}),
+                    )
+                )
 
         # 7. Build manifest
         source_meta = SourceMetadata(

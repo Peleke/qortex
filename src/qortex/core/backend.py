@@ -23,6 +23,7 @@ logger = logging.getLogger(__name__)
 
 class GraphPattern:
     """Structured query pattern (alternative to raw Cypher)."""
+
     # TODO: Define query DSL
     pass
 
@@ -279,12 +280,8 @@ class MemgraphBackend:
         try:
             import neo4j
         except ImportError as e:
-            raise ImportError(
-                "neo4j driver required: pip install qortex[memgraph]"
-            ) from e
-        self._driver = neo4j.GraphDatabase.driver(
-            self._uri, auth=self._credentials.auth_tuple
-        )
+            raise ImportError("neo4j driver required: pip install qortex[memgraph]") from e
+        self._driver = neo4j.GraphDatabase.driver(self._uri, auth=self._credentials.auth_tuple)
         self._driver.verify_connectivity()
         logger.info("Connected to Memgraph at %s", self._uri)
 
@@ -372,7 +369,9 @@ class MemgraphBackend:
         """Convert a Cypher record to a Domain model, computing stats."""
         name = record["name"]
         # Count stats
-        concept_count = self._count("MATCH (c:Concept {domain: $name}) RETURN count(c) AS cnt", name)
+        concept_count = self._count(
+            "MATCH (c:Concept {domain: $name}) RETURN count(c) AS cnt", name
+        )
         edge_count = self._count(
             "MATCH (c:Concept {domain: $name})-[r:REL]-() RETURN count(r) AS cnt", name
         )
@@ -592,8 +591,7 @@ class MemgraphBackend:
         # Update domain source tracking
         now = datetime.now(UTC).isoformat()
         self._run(
-            "MATCH (d:Domain {name: $name}) "
-            "SET d.updated_at = $now",
+            "MATCH (d:Domain {name: $name}) SET d.updated_at = $now",
             {"name": manifest.domain, "now": now},
         )
 
@@ -685,8 +683,7 @@ class MemgraphBackend:
             logger.warning("Snapshot creation failed (non-fatal): %s", e)
         # Store checkpoint metadata as a node
         self._run(
-            "CREATE (:Checkpoint {id: $id, name: $name, domains: $domains, "
-            "created_at: $now})",
+            "CREATE (:Checkpoint {id: $id, name: $name, domains: $domains, created_at: $now})",
             {
                 "id": checkpoint_id,
                 "name": name,

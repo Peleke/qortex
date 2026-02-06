@@ -23,7 +23,7 @@ class MarkdownIngestor(Ingestor):
             raise ValueError("Markdown source must have raw_content or path")
 
         # Split by headings
-        heading_pattern = re.compile(r'^(#{1,6})\s+(.+)$', re.MULTILINE)
+        heading_pattern = re.compile(r"^(#{1,6})\s+(.+)$", re.MULTILINE)
 
         chunks = []
         last_end = 0
@@ -32,7 +32,7 @@ class MarkdownIngestor(Ingestor):
         for match in heading_pattern.finditer(content):
             # Content before this heading
             if match.start() > last_end:
-                pre_content = content[last_end:match.start()].strip()
+                pre_content = content[last_end : match.start()].strip()
                 if pre_content and chunks:
                     # Append to previous chunk
                     chunks[-1] = Chunk(
@@ -52,12 +52,14 @@ class MarkdownIngestor(Ingestor):
 
             location = " > ".join(current_hierarchy)
 
-            chunks.append(Chunk(
-                id=f"section_{len(chunks)}",
-                content=f"# {title}",  # Start with heading
-                location=location,
-                level=level,
-            ))
+            chunks.append(
+                Chunk(
+                    id=f"section_{len(chunks)}",
+                    content=f"# {title}",  # Start with heading
+                    location=location,
+                    level=level,
+                )
+            )
 
             last_end = match.end()
 
@@ -73,11 +75,13 @@ class MarkdownIngestor(Ingestor):
                         level=chunks[-1].level,
                     )
                 else:
-                    chunks.append(Chunk(
-                        id="section_0",
-                        content=remaining,
-                        location="root",
-                        level=0,
-                    ))
+                    chunks.append(
+                        Chunk(
+                            id="section_0",
+                            content=remaining,
+                            location="root",
+                            level=0,
+                        )
+                    )
 
         return chunks

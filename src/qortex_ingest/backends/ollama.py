@@ -54,15 +54,17 @@ class OllamaExtractionBackend:
 
     def _call(self, prompt: str) -> str:
         """Make API call to Ollama and return response."""
-        payload = json.dumps({
-            "model": self.model,
-            "prompt": prompt,
-            "stream": False,
-            "options": {
-                "temperature": 0.3,
-                "num_predict": 4096,
-            },
-        }).encode("utf-8")
+        payload = json.dumps(
+            {
+                "model": self.model,
+                "prompt": prompt,
+                "stream": False,
+                "options": {
+                    "temperature": 0.3,
+                    "num_predict": 4096,
+                },
+            }
+        ).encode("utf-8")
 
         req = Request(
             f"{self.host}/api/generate",
@@ -151,9 +153,7 @@ JSON:"""
             return []
 
         # Use all concepts (Ollama is local, no API cost)
-        concept_list = "\n".join(
-            f"- {c.id}: {c.name}" for c in concepts
-        )
+        concept_list = "\n".join(f"- {c.id}: {c.name}" for c in concepts)
 
         prompt = f"""You are a knowledge extraction system. Identify relationships between concepts.
 
@@ -235,9 +235,7 @@ JSON:"""
             return [
                 {
                     "text": r["text"],
-                    "concept_ids": [
-                        cid for cid in r.get("concept_ids", []) if cid in valid_ids
-                    ],
+                    "concept_ids": [cid for cid in r.get("concept_ids", []) if cid in valid_ids],
                     "category": r.get("category", "principle"),
                     "confidence": float(r.get("confidence", 0.8)),
                 }

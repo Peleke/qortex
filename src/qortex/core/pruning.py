@@ -107,14 +107,25 @@ from dataclasses import dataclass, field
 from typing import Literal
 
 # Relation type classifications
-STRUCTURAL_RELATIONS = frozenset({
-    "part_of", "refines", "implements",
-    "similar_to", "alternative_to", "uses",
-})
+STRUCTURAL_RELATIONS = frozenset(
+    {
+        "part_of",
+        "refines",
+        "implements",
+        "similar_to",
+        "alternative_to",
+        "uses",
+    }
+)
 
-CAUSAL_RELATIONS = frozenset({
-    "requires", "supports", "challenges", "contradicts",
-})
+CAUSAL_RELATIONS = frozenset(
+    {
+        "requires",
+        "supports",
+        "challenges",
+        "contradicts",
+    }
+)
 
 
 @dataclass
@@ -124,12 +135,13 @@ class PruningConfig:
     All thresholds have been chosen based on empirical observation
     of LLM extraction behavior. See module docstring for rationale.
     """
+
     # Step 1: Minimum evidence
     min_evidence_tokens: int = 8
 
     # Step 2: Confidence thresholds
     confidence_floor: float = 0.55  # Below this = drop
-    confidence_weak: float = 0.70   # Below this = weak, above = strong
+    confidence_weak: float = 0.70  # Below this = weak, above = strong
 
     # Step 3: Jaccard dedup
     jaccard_duplicate_threshold: float = 0.6
@@ -148,6 +160,7 @@ class PruningConfig:
 @dataclass
 class PruningResult:
     """Result of pruning pipeline."""
+
     edges: list[dict] = field(default_factory=list)  # Surviving edges
 
     # Statistics
@@ -197,21 +210,96 @@ def tokenize(text: str) -> set[str]:
         return set()
 
     # Lowercase and extract words
-    words = re.findall(r'\b[a-z]+\b', text.lower())
+    words = re.findall(r"\b[a-z]+\b", text.lower())
 
     # Remove common stopwords
     stopwords = {
-        'a', 'an', 'the', 'is', 'are', 'was', 'were', 'be', 'been',
-        'being', 'have', 'has', 'had', 'do', 'does', 'did', 'will',
-        'would', 'could', 'should', 'may', 'might', 'must', 'shall',
-        'can', 'to', 'of', 'in', 'for', 'on', 'with', 'at', 'by',
-        'from', 'as', 'into', 'through', 'during', 'before', 'after',
-        'above', 'below', 'between', 'under', 'again', 'further',
-        'then', 'once', 'here', 'there', 'when', 'where', 'why', 'how',
-        'all', 'each', 'few', 'more', 'most', 'other', 'some', 'such',
-        'no', 'nor', 'not', 'only', 'own', 'same', 'so', 'than', 'too',
-        'very', 'just', 'and', 'but', 'if', 'or', 'because', 'until',
-        'while', 'this', 'that', 'these', 'those', 'it', 'its',
+        "a",
+        "an",
+        "the",
+        "is",
+        "are",
+        "was",
+        "were",
+        "be",
+        "been",
+        "being",
+        "have",
+        "has",
+        "had",
+        "do",
+        "does",
+        "did",
+        "will",
+        "would",
+        "could",
+        "should",
+        "may",
+        "might",
+        "must",
+        "shall",
+        "can",
+        "to",
+        "of",
+        "in",
+        "for",
+        "on",
+        "with",
+        "at",
+        "by",
+        "from",
+        "as",
+        "into",
+        "through",
+        "during",
+        "before",
+        "after",
+        "above",
+        "below",
+        "between",
+        "under",
+        "again",
+        "further",
+        "then",
+        "once",
+        "here",
+        "there",
+        "when",
+        "where",
+        "why",
+        "how",
+        "all",
+        "each",
+        "few",
+        "more",
+        "most",
+        "other",
+        "some",
+        "such",
+        "no",
+        "nor",
+        "not",
+        "only",
+        "own",
+        "same",
+        "so",
+        "than",
+        "too",
+        "very",
+        "just",
+        "and",
+        "but",
+        "if",
+        "or",
+        "because",
+        "until",
+        "while",
+        "this",
+        "that",
+        "these",
+        "those",
+        "it",
+        "its",
     }
 
     return {w for w in words if w not in stopwords}
@@ -302,6 +390,7 @@ def prune_edges(
     # Step 3: Jaccard deduplication
     # Group by (source_id, target_id, relation_type)
     from collections import defaultdict
+
     groups: dict[tuple, list[tuple[int, dict]]] = defaultdict(list)
     for i, edge in after_confidence:
         key = (edge["source_id"], edge["target_id"], edge["relation_type"])
@@ -347,7 +436,10 @@ def prune_edges(
                 for j, kept_edge in kept:
                     if edge["relation_type"] != kept_edge["relation_type"]:
                         tokens_j = edge_tokens[j]
-                        if jaccard_similarity(tokens_i, tokens_j) >= config.competing_overlap_threshold:
+                        if (
+                            jaccard_similarity(tokens_i, tokens_j)
+                            >= config.competing_overlap_threshold
+                        ):
                             should_drop = True
                             result.dropped_competing += 1
                             break
@@ -358,6 +450,7 @@ def prune_edges(
     # Step 5: Isolated weak edge pruning
     # Count degrees
     from collections import Counter
+
     degree: Counter[str] = Counter()
     for _i, edge in after_competing:
         degree[edge["source_id"]] += 1
@@ -370,7 +463,7 @@ def prune_edges(
 
         # Check if either endpoint is isolated (degree 1)
         # and the edge is weak
-        is_isolated = (src_degree == 1 or tgt_degree == 1)
+        is_isolated = src_degree == 1 or tgt_degree == 1
         is_weak = edge.get("confidence", 0) < config.isolated_weak_confidence
 
         if is_isolated and is_weak:

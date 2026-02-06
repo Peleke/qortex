@@ -25,6 +25,7 @@ def _memgraph_available() -> bool:
     """Check if Memgraph is reachable."""
     try:
         import socket
+
         s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         s.settimeout(1)
         s.connect(("localhost", 7687))
@@ -104,11 +105,14 @@ class TestConfig:
         assert config.lab_port == 3000
 
     def test_config_from_env(self):
-        with patch.dict(os.environ, {
-            "QORTEX_MEMGRAPH_HOST": "custom-host",
-            "QORTEX_MEMGRAPH_PORT": "9999",
-            "QORTEX_LAB_PORT": "4000",
-        }):
+        with patch.dict(
+            os.environ,
+            {
+                "QORTEX_MEMGRAPH_HOST": "custom-host",
+                "QORTEX_MEMGRAPH_PORT": "9999",
+                "QORTEX_LAB_PORT": "4000",
+            },
+        ):
             config = QortexConfig()
             assert config.memgraph_host == "custom-host"
             assert config.memgraph_port == 9999
@@ -119,7 +123,10 @@ class TestConfig:
         assert isinstance(config, QortexConfig)
 
     def test_invalid_port_gives_helpful_error(self):
-        with patch.dict(os.environ, {"QORTEX_MEMGRAPH_PORT": "not_a_number"}), pytest.raises(SystemExit):
+        with (
+            patch.dict(os.environ, {"QORTEX_MEMGRAPH_PORT": "not_a_number"}),
+            pytest.raises(SystemExit),
+        ):
             QortexConfig()
 
     def test_invalid_lab_port_gives_helpful_error(self):
@@ -314,23 +321,34 @@ class TestProjectWithData:
 
         backend.create_domain("test_domain")
         n1 = ConceptNode(
-            id="c1", name="Retry", description="Retry pattern",
-            domain="test_domain", source_id="ch1",
+            id="c1",
+            name="Retry",
+            description="Retry pattern",
+            domain="test_domain",
+            source_id="ch1",
         )
         n2 = ConceptNode(
-            id="c2", name="Timeout", description="Timeout config",
-            domain="test_domain", source_id="ch1",
+            id="c2",
+            name="Timeout",
+            description="Timeout config",
+            domain="test_domain",
+            source_id="ch1",
         )
         backend.add_node(n1)
         backend.add_node(n2)
         edge = ConceptEdge(
-            source_id="c1", target_id="c2",
-            relation_type=RelationType.REQUIRES, confidence=0.9,
+            source_id="c1",
+            target_id="c2",
+            relation_type=RelationType.REQUIRES,
+            confidence=0.9,
         )
         backend.add_edge(edge)
         rule = ExplicitRule(
-            id="r1", text="Always configure timeouts with retries",
-            domain="test_domain", source_id="ch1", confidence=0.95,
+            id="r1",
+            text="Always configure timeouts with retries",
+            domain="test_domain",
+            source_id="ch1",
+            confidence=0.95,
         )
         backend.add_rule(rule)
 

@@ -59,9 +59,7 @@ def ingest_file(
         "-b",
         help="Extraction backend: anthropic, ollama, or auto",
     ),
-    model: str = typer.Option(
-        None, "--model", "-m", help="Model override for extraction backend"
-    ),
+    model: str = typer.Option(None, "--model", "-m", help="Model override for extraction backend"),
     dry_run: bool = typer.Option(
         False, "--dry-run", help="Show what would be extracted without saving"
     ),
@@ -131,9 +129,7 @@ def ingest_file(
             ingestor = PDFIngestor(llm=llm)
             source_type = "pdf"
         except ImportError:
-            handle_error(
-                "PDF support requires pymupdf. Install with: pip install pymupdf"
-            )
+            handle_error("PDF support requires pymupdf. Install with: pip install pymupdf")
     else:
         # Default to text
         ingestor = TextIngestor(llm=llm)
@@ -176,7 +172,9 @@ def ingest_file(
         if manifest.edges:
             typer.echo("\nSample relations:")
             for e in manifest.edges[:5]:
-                rel_type = e.relation_type.value if hasattr(e.relation_type, 'value') else e.relation_type
+                rel_type = (
+                    e.relation_type.value if hasattr(e.relation_type, "value") else e.relation_type
+                )
                 typer.echo(f"  - {e.source_id} --{rel_type}--> {e.target_id}")
         if manifest.rules:
             typer.echo("\nSample rules:")
@@ -289,14 +287,16 @@ def load_manifest(
             rel_type = e["relation_type"]
             if isinstance(rel_type, str):
                 rel_type = RelationType(rel_type)
-            edges.append(ConceptEdge(
-                source_id=e["source_id"],
-                target_id=e["target_id"],
-                relation_type=rel_type,
-                confidence=e.get("confidence", 1.0),
-                bidirectional=e.get("bidirectional", False),
-                properties=e.get("properties", {}),
-            ))
+            edges.append(
+                ConceptEdge(
+                    source_id=e["source_id"],
+                    target_id=e["target_id"],
+                    relation_type=rel_type,
+                    confidence=e.get("confidence", 1.0),
+                    bidirectional=e.get("bidirectional", False),
+                    properties=e.get("properties", {}),
+                )
+            )
 
         rules = [ExplicitRule(**r) for r in data.get("rules", [])]
 

@@ -45,11 +45,15 @@ class TestInteropConfig:
         from qortex.interop import get_interop_config
 
         config_file = tmp_path / "config.yaml"
-        config_file.write_text(yaml.dump({
-            "seeds": {
-                "pending": str(tmp_path / "custom_pending"),
-            },
-        }))
+        config_file.write_text(
+            yaml.dump(
+                {
+                    "seeds": {
+                        "pending": str(tmp_path / "custom_pending"),
+                    },
+                }
+            )
+        )
 
         config = get_interop_config(config_file)
         assert config.seeds.pending == tmp_path / "custom_pending"
@@ -489,7 +493,10 @@ class TestWriteSeedToPending:
 
         seed_data = {"rules": [], "metadata": {"rule_count": 0}}
         write_seed_to_pending(
-            seed_data, "test", "domain", config,
+            seed_data,
+            "test",
+            "domain",
+            config,
             emit_signal=True,
             extra_event_data={"chapter": "5"},
         )
@@ -664,9 +671,8 @@ class TestInteropCLI:
         # Monkeypatch to use tmp_path
         from qortex import interop
         from qortex.cli.interop_cmd import app
-        monkeypatch.setattr(
-            interop, "_CONFIG_PATH", tmp_path / "config.yaml"
-        )
+
+        monkeypatch.setattr(interop, "_CONFIG_PATH", tmp_path / "config.yaml")
 
         runner = CliRunner()
         result = runner.invoke(app, ["init"])
@@ -735,12 +741,18 @@ class TestProjectBuildlogPending:
         monkeypatch.setattr(interop, "get_interop_config", lambda *a, **kw: test_config)
 
         runner = CliRunner()
-        result = runner.invoke(app, [
-            "project", "buildlog",
-            "--domain", "test",
-            "--pending",
-            "--persona", "test_persona",
-        ])
+        result = runner.invoke(
+            app,
+            [
+                "project",
+                "buildlog",
+                "--domain",
+                "test",
+                "--pending",
+                "--persona",
+                "test_persona",
+            ],
+        )
 
         # The command might fail due to no backend, but we check the flag parsing
         # In real use, there would be data in the backend
@@ -811,13 +823,13 @@ class TestSchemas:
                         "domain": "test",
                         "derivation": "explicit",
                         "confidence": 0.9,
-                    }
+                    },
                 }
             ],
             "metadata": {
                 "source": "qortex",
                 "rule_count": 1,
-            }
+            },
         }
 
         errors = validate_seed(valid_seed)
@@ -910,12 +922,16 @@ class TestSchemaCLI:
         from qortex.cli.interop_cmd import app
 
         seed_file = tmp_path / "test.yaml"
-        seed_file.write_text(yaml.dump({
-            "persona": "test",
-            "version": 1,
-            "rules": [],
-            "metadata": {"source": "test", "rule_count": 0},
-        }))
+        seed_file.write_text(
+            yaml.dump(
+                {
+                    "persona": "test",
+                    "version": 1,
+                    "rules": [],
+                    "metadata": {"source": "test", "rule_count": 0},
+                }
+            )
+        )
 
         runner = CliRunner()
         result = runner.invoke(app, ["validate", str(seed_file)])
