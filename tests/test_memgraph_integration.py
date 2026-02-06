@@ -20,17 +20,24 @@ from qortex.core.models import (
 )
 
 # ---------------------------------------------------------------------------
-# Skip guard: detect if Memgraph is running
+# Skip guard: detect if Memgraph is running and accessible
 # ---------------------------------------------------------------------------
 
 MEMGRAPH_AVAILABLE = False
 try:
+    # First check if port is open
     _s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     _s.settimeout(1)
     _s.connect(("localhost", 7687))
     _s.close()
+    # Then verify actual connectivity (handles auth issues)
+    from qortex.core.backend import MemgraphBackend
+    _b = MemgraphBackend(host="localhost", port=7687)
+    _b.connect()
+    _b.disconnect()
     MEMGRAPH_AVAILABLE = True
-except (OSError, ConnectionRefusedError):
+except Exception:
+    # Any error (socket, auth, driver) means tests should skip
     pass
 
 pytestmark = pytest.mark.skipif(

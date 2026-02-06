@@ -9,7 +9,10 @@ from __future__ import annotations
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Literal, Protocol, runtime_checkable
+from typing import TYPE_CHECKING, Literal, Protocol, runtime_checkable
+
+if TYPE_CHECKING:
+    from qortex.core.pruning import PruningConfig
 
 from qortex.core.models import (
     CodeExample,
@@ -99,7 +102,7 @@ class Ingestor(ABC):
     def __init__(
         self,
         llm: LLMBackend,
-        pruning_config: "PruningConfig | None" = None,
+        pruning_config: PruningConfig | None = None,
     ):
         from qortex.core.pruning import PruningConfig
 
