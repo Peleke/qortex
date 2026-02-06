@@ -12,7 +12,7 @@ import typer
 
 from qortex.cli._errors import handle_error
 
-app = typer.Typer(help="Ingest content into the knowledge graph.")
+app = typer.Typer(help="Ingest content into the knowledge graph.", no_args_is_help=True)
 
 
 BackendChoice = Literal["anthropic", "ollama", "auto"]
@@ -47,10 +47,9 @@ def _save_manifest_to_file(manifest, output_path: Path) -> None:
     output_path.write_text(json.dumps(data, indent=2, default=str))
 
 
-@app.callback(invoke_without_command=True)
-def ingest(
-    ctx: typer.Context,
-    path: Path = typer.Argument(None, help="Path to file to ingest"),
+@app.command("file")
+def ingest_file(
+    path: Path = typer.Argument(..., help="Path to file to ingest"),
     domain: str = typer.Option(
         None, "--domain", "-d", help="Domain name (default: auto-suggested)"
     ),
@@ -82,17 +81,11 @@ def ingest(
     for recovery if graph save fails, or for offline inspection.
 
     Examples:
-        qortex ingest chapter.txt --domain software_design
-        qortex ingest book.pdf --backend ollama --model llama3.2
-        qortex ingest notes.md --dry-run
-        qortex ingest chapter.txt -d my_domain -o manifest.json
+        qortex ingest file chapter.txt --domain software_design
+        qortex ingest file book.pdf --backend ollama --model llama3.2
+        qortex ingest file notes.md --dry-run
+        qortex ingest file chapter.txt -d my_domain -o manifest.json
     """
-    # If no path provided or subcommand invoked, show help
-    if ctx.invoked_subcommand is not None or path is None:
-        if path is None and ctx.invoked_subcommand is None:
-            raise typer.Exit(ctx.get_help())
-        return
-
     if not path.exists():
         handle_error(f"File not found: {path}")
 

@@ -2,7 +2,7 @@
 
 Commands:
     qortex infra up/down/status    Infrastructure management
-    qortex ingest <path>           Ingest content into KG
+    qortex ingest file <path>      Ingest content into KG
     qortex project buildlog/flat/json   Project rules to formats
     qortex inspect domains/rules/stats  Inspect graph contents
     qortex viz open/query          Graph visualization

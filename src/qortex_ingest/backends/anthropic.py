@@ -41,6 +41,7 @@ class AnthropicExtractionBackend:
         self,
         api_key: str,
         model: str | None = None,
+        max_concepts_per_call: int = 100,
     ):
         if not ANTHROPIC_AVAILABLE:
             raise ImportError(
@@ -50,16 +51,29 @@ class AnthropicExtractionBackend:
 
         self.client = anthropic.Anthropic(api_key=api_key)
         self.model = model or "claude-sonnet-4-20250514"
+        self.max_concepts_per_call = max_concepts_per_call
 
     def _call(self, system: str, user: str, max_tokens: int = 4096) -> str:
-        """Make API call and return text response."""
-        response = self.client.messages.create(
-            model=self.model,
-            max_tokens=max_tokens,
-            system=system,
-            messages=[{"role": "user", "content": user}],
-        )
-        return response.content[0].text
+        """Make API call with rate limit retry."""
+        import time
+
+        max_retries = 3
+        for attempt in range(max_retries):
+            try:
+                response = self.client.messages.create(
+                    model=self.model,
+                    max_tokens=max_tokens,
+                    system=system,
+                    messages=[{"role": "user", "content": user}],
+                )
+                return response.content[0].text
+            except anthropic.RateLimitError as e:
+                if attempt < max_retries - 1:
+                    wait_time = 60 * (attempt + 1)  # 60s, 120s, 180s
+                    print(f"Rate limited, waiting {wait_time}s...")
+                    time.sleep(wait_time)
+                else:
+                    raise
 
     def _parse_json(self, text: str) -> list | dict:
         """Extract JSON from response, handling markdown code blocks."""
@@ -142,9 +156,13 @@ Return only valid JSON array."""
         if not concepts:
             return []
 
-        # No concept limit - use all concepts (was: concepts[:50])
+        # Limit concepts to avoid rate limits (100 concepts ~ 10K tokens)
+        limited_concepts = concepts[:self.max_concepts_per_call]
+        if len(concepts) > self.max_concepts_per_call:
+            print(f"  (limiting to {self.max_concepts_per_call}/{len(concepts)} concepts)")
+
         concept_list = "\n".join(
-            f"- {c.id}: {c.name} - {c.description}" for c in concepts
+            f"- {c.id}: {c.name} - {c.description}" for c in limited_concepts
         )
 
         system = """You are a precise knowledge graph extraction system.

@@ -192,8 +192,9 @@ class Ingestor(ABC):
                 properties=properties,
             ))
 
-        # 5. Extract explicit rules
-        rule_dicts = self.llm.extract_rules(all_text, concepts)
+        # 5. Extract explicit rules (use first few chunks for rule extraction)
+        all_text = "\n\n".join(chunk.content for chunk in chunks[:5])
+        rule_dicts = self.llm.extract_rules(all_text, concepts[:50])
         rules = [
             ExplicitRule(
                 id=f"{domain}:rule:{i}",
