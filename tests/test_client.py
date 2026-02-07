@@ -15,8 +15,6 @@ Tests cover:
 from __future__ import annotations
 
 import hashlib
-import tempfile
-from pathlib import Path
 
 import pytest
 
@@ -315,17 +313,14 @@ class TestLocalQortexClientFeedback:
 
 
 class TestLocalQortexClientIngest:
-    def test_ingest_text_file(self):
+    def test_ingest_text_file(self, tmp_path):
         client = make_client()
-        with tempfile.NamedTemporaryFile(mode="w", suffix=".txt", delete=False) as f:
-            f.write("Authentication via OAuth2 protocol.\n")
-            f.flush()
-            path = f.name
+        p = tmp_path / "test.txt"
+        p.write_text("Authentication via OAuth2 protocol.\n")
 
-        result = client.ingest(path, domain="security")
+        result = client.ingest(str(p), domain="security")
         assert result.domain == "security"
-        assert result.source == Path(path).name
-        Path(path).unlink()
+        assert result.source == "test.txt"
 
     def test_ingest_nonexistent_file(self):
         client = make_client()
@@ -337,16 +332,13 @@ class TestLocalQortexClientIngest:
         with pytest.raises(ValueError, match="Not a file"):
             client.ingest("/tmp", domain="test")
 
-    def test_ingest_invalid_source_type(self):
+    def test_ingest_invalid_source_type(self, tmp_path):
         client = make_client()
-        with tempfile.NamedTemporaryFile(mode="w", suffix=".txt", delete=False) as f:
-            f.write("test")
-            f.flush()
-            path = f.name
+        p = tmp_path / "test.txt"
+        p.write_text("test")
 
         with pytest.raises(ValueError, match="Invalid source_type"):
-            client.ingest(path, domain="test", source_type="invalid")
-        Path(path).unlink()
+            client.ingest(str(p), domain="test", source_type="invalid")
 
 
 class TestLocalQortexClientDomains:
@@ -392,23 +384,32 @@ class TestLocalQortexClientStatus:
 
 
 class TestLocalQortexClientRoundtrip:
-    def test_ingest_then_query(self):
+    def test_ingest_then_query(self, tmp_path):
         from qortex_ingest.base import StubLLMBackend
 
-        client = make_client()
-        client._llm_backend = StubLLMBackend(
+        llm = StubLLMBackend(
             concepts=[
                 {"name": "OAuth2", "description": "OAuth2 authentication protocol", "confidence": 1.0},
                 {"name": "RBAC", "description": "Role-based access control", "confidence": 0.9},
             ],
         )
 
-        with tempfile.NamedTemporaryFile(mode="w", suffix=".txt", delete=False) as f:
-            f.write("OAuth2 and role-based access control.\n")
-            f.flush()
-            path = f.name
+        vector_index = NumpyVectorIndex(dimensions=DIMS)
+        backend = InMemoryBackend(vector_index=vector_index)
+        backend.connect()
+        embedding = FakeEmbedding()
 
-        ingest_result = client.ingest(path, domain="security")
+        client = LocalQortexClient(
+            vector_index=vector_index,
+            backend=backend,
+            embedding_model=embedding,
+            llm_backend=llm,
+        )
+
+        p = tmp_path / "test.txt"
+        p.write_text("OAuth2 and role-based access control.\n")
+
+        ingest_result = client.ingest(str(p), domain="security")
         assert ingest_result.concepts == 2
 
         query_result = client.query("OAuth2 authentication", domains=["security"])
@@ -420,7 +421,6 @@ class TestLocalQortexClientRoundtrip:
             source="test",
         )
         assert feedback_result.status == "recorded"
-        Path(path).unlink()
 
 
 # ===========================================================================
@@ -605,6 +605,13 @@ class TestMastraAdapter:
         store = QortexVectorStore(client=make_client())
         with pytest.raises(ValueError, match="query_text or query_vector"):
             store.query(index_name="test")
+
+    def test_query_vector_only_raises(self):
+        from qortex.adapters.mastra import QortexVectorStore
+
+        store = QortexVectorStore(client=make_client())
+        with pytest.raises(NotImplementedError, match="query_vector without query_text"):
+            store.query(index_name="test", query_vector=[1.0, 2.0])
 
     def test_list_indexes(self):
         from qortex.adapters.mastra import QortexVectorStore

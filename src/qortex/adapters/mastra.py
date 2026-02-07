@@ -87,11 +87,15 @@ class QortexVectorStore:
         if query_text is None and query_vector is None:
             raise ValueError("Either query_text or query_vector must be provided")
 
-        # Prefer text query — qortex embeds server-side
-        context = query_text or f"vector:{hash(tuple(query_vector or []))}"
+        if query_text is None:
+            raise NotImplementedError(
+                "query_vector without query_text is not yet supported. "
+                "qortex embeds server-side — pass query_text for meaningful results. "
+                "Direct vector search will be supported when QortexClient exposes vector_query()."
+            )
 
         result = self._client.query(
-            context=context,
+            context=query_text,
             domains=[index_name],
             top_k=top_k,
         )
@@ -139,7 +143,6 @@ class QortexVectorStore:
             {name, dimension, metric, count}
         """
         domains = self._client.domains()
-        status = self._client.status()
         dimension = 384  # default; could be queried from embedding model
 
         return [

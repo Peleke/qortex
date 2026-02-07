@@ -17,9 +17,12 @@ Result types have conversion helpers for framework interop:
 
 from __future__ import annotations
 
+import logging
 import uuid
 from dataclasses import dataclass, field
 from typing import Any, Protocol, runtime_checkable
+
+logger = logging.getLogger(__name__)
 
 
 # ---------------------------------------------------------------------------
@@ -219,10 +222,10 @@ class LocalQortexClient:
 
     def __init__(
         self,
-        vector_index,
-        backend,
-        embedding_model=None,
-        llm_backend=None,
+        vector_index: Any,
+        backend: Any,
+        embedding_model: Any = None,
+        llm_backend: Any = None,
     ) -> None:
         from qortex.hippocampus.adapter import VecOnlyAdapter
 
@@ -243,6 +246,7 @@ class LocalQortexClient:
         top_k: int = 20,
         min_confidence: float = 0.0,
     ) -> QueryResult:
+        # Clamp to safe ranges (top_k: [1, 1000], min_confidence: [0.0, 1.0])
         top_k = max(1, min(top_k, 1000))
         min_confidence = max(0.0, min(min_confidence, 1.0))
 
@@ -383,8 +387,13 @@ class LocalQortexClient:
 
             self._llm_backend = AnthropicBackend()
             return self._llm_backend
-        except (ImportError, Exception):
-            pass
+        except ImportError:
+            logger.debug("anthropic backend not installed, falling back to StubLLMBackend")
+        except Exception:
+            logger.warning(
+                "Failed to initialize AnthropicBackend, falling back to StubLLMBackend",
+                exc_info=True,
+            )
 
         from qortex_ingest.base import StubLLMBackend
 
