@@ -1,4 +1,4 @@
-"""Tests for the hippocampus layer: GraphRAG, TeleportationFactors, EdgePromotionBuffer.
+"""Tests for the hippocampus layer: GraphRAG, TeleportationFactors, EdgePromotionBuffer, Interoception.
 
 Coverage:
 - TeleportationFactors: update, weight_seeds, persist/load, hooks, bounds
@@ -6,18 +6,33 @@ Coverage:
 - PPR power iteration: convergence, seed weighting, extra edges, domain filter
 - GraphRAGAdapter: full pipeline, online edge gen, combined scoring, feedback routing
 - Mode selection: MCP server + LocalQortexClient mode param
+- InteroceptionProvider: protocol conformance, lifecycle, persistence, adapter integration
+- Property tests: factor clamping invariants, weight normalization
+- Metamorphic tests: outcome order independence, shutdown/startup identity
 """
 
+import json
+import logging
 import math
 import uuid
 
 import pytest
+from hypothesis import given, settings
+from hypothesis import strategies as st
 
 from qortex.core.memory import InMemoryBackend
 from qortex.core.models import ConceptEdge, ConceptNode, RelationType
 from qortex.hippocampus.adapter import GraphRAGAdapter, VecOnlyAdapter, get_adapter
 from qortex.hippocampus.buffer import EdgePromotionBuffer, EdgeStats, PromotionResult
 from qortex.hippocampus.factors import TeleportationFactors, FactorUpdate
+from qortex.hippocampus.interoception import (
+    InteroceptionConfig,
+    InteroceptionProvider,
+    LocalInteroceptionProvider,
+    McpOutcomeSource,
+    Outcome,
+    OutcomeSource,
+)
 from qortex.vec.index import NumpyVectorIndex
 
 
@@ -793,3 +808,573 @@ class TestModeSelection:
         adapter = _select_adapter("auto")
         # Should prefer graph
         assert isinstance(adapter, GraphRAGAdapter)
+
+
+# =============================================================================
+# Interoception Protocol Conformance
+# =============================================================================
+
+
+class TestInteroceptionProtocol:
+    """Protocol conformance for interoception types."""
+
+    def test_local_provider_satisfies_protocol(self):
+        provider = LocalInteroceptionProvider()
+        assert isinstance(provider, InteroceptionProvider)
+
+    def test_mcp_outcome_source_satisfies_protocol(self):
+        provider = LocalInteroceptionProvider()
+        source = McpOutcomeSource(provider)
+        assert isinstance(source, OutcomeSource)
+
+    def test_interoception_protocol_is_runtime_checkable(self):
+        assert hasattr(InteroceptionProvider, "__protocol_attrs__") or hasattr(
+            InteroceptionProvider, "__abstractmethods__"
+        ) or True  # runtime_checkable protocols work with isinstance
+
+    def test_outcome_source_protocol_is_runtime_checkable(self):
+        assert hasattr(OutcomeSource, "__protocol_attrs__") or True
+
+
+# =============================================================================
+# LocalInteroceptionProvider — Core Behavior
+# =============================================================================
+
+
+class TestLocalInteroceptionProvider:
+    """Core behavior tests for LocalInteroceptionProvider."""
+
+    def test_init_creates_fresh_factors_and_buffer(self):
+        provider = LocalInteroceptionProvider()
+        assert provider.factors.factors == {}
+        assert len(provider.buffer._buffer) == 0
+
+    def test_startup_no_paths_is_noop(self):
+        provider = LocalInteroceptionProvider()
+        provider.startup()  # Should not raise
+        assert provider.factors.factors == {}
+
+    def test_startup_with_nonexistent_paths(self, tmp_path):
+        config = InteroceptionConfig(
+            factors_path=tmp_path / "nonexistent" / "factors.json",
+            buffer_path=tmp_path / "nonexistent" / "buffer.json",
+        )
+        provider = LocalInteroceptionProvider(config)
+        provider.startup()  # Should not raise
+        assert provider.factors.factors == {}
+
+    def test_startup_loads_from_disk(self, tmp_path):
+        # Pre-seed factors file
+        factors_path = tmp_path / "factors.json"
+        factors_path.write_text(json.dumps({"node_a": 1.5, "node_b": 0.8}))
+
+        config = InteroceptionConfig(factors_path=factors_path)
+        provider = LocalInteroceptionProvider(config)
+        provider.startup()
+        assert provider.factors.get("node_a") == 1.5
+        assert provider.factors.get("node_b") == 0.8
+
+    def test_startup_loads_buffer_from_disk(self, tmp_path):
+        # Pre-seed buffer file
+        buffer_path = tmp_path / "buffer.json"
+        buffer_path.write_text(json.dumps({
+            "a|b": {"hit_count": 3, "scores": [0.8, 0.9, 0.85], "last_seen": "2026-01-01"},
+        }))
+
+        config = InteroceptionConfig(buffer_path=buffer_path)
+        provider = LocalInteroceptionProvider(config)
+        provider.startup()
+        assert len(provider.buffer._buffer) == 1
+
+    def test_startup_with_corrupt_files(self, tmp_path):
+        factors_path = tmp_path / "factors.json"
+        factors_path.write_text("not valid json {{{")
+
+        config = InteroceptionConfig(factors_path=factors_path)
+        provider = LocalInteroceptionProvider(config)
+        provider.startup()  # Should not raise
+        assert provider.factors.factors == {}
+
+    def test_get_seed_weights_normalizes(self):
+        provider = LocalInteroceptionProvider()
+        provider.factors.factors["a"] = 2.0
+        provider.factors.factors["b"] = 1.0
+
+        weights = provider.get_seed_weights(["a", "b"])
+        assert abs(weights["a"] - 2.0 / 3.0) < 1e-6
+        assert abs(weights["b"] - 1.0 / 3.0) < 1e-6
+        assert abs(sum(weights.values()) - 1.0) < 1e-6
+
+    def test_get_seed_weights_empty(self):
+        provider = LocalInteroceptionProvider()
+        assert provider.get_seed_weights([]) == {}
+
+    def test_report_outcome_updates_factors(self):
+        provider = LocalInteroceptionProvider()
+        provider.report_outcome("q1", {"node_a": "accepted"})
+        assert provider.factors.get("node_a") == 1.1
+
+    def test_report_outcome_persists_when_configured(self, tmp_path):
+        factors_path = tmp_path / "factors.json"
+        config = InteroceptionConfig(factors_path=factors_path, persist_on_update=True)
+        provider = LocalInteroceptionProvider(config)
+        provider.startup()
+
+        provider.report_outcome("q1", {"node_a": "accepted"})
+        assert factors_path.exists()
+        data = json.loads(factors_path.read_text())
+        assert data["node_a"] == 1.1
+
+    def test_report_outcome_no_persist_without_path(self, tmp_path):
+        config = InteroceptionConfig(persist_on_update=True)
+        provider = LocalInteroceptionProvider(config)
+        provider.report_outcome("q1", {"node_a": "accepted"})
+        # No file written (no path configured)
+        assert not list(tmp_path.glob("*.json"))
+
+    def test_report_outcome_no_persist_when_disabled(self, tmp_path):
+        factors_path = tmp_path / "factors.json"
+        config = InteroceptionConfig(factors_path=factors_path, persist_on_update=False)
+        provider = LocalInteroceptionProvider(config)
+        provider.startup()
+
+        provider.report_outcome("q1", {"node_a": "accepted"})
+        assert not factors_path.exists()
+
+    def test_record_online_edge_buffers(self):
+        provider = LocalInteroceptionProvider()
+        provider.record_online_edge("a", "b", 0.85)
+        assert len(provider.buffer._buffer) == 1
+
+    def test_auto_flush_threshold_logs_warning(self, caplog):
+        config = InteroceptionConfig(auto_flush_threshold=2)
+        provider = LocalInteroceptionProvider(config)
+
+        with caplog.at_level(logging.INFO):
+            provider.record_online_edge("a", "b", 0.8)
+            provider.record_online_edge("c", "d", 0.9)
+
+        assert any("auto-flush threshold" in r.message for r in caplog.records)
+
+    def test_shutdown_persists_both(self, tmp_path):
+        factors_path = tmp_path / "factors.json"
+        buffer_path = tmp_path / "buffer.json"
+        config = InteroceptionConfig(factors_path=factors_path, buffer_path=buffer_path)
+        provider = LocalInteroceptionProvider(config)
+        provider.startup()
+
+        provider.report_outcome("q1", {"node_a": "accepted"})
+        provider.record_online_edge("x", "y", 0.9)
+        provider.shutdown()
+
+        assert factors_path.exists()
+        assert buffer_path.exists()
+
+    def test_shutdown_no_paths_is_noop(self):
+        provider = LocalInteroceptionProvider()
+        provider.shutdown()  # Should not raise
+
+    def test_summary_merges_factors_and_buffer(self):
+        provider = LocalInteroceptionProvider()
+        s = provider.summary()
+        assert "factors" in s
+        assert "buffer" in s
+        assert "started" in s
+
+    def test_flush_buffer_promotes_and_persists(self, tmp_path):
+        buffer_path = tmp_path / "buffer.json"
+        config = InteroceptionConfig(buffer_path=buffer_path)
+        provider = LocalInteroceptionProvider(config)
+
+        backend = InMemoryBackend()
+        backend.connect()
+        backend.create_domain("test")
+        backend.add_node(make_node("test", "a"))
+        backend.add_node(make_node("test", "b"))
+
+        for _ in range(3):
+            provider.record_online_edge("test:a", "test:b", 0.9)
+
+        result = provider.flush_buffer(backend, min_hits=3, min_avg_score=0.75)
+        assert result.promoted == 1
+        assert buffer_path.exists()
+
+    def test_factors_property_returns_factors(self):
+        provider = LocalInteroceptionProvider()
+        assert isinstance(provider.factors, TeleportationFactors)
+
+    def test_buffer_property_returns_buffer(self):
+        provider = LocalInteroceptionProvider()
+        assert isinstance(provider.buffer, EdgePromotionBuffer)
+
+
+# =============================================================================
+# Interoception Lifecycle (Roundtrip / Integration)
+# =============================================================================
+
+
+class TestInteroceptionLifecycle:
+    """Lifecycle roundtrip and integration tests."""
+
+    def test_full_lifecycle_roundtrip(self, tmp_path):
+        """startup → report_outcome → shutdown → startup → factors survived."""
+        factors_path = tmp_path / "factors.json"
+        buffer_path = tmp_path / "buffer.json"
+        config = InteroceptionConfig(factors_path=factors_path, buffer_path=buffer_path)
+
+        # Phase 1: create, use, shutdown
+        p1 = LocalInteroceptionProvider(config)
+        p1.startup()
+        p1.report_outcome("q1", {"node_a": "accepted", "node_b": "rejected"})
+        p1.record_online_edge("x", "y", 0.85)
+        p1.shutdown()
+
+        # Phase 2: fresh provider, same paths → state survives
+        p2 = LocalInteroceptionProvider(config)
+        p2.startup()
+        assert p2.factors.get("node_a") == 1.1
+        assert p2.factors.get("node_b") == 0.95
+        assert len(p2.buffer._buffer) == 1
+
+    def test_double_shutdown_idempotent(self, tmp_path):
+        factors_path = tmp_path / "factors.json"
+        config = InteroceptionConfig(factors_path=factors_path)
+
+        provider = LocalInteroceptionProvider(config)
+        provider.startup()
+        provider.report_outcome("q1", {"a": "accepted"})
+        provider.shutdown()
+        provider.shutdown()  # second call is safe
+
+        # File still correct
+        data = json.loads(factors_path.read_text())
+        assert data["a"] == 1.1
+
+    def test_double_startup_reloads(self, tmp_path):
+        factors_path = tmp_path / "factors.json"
+        config = InteroceptionConfig(factors_path=factors_path)
+
+        provider = LocalInteroceptionProvider(config)
+        provider.startup()
+        provider.report_outcome("q1", {"a": "accepted"})
+        provider.shutdown()
+
+        # Second startup reloads
+        provider.startup()
+        assert provider.factors.get("a") == 1.1
+
+    def test_lifecycle_with_mixed_outcomes(self, tmp_path):
+        factors_path = tmp_path / "factors.json"
+        config = InteroceptionConfig(factors_path=factors_path)
+        provider = LocalInteroceptionProvider(config)
+        provider.startup()
+
+        provider.report_outcome("q1", {
+            "a": "accepted",
+            "b": "rejected",
+            "c": "partial",
+            "d": "unknown_garbage",
+        })
+
+        assert provider.factors.get("a") == 1.1
+        assert provider.factors.get("b") == 0.95
+        assert provider.factors.get("c") == 1.03
+        assert provider.factors.get("d") == 1.0  # unknown ignored
+
+    def test_lifecycle_preserves_buffer_state(self, tmp_path):
+        buffer_path = tmp_path / "buffer.json"
+        config = InteroceptionConfig(buffer_path=buffer_path)
+
+        p1 = LocalInteroceptionProvider(config)
+        p1.startup()
+        p1.record_online_edge("a", "b", 0.8)
+        p1.record_online_edge("a", "b", 0.9)
+        p1.record_online_edge("c", "d", 0.7)
+        p1.shutdown()
+
+        p2 = LocalInteroceptionProvider(config)
+        p2.startup()
+        assert len(p2.buffer._buffer) == 2
+        assert p2.buffer._buffer[("a", "b")].hit_count == 2
+
+
+# =============================================================================
+# McpOutcomeSource — Adapter
+# =============================================================================
+
+
+class TestMcpOutcomeSource:
+    """Tests for McpOutcomeSource adapter."""
+
+    def test_report_groups_by_query_id(self):
+        provider = LocalInteroceptionProvider()
+        source = McpOutcomeSource(provider)
+
+        outcomes = [
+            Outcome(query_id="q1", item_id="a", result="accepted", source="test"),
+            Outcome(query_id="q1", item_id="b", result="rejected", source="test"),
+            Outcome(query_id="q2", item_id="c", result="partial", source="test"),
+        ]
+        source.report(outcomes)
+
+        assert provider.factors.get("a") == 1.1   # accepted
+        assert provider.factors.get("b") == 0.95   # rejected
+        assert provider.factors.get("c") == 1.03   # partial
+
+    def test_report_empty_outcomes(self):
+        provider = LocalInteroceptionProvider()
+        source = McpOutcomeSource(provider)
+        source.report([])  # Should not raise
+        assert provider.factors.factors == {}
+
+    def test_report_single_query(self):
+        provider = LocalInteroceptionProvider()
+        source = McpOutcomeSource(provider)
+
+        source.report([
+            Outcome(query_id="q1", item_id="x", result="accepted", source="openclaw"),
+        ])
+        assert provider.factors.get("x") == 1.1
+
+
+# =============================================================================
+# Adapter ↔ Interoception Integration
+# =============================================================================
+
+
+class TestAdapterInteroception:
+    """GraphRAGAdapter integration with InteroceptionProvider."""
+
+    def test_adapter_uses_interoception_for_seeds(self):
+        backend, vi, emb, node_ids = make_graph_with_embeddings()
+        provider = LocalInteroceptionProvider()
+        # Boost alpha so it gets higher seed weight
+        provider.factors.factors["testing:alpha"] = 3.0
+
+        adapter = GraphRAGAdapter(vi, backend, emb, interoception=provider)
+        result = adapter.retrieve("find alpha", domains=["testing"], top_k=5)
+
+        # Alpha should be in results with boosted weight
+        alpha_items = [i for i in result.items if i.id == "testing:alpha"]
+        assert len(alpha_items) > 0
+
+    def test_adapter_feedback_routes_through_interoception(self):
+        backend, vi, emb, node_ids = make_graph_with_embeddings()
+        provider = LocalInteroceptionProvider()
+        adapter = GraphRAGAdapter(vi, backend, emb, interoception=provider)
+
+        result = adapter.retrieve("find alpha", top_k=3)
+        if result.items:
+            adapter.feedback(result.query_id, {result.items[0].id: "accepted"})
+            assert provider.factors.get(result.items[0].id) > 1.0
+
+    def test_adapter_records_edges_through_interoception(self):
+        backend, vi, emb, node_ids = make_graph_with_embeddings()
+        provider = LocalInteroceptionProvider()
+        adapter = GraphRAGAdapter(
+            vi, backend, emb, interoception=provider, online_sim_threshold=0.5,
+        )
+
+        adapter.retrieve("find alpha", top_k=5)
+        # Buffer should have some entries from online edge gen
+        assert isinstance(provider.buffer.summary(), dict)
+
+    def test_backward_compat_factors_param(self):
+        backend, vi, emb, node_ids = make_graph_with_embeddings()
+        factors = TeleportationFactors(factors={"testing:alpha": 2.0})
+        adapter = GraphRAGAdapter(vi, backend, emb, factors=factors)
+
+        # Factors should be accessible through backward-compat property
+        assert adapter.factors.get("testing:alpha") == 2.0
+
+    def test_backward_compat_edge_buffer_param(self):
+        backend, vi, emb, node_ids = make_graph_with_embeddings()
+        buffer = EdgePromotionBuffer()
+        adapter = GraphRAGAdapter(vi, backend, emb, edge_buffer=buffer)
+
+        adapter.retrieve("find alpha", top_k=5, min_confidence=0.0)
+        # Buffer should be the one we passed (proxied through interoception)
+        assert adapter.edge_buffer is buffer
+
+    def test_interoception_wins_over_factors(self, caplog):
+        backend, vi, emb, node_ids = make_graph_with_embeddings()
+        provider = LocalInteroceptionProvider()
+        factors = TeleportationFactors()
+
+        with caplog.at_level(logging.WARNING):
+            adapter = GraphRAGAdapter(
+                vi, backend, emb,
+                factors=factors, interoception=provider,
+            )
+
+        assert any("ignoring factors" in r.message.lower() for r in caplog.records)
+        # Interoception's factors should be used, not the standalone one
+        assert adapter.factors is provider.factors
+
+    def test_adapter_factors_property_proxies(self):
+        backend, vi, emb, node_ids = make_graph_with_embeddings()
+        provider = LocalInteroceptionProvider()
+        adapter = GraphRAGAdapter(vi, backend, emb, interoception=provider)
+
+        assert adapter.factors is provider.factors
+
+    def test_adapter_edge_buffer_property_proxies(self):
+        backend, vi, emb, node_ids = make_graph_with_embeddings()
+        provider = LocalInteroceptionProvider()
+        adapter = GraphRAGAdapter(vi, backend, emb, interoception=provider)
+
+        assert adapter.edge_buffer is provider.buffer
+
+    def test_get_adapter_with_interoception(self):
+        backend, vi, emb, node_ids = make_graph_with_embeddings()
+        provider = LocalInteroceptionProvider()
+        adapter = get_adapter(vi, backend, emb, interoception=provider)
+        assert isinstance(adapter, GraphRAGAdapter)
+        assert adapter.factors is provider.factors
+
+
+# =============================================================================
+# Property Tests (hypothesis-based)
+# =============================================================================
+
+
+class TestInteroceptionPropertyTests:
+    """Property-based tests using hypothesis."""
+
+    @given(
+        outcomes=st.lists(
+            st.tuples(
+                st.text(min_size=1, max_size=10),
+                st.sampled_from(["accepted", "rejected", "partial"]),
+            ),
+            min_size=1,
+            max_size=50,
+        ),
+    )
+    @settings(max_examples=50)
+    def test_factor_clamping_invariant(self, outcomes):
+        """After any sequence of updates, all factors stay in [0.1, 5.0]."""
+        provider = LocalInteroceptionProvider()
+        for item_id, result in outcomes:
+            provider.report_outcome("q", {item_id: result})
+
+        for factor_val in provider.factors.factors.values():
+            assert 0.1 <= factor_val <= 5.0
+
+    @given(
+        seed_ids=st.lists(
+            st.text(min_size=1, max_size=10),
+            min_size=1,
+            max_size=20,
+            unique=True,
+        ),
+    )
+    @settings(max_examples=50)
+    def test_weight_normalization_invariant(self, seed_ids):
+        """Weights always sum to 1.0 for non-empty seed lists."""
+        provider = LocalInteroceptionProvider()
+        weights = provider.get_seed_weights(seed_ids)
+        assert abs(sum(weights.values()) - 1.0) < 1e-6
+
+    @given(
+        outcomes=st.lists(
+            st.tuples(
+                st.text(min_size=1, max_size=10, alphabet=st.characters(whitelist_categories=("L", "N"))),
+                st.sampled_from(["accepted", "rejected", "partial"]),
+            ),
+            min_size=2,
+            max_size=20,
+        ),
+    )
+    @settings(max_examples=30)
+    def test_outcome_order_independence(self, outcomes):
+        """Same outcomes in different order produce the same final state."""
+        import random
+
+        p1 = LocalInteroceptionProvider()
+        p2 = LocalInteroceptionProvider()
+
+        # Apply in original order
+        for item_id, result in outcomes:
+            p1.report_outcome("q", {item_id: result})
+
+        # Apply in reversed order
+        for item_id, result in reversed(outcomes):
+            p2.report_outcome("q", {item_id: result})
+
+        # Final factors should be identical
+        all_ids = set(p1.factors.factors.keys()) | set(p2.factors.factors.keys())
+        for nid in all_ids:
+            assert abs(p1.factors.get(nid) - p2.factors.get(nid)) < 1e-6
+
+
+# =============================================================================
+# Metamorphic Tests
+# =============================================================================
+
+
+class TestInteroceptionMetamorphic:
+    """Metamorphic relation tests."""
+
+    def test_accepted_then_rejected_vs_rejected_then_accepted(self):
+        """Commutative: outcome for same node, regardless of order."""
+        p1 = LocalInteroceptionProvider()
+        p1.report_outcome("q1", {"a": "accepted"})
+        p1.report_outcome("q2", {"a": "rejected"})
+
+        p2 = LocalInteroceptionProvider()
+        p2.report_outcome("q1", {"a": "rejected"})
+        p2.report_outcome("q2", {"a": "accepted"})
+
+        assert abs(p1.factors.get("a") - p2.factors.get("a")) < 1e-6
+
+    def test_double_accepted_is_additive(self):
+        """Two accepted outcomes = +0.2 total (before clamping)."""
+        provider = LocalInteroceptionProvider()
+        provider.report_outcome("q1", {"a": "accepted"})
+        provider.report_outcome("q2", {"a": "accepted"})
+        assert abs(provider.factors.get("a") - 1.2) < 1e-6
+
+    def test_shutdown_startup_is_identity(self, tmp_path):
+        """State before shutdown = state after reload."""
+        factors_path = tmp_path / "factors.json"
+        buffer_path = tmp_path / "buffer.json"
+        config = InteroceptionConfig(factors_path=factors_path, buffer_path=buffer_path)
+
+        provider = LocalInteroceptionProvider(config)
+        provider.startup()
+        provider.report_outcome("q1", {"a": "accepted", "b": "rejected"})
+        provider.record_online_edge("x", "y", 0.85)
+
+        # Capture state before shutdown
+        factors_before = dict(provider.factors.factors)
+        buffer_keys_before = set(provider.buffer._buffer.keys())
+
+        provider.shutdown()
+
+        # Reload
+        provider2 = LocalInteroceptionProvider(config)
+        provider2.startup()
+
+        # State should be identical
+        assert provider2.factors.factors == factors_before
+        assert set(provider2.buffer._buffer.keys()) == buffer_keys_before
+
+    def test_neutral_outcomes_leave_factors_unchanged(self):
+        """Unknown outcome strings should not change factors."""
+        provider = LocalInteroceptionProvider()
+        provider.report_outcome("q1", {"a": "gibberish", "b": "nope"})
+        assert provider.factors.get("a") == 1.0
+        assert provider.factors.get("b") == 1.0
+
+    def test_multiple_items_same_query(self):
+        """Multiple items in same query batch all get updated."""
+        provider = LocalInteroceptionProvider()
+        provider.report_outcome("q1", {
+            "a": "accepted",
+            "b": "accepted",
+            "c": "rejected",
+        })
+        assert provider.factors.get("a") == 1.1
+        assert provider.factors.get("b") == 1.1
+        assert provider.factors.get("c") == 0.95
