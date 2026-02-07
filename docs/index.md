@@ -10,9 +10,9 @@ qortex transforms unstructured content (books, docs, PDFs) into a knowledge grap
 
 - **Graph-Enhanced Retrieval**: Vector similarity + Personalized PageRank over typed edges
 - **Explore & Navigate**: Traverse typed edges, discover neighbors and linked rules from any search result
-- **Rules Auto-Surfaced**: Query results include linked rules with relevance scores — zero consumer effort
-- **Feedback-Driven Learning**: Consumer outcomes adjust PPR teleportation factors — results improve over time
-- **Framework Adapters**: Drop-in for LangChain VectorStore, Mastra MCP, CrewAI, Agno — same API, graph extras for free
+- **Rules Auto-Surfaced**: Query results include linked rules with relevance scores, zero consumer effort
+- **Feedback-Driven Learning**: Consumer outcomes adjust PPR teleportation factors; results improve over time
+- **Framework Adapters**: Drop-in for LangChain VectorStore, Mastra MCP, CrewAI, Agno. Same API, graph extras for free
 - **Flexible Ingestion**: PDF, Markdown, and text sources into a unified knowledge graph
 - **Rich Type System**: 10 semantic relation types with 30 edge rule templates
 - **Projection Pipeline**: Source → Enricher → Target architecture for rule generation
@@ -28,15 +28,15 @@ from qortex.client import LocalQortexClient
 
 client = LocalQortexClient(vector_index, backend, embedding, mode="graph")
 
-# Search — vec + graph combined scoring, rules auto-surfaced
+# Search: vec + graph combined scoring, rules auto-surfaced
 result = client.query("OAuth2 authorization", domains=["security"], top_k=5)
 
-# Explore — traverse typed edges from any result
+# Explore: traverse typed edges from any result
 explore = client.explore(result.items[0].node_id)
 for edge in explore.edges:
     print(f"{edge.source_id} --{edge.relation_type}--> {edge.target_id}")
 
-# Feedback — close the learning loop
+# Feedback: close the learning loop
 client.feedback(result.query_id, {result.items[0].id: "accepted"})
 ```
 
@@ -98,7 +98,7 @@ pip install qortex[all]
 
     ---
 
-    Search, explore, and learn from your knowledge graph
+    Graph-enhanced search with exploration and feedback
 
     [:octicons-arrow-right-24: Querying Guide](guides/querying.md)
 

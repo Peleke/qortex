@@ -1,6 +1,6 @@
 # Querying the Knowledge Graph
 
-qortex isn't just an ingestion engine — it's a retrieval system. The query layer lets you search, explore, and learn from your knowledge graph.
+qortex is both an ingestion engine and a retrieval system. The query layer lets you search your knowledge graph, explore its structure, and improve results through feedback.
 
 ## Architecture
 
@@ -16,7 +16,7 @@ graph LR
     FEEDBACK -->|adjusts weights| PPR
 ```
 
-The query pipeline combines vector similarity with graph structure. Unlike flat vector stores (Chroma, Pinecone, FAISS), qortex uses **Personalized PageRank** over typed edges to surface concepts that are structurally important — not just textually similar.
+The query pipeline combines vector similarity with graph structure. Unlike flat vector stores (Chroma, Pinecone, FAISS), qortex uses **Personalized PageRank** over typed edges to surface concepts that are structurally important, not just textually similar.
 
 ## QortexClient
 
@@ -45,7 +45,7 @@ client = LocalQortexClient(
 | Mode | What It Does | When to Use |
 |------|-------------|-------------|
 | `"vec"` | Pure vector similarity search | Simple use cases, testing, Level 0 parity |
-| `"graph"` | Vec + PPR combined scoring | Production — the differentiator |
+| `"graph"` | Vec + PPR combined scoring | Production (the differentiator) |
 
 ## Searching: `query()`
 
@@ -66,7 +66,7 @@ for item in result.items:
     print(item.content)    # "OAuth2: OAuth2 authorization framework for..."
     print(item.score)      # 0.0–1.0 relevance score
     print(item.domain)     # "security"
-    print(item.node_id)    # Graph node ID — use this for explore()
+    print(item.node_id)    # Graph node ID (use for explore())
     print(item.metadata)   # Dict of additional metadata
 
 # Rules auto-surfaced in query results
@@ -77,7 +77,7 @@ for rule in result.rules:
     print(rule.source_concepts) # Which query results linked to this rule
 ```
 
-Rules are surfaced automatically — zero consumer effort. If the query activates concepts that have linked rules, those rules appear in the response.
+Rules are surfaced automatically with zero consumer effort. If the query activates concepts that have linked rules, those rules appear in the response.
 
 ## Exploring: `explore()`
 
@@ -93,7 +93,7 @@ explore = client.explore(node_id, depth=1)
 print(explore.node.name)         # "OAuth2"
 print(explore.node.description)  # Full description
 
-# Typed edges (not just "similar" — actually related)
+# Typed edges (structurally related, not just textually similar)
 for edge in explore.edges:
     print(f"{edge.source_id} --{edge.relation_type}--> {edge.target_id}")
     # "sec:oauth --REQUIRES--> sec:jwt"
@@ -167,7 +167,7 @@ for rule in relevant_rules.rules:
 
 ## Feedback: Closing the Loop
 
-This is the thing nobody else has. After using query results, tell qortex what worked:
+After using query results, tell qortex what worked:
 
 ```python
 client.feedback(
@@ -191,7 +191,7 @@ graph LR
     style TELEPORT fill:#25d,stroke:#333
 ```
 
-In graph mode, feedback adjusts the **Personalized PageRank teleportation factors**. Accepted concepts get higher teleportation probability on future queries. Over time, the system learns which concepts are actually useful — not just textually similar.
+In graph mode, feedback adjusts the **Personalized PageRank teleportation factors**. Accepted concepts get higher teleportation probability on future queries. Over time, the system learns which concepts are actually useful, not just textually similar.
 
 | Outcome | Effect |
 |---------|--------|
@@ -247,7 +247,7 @@ All adapters expose the same qortex extras: `explore()`, `rules()`, and `feedbac
 
 ## Next Steps
 
-- [API Reference](../reference/api.md) — Full protocol and type reference
-- [LangChain VectorStore](../tutorials/case-studies/langchain-vectorstore.md) — Drop-in replacement for Chroma/FAISS
-- [Mastra MCP](../tutorials/case-studies/mastra-mcp-vector-store.md) — Cross-language integration
-- [Architecture Overview](../architecture/overview.md) — How it all fits together
+- [API Reference](../reference/api.md): full protocol and type reference
+- [LangChain VectorStore](../tutorials/case-studies/langchain-vectorstore.md): drop-in for Chroma/FAISS
+- [Mastra MCP](../tutorials/case-studies/mastra-mcp-vector-store.md): cross-language integration
+- [Architecture Overview](../architecture/overview.md): how it all fits together

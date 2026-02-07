@@ -1,8 +1,8 @@
-# Case Study: QortexVectorStore — Drop-In for Chroma/FAISS
+# Case Study: QortexVectorStore as a Drop-In for Chroma/FAISS
 
-> **Status**: E2E proven — `tests/test_langchain_vectorstore.py` (38 tests), `tests/test_langchain_e2e_dogfood.py` (14 tests)
+> **Status**: E2E proven in `tests/test_langchain_vectorstore.py` (38 tests) and `tests/test_langchain_e2e_dogfood.py` (14 tests)
 >
-> **The hook**: `QortexVectorStore` IS a `VectorStore`. It works anywhere LangChain expects one: `similarity_search()`, `from_texts()`, `as_retriever()`, chains, agents. isinstance check passes. Plus: graph exploration, rules, and a feedback loop.
+> **The hook**: `QortexVectorStore` IS a `VectorStore`. It works anywhere LangChain expects one: `similarity_search()`, `from_texts()`, `as_retriever()`, chains, agents. isinstance check passes. It also provides graph exploration, rules, and a feedback loop.
 
 ## What LangChain Has
 
@@ -10,17 +10,17 @@ LangChain's `VectorStore` is the universal storage interface. Every vector datab
 
 | LangChain VectorStore | QortexVectorStore |
 |----------------------|-------------------|
-| `VectorStore.from_texts(texts, embedding)` | Same — zero-config setup |
-| `vs.similarity_search(query, k)` | Same — returns `list[Document]` |
-| `vs.similarity_search_with_score(query, k)` | Same — returns `list[tuple[Document, float]]` |
-| `vs.add_texts(texts, metadatas)` | Same — incremental ingestion |
-| `vs.as_retriever()` | Same — works in any LCEL chain |
-| `vs.get_by_ids(ids)` | Same — fetch by node ID |
-| — (nothing) | `vs.explore(node_id)` — graph traversal |
-| — (nothing) | `vs.rules(concept_ids=[...])` — projected rules |
-| — (nothing) | `vs.feedback({id: "accepted"})` — learning loop |
+| `VectorStore.from_texts(texts, embedding)` | Same (zero-config setup) |
+| `vs.similarity_search(query, k)` | Same (returns `list[Document]`) |
+| `vs.similarity_search_with_score(query, k)` | Same (returns `list[tuple[Document, float]]`) |
+| `vs.add_texts(texts, metadatas)` | Same (incremental ingestion) |
+| `vs.as_retriever()` | Same (works in any LCEL chain) |
+| `vs.get_by_ids(ids)` | Same (fetch by node ID) |
+| (no equivalent) | `vs.explore(node_id)` |
+| (no equivalent) | `vs.rules(concept_ids=[...])` |
+| (no equivalent) | `vs.feedback({id: "accepted"})` |
 
-The last three rows are the point.
+qortex implements the full VectorStore API and adds graph exploration, rule projection, and feedback-driven learning.
 
 ## The Swap
 
@@ -67,7 +67,7 @@ docs = vs.similarity_search("OAuth2 authorization", k=3)
 for doc in docs:
     print(doc.page_content)              # "OAuth2: OAuth2 authorization framework..."
     print(doc.metadata["domain"])         # "security"
-    print(doc.metadata["node_id"])        # "sec:oauth" — use for explore()
+    print(doc.metadata["node_id"])        # "sec:oauth":use for explore()
     print(doc.metadata["score"])          # 0.94
 ```
 
@@ -188,31 +188,27 @@ In graph mode, feedback adjusts PPR teleportation factors. Accepted concepts get
 
 ## What We Proved
 
-**Real VectorStore**: `isinstance(vs, VectorStore)` is `True`. Not a duck type.
-
-**from_texts() zero-config**: One line creates a full backend, indexes texts, returns a ready VectorStore.
-
-**as_retriever()**: Works in any LCEL chain — pipe operators, RunnableParallel, the works.
-
-**Graph exploration**: Search → take `node_id` → explore → typed edges + neighbors + rules.
-
-**Rules auto-surfaced**: query() includes rules in results with zero extra effort from the consumer.
-
-**Feedback loop**: search → outcomes → recorded → future searches adjust.
-
-**JSON roundtrip**: All results survive `json.dumps()`/`json.loads()` for serialization.
+| Claim | Evidence |
+|-------|----------|
+| Real VectorStore | `isinstance(vs, VectorStore)` is `True`. Not a duck type. |
+| from_texts() zero-config | One line creates a full backend, indexes texts, returns a ready VectorStore. |
+| as_retriever() works in chains | Pipe operators, RunnableParallel, the full LCEL composition system. |
+| Graph exploration | Search, take `node_id`, explore: typed edges + neighbors + rules. |
+| Rules auto-surfaced | query() includes rules in results with zero extra effort from the consumer. |
+| Feedback loop | search, outcomes, recorded, future searches adjust. |
+| JSON roundtrip | All results survive `json.dumps()`/`json.loads()` for serialization. |
 
 ## What qortex Adds to LangChain
 
-LangChain's VectorStore is a brilliant abstraction — it unifies dozens of vector databases behind one API. qortex implements that same API and layers graph structure on top:
+LangChain's VectorStore unifies dozens of vector databases behind one API. qortex implements that same API and layers graph structure on top.
 
 | Dimension | Standard VectorStore (solid foundation) | QortexVectorStore (augmentation) |
 |-----------|----------------------------------------|--------------------------------|
 | Search | Cosine similarity | Vec + PPR combined scoring |
 | Structure | Flat documents | Typed edges (REQUIRES, USES...) |
-| Navigation | — | `explore(node_id)` graph traversal |
-| Rules | — | Auto-surfaced in results |
-| Feedback | — | Outcomes → teleportation updates |
+| Navigation | | `explore(node_id)` graph traversal |
+| Rules | | Auto-surfaced in results |
+| Feedback | | Outcomes → teleportation updates |
 | Learning | Static | Continuous improvement |
 | API | VectorStore ABC | Same VectorStore ABC |
 
@@ -222,7 +218,7 @@ QortexVectorStore is designed to be ejectable as a standalone `langchain-qortex`
 
 ## Next Steps
 
-- [Querying Guide](../../guides/querying.md) — Full query pipeline reference
-- [BaseRetriever Integration](langchain-base-retriever.md) — Lighter-weight retriever adapter
-- [Mastra MCP](mastra-mcp-vector-store.md) — Cross-language integration
-- [API Reference](../../reference/api.md) — QortexClient protocol and types
+- [Querying Guide](../../guides/querying.md) (full query pipeline reference)
+- [BaseRetriever Integration](langchain-base-retriever.md) (lighter-weight retriever adapter)
+- [Mastra MCP](mastra-mcp-vector-store.md) (cross-language integration)
+- [API Reference](../../reference/api.md) (QortexClient protocol and types)

@@ -134,7 +134,7 @@ qortex project buildlog --domain error_handling --pending
 
 ## 5. Query the Graph
 
-Use QortexClient to search, explore, and learn:
+Use QortexClient for graph-enhanced search with feedback:
 
 ```python
 from qortex.client import LocalQortexClient
@@ -165,7 +165,7 @@ explore = client.explore(result.items[0].node_id)
 for edge in explore.edges:
     print(f"{edge.source_id} --{edge.relation_type}--> {edge.target_id}")
 
-# Feedback — close the learning loop
+# Feedback: close the learning loop
 client.feedback(result.query_id, {result.items[0].id: "accepted"})
 ```
 
@@ -184,7 +184,7 @@ See [Querying Guide](../guides/querying.md) for the full query pipeline.
 ## Next Steps
 
 - [Core Concepts](concepts.md) - Deep dive into domains, concepts, edges, and rules
-- [Querying](../guides/querying.md) - Search, explore, and learn from your graph
+- [Querying](../guides/querying.md) - Graph-enhanced search with feedback
 - [Projecting Rules](../guides/projecting-rules.md) - Master the projection pipeline
 - [Consumer Integration](../guides/consumer-integration.md) - Connect to buildlog and other tools
-- [Case Studies](../tutorials/case-studies/index.md) - LangChain, Mastra, CrewAI, Agno integrations
+- [Case Studies](../tutorials/case-studies/index.md) - Framework adapter integrations

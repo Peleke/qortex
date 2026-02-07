@@ -1,25 +1,25 @@
 # Case Study: Replacing Mastra's Vector Store via MCP
 
-> **Status**: E2E proven — `tests/test_e2e_mastra.py` (13 tests, real embeddings), `tests/test_mastra_mcp_dogfood.py` (19 tests, graph-enhanced pipeline)
+> **Status**: E2E proven in `tests/test_e2e_mastra.py` (13 tests, real embeddings) and `tests/test_mastra_mcp_dogfood.py` (19 tests, graph-enhanced pipeline)
 >
-> **The hook**: Mastra is TypeScript. qortex is Python. MCP bridges the gap. One config change gives any Mastra app graph-enhanced retrieval with graph exploration, projected rules, and a feedback loop — things Mastra's own GraphRAG can't do.
+> **The hook**: Mastra is TypeScript. qortex is Python. MCP bridges the gap. One config change gives any Mastra app graph-enhanced retrieval with graph exploration, projected rules, and a feedback loop.
 
 ## What Mastra Has
 
-Mastra provides `MastraVector`, an abstract class with 22 implementations (PgVector, Chroma, Pinecone, Qdrant, etc.). Their `GraphRAG` builds an in-memory cosine similarity graph at query time — O(N²), no persistence, no learning.
+Mastra provides `MastraVector`, an abstract class with 22 implementations (PgVector, Chroma, Pinecone, Qdrant, etc.). Their `GraphRAG` builds an in-memory cosine similarity graph at query time (O(N²), no persistence, no learning).
 
 | MastraVector Method | qortex MCP Equivalent |
 |--------------------|----------------------|
-| `query(indexName, queryVector, topK)` | `qortex_query(context, domains, top_k)` — includes rules |
+| `query(indexName, queryVector, topK)` | `qortex_query(context, domains, top_k)` (includes rules) |
 | `listIndexes()` | `qortex_domains()` |
 | `describeIndex(name)` | `qortex_domains()` + filter |
 | `upsert(indexName, vectors)` | `qortex_ingest(source_path, domain)` |
 | `createIndex(name, dimension)` | Auto-created on ingest |
-| — (nothing) | `qortex_explore(node_id, depth)` — graph traversal |
-| — (nothing) | `qortex_rules(domains, concept_ids)` — projected rules |
-| — (nothing) | `qortex_feedback(query_id, outcomes)` — learning loop |
+| (no equivalent) | `qortex_explore(node_id, depth)` |
+| (no equivalent) | `qortex_rules(domains, concept_ids)` |
+| (no equivalent) | `qortex_feedback(query_id, outcomes)` |
 
-The last three rows are what qortex adds on top. Mastra's vector store API is excellent for standard retrieval — qortex augments it with graph structure, rules, and a learning loop.
+Mastra's vector store API is excellent for standard retrieval. qortex augments it with graph structure, rules, and a learning loop.
 
 ## The Swap
 
@@ -133,21 +133,16 @@ Navigate typed edges from any query result:
 
 ## What We Proved
 
-**Real embeddings**: sentence-transformers/all-MiniLM-L6-v2 (384 dimensions). Not mocks.
-
-**Real ingestion**: Text document → concept extraction → embedding generation → vector index + graph storage.
-
-**Real semantic search**: Query "How does OAuth2 work?" → top result contains OAuth2 content (verified).
-
-**Graph exploration**: query → take node_id → explore → typed edges + neighbors + linked rules.
-
-**Rules auto-surfaced**: query results include linked rules with relevance scores.
-
-**Rules projection**: qortex_rules returns filtered rules by domain, concept, or category.
-
-**Real feedback loop**: Query → accept/reject outcomes → recorded for future PPR weight adjustment.
-
-**JSON serializable**: Every MCP response round-trips through `json.dumps()`/`json.loads()`.
+| Claim | Evidence |
+|-------|----------|
+| Real embeddings | sentence-transformers/all-MiniLM-L6-v2 (384 dimensions), not mocks |
+| Real ingestion | Text document → concept extraction → embedding generation → vector index + graph storage |
+| Real semantic search | Query "How does OAuth2 work?" → top result contains OAuth2 content (verified) |
+| Graph exploration | query, take node_id, explore: typed edges + neighbors + linked rules |
+| Rules auto-surfaced | query results include linked rules with relevance scores |
+| Rules projection | qortex_rules returns filtered rules by domain, concept, or category |
+| Real feedback loop | Query, accept/reject outcomes, recorded for future PPR weight adjustment |
+| JSON serializable | Every MCP response round-trips through `json.dumps()`/`json.loads()` |
 
 ## What qortex Adds to Mastra
 
