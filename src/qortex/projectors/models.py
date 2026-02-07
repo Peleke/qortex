@@ -16,7 +16,7 @@ class ProjectionFilter:
     domains: list[str] | None = None
     categories: list[str] | None = None
     min_confidence: float = 0.0
-    derivation: Literal["explicit", "derived", "all"] = "all"
+    derivation: Literal["explicit", "derived", "causal", "all"] = "all"
     relation_types: list[RelationType] | None = None
 
 

@@ -213,7 +213,7 @@ class Rule:
     domain: str
 
     # How this rule was produced
-    derivation: Literal["explicit", "derived"]  # Phase C vs Phase B
+    derivation: Literal["explicit", "derived", "causal"]  # Phase C vs Phase B vs Mnemosyne
     source_concepts: list[str]  # Concept IDs it came from
 
     # Scoring

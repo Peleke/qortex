@@ -38,6 +38,18 @@ mcp = [
     # MCP server dependencies
     # "mcp>=0.1",
 ]
+causal = [
+    "networkx>=3.0",
+]
+causal-dowhy = [
+    "networkx>=3.0",
+    "dowhy>=0.11",
+]
+causal-full = [
+    "networkx>=3.0",
+    "pyro-ppl>=1.8",
+    "chirho>=0.2",
+]
 dev = [
     "pytest>=8.0",
     "pytest-asyncio>=0.23",
@@ -46,6 +58,7 @@ dev = [
     "ruff>=0.2",
     "mypy>=1.8",
     "types-PyYAML>=6.0",
+    "networkx>=3.0",
 ]
 llm = [
     "anthropic>=0.18",
@@ -54,7 +67,7 @@ memgraph = [
     "neo4j>=5.0",
 ]
 all = [
-    "qortex[pdf,mcp,llm,memgraph,dev]",
+    "qortex[pdf,mcp,llm,memgraph,causal,dev]",
 ]
 
 [project.scripts]
