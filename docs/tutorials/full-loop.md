@@ -25,26 +25,7 @@ That's what we built.
 
 ## The Architecture
 
-```mermaid
-flowchart TB
-    subgraph forward["FORWARD: Knowledge → Agents"]
-        direction TB
-        book["Book Chapter"]
-        book -->|"qortex ingest"| kg["Memgraph Knowledge Graph"]
-        kg -->|"qortex project buildlog"| seed["YAML Seed File"]
-        seed -->|"buildlog ingest-seeds"| personas["Agent Personas"]
-    end
-
-    subgraph reverse["REVERSE: Agents → Knowledge"]
-        direction TB
-        agent["Agent makes mistakes"]
-        agent -->|"buildlog emits"| emissions["Emissions Directory"]
-        emissions -->|"transform to manifest"| exp["Memgraph (experiential)"]
-        exp -->|"cross-domain edges"| links["Mistakes ↔ Patterns"]
-    end
-
-    kg <-.->|"bidirectional"| exp
-```
+![subgraph-forward-forward-knowl](../images/diagrams/full-loop-1-subgraph-forward-forward-knowl.svg)
 
 The architecture has two flows sharing one graph. Let's walk through both.
 

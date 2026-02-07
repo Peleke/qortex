@@ -18,14 +18,7 @@ Now what?
 
 This series takes you from "I have a graph" to "I understand my graph." You'll learn to query it, discover its structure, find the hubs, trace paths, and hit the wall that sets up Part 4.
 
-```mermaid
-graph LR
-    A["3.1: What Do I Have?<br/>(naive query fails)"] --> B["3.2: Counting<br/>(what kinds of edges?)"]
-    B --> C["3.3: Connections<br/>(follow the arrows)"]
-    C --> D["3.4: Filtering<br/>(find the gaps)"]
-    D --> E["3.5: Hubs<br/>(the surprise)"]
-    E --> F["3.6: Paths<br/>(the wall)"]
-```
+![a-3-1-what-do-i-have-br-naive](../../images/diagrams/index-1-a-3-1-what-do-i-have-br-naive.svg)
 
 | # | Chapter | Depth | What You'll Learn |
 |---|---------|-------|-------------------|
