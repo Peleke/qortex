@@ -34,9 +34,16 @@ pdf = [
     "pymupdf>=1.23",
     "pdfplumber>=0.10",
 ]
+vec = [
+    "numpy>=1.24",
+    "sentence-transformers>=2.2",
+]
+vec-sqlite = [
+    "qortex[vec]",
+    "sqlite-vec>=0.1",
+]
 mcp = [
-    # MCP server dependencies
-    # "mcp>=0.1",
+    "fastmcp>=2.0",
 ]
 causal = [
     "networkx>=3.0",
@@ -59,6 +66,7 @@ dev = [
     "mypy>=1.8",
     "types-PyYAML>=6.0",
     "networkx>=3.0",
+    "numpy>=1.24",
 ]
 llm = [
     "anthropic>=0.18",
@@ -67,7 +75,7 @@ memgraph = [
     "neo4j>=5.0",
 ]
 all = [
-    "qortex[pdf,mcp,llm,memgraph,causal,dev]",
+    "qortex[pdf,vec-sqlite,mcp,llm,memgraph,causal,dev]",
 ]
 
 [project.scripts]

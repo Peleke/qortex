@@ -99,17 +99,20 @@ class Ingestor(ABC):
 
     Subclasses implement format-specific chunking.
     LLM extraction is shared across all ingestors.
+    Optionally generates embeddings when an EmbeddingModel is provided.
     """
 
     def __init__(
         self,
         llm: LLMBackend,
         pruning_config: PruningConfig | None = None,
+        embedding_model=None,
     ):
         from qortex.core.pruning import PruningConfig
 
         self.llm = llm
         self.pruning_config = pruning_config or PruningConfig()
+        self.embedding_model = embedding_model  # Optional EmbeddingModel instance
 
     @abstractmethod
     def chunk(self, source: Source) -> list[Chunk]:
@@ -204,6 +207,15 @@ class Ingestor(ABC):
                 )
 
         concepts = generalizable_concepts
+
+        # 3b. Generate embeddings for concepts (if embedding model available)
+        if self.embedding_model is not None and concepts:
+            texts = [f"{c.name}: {c.description}" for c in concepts]
+            embeddings = self.embedding_model.embed(texts)
+            model_name = getattr(self.embedding_model, "_model_name", None) or type(self.embedding_model).__name__
+            for concept, emb in zip(concepts, embeddings):
+                concept.embedding = emb
+                concept.embedding_model = model_name
 
         # 4. Extract relations per chunk (for full coverage + provenance)
         from qortex.core.models import RelationType

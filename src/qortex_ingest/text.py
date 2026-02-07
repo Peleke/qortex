@@ -23,8 +23,9 @@ class TextIngestor(Ingestor):
         chunk_size: int = 2000,
         chunk_overlap: int = 200,
         pruning_config: PruningConfig | None = None,
+        embedding_model=None,
     ):
-        super().__init__(llm, pruning_config=pruning_config)
+        super().__init__(llm, pruning_config=pruning_config, embedding_model=embedding_model)
         self.chunk_size = chunk_size
         self.chunk_overlap = chunk_overlap
 

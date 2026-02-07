@@ -64,6 +64,10 @@ class ConceptNode:
     properties: dict[str, Any] = field(default_factory=dict)
     confidence: float = 1.0  # Extraction confidence
 
+    # Vector layer (populated when qortex[vec] is installed)
+    embedding: list[float] | None = None
+    embedding_model: str | None = None
+
 
 @dataclass
 class ConceptEdge:
