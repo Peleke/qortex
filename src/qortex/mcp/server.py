@@ -22,7 +22,7 @@ from typing import Any
 from fastmcp import FastMCP
 
 from qortex.core.memory import InMemoryBackend
-from qortex.hippocampus.adapter import VecOnlyAdapter, get_adapter
+from qortex.hippocampus.adapter import VecOnlyAdapter
 
 logger = logging.getLogger(__name__)
 
@@ -56,7 +56,7 @@ def _ensure_initialized() -> None:
         _embedding_model = SentenceTransformerEmbedding()
         _adapter = VecOnlyAdapter(_backend, _embedding_model)
     except ImportError:
-        logger.warning("qortex[vec] not installed — vector search unavailable")
+        logger.warning("qortex[vec] not installed. Vector search unavailable.")
         _embedding_model = None
         _adapter = None
 
@@ -94,6 +94,10 @@ def _query_impl(
     min_confidence: float = 0.0,
 ) -> dict:
     _ensure_initialized()
+
+    # Clamp inputs to valid ranges
+    top_k = max(1, min(top_k, 1000))
+    min_confidence = max(0.0, min(min_confidence, 1.0))
 
     if _adapter is None:
         return {
@@ -143,6 +147,9 @@ def _feedback_impl(
     }
 
 
+_ALLOWED_SOURCE_TYPES = {"text", "markdown", "pdf"}
+
+
 def _ingest_impl(
     source_path: str,
     domain: str,
@@ -153,6 +160,13 @@ def _ingest_impl(
     path = Path(source_path).expanduser().resolve()
     if not path.exists():
         return {"error": f"File not found: {source_path}"}
+
+    if not path.is_file():
+        return {"error": f"Not a file: {source_path}"}
+
+    # Validate source_type if provided
+    if source_type is not None and source_type not in _ALLOWED_SOURCE_TYPES:
+        return {"error": f"Invalid source_type: {source_type}. Must be one of {_ALLOWED_SOURCE_TYPES}"}
 
     # Auto-detect source type from extension
     if source_type is None:

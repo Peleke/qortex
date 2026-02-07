@@ -226,6 +226,22 @@ class TestQortexQuery:
             # Score should be rounded to 4 decimal places
             assert score == round(score, 4)
 
+    def test_query_clamps_top_k(self, configured_server, backend, embedding):
+        """top_k <= 0 should be clamped to 1."""
+        nodes = [_make_node("n1", "Auth", "Authentication")]
+        _add_nodes_with_embeddings(backend, embedding, nodes)
+
+        result = mcp_server._query_impl(context="auth", top_k=0)
+        assert len(result["items"]) <= 1
+
+    def test_query_clamps_min_confidence(self, configured_server, backend, embedding):
+        """min_confidence > 1 should be clamped to 1.0 (no results pass)."""
+        nodes = [_make_node("n1", "Auth", "Authentication")]
+        _add_nodes_with_embeddings(backend, embedding, nodes)
+
+        result = mcp_server._query_impl(context="auth", min_confidence=2.0)
+        assert result["items"] == []
+
     def test_query_without_adapter_returns_error(self):
         """When no embedding model is available, return error."""
         backend = InMemoryBackend()
@@ -331,6 +347,38 @@ class TestQortexIngest:
         assert "error" not in result
 
         Path(path).unlink()
+
+    def test_ingest_pdf_returns_error(self, configured_server):
+        """PDF ingest raises NotImplementedError, which should surface as error."""
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".pdf", delete=False) as f:
+            f.write("fake pdf content")
+            f.flush()
+            path = f.name
+
+        with pytest.raises(NotImplementedError):
+            mcp_server._ingest_impl(source_path=path, domain="test")
+
+        Path(path).unlink()
+
+    def test_ingest_invalid_source_type(self, configured_server):
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".txt", delete=False) as f:
+            f.write("test")
+            f.flush()
+            path = f.name
+
+        result = mcp_server._ingest_impl(
+            source_path=path, domain="test", source_type="invalid"
+        )
+        assert "error" in result
+        assert "Invalid source_type" in result["error"]
+
+        Path(path).unlink()
+
+    def test_ingest_directory_returns_error(self, configured_server):
+        """Directories should not be accepted."""
+        result = mcp_server._ingest_impl(source_path="/tmp", domain="test")
+        assert "error" in result
+        assert "Not a file" in result["error"]
 
     def test_ingest_with_custom_llm(self, configured_server):
         """StubLLMBackend with injected concepts shows up in results."""
