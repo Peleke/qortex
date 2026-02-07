@@ -20,6 +20,7 @@ Architecture:
 
 from __future__ import annotations
 
+import atexit
 import logging
 import os
 from pathlib import Path
@@ -41,13 +42,23 @@ _vector_index: Any = None  # VectorIndex: similarity search (independent)
 _adapter: Any = None  # VecOnlyAdapter (Level 0)
 _graph_adapter: Any = None  # GraphRAGAdapter (Level 1+)
 _embedding_model: Any = None
+_interoception: Any = None  # InteroceptionProvider: feedback lifecycle
 
 mcp = FastMCP("qortex")
 
 
+def _shutdown_interoception() -> None:
+    """atexit handler: persist interoception state."""
+    if _interoception is not None:
+        try:
+            _interoception.shutdown()
+        except Exception:
+            logger.warning("Failed to shut down interoception layer", exc_info=True)
+
+
 def _ensure_initialized() -> None:
     """Lazy initialization: set up vec + graph layers from env config."""
-    global _backend, _vector_index, _adapter, _embedding_model
+    global _backend, _vector_index, _adapter, _embedding_model, _interoception
 
     if _backend is not None:
         return
@@ -103,6 +114,18 @@ def _ensure_initialized() -> None:
         _backend = InMemoryBackend(vector_index=_vector_index)
         _backend.connect()
 
+    # --- Interoception layer (feedback lifecycle) ---
+    from qortex.hippocampus.interoception import InteroceptionConfig, LocalInteroceptionProvider
+
+    qortex_dir = Path("~/.qortex").expanduser()
+    interoception_config = InteroceptionConfig(
+        factors_path=qortex_dir / "factors.json",
+        buffer_path=qortex_dir / "edge_buffer.json",
+    )
+    _interoception = LocalInteroceptionProvider(interoception_config)
+    _interoception.startup()
+    atexit.register(_shutdown_interoception)
+
     # --- Compose adapters ---
     if _vector_index is not None and _embedding_model is not None:
         _adapter = VecOnlyAdapter(_vector_index, _backend, _embedding_model)
@@ -110,7 +133,9 @@ def _ensure_initialized() -> None:
         # Graph adapter: GraphRAGAdapter for Level 1+ retrieval
         from qortex.hippocampus.adapter import GraphRAGAdapter
 
-        _graph_adapter = GraphRAGAdapter(_vector_index, _backend, _embedding_model)
+        _graph_adapter = GraphRAGAdapter(
+            _vector_index, _backend, _embedding_model, interoception=_interoception,
+        )
     else:
         _adapter = None
         _graph_adapter = None
@@ -135,6 +160,7 @@ def create_server(
     backend: Any = None,
     embedding_model: Any = None,
     vector_index: Any = None,
+    interoception: Any = None,
 ) -> FastMCP:
     """Create and configure the MCP server with explicit layers.
 
@@ -143,10 +169,12 @@ def create_server(
         embedding_model: EmbeddingModel for query/document embedding.
         vector_index: VectorIndex for similarity search. If None and
             embedding_model is provided, creates a NumpyVectorIndex.
+        interoception: InteroceptionProvider for feedback lifecycle.
+            If None, creates a fresh LocalInteroceptionProvider (no persistence).
 
     Used by tests and advanced configurations. For normal usage, call serve().
     """
-    global _backend, _vector_index, _adapter, _graph_adapter, _embedding_model
+    global _backend, _vector_index, _adapter, _graph_adapter, _embedding_model, _interoception
 
     _backend = backend
     _embedding_model = embedding_model
@@ -161,11 +189,20 @@ def create_server(
     else:
         _vector_index = None
 
+    # Interoception: use provided or create fresh (no persistence for tests)
+    if interoception is not None:
+        _interoception = interoception
+    else:
+        from qortex.hippocampus.interoception import LocalInteroceptionProvider
+        _interoception = LocalInteroceptionProvider()
+
     if _vector_index is not None and _backend is not None and _embedding_model is not None:
         _adapter = VecOnlyAdapter(_vector_index, _backend, _embedding_model)
 
         from qortex.hippocampus.adapter import GraphRAGAdapter
-        _graph_adapter = GraphRAGAdapter(_vector_index, _backend, _embedding_model)
+        _graph_adapter = GraphRAGAdapter(
+            _vector_index, _backend, _embedding_model, interoception=_interoception,
+        )
     else:
         _adapter = None
         _graph_adapter = None
@@ -361,6 +398,7 @@ def _status_impl() -> dict:
             if _embedding_model
             else None
         ),
+        "interoception": _interoception.summary() if _interoception else None,
     }
 
 
