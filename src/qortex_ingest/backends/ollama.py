@@ -119,6 +119,10 @@ Return ONLY a JSON array of objects with:
 - name: Short concept name (2-5 words, title case)
 - description: One sentence explaining the concept
 - confidence: Float 0-1
+- concept_role: Either "generalizable" or "illustrative"
+  - "generalizable": A reusable pattern, principle, technique, or abstract idea
+  - "illustrative": A concrete example used to teach/demonstrate a generalizable concept
+- illustrates: If concept_role is "illustrative", the name of the generalizable concept it exemplifies. null otherwise.
 
 Extract 5-15 concepts. No explanation, just JSON.
 
@@ -136,6 +140,8 @@ JSON:"""
                     "name": c.get("name", "Unknown"),
                     "description": c.get("description", ""),
                     "confidence": float(c.get("confidence", 0.8)),
+                    "concept_role": c.get("concept_role", "generalizable"),
+                    "illustrates": c.get("illustrates"),
                 }
                 for c in parsed
                 if isinstance(c, dict) and c.get("name")

@@ -46,7 +46,7 @@ class FlatRuleSource:
             rules.extend(self._collect_explicit_rules(domains, filt))
 
         # 2. Derive from edges
-        if self.include_derived and filt.derivation in ("derived", "all"):
+        if self.include_derived and filt.derivation in ("derived", "causal", "all"):
             rules.extend(self._derive_rules_from_edges(domains, filt))
 
         return rules
