@@ -8,6 +8,7 @@ Commands:
     qortex viz open/query          Graph visualization
     qortex interop status/pending/signals  Consumer interop management
     qortex prune manifest/stats    Edge pruning and analysis
+    qortex mcp-serve               Start MCP server (stdio or sse)
 """
 
 from __future__ import annotations
@@ -29,6 +30,20 @@ app.add_typer(inspect_cmd.app, name="inspect")
 app.add_typer(viz.app, name="viz")
 app.add_typer(interop_cmd.app, name="interop")
 app.add_typer(prune.app, name="prune")
+
+
+@app.command("mcp-serve")
+def mcp_serve(
+    transport: str = typer.Option("stdio", help="Transport: 'stdio' or 'sse'."),
+) -> None:
+    """Start the qortex MCP server.
+
+    Exposes qortex as tools any MCP client can use:
+    qortex_query, qortex_feedback, qortex_ingest, qortex_domains, qortex_status.
+    """
+    from qortex.mcp.server import serve
+
+    serve(transport=transport)
 
 
 def main() -> None:
