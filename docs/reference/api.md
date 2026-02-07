@@ -2,6 +2,243 @@
 
 This page provides a quick reference for the main qortex APIs. For detailed documentation, see the source code docstrings.
 
+## QortexClient
+
+The consumer-facing protocol. All framework adapters and MCP tools target this interface.
+
+### Protocol
+
+```python
+from qortex.client import QortexClient
+
+class QortexClient(Protocol):
+    def query(
+        self,
+        context: str,
+        domains: list[str] | None = None,
+        top_k: int = 10,
+        min_confidence: float = 0.0,
+    ) -> QueryResult: ...
+
+    def explore(self, node_id: str, depth: int = 1) -> ExploreResult | None: ...
+
+    def rules(
+        self,
+        domains: list[str] | None = None,
+        concept_ids: list[str] | None = None,
+        categories: list[str] | None = None,
+    ) -> RulesResult: ...
+
+    def feedback(
+        self,
+        query_id: str,
+        outcomes: dict[str, str],
+        source: str = "unknown",
+    ) -> None: ...
+
+    def status(self) -> dict: ...
+    def domains(self) -> list[dict]: ...
+    def ingest(self, source_path: str, domain: str) -> dict: ...
+```
+
+### LocalQortexClient
+
+In-process implementation.
+
+```python
+from qortex.client import LocalQortexClient
+from qortex.core.memory import InMemoryBackend
+from qortex.vec.index import NumpyVectorIndex
+
+vector_index = NumpyVectorIndex(dimensions=384)
+backend = InMemoryBackend(vector_index=vector_index)
+backend.connect()
+
+client = LocalQortexClient(
+    vector_index=vector_index,
+    backend=backend,
+    embedding_model=my_embedding,
+    mode="graph",  # or "vec"
+)
+
+# Query
+result = client.query("OAuth2 authorization", domains=["security"], top_k=5)
+
+# Explore
+explore = client.explore(result.items[0].node_id)
+
+# Rules
+rules = client.rules(concept_ids=[item.node_id for item in result.items])
+
+# Feedback
+client.feedback(result.query_id, {result.items[0].id: "accepted"})
+
+# Add concepts (for adapters)
+ids = client.add_concepts(texts=["Zero-trust architecture"], domain="security")
+
+# Get nodes by ID (for adapters)
+nodes = client.get_nodes(["sec:oauth", "sec:jwt"])
+```
+
+### Result Types
+
+```python
+from qortex.client import (
+    QueryResult,    # query() return type
+    QueryItem,      # Individual query result
+    ExploreResult,  # explore() return type
+    RulesResult,    # rules() return type
+    NodeItem,       # Node in explore results
+    EdgeItem,       # Edge in explore results
+    RuleItem,       # Rule in any result
+)
+```
+
+#### QueryResult
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `query_id` | `str` | Unique ID for feedback |
+| `items` | `list[QueryItem]` | Ranked results |
+| `rules` | `list[RuleItem]` | Auto-surfaced linked rules |
+
+#### QueryItem
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `id` | `str` | Unique item ID |
+| `content` | `str` | `"Name: Description"` text |
+| `score` | `float` | 0.0–1.0 relevance |
+| `domain` | `str` | Source domain |
+| `node_id` | `str` | Graph node ID (use for explore) |
+| `metadata` | `dict` | Additional metadata |
+
+#### ExploreResult
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `node` | `NodeItem` | The explored node |
+| `edges` | `list[EdgeItem]` | Typed edges |
+| `neighbors` | `list[NodeItem]` | Connected nodes |
+| `rules` | `list[RuleItem]` | Linked rules |
+
+#### RulesResult
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `rules` | `list[RuleItem]` | Matching rules |
+| `domain_count` | `int` | Distinct domains |
+| `projection` | `str` | Always `"rules"` |
+
+#### NodeItem
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `id` | `str` | Node ID |
+| `name` | `str` | Human-readable name |
+| `description` | `str` | Full description |
+| `domain` | `str` | Source domain |
+| `confidence` | `float` | Extraction confidence |
+| `properties` | `dict` | Additional properties |
+
+#### EdgeItem
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `source_id` | `str` | Source node ID |
+| `target_id` | `str` | Target node ID |
+| `relation_type` | `str` | e.g. `"REQUIRES"`, `"USES"` |
+| `confidence` | `float` | Edge confidence |
+| `properties` | `dict` | Additional properties |
+
+#### RuleItem
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `id` | `str` | Rule ID |
+| `text` | `str` | Rule text |
+| `domain` | `str` | Source domain |
+| `category` | `str` | e.g. `"security"`, `"architectural"` |
+| `confidence` | `float` | Rule confidence |
+| `relevance` | `float` | Relevance to query/context |
+| `source_concepts` | `list[str]` | Linked concept IDs |
+| `metadata` | `dict` | Additional metadata |
+
+## MCP Tools
+
+qortex runs as an MCP server exposing all client operations over JSON-RPC.
+
+### qortex_query
+
+Search the knowledge graph.
+
+| Parameter | Type | Required | Default |
+|-----------|------|----------|---------|
+| `context` | `str` | Yes | — |
+| `domains` | `list[str]` | No | all |
+| `top_k` | `int` | No | `10` |
+| `min_confidence` | `float` | No | `0.0` |
+
+Returns: `{query_id, items: [{id, content, score, domain, node_id, metadata}], rules: [{id, text, ...}]}`
+
+### qortex_explore
+
+Traverse the graph from a node.
+
+| Parameter | Type | Required | Default |
+|-----------|------|----------|---------|
+| `node_id` | `str` | Yes | — |
+| `depth` | `int` | No | `1` |
+
+Returns: `{node, edges, neighbors, rules}` or `null` if node not found.
+
+### qortex_rules
+
+Get projected rules.
+
+| Parameter | Type | Required | Default |
+|-----------|------|----------|---------|
+| `domains` | `list[str]` | No | all |
+| `concept_ids` | `list[str]` | No | all |
+| `categories` | `list[str]` | No | all |
+
+Returns: `{rules: [...], domain_count, projection: "rules"}`
+
+### qortex_feedback
+
+Report outcomes for a query.
+
+| Parameter | Type | Required | Default |
+|-----------|------|----------|---------|
+| `query_id` | `str` | Yes | — |
+| `outcomes` | `dict[str, str]` | Yes | — |
+| `source` | `str` | No | `"unknown"` |
+
+Returns: `{status: "recorded", processed: N}`
+
+### qortex_status
+
+Health check.
+
+Returns: `{status: "ok", vector_search: bool, graph_backend: str, domains: int}`
+
+### qortex_domains
+
+List domains.
+
+Returns: `{domains: [{name, description, node_count, edge_count, rule_count}]}`
+
+### qortex_ingest
+
+Ingest content.
+
+| Parameter | Type | Required | Default |
+|-----------|------|----------|---------|
+| `source_path` | `str` | Yes | — |
+| `domain` | `str` | Yes | — |
+
+Returns: `{status, domain, concepts, edges, rules}`
+
 ## Backends
 
 ### GraphBackend Protocol

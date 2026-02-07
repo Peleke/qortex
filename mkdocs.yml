@@ -37,6 +37,7 @@ nav:
     - Quick Start: getting-started/quickstart.md
     - Core Concepts: getting-started/concepts.md
   - Guides:
+    - Querying the Graph: guides/querying.md
     - Projecting Rules: guides/projecting-rules.md
     - Rule Enrichment: guides/enrichment.md
     - Consumer Integration: guides/consumer-integration.md
@@ -86,11 +87,18 @@ nav:
     - The Road Ahead: tutorials/the-road-ahead.md
     - Buildlog Case Study:
       - Full Loop: tutorials/full-loop.md
+  - Case Studies:
+    - Overview: tutorials/case-studies/index.md
+    - LangChain VectorStore: tutorials/case-studies/langchain-vectorstore.md
+    - Mastra MCP: tutorials/case-studies/mastra-mcp-vector-store.md
+    - LangChain Retriever: tutorials/case-studies/langchain-base-retriever.md
+    - CrewAI Knowledge: tutorials/case-studies/crewai-knowledge-storage.md
+    - Agno Knowledge: tutorials/case-studies/agno-knowledge-protocol.md
   - Reference:
+    - API Reference: reference/api.md
     - CLI Commands: reference/cli.md
     - Data Models: reference/models.md
     - Interop Schema: reference/interop-schema.md
-    - API Reference: reference/api.md
   - Architecture:
     - Overview: architecture/overview.md
     - Projection Pipeline: architecture/projection-pipeline.md

@@ -8,26 +8,55 @@ qortex transforms unstructured content (books, docs, PDFs) into a knowledge grap
 
 ## Features
 
+- **Graph-Enhanced Retrieval**: Vector similarity + Personalized PageRank over typed edges
+- **Explore & Navigate**: Traverse typed edges, discover neighbors and linked rules from any search result
+- **Rules Auto-Surfaced**: Query results include linked rules with relevance scores — zero consumer effort
+- **Feedback-Driven Learning**: Consumer outcomes adjust PPR teleportation factors — results improve over time
+- **Framework Adapters**: Drop-in for LangChain VectorStore, Mastra MCP, CrewAI, Agno — same API, graph extras for free
 - **Flexible Ingestion**: PDF, Markdown, and text sources into a unified knowledge graph
 - **Rich Type System**: 10 semantic relation types with 30 edge rule templates
 - **Projection Pipeline**: Source → Enricher → Target architecture for rule generation
 - **Universal Schema**: JSON Schema artifacts for any-language validation
-- **Consumer Interop**: Shared directory protocol for seamless integration with buildlog and other tools
 - **Multiple Backends**: InMemory (testing), Memgraph (production with MAGE algorithms)
 
 ## Quick Example
 
+### Search, explore, learn
+
 ```python
-from qortex.core.memory import InMemoryBackend
+from qortex.client import LocalQortexClient
+
+client = LocalQortexClient(vector_index, backend, embedding, mode="graph")
+
+# Search — vec + graph combined scoring, rules auto-surfaced
+result = client.query("OAuth2 authorization", domains=["security"], top_k=5)
+
+# Explore — traverse typed edges from any result
+explore = client.explore(result.items[0].node_id)
+for edge in explore.edges:
+    print(f"{edge.source_id} --{edge.relation_type}--> {edge.target_id}")
+
+# Feedback — close the learning loop
+client.feedback(result.query_id, {result.items[0].id: "accepted"})
+```
+
+### LangChain VectorStore (drop-in)
+
+```python
+from qortex.adapters.langchain_vectorstore import QortexVectorStore
+
+vs = QortexVectorStore.from_texts(texts, embedding, domain="security")
+docs = vs.similarity_search("authentication", k=5)
+retriever = vs.as_retriever()
+```
+
+### Project rules
+
+```python
+from qortex.projectors.projection import Projection
 from qortex.projectors.sources.flat import FlatRuleSource
 from qortex.projectors.targets.buildlog_seed import BuildlogSeedTarget
-from qortex.projectors.projection import Projection
 
-# Connect to backend
-backend = InMemoryBackend()
-backend.connect()
-
-# Project rules to buildlog format
 projection = Projection(
     source=FlatRuleSource(backend=backend),
     target=BuildlogSeedTarget(persona_name="my_rules"),
@@ -38,11 +67,7 @@ result = projection.project(domains=["my_domain"])
 Or use the CLI:
 
 ```bash
-# Project rules to the interop pending directory
 qortex project buildlog --domain my_domain --pending
-
-# Check interop status
-qortex interop status
 ```
 
 ## Installation
@@ -69,6 +94,14 @@ pip install qortex[all]
 
     [:octicons-arrow-right-24: Quick Start](getting-started/quickstart.md)
 
+-   :material-magnify:{ .lg .middle } **Querying**
+
+    ---
+
+    Search, explore, and learn from your knowledge graph
+
+    [:octicons-arrow-right-24: Querying Guide](guides/querying.md)
+
 -   :material-graph:{ .lg .middle } **Core Concepts**
 
     ---
@@ -77,21 +110,13 @@ pip install qortex[all]
 
     [:octicons-arrow-right-24: Concepts](getting-started/concepts.md)
 
--   :material-pipe:{ .lg .middle } **Projection Pipeline**
+-   :material-connection:{ .lg .middle } **Framework Adapters**
 
     ---
 
-    Learn the Source → Enricher → Target architecture
+    Drop-in for LangChain, Mastra, CrewAI, and Agno
 
-    [:octicons-arrow-right-24: Projecting Rules](guides/projecting-rules.md)
-
--   :material-connection:{ .lg .middle } **Consumer Integration**
-
-    ---
-
-    Connect qortex to buildlog, MCP servers, and other consumers
-
-    [:octicons-arrow-right-24: Integration Guide](guides/consumer-integration.md)
+    [:octicons-arrow-right-24: Case Studies](tutorials/case-studies/index.md)
 
 </div>
 
