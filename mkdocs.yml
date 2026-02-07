@@ -68,6 +68,22 @@ nav:
       - Filtering by Pattern: tutorials/graph-exploration/3.4-filtering-by-pattern.md
       - Finding the Hubs: tutorials/graph-exploration/3.5-finding-the-hubs.md
       - Paths and Distances: tutorials/graph-exploration/3.6-paths-and-distances.md
+    - Causal Reasoning:
+      - Overview: tutorials/causal-dag/index.md
+      - Not All Edges Are Created Equal: tutorials/causal-dag/part1-edge-directions.md
+      - The Shape of What You Know: tutorials/causal-dag/part2-building-the-dag.md
+      - What Can You Learn From Here?: tutorials/causal-dag/part3-d-separation.md
+      - Propagating What Works: tutorials/causal-dag/part4-credit-assignment.md
+      - The Degradation Chain: tutorials/causal-dag/part5-degradation-chain.md
+    - The Geometry of Learning:
+      - Overview: tutorials/fisher-information/index.md
+      - Your Coordinates Are Lying to You: tutorials/fisher-information/part1-fisher-metric.md
+      - Paths Through Belief Space: tutorials/fisher-information/part2-trajectories.md
+      - The Shortest Path Is Curved: tutorials/fisher-information/part3-geodesics.md
+      - Where the Manifold Bends: tutorials/fisher-information/part4-curvature.md
+      - The Update Rule as a Dynamical System: tutorials/fisher-information/part5-dynamical-systems.md
+      - What the System Should Feel: tutorials/fisher-information/part6-interoception.md
+    - The Road Ahead: tutorials/the-road-ahead.md
     - Buildlog Case Study:
       - Full Loop: tutorials/full-loop.md
   - Reference:

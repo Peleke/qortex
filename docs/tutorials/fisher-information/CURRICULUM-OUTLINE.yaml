@@ -1,0 +1,257 @@
+# CURRICULUM-OUTLINE.yaml
+# Tutorial Series: The Geometry of Learning
+# Generated via curriculum-planner protocol
+
+metadata:
+  title: "The Geometry of Learning: Fisher Information, Belief Trajectories & What the System Should Feel"
+  audience: "engineer who built a bandit and wants to know if it's actually learning"
+  estimated_chapters: 6
+  voice_guide: "reference/voice-guide.md"
+  data_source: "bandit_state.jsonl from buildlog's Thompson Sampling bandit (real data)"
+  notebook_companion: "notebooks/mistake_time_series.ipynb (Part 10)"
+  aegir_arcs: ["arc-3-geometry-deep-learning (Modules 3.3, 3.4, 3.7)", "arc-4-research-frontier (Module 4.3)"]
+
+narrative_arc:
+  opening_hook: |
+    You built a Thompson Sampling bandit. It picks rules using Beta distributions.
+    You plot the (alpha, beta) trajectories and notice something: two updates that
+    look identical in Euclidean space feel very different. Beta(1,1) -> Beta(2,1)
+    completely changes what the system believes. Beta(100,100) -> Beta(101,100)
+    changes almost nothing. The numbers moved by 1 in both cases. Why does one
+    matter and the other doesn't? Your coordinate system is lying to you.
+
+  climax: |
+    The geodesic equation on the Fisher manifold is the same equation as the
+    equation of motion in general relativity. Not an analogy. The same
+    Christoffel symbols. The same Riemann tensor. The same machinery.
+    Mass-energy curves spacetime; evidence curves belief-space.
+
+  cliffhanger: |
+    The bandit update rule is time-invariant. Noether's theorem guarantees
+    conserved quantities. Those conserved quantities are the invariants the
+    system should monitor. A violated conservation law is the mathematical
+    analog of pain. That's interoception, and it's the next thing to build.
+
+chapters:
+  - number: "1"
+    title: "Your Coordinates Are Lying to You"
+    depth: deep
+    opens_with: "Two bandit updates that look identical but feel completely different"
+    closes_with: "There's a metric that tells the truth. It involves something called the trigamma function."
+    learning_objectives:
+      - "See why Euclidean distance between (alpha, beta) pairs is meaningless"
+      - "Compute the Fisher information matrix for Beta distributions"
+      - "Measure the 'true' distance between two beliefs"
+    aha_moments:
+      - "The same delta-alpha covers wildly different information distances depending on where you are"
+      - "The trigamma function measures how sensitive the distribution is to parameter changes AT THAT POINT"
+    visual_hooks:
+      - type: code_output
+        description: "Side-by-side: Euclidean vs Fisher distance for the same parameter changes"
+      - type: code_output
+        description: "Fisher metric matrices at three points, showing dramatic shrinkage"
+    falsifiable_claim:
+      statement: "Fisher speed between consecutive bandit updates is negatively correlated with total evidence (alpha + beta)"
+      test: "Load bandit_state.jsonl, compute Fisher speed per update, correlate with total evidence"
+
+  - number: "2"
+    title: "Paths Through Belief Space"
+    depth: deep
+    opens_with: "We have the metric. Now watch what happens when we trace the bandit's actual learning path."
+    closes_with: "The paths curve. They have to. And the shortest path between two beliefs is not a straight line."
+    learning_objectives:
+      - "Load real bandit trajectories and plot them with Fisher-speed coloring"
+      - "See pairwise Fisher distances between arms (the heatmap)"
+      - "Understand entropy convergence as evidence accumulates"
+    aha_moments:
+      - "Early updates are hot (high Fisher speed). Later updates are cool. The system is learning less per observation."
+      - "Two arms with similar alpha/beta can be far apart in Fisher distance, or vice versa"
+    visual_hooks:
+      - type: code_output
+        description: "Trajectory plot with Fisher-speed coloring from real bandit data"
+      - type: code_output
+        description: "Pairwise Fisher distance heatmap"
+      - type: code_output
+        description: "Entropy + speed convergence curves per arm"
+    falsifiable_claim:
+      statement: "Entropy of each arm's posterior decreases monotonically as evidence accumulates"
+      test: "Plot entropy per update step. Any increase signals contradictory evidence."
+
+  - number: "3"
+    title: "The Shortest Path Is Curved"
+    depth: deep
+    opens_with: "We approximated distance with a straight line. That's wrong. Let's solve the real thing."
+    closes_with: "We just solved a differential equation on a curved space. That equation has a name. It's famous."
+    learning_objectives:
+      - "Compute Christoffel symbols for the Beta manifold"
+      - "Set up and solve the geodesic equation with scipy.integrate.solve_ivp"
+      - "Compare true geodesic distance to our straight-line approximation"
+    aha_moments:
+      - "The Christoffel symbols involve tetragamma functions. The geometry gets more complex as you differentiate deeper."
+      - "The geodesic curves TOWARD the diagonal (alpha = beta). The manifold's geometry pulls paths toward symmetry."
+    visual_hooks:
+      - type: code_output
+        description: "Geodesic curves overlaid on the trajectory plot"
+      - type: code_output
+        description: "Comparison: straight-line vs geodesic distance for several arm pairs"
+      - type: mermaid
+        description: "The ODE system: state vector with update equations"
+    falsifiable_claim:
+      statement: "Geodesic distance is always less than or equal to our straight-line approximation"
+      test: "Compare for all arm pairs. The straight line is an upper bound."
+
+  - number: "4"
+    title: "Where the Manifold Bends"
+    depth: deep
+    opens_with: "Gravity isn't a force. It's curvature. Learning isn't a process. It's also curvature."
+    closes_with: "We can see where in belief space small evidence changes get amplified. Those are the critical learning moments. Now: what happens when we treat the update rule as a dynamical system on this surface?"
+    learning_objectives:
+      - "Compute Gaussian curvature K(alpha, beta) for the Beta manifold"
+      - "Plot curvature as a heatmap and overlay real trajectories"
+      - "Identify critical learning regions (high curvature) in the bandit's history"
+    aha_moments:
+      - "Curvature is enormous near (1,1) and vanishes as confidence grows. Early evidence bends the manifold dramatically."
+      - "This is the same Riemann curvature tensor as general relativity. Same Christoffel symbols. Same equation. Not an analogy."
+    visual_hooks:
+      - type: code_output
+        description: "Curvature heatmap K(alpha, beta) with trajectory overlay"
+      - type: code_output
+        description: "Per-segment curvature along each trajectory"
+      - type: table
+        description: "GR concept -> information geometry concept correspondence"
+    falsifiable_claim:
+      statement: "Beta manifold Gaussian curvature K = -1/2 (constant negative curvature)"
+      test: "Compute K at multiple points, verify constant"
+
+  - number: "5"
+    title: "The Update Rule as a Dynamical System"
+    depth: deep
+    opens_with: "The bandit updates beliefs. Each update moves a point on the manifold. That's a dynamical system. And dynamical systems have fixed points, stability, and phase portraits."
+    closes_with: "We can predict where beliefs converge before they get there. We can classify how robust that convergence is. And the symmetries of this system guarantee something is conserved."
+    learning_objectives:
+      - "Define the update vector field F(alpha, beta) on the manifold"
+      - "Find fixed points and classify their stability (eigenvalues of the Jacobian)"
+      - "Sketch phase portraits showing basins of attraction"
+      - "Compute Lyapunov exponents for convergence rate"
+    aha_moments:
+      - "The fixed point depends on the true success rate of the rule. If a rule succeeds 70% of the time, the posterior converges to a specific (alpha, beta) ratio. You can predict this from the vector field."
+      - "Eigenvalues of the Jacobian tell you the shape of convergence: spiral in (oscillating confidence), direct approach (monotone), or saddle (unstable, sensitive to perturbation). The manifold curvature modifies all of these."
+    visual_hooks:
+      - type: code_output
+        description: "Phase portrait: vector field F(alpha, beta) with flow lines and fixed points marked"
+      - type: code_output
+        description: "Eigenvalue classification for fixed points in real bandit data"
+      - type: mermaid
+        description: "Stability taxonomy: stable node, unstable node, saddle, spiral"
+      - type: code_output
+        description: "Lyapunov exponents per arm: how fast is convergence happening?"
+    falsifiable_claim:
+      statement: "Arms with higher true success rates converge faster (more negative Lyapunov exponent)"
+      test: "Compute Lyapunov exponents, correlate with empirical success rate"
+
+  - number: "6"
+    title: "What the System Should Feel"
+    depth: deep
+    opens_with: "The update rule doesn't change over time. Same reward, same delta-alpha, whether it's step 1 or step 1000. Noether's theorem says: if the dynamics are time-invariant, something is conserved. What is it? And what happens when it breaks?"
+    closes_with: "Conservation laws are the sensory apparatus. A violated invariant is the mathematical analog of pain. Build the interoception layer."
+    learning_objectives:
+      - "Understand Noether's theorem: continuous symmetries guarantee conserved quantities"
+      - "Identify the symmetries of the bandit update rule (time-invariance, prior permutation symmetry)"
+      - "Sketch the conserved Hamiltonian for geodesic flow on the Beta manifold"
+      - "Map invariant violations to affect signals: confusion, surprise, dissonance, novelty"
+      - "See the full interoception circuit: evidence -> geometry -> invariants -> affect -> control"
+    aha_moments:
+      - "Time-invariance of the update rule means there's a conserved 'energy of learning.' When it changes, the environment changed. Not 'a metric crossed a threshold,' but 'a conservation law was violated, here's which symmetry broke.'"
+      - "This is exactly what biological interoception does. Your body monitors homeostatic invariants (temperature, pH, blood sugar). When one drifts, affect signals fire (hunger, pain, anxiety). On the belief manifold, the conserved quantities ARE the homeostatic invariants. Monitoring them IS interoception."
+    visual_hooks:
+      - type: table
+        description: "Symmetry -> conserved quantity -> violation -> affect signal -> response"
+      - type: mermaid
+        description: "The full interoception circuit: evidence -> manifold -> invariants -> affect -> control -> evidence"
+      - type: table
+        description: "Biological interoception -> belief manifold interoception correspondence"
+      - type: code_output
+        description: "Sketch: Hamiltonian H(alpha, beta, p_alpha, p_beta) along a real trajectory"
+    falsifiable_claim:
+      statement: "If the update rule changes (e.g., switching from Thompson Sampling to UCB), the conserved Hamiltonian shifts discontinuously"
+      test: "Future experiment: switch update rules mid-trajectory, measure Hamiltonian before/after"
+
+supplements:
+  - concept: "Trigamma and polygamma functions"
+    reason: "Core building block of the Fisher metric for Beta distributions"
+    plausibility: "High: scipy.special.polygamma is production-grade"
+  - concept: "Christoffel symbols"
+    reason: "Needed for geodesic equation (Chapter 3)"
+    plausibility: "High: analytic expressions exist for Beta manifold"
+  - concept: "Gaussian curvature"
+    reason: "The scalar curvature of our 2D manifold (Chapter 4)"
+    plausibility: "High: known result K = -1/2 for Beta family"
+  - concept: "Dynamical systems / phase portraits"
+    reason: "Needed for stability analysis (Chapter 5)"
+    plausibility: "High: standard scipy + numpy, well-established theory"
+  - concept: "Noether's theorem"
+    reason: "Bridge to interoception (Chapter 6)"
+    plausibility: "Medium: intuitive + sketch treatment. Full formal version requires Hamiltonian formulation"
+  - concept: "Interoception / homeostatic monitoring"
+    reason: "The biological analog that grounds the computational model"
+    plausibility: "High: well-established neuroscience (Craig 2002, Seth 2013, Barrett)"
+
+jargon_earning_order:
+  - term: "Fisher information matrix"
+    introduced: "1"
+    earned_by: "Computing side-by-side distances that 'feel' wrong, then finding the matrix that fixes them"
+  - term: "statistical manifold"
+    introduced: "1"
+    earned_by: "Realizing the space of all Beta distributions IS a surface with geometry"
+  - term: "geodesic"
+    introduced: "3"
+    earned_by: "Solving for the shortest path and seeing it curve"
+  - term: "Christoffel symbols"
+    introduced: "3"
+    earned_by: "Computing the 'correction terms' that make the ODE work on curved space"
+  - term: "Gaussian curvature"
+    introduced: "4"
+    earned_by: "Asking 'how curved is this surface at each point?' and computing it"
+  - term: "fixed point"
+    introduced: "5"
+    earned_by: "Asking 'where does the update rule stop moving?' and finding the answer in the vector field"
+  - term: "Lyapunov exponent"
+    introduced: "5"
+    earned_by: "Asking 'how fast does convergence happen?' and measuring the eigenvalues"
+  - term: "Noether's theorem"
+    introduced: "6"
+    earned_by: "Noticing the update rule doesn't change over time and asking 'what does that conserve?'"
+  - term: "interoception"
+    introduced: "6"
+    earned_by: "Seeing that monitoring conserved quantities IS the computational analog of biological self-awareness"
+
+style_rules:
+  - "Story-first opening: every chapter drops you into a concrete scenario"
+  - "Code-before-formula: compute it, plot it, THEN name it"
+  - "Visual every 2-3 sections: matplotlib plots, tables, mermaid diagrams"
+  - "No em-dashes: colons, commas, parentheses"
+  - "Recap aggressively: assume the reader forgot 3 sections ago"
+  - "Personality: irreverent, direct, 'holy shit that's the same equation' energy when appropriate"
+  - "All code runs on real bandit_state.jsonl data, not synthetic examples"
+  - "Each chapter extends the observability toolkit with new functions"
+  - "Chapters 5-6 are sketches: enough to build intuition and write pseudocode, not production implementations"
+
+falsifiable_claims:
+  - chapter: "1"
+    statement: "Fisher speed is higher for arms with less evidence"
+    test: "Correlate Fisher speed with (alpha + beta) across all updates"
+  - chapter: "2"
+    statement: "Entropy decreases monotonically per arm"
+    test: "Plot entropy per step, check for increases"
+  - chapter: "3"
+    statement: "Geodesic distance <= straight-line approximation"
+    test: "Compare for all arm pairs"
+  - chapter: "4"
+    statement: "Beta manifold Gaussian curvature K = -1/2 (constant)"
+    test: "Compute K at multiple points, verify constant"
+  - chapter: "5"
+    statement: "Arms with higher success rates converge faster"
+    test: "Correlate Lyapunov exponents with empirical success rate"
+  - chapter: "6"
+    statement: "Hamiltonian discontinuity on update rule switch"
+    test: "Future experiment"

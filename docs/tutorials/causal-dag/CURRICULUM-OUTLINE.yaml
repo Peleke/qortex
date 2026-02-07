@@ -1,0 +1,204 @@
+# CURRICULUM-OUTLINE.yaml
+# Tutorial Series: Causal Reasoning in Knowledge Graphs
+# Generated via curriculum-planner protocol
+
+metadata:
+  title: "Causal Reasoning: From Edges to Interventions"
+  audience: "engineer who built a knowledge graph and wants to know which edges actually mean something"
+  estimated_chapters: 5
+  voice_guide: "reference/voice-guide.md"
+  data_source: "qortex KG with ConceptNodes + ConceptEdges from book ingestion (real data)"
+  notebook_companion: null
+  code_base: "src/qortex/causal/ (9 modules, Phase 1)"
+
+narrative_arc:
+  opening_hook: |
+    Your knowledge graph has 200 edges. REQUIRES, SUPPORTS, IMPLEMENTS,
+    CONTRADICTS. They all look the same: source, target, confidence score.
+    But some of those edges are load-bearing walls and others are decorative
+    trim. Remove "Encapsulation REQUIRES Information Hiding" and your whole
+    graph collapses. Remove "Singleton SIMILAR_TO Factory" and nothing changes.
+    How do you tell the difference? You need a causal model.
+
+  climax: |
+    D-separation answers a question no amount of confidence scores can:
+    "If I already know about X and Z, does learning about Y tell me anything
+    new?" It's a purely structural test. No statistics, no data, no LLM calls.
+    Just the shape of the graph. And it tells you exactly which edges carry
+    information and which are redundant.
+
+  cliffhanger: |
+    Credit assignment propagates reward through the causal DAG. But the decay
+    factor is a constant. What if it decayed based on how much information
+    each edge actually carries? The Fisher metric can measure that. The causal
+    layer tells you WHERE to propagate. The information geometry layer tells
+    you HOW MUCH. That's the next thing to build.
+
+chapters:
+  - number: "1"
+    title: "Not All Edges Are Created Equal"
+    depth: deep
+    opens_with: "You ingest a textbook. You get 200 edges. Which ones matter?"
+    closes_with: "Some edges point forward in time (causes), others backward (diagnostics), others sideways (correlations). The graph already encodes this. Let's read it."
+    learning_objectives:
+      - "Understand why confidence scores alone can't distinguish causal from correlational edges"
+      - "See how REQUIRES/SUPPORTS/CHALLENGES map to causal directions"
+      - "Load a real KG and classify its edges by causal direction"
+    aha_moments:
+      - "REQUIRES is forward causal (A needs B to exist). SUPPORTS is evidential (A provides evidence for B). Same graph, completely different information flow."
+      - "The RELATION_CAUSAL_DIRECTION mapping already exists in the code. The causal structure was hiding in the edge types all along."
+    visual_hooks:
+      - type: mermaid
+        description: "The same 5-node subgraph colored by causal direction: forward (blue), reverse (red), bidirectional (purple)"
+      - type: table
+        description: "All 10 relation types mapped to causal direction + default strength"
+      - type: code_output
+        description: "Real KG edge distribution: how many forward, reverse, bidirectional, none"
+    falsifiable_claim:
+      statement: "REQUIRES edges have higher average confidence than SIMILAR_TO edges in real ingested data"
+      test: "Load a manifest, group edges by relation_type, compare mean confidence"
+
+  - number: "2"
+    title: "The Shape of What You Know"
+    depth: deep
+    opens_with: "We have causal directions. Now let's build a DAG and see what the structure tells us."
+    closes_with: "The DAG has cycles. Real knowledge is messy. But we need acyclicity for causal reasoning. Time to break some edges."
+    learning_objectives:
+      - "Build a CausalDAG from a real IngestionManifest"
+      - "Understand why causal reasoning requires a DAG (no cycles)"
+      - "See how cycle-breaking works: remove the weakest edge in each cycle"
+    aha_moments:
+      - "The graph you ingested is NOT a DAG. Encapsulation REQUIRES Information Hiding, and Information Hiding USES Encapsulation. Both true, but you can't have both as causal arrows."
+      - "Cycle-breaking is a design decision, not a mathematical truth. The weakest-edge heuristic is one choice. The system is transparent about which edges it removed."
+    visual_hooks:
+      - type: mermaid
+        description: "Before/after: graph with cycle highlighted, then DAG with broken edge marked"
+      - type: code_output
+        description: "CausalDAG.from_graph() output: nodes, edges, cycles broken"
+      - type: table
+        description: "Broken edges with their strengths and why they were chosen"
+    falsifiable_claim:
+      statement: "Cycle-breaking removes edges with below-median strength"
+      test: "Build DAG from real data, check strength distribution of removed vs retained edges"
+
+  - number: "3"
+    title: "What Can You Learn From Here?"
+    depth: deep
+    opens_with: "You're standing at a node in the DAG. You know some things. What else can you figure out, and what's permanently blocked?"
+    closes_with: "D-separation is the structural test. But structure is a claim about reality. What if the claim is wrong? Time to test it with data."
+    learning_objectives:
+      - "Understand d-separation: when does knowing Z block the information flow between X and Y?"
+      - "Compute d-separations on a real CausalDAG"
+      - "Find minimal conditioning sets: the smallest set of concepts that blocks an information path"
+    aha_moments:
+      - "D-separation is NOT about removing edges. It's about information flow. A collider (X -> Z <- Y) BLOCKS information when you DON'T condition on Z, and OPENS it when you DO. Conditioning can CREATE dependencies."
+      - "The minimal conditioning set tells you exactly which concepts you need to hold fixed to isolate a causal effect. Everything else is noise."
+    visual_hooks:
+      - type: mermaid
+        description: "Three canonical structures: chain, fork, collider. Information flow arrows showing blocking/opening"
+      - type: code_output
+        description: "All d-separations in a real subgraph: which pairs are independent given which conditioning sets"
+      - type: table
+        description: "Minimal conditioning sets for key concept pairs"
+    falsifiable_claim:
+      statement: "The number of d-separation relationships grows faster than the number of edges in the DAG"
+      test: "Build DAGs of increasing size, count d-separations vs edges"
+
+  - number: "4"
+    title: "Propagating What Works"
+    depth: deep
+    opens_with: "A rule works. The bandit bumps its score. But the rule was derived from three concepts. Which concept gets the credit?"
+    closes_with: "Credit flows through the DAG with exponential decay. But that decay is a constant. What if the edges themselves could tell you how much credit to pass? That's where geometry enters."
+    learning_objectives:
+      - "Understand credit assignment: how reward propagates through DAG ancestry"
+      - "See the decay formula: ancestor_credit = current * decay_factor * edge_weight"
+      - "Convert credit assignments to Beta posterior updates (alpha/beta deltas)"
+    aha_moments:
+      - "Direct concepts get full credit. Their parents get half. Grandparents get a quarter. The DAG's shape determines who gets rewarded for a downstream success."
+      - "to_posterior_updates() converts credit into alpha_delta and beta_delta. Positive credit bumps alpha (success). Negative credit bumps beta (failure). This feeds directly into the Thompson Sampling bandit."
+    visual_hooks:
+      - type: mermaid
+        description: "Credit flowing through a 4-level DAG: concept -> parent -> grandparent -> great-grandparent, with decay amounts"
+      - type: code_output
+        description: "CreditAssigner output for a real rule reward: which concepts got how much credit"
+      - type: table
+        description: "Posterior updates: concept_id -> {alpha_delta, beta_delta}"
+    falsifiable_claim:
+      statement: "Concepts with more descendants accumulate more total credit over time"
+      test: "Run credit assignment for multiple rules, correlate total credit with descendant count"
+
+  - number: "5"
+    title: "The Degradation Chain"
+    depth: light
+    opens_with: "We've been using networkx for everything. But the type system is ready for more."
+    closes_with: "The causal layer tells you which edges matter and where to send credit. The information geometry layer (next series) tells you how much information each edge carries and whether the system's confidence in those edges is justified."
+    learning_objectives:
+      - "Understand the dispatcher's degradation chain: ChiRho -> Pyro -> DoWhy -> NetworkX"
+      - "See the Pyro-aware fields waiting in CausalNode and CausalEdge (distribution_family, functional_form)"
+      - "Connect credit assignment to the Fisher manifold: where the two theory domains bind"
+    aha_moments:
+      - "The type system already has slots for distribution_family and learned_params. They're None right now. Phase 2 fills them. The architecture anticipated the upgrade path."
+      - "CreditAssigner.to_posterior_updates() outputs tangent vectors on the Fisher manifold. The alpha_delta and beta_delta ARE the direction of movement in belief space. The causal DAG chose the direction; the manifold determines the distance."
+    visual_hooks:
+      - type: table
+        description: "Degradation chain: library -> capabilities -> status"
+      - type: mermaid
+        description: "The binding surface: CreditAssigner -> posterior_updates -> Fisher manifold -> information distance"
+    falsifiable_claim:
+      statement: "NetworkX d-separation results are identical to DoWhy's when both are available"
+      test: "Future: when DoWhy backend lands, compare results on same DAG"
+
+supplements:
+  - concept: "Directed Acyclic Graphs (DAGs)"
+    reason: "Foundation for causal reasoning"
+    plausibility: "High: well-established theory (Pearl, 2009)"
+  - concept: "D-separation"
+    reason: "Core independence test"
+    plausibility: "High: implemented in networkx >= 3.3"
+  - concept: "Thompson Sampling"
+    reason: "The bandit that credit feeds into"
+    plausibility: "High: already running in buildlog"
+
+jargon_earning_order:
+  - term: "causal direction"
+    introduced: "1"
+    earned_by: "Seeing that REQUIRES and SUPPORTS carry information in opposite directions"
+  - term: "DAG"
+    introduced: "2"
+    earned_by: "Discovering that real KGs have cycles and needing to break them"
+  - term: "d-separation"
+    introduced: "3"
+    earned_by: "Asking 'what can I learn from here?' and finding that some paths are blocked"
+  - term: "credit assignment"
+    introduced: "4"
+    earned_by: "A rule works but involves three concepts: who gets the reward?"
+  - term: "degradation chain"
+    introduced: "5"
+    earned_by: "Seeing the dispatcher try libraries in order and fall back gracefully"
+
+style_rules:
+  - "Story-first opening: every chapter drops you into a concrete scenario"
+  - "Code-before-formula: compute it, plot it, THEN name it"
+  - "Visual every 2-3 sections: mermaid diagrams, tables, code output"
+  - "No em-dashes: colons, commas, parentheses"
+  - "Recap aggressively: assume the reader forgot 3 sections ago"
+  - "Personality: irreverent, direct, concrete before abstract"
+  - "All code runs on real ingested KG data, not synthetic examples"
+  - "Each chapter uses the qortex.causal module directly"
+
+falsifiable_claims:
+  - chapter: "1"
+    statement: "REQUIRES edges have higher confidence than SIMILAR_TO"
+    test: "Group edges by type, compare means"
+  - chapter: "2"
+    statement: "Broken edges have below-median strength"
+    test: "Check strength distribution of removed edges"
+  - chapter: "3"
+    statement: "D-separations grow faster than edge count"
+    test: "Measure on DAGs of increasing size"
+  - chapter: "4"
+    statement: "High-descendant concepts accumulate more credit"
+    test: "Correlate credit with descendant count"
+  - chapter: "5"
+    statement: "NetworkX matches DoWhy on d-separation"
+    test: "Future comparison"
