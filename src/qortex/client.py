@@ -231,6 +231,7 @@ class LocalQortexClient:
         embedding_model: Any = None,
         llm_backend: Any = None,
         mode: str = "auto",
+        interoception: Any = None,
     ) -> None:
         from qortex.hippocampus.adapter import GraphRAGAdapter, VecOnlyAdapter
 
@@ -242,7 +243,10 @@ class LocalQortexClient:
 
         if vector_index is not None and embedding_model is not None:
             if mode == "graph" or (mode == "auto" and self._has_graph_edges()):
-                self._adapter = GraphRAGAdapter(vector_index, backend, embedding_model)
+                self._adapter = GraphRAGAdapter(
+                    vector_index, backend, embedding_model,
+                    interoception=interoception,
+                )
             else:
                 self._adapter = VecOnlyAdapter(vector_index, backend, embedding_model)
         else:
