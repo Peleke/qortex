@@ -18,15 +18,18 @@ class InMemoryBackend:
 
     Designed for testing — no external dependencies required.
     Supports all GraphBackend operations except Cypher queries.
+    Optionally supports vector search when a VectorIndex is provided.
     """
 
-    def __init__(self) -> None:
+    def __init__(self, vector_index=None) -> None:
         self._connected = False
         self._domains: dict[str, Domain] = {}
         self._nodes: dict[str, ConceptNode] = {}
         self._edges: list[ConceptEdge] = []
         self._rules: dict[str, ExplicitRule] = {}
         self._checkpoints: dict[str, dict] = {}
+        self._embeddings: dict[str, list[float]] = {}
+        self._vector_index = vector_index  # Optional VectorIndex instance
 
     # -------------------------------------------------------------------------
     # Connection
@@ -250,6 +253,82 @@ class InMemoryBackend:
             frontier = next_frontier
 
         return scores
+
+    # -------------------------------------------------------------------------
+    # Vector Operations
+    # -------------------------------------------------------------------------
+
+    def add_embedding(self, node_id: str, embedding: list[float]) -> None:
+        """Store embedding and optionally index it."""
+        self._embeddings[node_id] = embedding
+        if self._vector_index is not None:
+            self._vector_index.add([node_id], [embedding])
+
+    def get_embedding(self, node_id: str) -> list[float] | None:
+        return self._embeddings.get(node_id)
+
+    def vector_search(
+        self,
+        query_embedding: list[float],
+        domain: str | None = None,
+        top_k: int = 10,
+        threshold: float = 0.0,
+    ) -> list[tuple[ConceptNode, float]]:
+        """Vector similarity search over concept embeddings."""
+        if self._vector_index is not None:
+            # Use the index for fast search
+            results = self._vector_index.search(query_embedding, top_k=top_k * 2, threshold=threshold)
+            filtered = []
+            for node_id, score in results:
+                node = self._nodes.get(node_id)
+                if node is None:
+                    continue
+                if domain and node.domain != domain:
+                    continue
+                filtered.append((node, score))
+                if len(filtered) >= top_k:
+                    break
+            return filtered
+
+        # Fallback: brute-force over stored embeddings
+        if not self._embeddings:
+            return []
+
+        try:
+            import numpy as np
+        except ImportError:
+            return []
+
+        query = np.array(query_embedding, dtype=np.float32)
+        norm = np.linalg.norm(query)
+        if norm == 0:
+            return []
+        query = query / norm
+
+        scores: list[tuple[str, float]] = []
+        for node_id, emb in self._embeddings.items():
+            if domain:
+                node = self._nodes.get(node_id)
+                if node is None or node.domain != domain:
+                    continue
+            vec = np.array(emb, dtype=np.float32)
+            vec_norm = np.linalg.norm(vec)
+            if vec_norm == 0:
+                continue
+            sim = float(np.dot(query, vec / vec_norm))
+            if sim >= threshold:
+                scores.append((node_id, sim))
+
+        scores.sort(key=lambda x: -x[1])
+        results = []
+        for node_id, score in scores[:top_k]:
+            node = self._nodes.get(node_id)
+            if node:
+                results.append((node, score))
+        return results
+
+    def supports_vector_search(self) -> bool:
+        return bool(self._embeddings) or self._vector_index is not None
 
     # -------------------------------------------------------------------------
     # Checkpointing

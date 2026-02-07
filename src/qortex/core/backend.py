@@ -190,6 +190,46 @@ class GraphBackend(Protocol):
         ...
 
     # -------------------------------------------------------------------------
+    # Vector Operations
+    # -------------------------------------------------------------------------
+
+    @abstractmethod
+    def add_embedding(self, node_id: str, embedding: list[float]) -> None:
+        """Store an embedding vector for a concept node."""
+        ...
+
+    @abstractmethod
+    def get_embedding(self, node_id: str) -> list[float] | None:
+        """Retrieve the embedding vector for a concept node."""
+        ...
+
+    @abstractmethod
+    def vector_search(
+        self,
+        query_embedding: list[float],
+        domain: str | None = None,
+        top_k: int = 10,
+        threshold: float = 0.0,
+    ) -> list[tuple[ConceptNode, float]]:
+        """Find nodes by vector similarity.
+
+        Args:
+            query_embedding: Query vector.
+            domain: Restrict search to a domain.
+            top_k: Max results.
+            threshold: Min cosine similarity.
+
+        Returns:
+            List of (node, score) tuples sorted by descending similarity.
+        """
+        ...
+
+    @abstractmethod
+    def supports_vector_search(self) -> bool:
+        """Whether this backend has vector search capabilities."""
+        ...
+
+    # -------------------------------------------------------------------------
     # Checkpointing
     # -------------------------------------------------------------------------
 
@@ -662,6 +702,92 @@ class MemgraphBackend:
             return {}
 
     # -------------------------------------------------------------------------
+    # Vector Operations
+    # -------------------------------------------------------------------------
+
+    def add_embedding(self, node_id: str, embedding: list[float]) -> None:
+        """Store embedding as a JSON property on the Concept node."""
+        self._run(
+            "MATCH (c:Concept {id: $id}) SET c.embedding = $emb",
+            {"id": node_id, "emb": json.dumps(embedding)},
+        )
+
+    def get_embedding(self, node_id: str) -> list[float] | None:
+        record = self._run_single(
+            "MATCH (c:Concept {id: $id}) RETURN c.embedding AS emb",
+            {"id": node_id},
+        )
+        if not record or not record.get("emb"):
+            return None
+        return json.loads(record["emb"])
+
+    def vector_search(
+        self,
+        query_embedding: list[float],
+        domain: str | None = None,
+        top_k: int = 10,
+        threshold: float = 0.0,
+    ) -> list[tuple[ConceptNode, float]]:
+        """Vector search over Memgraph-stored embeddings.
+
+        Memgraph doesn't have native vector indexing — retrieves embeddings
+        and computes cosine similarity application-side.
+        """
+        try:
+            import numpy as np
+        except ImportError:
+            logger.warning("numpy required for vector_search")
+            return []
+
+        if domain:
+            records = self._run(
+                "MATCH (c:Concept {domain: $domain}) WHERE c.embedding IS NOT NULL "
+                "RETURN c.id AS id, c.name AS name, c.description AS description, "
+                "c.domain AS domain, c.source_id AS source_id, "
+                "c.source_location AS source_location, c.confidence AS confidence, "
+                "c.properties AS properties, c.embedding AS embedding",
+                {"domain": domain},
+            )
+        else:
+            records = self._run(
+                "MATCH (c:Concept) WHERE c.embedding IS NOT NULL "
+                "RETURN c.id AS id, c.name AS name, c.description AS description, "
+                "c.domain AS domain, c.source_id AS source_id, "
+                "c.source_location AS source_location, c.confidence AS confidence, "
+                "c.properties AS properties, c.embedding AS embedding"
+            )
+
+        if not records:
+            return []
+
+        query = np.array(query_embedding, dtype=np.float32)
+        norm = np.linalg.norm(query)
+        if norm == 0:
+            return []
+        query = query / norm
+
+        scored: list[tuple[dict, float]] = []
+        for r in records:
+            emb = json.loads(r["embedding"]) if isinstance(r["embedding"], str) else r["embedding"]
+            vec = np.array(emb, dtype=np.float32)
+            vec_norm = np.linalg.norm(vec)
+            if vec_norm == 0:
+                continue
+            sim = float(np.dot(query, vec / vec_norm))
+            if sim >= threshold:
+                scored.append((r, sim))
+
+        scored.sort(key=lambda x: -x[1])
+        results = []
+        for r, score in scored[:top_k]:
+            node = _record_to_concept(r)
+            results.append((node, score))
+        return results
+
+    def supports_vector_search(self) -> bool:
+        return True
+
+    # -------------------------------------------------------------------------
     # Checkpointing (Memgraph snapshots)
     # -------------------------------------------------------------------------
 
@@ -796,7 +922,23 @@ class SQLiteBackend:
         """Simple BFS-based approximation (not true PPR)."""
         raise NotImplementedError("M3: Implement simple traversal fallback")
 
-    # ... other methods similar stubs ...
+    def add_embedding(self, node_id: str, embedding: list[float]) -> None:
+        raise NotImplementedError("SQLiteBackend vector ops not yet implemented")
+
+    def get_embedding(self, node_id: str) -> list[float] | None:
+        raise NotImplementedError("SQLiteBackend vector ops not yet implemented")
+
+    def vector_search(
+        self,
+        query_embedding: list[float],
+        domain: str | None = None,
+        top_k: int = 10,
+        threshold: float = 0.0,
+    ) -> list[tuple[ConceptNode, float]]:
+        raise NotImplementedError("SQLiteBackend vector ops not yet implemented")
+
+    def supports_vector_search(self) -> bool:
+        return False
 
 
 def get_backend(prefer_memgraph: bool = True) -> GraphBackend:

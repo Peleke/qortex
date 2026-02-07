@@ -15,12 +15,19 @@ Usage:
     results = index.search(model.embed(["hi"])[0], top_k=1)
 """
 
-from qortex.vec.embeddings import EmbeddingModel, SentenceTransformerEmbedding
+from qortex.vec.embeddings import (
+    EmbeddingModel,
+    OllamaEmbedding,
+    OpenAIEmbedding,
+    SentenceTransformerEmbedding,
+)
 from qortex.vec.index import NumpyVectorIndex, VectorIndex
 
 __all__ = [
     "EmbeddingModel",
     "NumpyVectorIndex",
+    "OllamaEmbedding",
+    "OpenAIEmbedding",
     "SentenceTransformerEmbedding",
     "VectorIndex",
 ]
