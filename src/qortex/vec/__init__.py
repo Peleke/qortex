@@ -15,6 +15,7 @@ Usage:
     results = index.search(model.embed(["hi"])[0], top_k=1)
 """
 
+from qortex.vec.cache import CachedEmbeddingModel
 from qortex.vec.embeddings import (
     EmbeddingModel,
     OllamaEmbedding,
@@ -24,6 +25,7 @@ from qortex.vec.embeddings import (
 from qortex.vec.index import NumpyVectorIndex, VectorIndex
 
 __all__ = [
+    "CachedEmbeddingModel",
     "EmbeddingModel",
     "NumpyVectorIndex",
     "OllamaEmbedding",

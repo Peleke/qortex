@@ -50,19 +50,30 @@ class FakeEmbedding:
 def _reset_server_state():
     """Reset server globals between tests."""
     mcp_server._backend = None
+    mcp_server._vector_index = None
     mcp_server._adapter = None
     mcp_server._embedding_model = None
     mcp_server._llm_backend = None
     yield
     mcp_server._backend = None
+    mcp_server._vector_index = None
     mcp_server._adapter = None
     mcp_server._embedding_model = None
     mcp_server._llm_backend = None
 
 
 @pytest.fixture
-def backend() -> InMemoryBackend:
-    b = InMemoryBackend()
+def vector_index():
+    """In-memory vector index for testing."""
+    from qortex.vec.index import NumpyVectorIndex
+
+    return NumpyVectorIndex(dimensions=DIMS)
+
+
+@pytest.fixture
+def backend(vector_index) -> InMemoryBackend:
+    """Backend wired to vector_index for dual-write on add_embedding."""
+    b = InMemoryBackend(vector_index=vector_index)
     b.connect()
     return b
 
@@ -73,9 +84,13 @@ def embedding() -> FakeEmbedding:
 
 
 @pytest.fixture
-def configured_server(backend, embedding):
-    """Server with backend + embedding model configured."""
-    mcp_server.create_server(backend=backend, embedding_model=embedding)
+def configured_server(backend, embedding, vector_index):
+    """Server with independent vec + graph layers configured."""
+    mcp_server.create_server(
+        backend=backend,
+        embedding_model=embedding,
+        vector_index=vector_index,
+    )
     return mcp_server
 
 
@@ -90,7 +105,11 @@ def _make_node(node_id: str, name: str, desc: str, domain: str = "test") -> Conc
 
 
 def _add_nodes_with_embeddings(backend, embedding, nodes: list[ConceptNode]) -> None:
-    """Add nodes to backend and index their embeddings."""
+    """Add nodes to backend and index their embeddings.
+
+    InMemoryBackend.add_embedding() dual-writes to both internal storage
+    and the vector_index (if configured), so VecOnlyAdapter can find them.
+    """
     for node in nodes:
         backend.add_node(node)
 
@@ -485,13 +504,29 @@ class TestIngestQueryRoundtrip:
 
 
 class TestServerConfiguration:
-    def test_create_server_returns_mcp_instance(self, backend, embedding):
-        result = mcp_server.create_server(backend=backend, embedding_model=embedding)
+    def test_create_server_returns_mcp_instance(self, backend, embedding, vector_index):
+        result = mcp_server.create_server(
+            backend=backend, embedding_model=embedding, vector_index=vector_index
+        )
         assert result is mcp_server.mcp
 
     def test_create_server_without_embedding(self, backend):
         mcp_server.create_server(backend=backend, embedding_model=None)
         assert mcp_server._adapter is None
+        assert mcp_server._vector_index is None
+
+    def test_create_server_auto_creates_vector_index(self, backend, embedding):
+        """When no vector_index is provided but embedding_model is, auto-create one."""
+        mcp_server.create_server(backend=backend, embedding_model=embedding)
+        assert mcp_server._vector_index is not None
+        assert mcp_server._adapter is not None
+
+    def test_create_server_with_explicit_vector_index(self, backend, embedding, vector_index):
+        """Explicit vector_index is used instead of auto-created one."""
+        mcp_server.create_server(
+            backend=backend, embedding_model=embedding, vector_index=vector_index
+        )
+        assert mcp_server._vector_index is vector_index
 
     def test_set_llm_backend(self, configured_server):
         from qortex_ingest.base import StubLLMBackend

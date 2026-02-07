@@ -11,11 +11,17 @@ Architecture:
     Each tool has a plain `_<name>_impl()` function with the core logic,
     plus an `@mcp.tool`-decorated wrapper that delegates to it.
     Tests call the `_impl` functions directly; MCP clients hit the wrappers.
+
+    Vec layer and graph layer are independent:
+        QORTEX_VEC=memory|sqlite   → VectorIndex (similarity search)
+        QORTEX_GRAPH=memory|memgraph → GraphBackend (node metadata, PPR, rules)
+    The adapter composes both layers.
 """
 
 from __future__ import annotations
 
 import logging
+import os
 from pathlib import Path
 from typing import Any
 
@@ -30,7 +36,8 @@ logger = logging.getLogger(__name__)
 # Server-level state: initialized once via create_server() or serve()
 # ---------------------------------------------------------------------------
 
-_backend: Any = None
+_backend: Any = None  # GraphBackend: node metadata, domains, rules, PPR
+_vector_index: Any = None  # VectorIndex: similarity search (independent)
 _adapter: Any = None
 _embedding_model: Any = None
 
@@ -38,44 +45,102 @@ mcp = FastMCP("qortex")
 
 
 def _ensure_initialized() -> None:
-    """Lazy initialization: set up backend + adapter if not already done."""
-    global _backend, _adapter, _embedding_model
+    """Lazy initialization: set up vec + graph layers from env config."""
+    global _backend, _vector_index, _adapter, _embedding_model
 
     if _backend is not None:
         return
 
-    # Default: InMemoryBackend (no Docker required).
-    # Production users configure Memgraph via env or create_server().
-    _backend = InMemoryBackend()
-    _backend.connect()
-
-    # Try to load sentence-transformers for embeddings
+    # --- Embedding model ---
     try:
         from qortex.vec.embeddings import SentenceTransformerEmbedding
 
         _embedding_model = SentenceTransformerEmbedding()
-        _adapter = VecOnlyAdapter(_backend, _embedding_model)
     except ImportError:
         logger.warning("qortex[vec] not installed. Vector search unavailable.")
         _embedding_model = None
+
+    # --- Vec layer (independent of graph) ---
+    if _embedding_model is not None:
+        vec_backend = os.environ.get("QORTEX_VEC", "sqlite")
+        if vec_backend == "sqlite":
+            try:
+                from qortex.vec.index import SqliteVecIndex
+
+                vec_path = Path("~/.qortex/vectors.db").expanduser()
+                _vector_index = SqliteVecIndex(
+                    db_path=str(vec_path), dimensions=_embedding_model.dimensions
+                )
+            except ImportError:
+                logger.warning(
+                    "sqlite-vec not installed, using in-memory vector index. "
+                    "Install qortex[vec-sqlite] for persistence."
+                )
+                from qortex.vec.index import NumpyVectorIndex
+
+                _vector_index = NumpyVectorIndex(dimensions=_embedding_model.dimensions)
+        else:  # "memory"
+            from qortex.vec.index import NumpyVectorIndex
+
+            _vector_index = NumpyVectorIndex(dimensions=_embedding_model.dimensions)
+
+    # --- Graph layer (independent of vec) ---
+    graph_backend = os.environ.get("QORTEX_GRAPH", "memory")
+    if graph_backend == "memgraph":
+        try:
+            from qortex.core.backend import MemgraphBackend
+
+            host = os.environ.get("MEMGRAPH_HOST", "localhost")
+            port = int(os.environ.get("MEMGRAPH_PORT", "7687"))
+            _backend = MemgraphBackend(host=host, port=port)
+            _backend.connect()
+        except (ImportError, Exception) as e:
+            logger.warning("Memgraph unavailable (%s), falling back to InMemoryBackend.", e)
+            _backend = InMemoryBackend(vector_index=_vector_index)
+            _backend.connect()
+    else:  # "memory"
+        _backend = InMemoryBackend(vector_index=_vector_index)
+        _backend.connect()
+
+    # --- Compose adapter ---
+    if _vector_index is not None and _embedding_model is not None:
+        _adapter = VecOnlyAdapter(_vector_index, _backend, _embedding_model)
+    else:
         _adapter = None
 
 
 def create_server(
     backend: Any = None,
     embedding_model: Any = None,
+    vector_index: Any = None,
 ) -> FastMCP:
-    """Create and configure the MCP server with explicit backend/embedding model.
+    """Create and configure the MCP server with explicit layers.
+
+    Args:
+        backend: GraphBackend for node metadata, domains, rules.
+        embedding_model: EmbeddingModel for query/document embedding.
+        vector_index: VectorIndex for similarity search. If None and
+            embedding_model is provided, creates a NumpyVectorIndex.
 
     Used by tests and advanced configurations. For normal usage, call serve().
     """
-    global _backend, _adapter, _embedding_model
+    global _backend, _vector_index, _adapter, _embedding_model
 
     _backend = backend
     _embedding_model = embedding_model
 
-    if _backend is not None and _embedding_model is not None:
-        _adapter = VecOnlyAdapter(_backend, _embedding_model)
+    # Auto-create in-memory vector index if not provided
+    if vector_index is not None:
+        _vector_index = vector_index
+    elif _embedding_model is not None:
+        from qortex.vec.index import NumpyVectorIndex
+
+        _vector_index = NumpyVectorIndex(dimensions=_embedding_model.dimensions)
+    else:
+        _vector_index = None
+
+    if _vector_index is not None and _backend is not None and _embedding_model is not None:
+        _adapter = VecOnlyAdapter(_vector_index, _backend, _embedding_model)
     else:
         _adapter = None
 
@@ -205,10 +270,17 @@ def _ingest_impl(
     manifest = ingestor.ingest(source, domain=domain)
     _backend.ingest_manifest(manifest)
 
-    # Index embeddings in backend
+    # Dual-write embeddings: VectorIndex (for search) + backend (for graph storage)
+    ids_with_embeddings = []
+    embeddings_list = []
     for concept in manifest.concepts:
         if concept.embedding is not None:
             _backend.add_embedding(concept.id, concept.embedding)
+            ids_with_embeddings.append(concept.id)
+            embeddings_list.append(concept.embedding)
+
+    if _vector_index is not None and ids_with_embeddings:
+        _vector_index.add(ids_with_embeddings, embeddings_list)
 
     return {
         "domain": domain,
@@ -242,13 +314,14 @@ def _status_impl() -> dict:
     _ensure_initialized()
 
     backend_type = type(_backend).__name__
-    has_vec = _embedding_model is not None
+    has_vec = _vector_index is not None
     has_mage = _backend.supports_mage() if _backend else False
     domain_count = len(_backend.list_domains()) if _backend else 0
 
     return {
         "status": "ok",
         "backend": backend_type,
+        "vector_index": type(_vector_index).__name__ if _vector_index else None,
         "vector_search": has_vec,
         "graph_algorithms": has_mage,
         "domain_count": domain_count,

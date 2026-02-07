@@ -72,9 +72,18 @@ def make_node(domain: str, name: str, desc: str = "") -> ConceptNode:
     )
 
 
-def make_backend_with_nodes(nodes: list[ConceptNode], embeddings: dict[str, list[float]] | None = None):
-    """Create an InMemoryBackend pre-populated with nodes and optional embeddings."""
-    backend = InMemoryBackend()
+def make_backend_with_nodes(
+    nodes: list[ConceptNode],
+    embeddings: dict[str, list[float]] | None = None,
+    dims: int = 3,
+):
+    """Create an InMemoryBackend + NumpyVectorIndex pre-populated with nodes.
+
+    Returns (backend, vector_index) tuple. Both layers are wired together:
+    InMemoryBackend dual-writes to vector_index on add_embedding().
+    """
+    vector_index = NumpyVectorIndex(dimensions=dims)
+    backend = InMemoryBackend(vector_index=vector_index)
     backend.connect()
     domains = {n.domain for n in nodes}
     for d in domains:
@@ -84,7 +93,7 @@ def make_backend_with_nodes(nodes: list[ConceptNode], embeddings: dict[str, list
     if embeddings:
         for nid, emb in embeddings.items():
             backend.add_embedding(nid, emb)
-    return backend
+    return backend, vector_index
 
 
 # =============================================================================
@@ -571,14 +580,19 @@ class TestInMemoryBackendVectorSearch:
 
 
 class TestVecOnlyAdapter:
-    """Tests for VecOnlyAdapter retrieval."""
+    """Tests for VecOnlyAdapter retrieval.
+
+    VecOnlyAdapter composes independent vec + graph layers:
+    - vector_index: similarity search (finds candidate IDs)
+    - backend: node metadata lookup (resolves IDs to concepts)
+    """
 
     def test_retrieve_returns_results(self):
-        backend = make_backend_with_nodes(
+        backend, vector_index = make_backend_with_nodes(
             [make_node("test", "concept1")],
             {"test:concept1": [0.5, 0.5, 0.5]},
         )
-        adapter = VecOnlyAdapter(backend, FakeEmbedding())
+        adapter = VecOnlyAdapter(vector_index, backend, FakeEmbedding())
         result = adapter.retrieve("test query", top_k=5)
 
         assert len(result.items) > 0
@@ -586,30 +600,31 @@ class TestVecOnlyAdapter:
         assert result.items[0].domain == "test"
 
     def test_retrieve_with_domain_filter(self):
-        backend = make_backend_with_nodes(
+        backend, vector_index = make_backend_with_nodes(
             [make_node("d1", "a"), make_node("d2", "b")],
             {"d1:a": [0.5, 0.5, 0.5], "d2:b": [0.5, 0.5, 0.5]},
         )
-        adapter = VecOnlyAdapter(backend, FakeEmbedding())
+        adapter = VecOnlyAdapter(vector_index, backend, FakeEmbedding())
         result = adapter.retrieve("test", domains=["d1"], top_k=5)
 
         assert all(item.domain == "d1" for item in result.items)
 
     def test_retrieve_empty_backend(self):
-        backend = InMemoryBackend()
+        vector_index = NumpyVectorIndex(dimensions=3)
+        backend = InMemoryBackend(vector_index=vector_index)
         backend.connect()
-        adapter = VecOnlyAdapter(backend, FakeEmbedding())
+        adapter = VecOnlyAdapter(vector_index, backend, FakeEmbedding())
         result = adapter.retrieve("anything")
 
         assert len(result.items) == 0
         assert result.query_id  # Still has a query_id
 
     def test_retrieve_populates_all_fields(self):
-        backend = make_backend_with_nodes(
+        backend, vector_index = make_backend_with_nodes(
             [make_node("test", "foo", "A foo thing")],
             {"test:foo": [0.5, 0.5, 0.5]},
         )
-        adapter = VecOnlyAdapter(backend, FakeEmbedding())
+        adapter = VecOnlyAdapter(vector_index, backend, FakeEmbedding())
         result = adapter.retrieve("test query")
 
         assert len(result.items) >= 1
@@ -621,50 +636,51 @@ class TestVecOnlyAdapter:
         assert item.node_id == "test:foo"
 
     def test_retrieve_activated_nodes_populated(self):
-        backend = make_backend_with_nodes(
+        backend, vector_index = make_backend_with_nodes(
             [make_node("test", "a"), make_node("test", "b")],
             {"test:a": [0.5, 0.5, 0.5], "test:b": [0.4, 0.4, 0.4]},
         )
-        adapter = VecOnlyAdapter(backend, FakeEmbedding())
+        adapter = VecOnlyAdapter(vector_index, backend, FakeEmbedding())
         result = adapter.retrieve("test", top_k=5)
 
         assert len(result.activated_nodes) == len(result.items)
 
     def test_retrieve_query_id_unique(self):
-        backend = make_backend_with_nodes(
+        backend, vector_index = make_backend_with_nodes(
             [make_node("test", "x")],
             {"test:x": [1, 0, 0]},
         )
-        adapter = VecOnlyAdapter(backend, FakeEmbedding())
+        adapter = VecOnlyAdapter(vector_index, backend, FakeEmbedding())
         r1 = adapter.retrieve("q1")
         r2 = adapter.retrieve("q2")
         assert r1.query_id != r2.query_id
 
     def test_retrieve_with_multiple_domains(self):
-        backend = make_backend_with_nodes(
+        backend, vector_index = make_backend_with_nodes(
             [make_node("d1", "a"), make_node("d2", "b"), make_node("d3", "c")],
             {"d1:a": [0.5, 0.5, 0.5], "d2:b": [0.5, 0.5, 0.5], "d3:c": [0.5, 0.5, 0.5]},
         )
-        adapter = VecOnlyAdapter(backend, FakeEmbedding())
+        adapter = VecOnlyAdapter(vector_index, backend, FakeEmbedding())
         result = adapter.retrieve("test", domains=["d1", "d3"], top_k=10)
 
         domains_returned = {item.domain for item in result.items}
         assert "d2" not in domains_returned
 
     def test_feedback_is_noop(self):
-        backend = InMemoryBackend()
-        adapter = VecOnlyAdapter(backend, FakeEmbedding())
+        vector_index = NumpyVectorIndex(dimensions=3)
+        backend = InMemoryBackend(vector_index=vector_index)
+        adapter = VecOnlyAdapter(vector_index, backend, FakeEmbedding())
         adapter.feedback("q1", {"item1": "accepted"})  # Should not raise
 
     def test_retrieve_respects_min_confidence(self):
         """High min_confidence should filter out low-scoring results."""
-        backend = make_backend_with_nodes(
+        backend, vector_index = make_backend_with_nodes(
             [make_node("test", "close"), make_node("test", "far")],
             {"test:close": [1.0, 0.0, 0.0], "test:far": [0.0, 1.0, 0.0]},
         )
         # Use controlled embedding that produces a known query vector
         emb = ControlledEmbedding({"test query": [1.0, 0.0, 0.0]})
-        adapter = VecOnlyAdapter(backend, emb)
+        adapter = VecOnlyAdapter(vector_index, backend, emb)
         result = adapter.retrieve("test query", min_confidence=0.9, top_k=5)
 
         # Only "close" should survive the threshold
@@ -893,13 +909,117 @@ class TestGetAdapter:
     def test_returns_vec_adapter_for_non_mage_backend(self):
         from qortex.hippocampus.adapter import VecOnlyAdapter, get_adapter
 
+        vector_index = NumpyVectorIndex(dimensions=3)
         backend = InMemoryBackend()  # supports_mage() = False
-        adapter = get_adapter(backend, FakeEmbedding())
+        adapter = get_adapter(vector_index, backend, FakeEmbedding())
         assert isinstance(adapter, VecOnlyAdapter)
 
     def test_raises_without_embedding_model(self):
         from qortex.hippocampus.adapter import get_adapter
 
+        vector_index = NumpyVectorIndex(dimensions=3)
         backend = InMemoryBackend()
         with pytest.raises(ValueError, match="No embedding model"):
-            get_adapter(backend, embedding_model=None)
+            get_adapter(vector_index, backend, embedding_model=None)
+
+
+# =============================================================================
+# CachedEmbeddingModel
+# =============================================================================
+
+
+class TestCachedEmbeddingModel:
+    """Tests for the embedding cache wrapper."""
+
+    def test_cache_returns_same_results(self):
+        from qortex.vec.cache import CachedEmbeddingModel
+
+        inner = FakeEmbedding()
+        cached = CachedEmbeddingModel(inner)
+
+        r1 = cached.embed(["hello"])
+        r2 = cached.embed(["hello"])
+        assert r1 == r2
+
+    def test_cache_hits_avoid_model_call(self):
+        from qortex.vec.cache import CachedEmbeddingModel
+
+        call_count = 0
+
+        class CountingEmbedding:
+            @property
+            def dimensions(self) -> int:
+                return 3
+
+            def embed(self, texts):
+                nonlocal call_count
+                call_count += len(texts)
+                return FakeEmbedding().embed(texts)
+
+        cached = CachedEmbeddingModel(CountingEmbedding())
+        cached.embed(["a", "b", "c"])
+        assert call_count == 3
+
+        # Second call — all cached, no new model calls
+        cached.embed(["a", "b", "c"])
+        assert call_count == 3
+
+    def test_cache_partial_hit(self):
+        from qortex.vec.cache import CachedEmbeddingModel
+
+        call_count = 0
+
+        class CountingEmbedding:
+            @property
+            def dimensions(self) -> int:
+                return 3
+
+            def embed(self, texts):
+                nonlocal call_count
+                call_count += len(texts)
+                return FakeEmbedding().embed(texts)
+
+        cached = CachedEmbeddingModel(CountingEmbedding())
+        cached.embed(["a", "b"])  # 2 misses
+        assert call_count == 2
+
+        cached.embed(["b", "c"])  # 1 hit (b), 1 miss (c)
+        assert call_count == 3
+
+    def test_cache_stats(self):
+        from qortex.vec.cache import CachedEmbeddingModel
+
+        cached = CachedEmbeddingModel(FakeEmbedding(), max_size=100)
+        cached.embed(["x", "y"])
+        cached.embed(["x"])  # hit
+
+        stats = cached.cache_stats
+        assert stats["hits"] == 1
+        assert stats["misses"] == 2
+        assert stats["size"] == 2
+
+    def test_cache_lru_eviction(self):
+        from qortex.vec.cache import CachedEmbeddingModel
+
+        cached = CachedEmbeddingModel(FakeEmbedding(), max_size=2)
+        cached.embed(["a"])
+        cached.embed(["b"])
+        cached.embed(["c"])  # evicts "a"
+
+        assert cached.cache_stats["size"] == 2
+
+    def test_cache_clear(self):
+        from qortex.vec.cache import CachedEmbeddingModel
+
+        cached = CachedEmbeddingModel(FakeEmbedding())
+        cached.embed(["a"])
+        cached.clear()
+        assert cached.cache_stats["size"] == 0
+        assert cached.cache_stats["hits"] == 0
+
+    def test_cache_dimensions_delegates(self):
+        from qortex.vec.cache import CachedEmbeddingModel
+
+        inner = FakeEmbedding(dims=7)
+        cached = CachedEmbeddingModel(inner)
+        assert cached.dimensions == 7

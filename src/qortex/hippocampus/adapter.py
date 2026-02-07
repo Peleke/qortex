@@ -72,14 +72,18 @@ class RetrievalAdapter(Protocol):
 
 
 class VecOnlyAdapter:
-    """Passthrough: pure vector search, no graph.
+    """Pure vector similarity search, no graph reasoning.
 
-    Default when qortex[vec] only (no graph backend or HippoRAG).
-    Embeds query → vector_search on backend → wrap as RetrievalResult.
+    Default adapter when only qortex[vec] is installed. Searches the
+    VectorIndex directly for candidate IDs, then resolves node metadata
+    from the GraphBackend.
+
+    Vec layer and graph layer are independent — this adapter composes them.
     """
 
-    def __init__(self, backend: GraphBackend, embedding_model) -> None:
-        self.backend = backend
+    def __init__(self, vector_index, backend: GraphBackend, embedding_model) -> None:
+        self.vector_index = vector_index  # VectorIndex: similarity search
+        self.backend = backend  # GraphBackend: node metadata lookup
         self.embedding_model = embedding_model
 
     def retrieve(
@@ -91,36 +95,36 @@ class VecOnlyAdapter:
     ) -> RetrievalResult:
         query_id = str(uuid.uuid4())
 
-        # Embed query
+        # 1. Embed query
         query_embedding = self.embedding_model.embed([query])[0]
 
-        # Search each domain (or all)
-        if domains:
-            all_results: list[tuple[ConceptNode, float]] = []
-            for domain in domains:
-                results = self.backend.vector_search(
-                    query_embedding, domain=domain, top_k=top_k, threshold=min_confidence
-                )
-                all_results.extend(results)
-            # Re-sort by score and truncate
-            all_results.sort(key=lambda x: -x[1])
-            all_results = all_results[:top_k]
-        else:
-            all_results = self.backend.vector_search(
-                query_embedding, domain=None, top_k=top_k, threshold=min_confidence
-            )
+        # 2. Search VectorIndex directly (not backend.vector_search)
+        # Over-fetch to allow for domain filtering
+        fetch_k = top_k * 2 if domains else top_k
+        vec_results = self.vector_index.search(
+            query_embedding, top_k=fetch_k, threshold=min_confidence
+        )
 
-        items = [
-            RetrievalItem(
-                id=node.id,
-                content=f"{node.name}: {node.description}",
-                score=score,
-                domain=node.domain,
-                node_id=node.id,
-                metadata=node.properties,
+        # 3. Resolve node metadata from backend and filter by domain
+        items: list[RetrievalItem] = []
+        for node_id, score in vec_results:
+            node = self.backend.get_node(node_id)
+            if node is None:
+                continue
+            if domains and node.domain not in domains:
+                continue
+            items.append(
+                RetrievalItem(
+                    id=node.id,
+                    content=f"{node.name}: {node.description}",
+                    score=score,
+                    domain=node.domain,
+                    node_id=node.id,
+                    metadata=node.properties,
+                )
             )
-            for node, score in all_results
-        ]
+            if len(items) >= top_k:
+                break
 
         return RetrievalResult(
             items=items,
@@ -136,21 +140,27 @@ class VecOnlyAdapter:
 class HippoRAGAdapter:
     """Vec seeds → PPR over graph → rule collection. Requires qortex[all].
 
-    1. Embed query → vector_search → seed nodes
-    2. PPR from seeds (with teleportation factors)
-    3. Collect rules from activated concepts
-    4. Return combined results
+    1. Embed query → VectorIndex.search() → seed nodes
+    2. Online cosine-sim graph gen (fills KG gaps) + persistent KG edges
+    3. PPR over merged graph (with teleportation factors)
+    4. Collect rules from activated concepts
+    5. Return combined results
+
+    Vec layer and graph layer are independent — this adapter composes them
+    for graph-enhanced retrieval.
 
     Implementation: Phase 4.
     """
 
     def __init__(
         self,
+        vector_index,
         backend: GraphBackend,
         embedding_model,
         teleportation_factors: dict[str, float] | None = None,
     ) -> None:
-        self.backend = backend
+        self.vector_index = vector_index  # VectorIndex: find seed nodes
+        self.backend = backend  # GraphBackend: PPR + rules + node metadata
         self.embedding_model = embedding_model
         self.teleportation_factors = teleportation_factors or {}
 
@@ -168,6 +178,7 @@ class HippoRAGAdapter:
 
 
 def get_adapter(
+    vector_index,
     backend: GraphBackend,
     embedding_model=None,
     teleportation_factors: dict[str, float] | None = None,
@@ -177,6 +188,6 @@ def get_adapter(
         raise ValueError("No embedding model — cannot create retrieval adapter")
 
     if backend.supports_mage():
-        return HippoRAGAdapter(backend, embedding_model, teleportation_factors)
+        return HippoRAGAdapter(vector_index, backend, embedding_model, teleportation_factors)
 
-    return VecOnlyAdapter(backend, embedding_model)
+    return VecOnlyAdapter(vector_index, backend, embedding_model)
