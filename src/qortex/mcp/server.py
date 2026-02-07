@@ -38,7 +38,8 @@ logger = logging.getLogger(__name__)
 
 _backend: Any = None  # GraphBackend: node metadata, domains, rules, PPR
 _vector_index: Any = None  # VectorIndex: similarity search (independent)
-_adapter: Any = None
+_adapter: Any = None  # VecOnlyAdapter (Level 0)
+_graph_adapter: Any = None  # GraphRAGAdapter (Level 1+)
 _embedding_model: Any = None
 
 mcp = FastMCP("qortex")
@@ -102,11 +103,32 @@ def _ensure_initialized() -> None:
         _backend = InMemoryBackend(vector_index=_vector_index)
         _backend.connect()
 
-    # --- Compose adapter ---
+    # --- Compose adapters ---
     if _vector_index is not None and _embedding_model is not None:
         _adapter = VecOnlyAdapter(_vector_index, _backend, _embedding_model)
+
+        # Graph adapter: GraphRAGAdapter for Level 1+ retrieval
+        from qortex.hippocampus.adapter import GraphRAGAdapter
+
+        _graph_adapter = GraphRAGAdapter(_vector_index, _backend, _embedding_model)
     else:
         _adapter = None
+        _graph_adapter = None
+
+
+def _select_adapter(mode: str = "auto"):
+    """Select the right adapter based on mode.
+
+    "vec":   VecOnlyAdapter (Level 0, pure cosine similarity)
+    "graph": GraphRAGAdapter (Level 1+, PPR over merged graph)
+    "auto":  graph if available, else vec
+    """
+    if mode == "vec":
+        return _adapter
+    if mode == "graph":
+        return _graph_adapter or _adapter
+    # auto: prefer graph if it exists
+    return _graph_adapter or _adapter
 
 
 def create_server(
@@ -124,7 +146,7 @@ def create_server(
 
     Used by tests and advanced configurations. For normal usage, call serve().
     """
-    global _backend, _vector_index, _adapter, _embedding_model
+    global _backend, _vector_index, _adapter, _graph_adapter, _embedding_model
 
     _backend = backend
     _embedding_model = embedding_model
@@ -141,8 +163,12 @@ def create_server(
 
     if _vector_index is not None and _backend is not None and _embedding_model is not None:
         _adapter = VecOnlyAdapter(_vector_index, _backend, _embedding_model)
+
+        from qortex.hippocampus.adapter import GraphRAGAdapter
+        _graph_adapter = GraphRAGAdapter(_vector_index, _backend, _embedding_model)
     else:
         _adapter = None
+        _graph_adapter = None
 
     return mcp
 
@@ -157,6 +183,7 @@ def _query_impl(
     domains: list[str] | None = None,
     top_k: int = 20,
     min_confidence: float = 0.0,
+    mode: str = "auto",
 ) -> dict:
     _ensure_initialized()
 
@@ -164,14 +191,15 @@ def _query_impl(
     top_k = max(1, min(top_k, 1000))
     min_confidence = max(0.0, min(min_confidence, 1.0))
 
-    if _adapter is None:
+    adapter = _select_adapter(mode)
+    if adapter is None:
         return {
             "items": [],
             "query_id": "",
             "error": "No embedding model available. Install qortex[vec].",
         }
 
-    result = _adapter.retrieve(
+    result = adapter.retrieve(
         query=context,
         domains=domains,
         top_k=top_k,
@@ -201,7 +229,10 @@ def _feedback_impl(
 ) -> dict:
     _ensure_initialized()
 
-    if _adapter is not None:
+    # Route feedback to both adapters — the graph adapter updates factors
+    if _graph_adapter is not None:
+        _graph_adapter.feedback(query_id, outcomes)
+    elif _adapter is not None:
         _adapter.feedback(query_id, outcomes)
 
     return {
@@ -344,19 +375,22 @@ def qortex_query(
     domains: list[str] | None = None,
     top_k: int = 20,
     min_confidence: float = 0.0,
+    mode: str = "auto",
 ) -> dict:
     """Retrieve relevant knowledge items for a context.
 
-    Uses vector similarity search over concept embeddings.
-    Returns items sorted by relevance score.
+    Uses vector similarity search, optionally enhanced with graph-based
+    PPR (Personalized PageRank) for deeper structural retrieval.
 
     Args:
         context: Query text (file content, task description, question).
         domains: Restrict search to these domains. None = search all.
         top_k: Maximum number of items to return.
-        min_confidence: Minimum cosine similarity score (0.0 to 1.0).
+        min_confidence: Minimum similarity score (0.0 to 1.0).
+        mode: Retrieval mode. "vec" = cosine similarity only (Level 0).
+            "graph" = PPR over merged graph (Level 1+). "auto" = best available.
     """
-    return _query_impl(context, domains, top_k, min_confidence)
+    return _query_impl(context, domains, top_k, min_confidence, mode)
 
 
 @mcp.tool

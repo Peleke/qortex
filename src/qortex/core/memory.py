@@ -216,43 +216,106 @@ class InMemoryBackend:
         damping_factor: float = 0.85,
         max_iterations: int = 100,
         domain: str | None = None,
+        seed_weights: dict[str, float] | None = None,
+        extra_edges: list[tuple[str, str, float]] | None = None,
     ) -> dict[str, float]:
-        """BFS-based approximation of PPR.
+        """Personalized PageRank via power iteration.
 
-        2-hop traversal with exponential decay by depth.
-        Not true PPR, but useful for testing the retrieval pipeline.
+        Real PPR over the in-memory graph — not a BFS approximation.
+        Accepts optional seed_weights (from teleportation factors) and
+        extra_edges (from online edge generation) for the hybrid pipeline.
+
+        Power iteration formula:
+            π(t+1) = d * (A @ π(t)) + (1 - d) * personalization
+
+        Args:
+            source_nodes: Seed node IDs for personalization.
+            damping_factor: Probability of following an edge vs teleporting (0-1).
+            max_iterations: Max iterations before stopping.
+            domain: Restrict to nodes in this domain (None = all).
+            seed_weights: Optional per-seed teleportation weights (from factors).
+                If None, all seeds get equal weight.
+            extra_edges: Optional ephemeral edges [(src, tgt, weight), ...] from
+                online edge generation. Merged with persistent edges for PPR.
         """
-        scores: dict[str, float] = {}
-        # Seed nodes get score 1.0
-        for nid in source_nodes:
-            if nid in self._nodes:
-                if domain and self._nodes[nid].domain != domain:
-                    continue
-                scores[nid] = 1.0
+        # 1. Collect all node IDs in scope
+        if domain:
+            node_ids = [nid for nid, n in self._nodes.items() if n.domain == domain]
+        else:
+            node_ids = list(self._nodes.keys())
 
-        # BFS expansion
-        frontier = list(scores.keys())
-        for depth in range(1, 3):  # 2-hop
-            decay = damping_factor**depth
-            next_frontier: list[str] = []
-            for nid in frontier:
-                for edge in self._edges:
-                    neighbor = None
-                    if edge.source_id == nid:
-                        neighbor = edge.target_id
-                    elif edge.target_id == nid:
-                        neighbor = edge.source_id
+        # Filter source nodes to those in scope
+        valid_seeds = [nid for nid in source_nodes if nid in self._nodes]
+        if domain:
+            valid_seeds = [nid for nid in valid_seeds if self._nodes[nid].domain == domain]
 
-                    if neighbor and neighbor in self._nodes:
-                        if domain and self._nodes[neighbor].domain != domain:
-                            continue
-                        score = decay * edge.confidence
-                        if neighbor not in scores or scores[neighbor] < score:
-                            scores[neighbor] = score
-                            next_frontier.append(neighbor)
-            frontier = next_frontier
+        if not valid_seeds or not node_ids:
+            return {}
 
-        return scores
+        # 2. Build adjacency: node_id → [(neighbor_id, weight)]
+        adjacency: dict[str, list[tuple[str, float]]] = {nid: [] for nid in node_ids}
+
+        # Persistent edges
+        node_set = set(node_ids)
+        for edge in self._edges:
+            if edge.source_id in node_set and edge.target_id in node_set:
+                adjacency[edge.source_id].append((edge.target_id, edge.confidence))
+                # Undirected: add reverse edge too
+                adjacency[edge.target_id].append((edge.source_id, edge.confidence))
+
+        # Extra edges (from online edge gen)
+        if extra_edges:
+            for src, tgt, weight in extra_edges:
+                if src in node_set and tgt in node_set:
+                    adjacency[src].append((tgt, weight))
+                    adjacency[tgt].append((src, weight))
+
+        # 3. Build personalization vector
+        personalization: dict[str, float] = {}
+        if seed_weights:
+            for nid in valid_seeds:
+                personalization[nid] = seed_weights.get(nid, 0.0)
+        else:
+            for nid in valid_seeds:
+                personalization[nid] = 1.0
+
+        # Normalize personalization
+        p_total = sum(personalization.values())
+        if p_total > 0:
+            personalization = {k: v / p_total for k, v in personalization.items()}
+
+        # 4. Power iteration
+        # Initialize π uniformly
+        n = len(node_ids)
+        scores: dict[str, float] = {nid: 1.0 / n for nid in node_ids}
+
+        convergence_threshold = 1e-6
+
+        for _iteration in range(max_iterations):
+            new_scores: dict[str, float] = {}
+
+            for nid in node_ids:
+                # Teleportation component
+                teleport = (1.0 - damping_factor) * personalization.get(nid, 0.0)
+
+                # Walk component: sum of (neighbor_score * edge_weight / neighbor_out_degree)
+                walk = 0.0
+                for neighbor_id, weight in adjacency.get(nid, []):
+                    neighbor_out = adjacency.get(neighbor_id, [])
+                    out_weight = sum(w for _, w in neighbor_out)
+                    if out_weight > 0:
+                        walk += scores.get(neighbor_id, 0.0) * weight / out_weight
+
+                new_scores[nid] = teleport + damping_factor * walk
+
+            # Check convergence (L1 norm)
+            diff = sum(abs(new_scores.get(k, 0) - scores.get(k, 0)) for k in node_ids)
+            scores = new_scores
+            if diff < convergence_threshold:
+                break
+
+        # Filter out near-zero scores
+        return {nid: score for nid, score in scores.items() if score > 1e-8}
 
     # -------------------------------------------------------------------------
     # Vector Operations

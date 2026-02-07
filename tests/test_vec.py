@@ -906,13 +906,13 @@ class TestConceptNodeEmbedding:
 class TestGetAdapter:
     """Tests for the adapter factory function."""
 
-    def test_returns_vec_adapter_for_non_mage_backend(self):
-        from qortex.hippocampus.adapter import VecOnlyAdapter, get_adapter
+    def test_returns_hipporag_adapter_for_any_backend(self):
+        from qortex.hippocampus.adapter import GraphRAGAdapter, get_adapter
 
         vector_index = NumpyVectorIndex(dimensions=3)
-        backend = InMemoryBackend()  # supports_mage() = False
+        backend = InMemoryBackend()  # InMemoryBackend has real PPR
         adapter = get_adapter(vector_index, backend, FakeEmbedding())
-        assert isinstance(adapter, VecOnlyAdapter)
+        assert isinstance(adapter, GraphRAGAdapter)
 
     def test_raises_without_embedding_model(self):
         from qortex.hippocampus.adapter import get_adapter
