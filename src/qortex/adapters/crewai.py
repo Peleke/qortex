@@ -43,15 +43,21 @@ class QortexKnowledgeStorage:
 
     def search(
         self,
-        query: str,
+        query: list[str] | str,
         limit: int = 5,
         metadata_filter: dict[str, Any] | None = None,
         score_threshold: float = 0.0,
     ) -> list[dict[str, Any]]:
         """Search for relevant knowledge.
 
+        Matches crewai's KnowledgeStorage.search() signature exactly:
+            search(query: list[str], limit, metadata_filter, score_threshold)
+
+        CrewAI passes query as list[str] and joins them internally.
+        We accept both list[str] and str for flexibility.
+
         Args:
-            query: Search query text.
+            query: Search query — list[str] (crewai native) or str.
             limit: Maximum results.
             metadata_filter: Not yet supported (logged and ignored).
             score_threshold: Minimum score (0.0 to 1.0).
@@ -59,8 +65,14 @@ class QortexKnowledgeStorage:
         Returns:
             List of SearchResult dicts: {id, content, metadata, score}
         """
+        # CrewAI passes list[str], joins with space
+        if isinstance(query, list):
+            query_text = " ".join(query) if len(query) > 1 else query[0] if query else ""
+        else:
+            query_text = query
+
         result = self._client.query(
-            context=query,
+            context=query_text,
             domains=self._domains,
             top_k=limit,
             min_confidence=score_threshold,
