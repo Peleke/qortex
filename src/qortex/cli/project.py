@@ -28,7 +28,11 @@ def _get_backend():
         return backend
     except Exception as e:
         import sys
-        print(f"Warning: Could not connect to Memgraph ({e}), using empty InMemoryBackend", file=sys.stderr)
+
+        print(
+            f"Warning: Could not connect to Memgraph ({e}), using empty InMemoryBackend",
+            file=sys.stderr,
+        )
         from qortex.core.memory import InMemoryBackend
 
         backend = InMemoryBackend()

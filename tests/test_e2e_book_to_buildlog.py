@@ -667,7 +667,7 @@ class TestE2EWithMemgraph:
     def _setup_backend(self):
         from qortex.core.backend import MemgraphBackend, MemgraphCredentials
 
-        creds = MemgraphCredentials(user="qortex", password="qortex")
+        creds = MemgraphCredentials(user="memgraph", password="memgraph")
         self.backend = MemgraphBackend(uri="bolt://localhost:7687", credentials=creds)
         self.backend.connect()
         self.backend._run("MATCH (n) DETACH DELETE n")

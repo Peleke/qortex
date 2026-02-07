@@ -100,8 +100,9 @@ class TestConfig:
         config = QortexConfig()
         assert config.memgraph_host == "localhost"
         assert config.memgraph_port == 7687
-        assert config.memgraph_credentials.user == "qortex"
-        assert config.memgraph_credentials.auth_tuple == ("qortex", "qortex")
+        # Default matches docker-compose defaults
+        assert config.memgraph_credentials.user == "memgraph"
+        assert config.memgraph_credentials.auth_tuple == ("memgraph", "memgraph")
         assert config.lab_port == 3000
 
     def test_config_from_env(self):
@@ -239,72 +240,92 @@ class TestIngest:
 # =========================================================================
 
 
+def _mock_empty_backend():
+    """Return an empty InMemoryBackend for testing."""
+    from qortex.core.memory import InMemoryBackend
+
+    backend = InMemoryBackend()
+    backend.connect()
+    return backend
+
+
 class TestProjectBuildlog:
     def test_buildlog_empty_graph(self):
-        result = runner.invoke(app, ["project", "buildlog"])
+        with patch("qortex.cli.project._get_backend", _mock_empty_backend):
+            result = runner.invoke(app, ["project", "buildlog"])
         assert result.exit_code == 0
         parsed = yaml.safe_load(result.output)
         assert parsed["rules"] == []
         assert parsed["persona"] == "qortex"
 
     def test_buildlog_custom_persona(self):
-        result = runner.invoke(app, ["project", "buildlog", "--persona", "custom"])
+        with patch("qortex.cli.project._get_backend", _mock_empty_backend):
+            result = runner.invoke(app, ["project", "buildlog", "--persona", "custom"])
         assert result.exit_code == 0
         parsed = yaml.safe_load(result.output)
         assert parsed["persona"] == "custom"
 
     def test_buildlog_no_enrich(self):
-        result = runner.invoke(app, ["project", "buildlog", "--no-enrich"])
+        with patch("qortex.cli.project._get_backend", _mock_empty_backend):
+            result = runner.invoke(app, ["project", "buildlog", "--no-enrich"])
         assert result.exit_code == 0
 
     def test_buildlog_to_file(self, tmp_path):
-        output = tmp_path / "seed.yml"
-        result = runner.invoke(app, ["project", "buildlog", "--output", str(output)])
+        with patch("qortex.cli.project._get_backend", _mock_empty_backend):
+            output = tmp_path / "seed.yml"
+            result = runner.invoke(app, ["project", "buildlog", "--output", str(output)])
         assert result.exit_code == 0
         assert output.exists()
         parsed = yaml.safe_load(output.read_text())
         assert "rules" in parsed
 
     def test_buildlog_domain_filter(self):
-        result = runner.invoke(app, ["project", "buildlog", "--domain", "test"])
+        with patch("qortex.cli.project._get_backend", _mock_empty_backend):
+            result = runner.invoke(app, ["project", "buildlog", "--domain", "test"])
         assert result.exit_code == 0
 
 
 class TestProjectFlat:
     def test_flat_empty_graph(self):
-        result = runner.invoke(app, ["project", "flat"])
+        with patch("qortex.cli.project._get_backend", _mock_empty_backend):
+            result = runner.invoke(app, ["project", "flat"])
         assert result.exit_code == 0
         parsed = yaml.safe_load(result.output)
         assert parsed["rules"] == []
 
     def test_flat_to_file(self, tmp_path):
-        output = tmp_path / "rules.yml"
-        result = runner.invoke(app, ["project", "flat", "--output", str(output)])
+        with patch("qortex.cli.project._get_backend", _mock_empty_backend):
+            output = tmp_path / "rules.yml"
+            result = runner.invoke(app, ["project", "flat", "--output", str(output)])
         assert result.exit_code == 0
         assert output.exists()
 
     def test_flat_no_enrich(self):
-        result = runner.invoke(app, ["project", "flat", "--no-enrich"])
+        with patch("qortex.cli.project._get_backend", _mock_empty_backend):
+            result = runner.invoke(app, ["project", "flat", "--no-enrich"])
         assert result.exit_code == 0
 
 
 class TestProjectJSON:
     def test_json_empty_graph(self):
-        result = runner.invoke(app, ["project", "json"])
+        with patch("qortex.cli.project._get_backend", _mock_empty_backend):
+            result = runner.invoke(app, ["project", "json"])
         assert result.exit_code == 0
         parsed = json.loads(result.output)
         assert parsed["rules"] == []
 
     def test_json_to_file(self, tmp_path):
-        output = tmp_path / "rules.json"
-        result = runner.invoke(app, ["project", "json", "--output", str(output)])
+        with patch("qortex.cli.project._get_backend", _mock_empty_backend):
+            output = tmp_path / "rules.json"
+            result = runner.invoke(app, ["project", "json", "--output", str(output)])
         assert result.exit_code == 0
         assert output.exists()
         parsed = json.loads(output.read_text())
         assert "rules" in parsed
 
     def test_json_no_enrich(self):
-        result = runner.invoke(app, ["project", "json", "--no-enrich"])
+        with patch("qortex.cli.project._get_backend", _mock_empty_backend):
+            result = runner.invoke(app, ["project", "json", "--no-enrich"])
         assert result.exit_code == 0
 
 
