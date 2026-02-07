@@ -67,19 +67,7 @@ Let's trace the `design_principles` assignment:
 
 Each hop multiplies by the decay factor (0.5) and the edge strength. Strong edges pass more credit. Weak edges pass less. Deep ancestors get exponentially less.
 
-```mermaid
-graph TD
-    DP["Design Principles<br/>credit = 0.191"] -->|strength=0.9| LC["Loose Coupling<br/>credit = 0.425"]
-    LC -->|strength=0.85| OP["Observer Pattern<br/>credit = 1.000"]
-    OP -->|strength=0.75| ED["Event Driven<br/>credit = 1.000"]
-    DP -->|strength=0.9| SC["Separation of Concerns<br/>credit = 0.000"]
-
-    style OP fill:#4A90D9,color:#fff
-    style ED fill:#4A90D9,color:#fff
-    style LC fill:#7AB3E0,color:#fff
-    style DP fill:#B0D0EE,color:#333
-    style SC fill:#eee,color:#666
-```
+![dp-design-principles-br-credit](../../images/diagrams/p4-credit-assignment-1-dp-design-principles-br-credit.svg)
 
 Notice `separation_of_concerns` gets zero credit. It's an ancestor of `design_principles`, but credit flows **up** from rewarded concepts to their ancestors, not sideways. The DAG structure determines who gets rewarded.
 
@@ -173,19 +161,7 @@ Credit flow (4 levels):
         principles           credit=0.0669  (depth 3)
 ```
 
-```mermaid
-graph TD
-    F["Foundations<br/>(below min_credit)"] -.->|strength=0.9| P["Principles<br/>credit = 0.067"]
-    P -->|strength=0.85| PA["Patterns<br/>credit = 0.149"]
-    PA -->|strength=0.75| I["Implementation<br/>credit = 0.350"]
-    I -->|strength=0.7| T["Tests<br/>credit = 1.000"]
-
-    style T fill:#2E7D32,color:#fff
-    style I fill:#4CAF50,color:#fff
-    style PA fill:#81C784,color:#fff
-    style P fill:#C8E6C9,color:#333
-    style F fill:#eee,color:#999
-```
+![f-foundations-br-below-min-cre](../../images/diagrams/p4-credit-assignment-2-f-foundations-br-below-min-cre.svg)
 
 Notice `foundations` didn't make the cut. Let's check why:
 

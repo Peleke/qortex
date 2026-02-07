@@ -74,21 +74,7 @@ Four values. That's it. Every edge in your knowledge graph maps to exactly one o
 
 Let's make this concrete. Here's a 5-node subgraph from a software design patterns book, colored by causal direction:
 
-```mermaid
-graph LR
-    A["Encapsulation"] -->|REQUIRES<br/>forward| B["Information Hiding"]
-    C["ArrayList"] -->|IMPLEMENTS<br/>reverse| D["List Interface"]
-    A -->|USES<br/>forward| E["Access Modifiers"]
-    B -->|SUPPORTS<br/>forward| A
-    C -.->|SIMILAR_TO<br/>none| F["LinkedList"]
-
-    style A fill:#4A90D9,color:#fff
-    style B fill:#4A90D9,color:#fff
-    style E fill:#4A90D9,color:#fff
-    style D fill:#D94A4A,color:#fff
-    style C fill:#D94A4A,color:#fff
-    style F fill:#888,color:#fff
-```
+![a-encapsulation-requires-br-fo](../../images/diagrams/p1-edge-directions-1-a-encapsulation-requires-br-fo.svg)
 
 Blue nodes sit at the **source** of forward causal edges. Red nodes sit at the **source** of reverse edges (meaning the causal arrow actually points the other way). Gray nodes are connected only by non-causal edges.
 

@@ -106,19 +106,7 @@ Biological organisms monitor homeostatic invariants: body temperature, blood sug
 
 On the belief manifold, the conserved quantities ARE the homeostatic invariants. The interoception layer monitors them. Here's the circuit:
 
-```mermaid
-graph TD
-    A[Evidence: bandit updates] --> B[Geometric Observables]
-    B --> |fisher_speed, entropy, curvature| C[Invariant Monitor]
-    C --> |violation detected| D[Affect Signals]
-    D --> E[Control Response]
-    E --> |modified evidence gathering| A
-
-    D --> |confusion: entropy increased| F[explore more]
-    D --> |surprise: speed spiked| G[attend, log event]
-    D --> |dissonance: Hamiltonian shifted| H[adapt, down-weight stale evidence]
-    D --> |novelty: symmetry-breaking accelerated| I[focus on changing domain]
-```
+![a-evidence-bandit-updates-b-ge](../images/diagrams/the-road-ahead-1-a-evidence-bandit-updates-b-ge.svg)
 
 Four affect signals, each tied to a specific invariant violation:
 

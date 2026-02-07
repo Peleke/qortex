@@ -45,21 +45,7 @@ One backend active, one capability available. But the dispatcher tried three oth
 
 The dispatcher probes each library with `importlib.util.find_spec()` (no actual import, just checking availability). If ChiRho is installed, it would be selected first. Since it isn't (and its backend isn't implemented yet), the dispatcher falls through to Pyro, then DoWhy, then NetworkX.
 
-```mermaid
-graph TD
-    START["CausalDispatcher.auto_detect()"] --> CHK1{"ChiRho<br/>installed?"}
-    CHK1 -->|"Yes (future)"| CH["ChiRho Backend<br/>Phase 3"]
-    CHK1 -->|No| CHK2{"Pyro<br/>installed?"}
-    CHK2 -->|"Yes (future)"| PY["Pyro Backend<br/>Phase 2"]
-    CHK2 -->|No| CHK3{"DoWhy<br/>installed?"}
-    CHK3 -->|"Yes (future)"| DW["DoWhy Backend<br/>Phase 1.5"]
-    CHK3 -->|No| NX["NetworkX Backend<br/>Phase 1 ✓"]
-
-    style NX fill:#4A90D9,color:#fff
-    style CH fill:#eee,color:#999
-    style PY fill:#eee,color:#999
-    style DW fill:#eee,color:#999
-```
+![start-causaldispatcher-auto-de](../../images/diagrams/p5-degradation-chain-1-start-causaldispatcher-auto-de.svg)
 
 This is the degradation chain. The system always uses the most capable available backend, and gracefully falls back when a library isn't installed.
 
@@ -126,17 +112,7 @@ In [Part 4](part4-credit-assignment.md), we saw that `CreditAssigner.to_posterio
 
 A Beta distribution lives on a statistical manifold. The alpha_delta and beta_delta values are a direction of movement on that manifold. In differential geometry terms, they're components of a tangent vector at the current point in belief space.
 
-```mermaid
-graph LR
-    CA["CreditAssigner<br/>assign_credit()"] -->|"CreditAssignment[]"| PU["to_posterior_updates()"]
-    PU -->|"alpha_delta, beta_delta"| FM["Fisher Manifold<br/>(next series)"]
-    FM -->|"information distance"| IG["Learning Rate<br/>Monitoring"]
-
-    style CA fill:#4A90D9,color:#fff
-    style PU fill:#7AB3E0,color:#fff
-    style FM fill:#D4A84A,color:#fff
-    style IG fill:#D4A84A,color:#fff
-```
+![ca-creditassigner-br-assign-cr](../../images/diagrams/p5-degradation-chain-2-ca-creditassigner-br-assign-cr.svg)
 
 The causal DAG chooses **where** to send credit (which concepts, through which paths). The Fisher manifold (covered in the next tutorial series) determines **how far** each update actually moves the system's beliefs. The binding point is `to_posterior_updates()`: it's the last thing the causal module produces and the first thing the geometry module consumes.
 

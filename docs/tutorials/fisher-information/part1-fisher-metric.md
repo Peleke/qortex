@@ -295,12 +295,7 @@ If `r` is strongly negative (and it will be), your coordinate system was indeed 
 
 Let's be explicit about what we built:
 
-```mermaid
-graph LR
-    A["Beta(alpha, beta)"] -->|polygamma| B["Fisher metric G(alpha, beta)"]
-    B -->|dtheta^T G dtheta| C["Fisher speed"]
-    C -->|compare across updates| D["Which updates actually matter"]
-```
+![a-beta-alpha-beta-polygamma-b](../../images/diagrams/p1-fisher-metric-1-a-beta-alpha-beta-polygamma-b.svg)
 
 1. The Fisher information matrix `G(alpha, beta)` is a 2x2 matrix that varies across the parameter space
 2. It's built from trigamma functions: `polygamma(1, x)`

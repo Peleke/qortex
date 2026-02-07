@@ -162,20 +162,7 @@ Each row is a conservation law (or expected trend) paired with a signal that fir
 
 ## The Full Interoception Circuit
 
-```mermaid
-graph TD
-    A["Evidence<br/>(bandit updates)"] --> B["Geometric Observables<br/>fisher_speed, entropy,<br/>curvature, hamiltonian"]
-    B --> C["Invariant Monitor<br/>Is entropy decreasing?<br/>Is speed decaying?<br/>Is Hamiltonian constant?"]
-    C -->|violation detected| D["Affect Signals<br/>confusion, surprise,<br/>dissonance, novelty"]
-    D --> E["Control Response<br/>explore more, attend,<br/>adapt, focus"]
-    E -->|modified evidence gathering| A
-
-    style A fill:#e8f4f8
-    style B fill:#dcedc8
-    style C fill:#fff9c4
-    style D fill:#ffccbc
-    style E fill:#e1bee7
-```
+![a-evidence-br-bandit-updates-b](../../images/diagrams/p6-interoception-1-a-evidence-br-bandit-updates-b.svg)
 
 Four layers, each feeding the next:
 
@@ -384,26 +371,7 @@ def sketch_hamiltonian_along_trajectory(traj):
 
 Let's step back and see the whole six-chapter arc.
 
-```mermaid
-graph TD
-    Ch1["Ch1: Fisher Metric<br/>The ruler that doesn't lie"] --> Ch2["Ch2: Trajectories<br/>Where learning happened"]
-    Ch2 --> Ch3["Ch3: Geodesics<br/>Shortest paths are curved"]
-    Ch3 --> Ch4["Ch4: Curvature<br/>K = -1/2 everywhere<br/>(same as GR)"]
-    Ch4 --> Ch5["Ch5: Dynamical Systems<br/>Fixed points, stability,<br/>phase portraits"]
-    Ch5 --> Ch6["Ch6: Interoception<br/>Conservation laws as<br/>the sensory apparatus"]
-
-    Ch1 -->|"trigamma"| Tools
-    Ch3 -->|"tetragamma"| Tools
-    Ch4 -->|"pentagamma"| Tools
-
-    subgraph Tools ["Mathematical Depth"]
-        T1["polygamma(1,x)"]
-        T2["polygamma(2,x)"]
-        T3["polygamma(3,x)"]
-    end
-
-    style Ch6 fill:#ffccbc
-```
+![ch1-ch1-fisher-metric-br-the-r](../../images/diagrams/p6-interoception-2-ch1-ch1-fisher-metric-br-the-r.svg)
 
 Each chapter added a layer:
 

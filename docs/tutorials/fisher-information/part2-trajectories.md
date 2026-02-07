@@ -233,12 +233,7 @@ Both curves should be dropping. If entropy *increases* at any point, that's cont
 
 Here's what the three plots together tell you:
 
-```mermaid
-graph TD
-    A["Trajectory Plot<br/>(Fisher-speed colored)"] --> D["WHERE the learning happened"]
-    B["Pairwise Distance Heatmap"] --> E["HOW DIFFERENT the arms are<br/>(in information space, not coordinates)"]
-    C["Entropy + Speed Curves"] --> F["WHEN the learning happened<br/>(and when it stopped)"]
-```
+![a-trajectory-plot-br-fisher-sp](../../images/diagrams/p2-trajectories-1-a-trajectory-plot-br-fisher-sp.svg)
 
 | Plot | Question it answers | What to look for |
 |---|---|---|

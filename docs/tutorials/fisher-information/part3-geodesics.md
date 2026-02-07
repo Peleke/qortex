@@ -156,23 +156,7 @@ def geodesic_ode(t, y):
     return [da, db, accel[0], accel[1]]
 ```
 
-```mermaid
-graph LR
-    subgraph "State vector y"
-        A["alpha"] --- B["beta"]
-        C["d_alpha/dt"] --- D["d_beta/dt"]
-    end
-    subgraph "ODE system"
-        E["d(alpha)/dt = d_alpha/dt"]
-        F["d(beta)/dt = d_beta/dt"]
-        G["d^2(alpha)/dt^2 = -Gamma * vel * vel"]
-        H["d^2(beta)/dt^2 = -Gamma * vel * vel"]
-    end
-    A --> E
-    B --> F
-    C --> G
-    D --> H
-```
+![subgraph-state-vector-y](../../images/diagrams/p3-geodesics-1-subgraph-state-vector-y.svg)
 
 ---
 

@@ -51,16 +51,7 @@ edges = [
 
 Here's the cycle, before we break it:
 
-```mermaid
-graph LR
-    A["Encapsulation"] -->|REQUIRES<br/>strength=0.9| B["Information Hiding"]
-    B -->|USES<br/>strength=0.6| A
-    A -->|USES<br/>strength=0.75| C["Access Modifiers"]
-    C -->|SUPPORTS<br/>strength=0.7| B
-
-    style B fill:#D94A4A,color:#fff
-    style A fill:#D94A4A,color:#fff
-```
+![a-encapsulation-requires-br-st](../../images/diagrams/p2-building-the-dag-1-a-encapsulation-requires-br-st.svg)
 
 The red nodes form the cycle: Encapsulation to Information Hiding to Encapsulation. Follow the arrows and you go in circles forever. You can't compute ancestors (everyone is everyone's ancestor). You can't compute a topological ordering (there isn't one). You can't run d-separation (it assumes acyclicity).
 
@@ -163,16 +154,7 @@ The weakest edge (0.6) was the one broken. The three remaining edges form a clea
 
 Here's the graph after cycle-breaking:
 
-```mermaid
-graph LR
-    A["Encapsulation"] -->|REQUIRES<br/>strength=0.9| B["Information Hiding"]
-    A -->|USES<br/>strength=0.75| C["Access Modifiers"]
-    C -->|SUPPORTS<br/>strength=0.7| B
-
-    linkStyle 0 stroke:#4A90D9,stroke-width:3px
-    linkStyle 1 stroke:#4A90D9,stroke-width:2px
-    linkStyle 2 stroke:#4A90D9,stroke-width:2px
-```
+![a-encapsulation-requires-br-st](../../images/diagrams/p2-building-the-dag-2-a-encapsulation-requires-br-st.svg)
 
 Compare with the earlier diagram. The red cycle is gone. What remains is a clean flow: Encapsulation sits at the top. It depends on both Information Hiding (directly) and Access Modifiers (which in turn supports Information Hiding).
 

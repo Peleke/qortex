@@ -210,14 +210,7 @@ $$\Delta\mu \approx \frac{p - \mu}{\nu + 1}$$
 
 This is **stable convergence**. The eigenvalue of the linearized map in the $\mu$ direction is $\nu/(\nu + 1) < 1$, so perturbations shrink at every step.
 
-```mermaid
-graph TD
-    subgraph "Stability Classification"
-        A["Stable node<br/>(eigenvalue < 1)<br/>Monotone convergence"] --> D["Our system"]
-        B["Spiral<br/>(complex eigenvalues)<br/>Oscillating convergence"]
-        C["Saddle<br/>(mixed eigenvalues)<br/>Unstable"]
-    end
-```
+![subgraph-stability-classificat](../../images/diagrams/p5-dynamical-systems-1-subgraph-stability-classificat.svg)
 
 Our system is a **stable node**. No spiraling, no oscillation. The mean converges monotonically to $p$. The concentration grows linearly. Simple and robust.
 
@@ -359,13 +352,7 @@ You can compute the Fisher distance from each arm to the separatrix at every ste
 
 ## Recap: The Dynamical Systems View
 
-```mermaid
-graph TD
-    A["Update rule<br/>(alpha, beta) -> (alpha + r, beta + 1-r)"] --> B["Expected velocity field<br/>F = (p, 1-p)"]
-    B --> C["Attractor line<br/>beta = alpha * (1-p)/p"]
-    C --> D["Stability: stable node<br/>Convergence rate: O(1/n)"]
-    D --> E["Phase portrait:<br/>all trajectories flow<br/>toward the attractor"]
-```
+![a-update-rule-br-alpha-beta-al](../../images/diagrams/p5-dynamical-systems-2-a-update-rule-br-alpha-beta-al.svg)
 
 | Concept | Result for Beta-Bernoulli bandit |
 |---|---|

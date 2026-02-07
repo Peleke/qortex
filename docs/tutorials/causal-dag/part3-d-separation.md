@@ -14,10 +14,7 @@ Before we touch the code, let's look at three tiny graphs. They're the building 
 
 ### The Chain
 
-```mermaid
-graph LR
-    A["A"] --> B["B"] --> C["C"]
-```
+![a-a-b-b-c-c](../../images/diagrams/p3-d-separation-1-a-a-b-b-c-c.svg)
 
 A causes B, B causes C. If you know B, does learning about A tell you anything new about C?
 
@@ -53,11 +50,7 @@ Conditioning on the middle node in a chain **blocks** the information flow. Make
 
 ### The Fork
 
-```mermaid
-graph LR
-    B["B"] --> A["A"]
-    B["B"] --> C["C"]
-```
+![b-b-a-a](../../images/diagrams/p3-d-separation-2-b-b-a-a.svg)
 
 B causes both A and C. A and C are correlated (they share a common cause), but if you know B, that correlation disappears.
 
@@ -95,11 +88,7 @@ Same pattern as the chain: conditioning on the middle node blocks information fl
 
 ### The Collider (this is the one that gets you)
 
-```mermaid
-graph LR
-    A["A"] --> B["B"]
-    C["C"] --> B["B"]
-```
+![a-a-b-b](../../images/diagrams/p3-d-separation-3-a-a-b-b.svg)
 
 A and C both cause B. B is a "collider" because two arrows collide at it. Here's where intuition breaks down.
 
@@ -174,15 +163,7 @@ engine = DSeparationEngine(dag=dag)
 
 Here's the graph we just built:
 
-```mermaid
-graph TD
-    AB["Abstraction"] -->|REQUIRES| EN["Encapsulation"]
-    AB -->|REQUIRES| PO["Polymorphism"]
-    EN -->|REQUIRES| IH["Information Hiding"]
-    PO -->|SUPPORTS| IH
-    IH -->|USES| AM["Access Modifiers"]
-    EN -->|USES| AM
-```
+![ab-abstraction-requires-en-enc](../../images/diagrams/p3-d-separation-4-ab-abstraction-requires-en-enc.svg)
 
 Now let's ask some questions:
 
