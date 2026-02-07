@@ -19,11 +19,25 @@ from .adapter import (
     VecOnlyAdapter,
     get_adapter,
 )
+from .interoception import (
+    InteroceptionConfig,
+    InteroceptionProvider,
+    LocalInteroceptionProvider,
+    McpOutcomeSource,
+    Outcome,
+    OutcomeSource,
+)
 from .retrieval import Hippocampus
 
 __all__ = [
     "Hippocampus",
     "GraphRAGAdapter",
+    "InteroceptionConfig",
+    "InteroceptionProvider",
+    "LocalInteroceptionProvider",
+    "McpOutcomeSource",
+    "Outcome",
+    "OutcomeSource",
     "RetrievalAdapter",
     "RetrievalItem",
     "RetrievalResult",
