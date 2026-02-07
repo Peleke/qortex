@@ -44,8 +44,6 @@ nav:
     - Visualizing Your Graph: guides/visualization.md
   - Theory:
     - Overview: tutorials/index.md
-    - Full Loop Demo: tutorials/full-loop-demo.md
-    - Experiential Mistakes EDA: eda-experiential-mistakes.md
     - Why Knowledge Graphs:
       - The Multi-Hop Problem: tutorials/part1-multi-hop-problem.md
       - Knowledge Graphs 101: tutorials/part2-knowledge-graphs.md
@@ -61,6 +59,16 @@ nav:
       - Measuring Worth: tutorials/graph-analytics/part4-centrality.md
       - The Tribes Within: tutorials/graph-analytics/part5-communities.md
       - Forging New Rules: tutorials/graph-analytics/part6-forging-rules.md
+    - Graph Exploration:
+      - Overview: tutorials/graph-exploration/index.md
+      - "3.1: What Do I Actually Have?": tutorials/graph-exploration/3.1-what-do-i-have.md
+      - "3.2: Counting and Grouping": tutorials/graph-exploration/3.2-counting-and-grouping.md
+      - "3.3: Following the Connections": tutorials/graph-exploration/3.3-following-the-connections.md
+      - "3.4: Filtering by Pattern": tutorials/graph-exploration/3.4-filtering-by-pattern.md
+      - "3.5: Finding the Hubs": tutorials/graph-exploration/3.5-finding-the-hubs.md
+      - "3.6: Paths and Distances": tutorials/graph-exploration/3.6-paths-and-distances.md
+    - Buildlog Case Study:
+      - Full Loop: tutorials/full-loop.md
   - Reference:
     - CLI Commands: reference/cli.md
     - Data Models: reference/models.md
