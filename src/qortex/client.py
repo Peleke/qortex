@@ -218,6 +218,10 @@ class LocalQortexClient:
     No MCP subprocess, no network. Composes vec and graph layers directly.
     This is the reference implementation — all MCP tools delegate to the
     same logic.
+
+    When mode="graph" (or "auto" with graph available), uses GraphRAGAdapter
+    for graph-enhanced retrieval with teleportation factors + online edge gen.
+    When mode="vec", uses VecOnlyAdapter (pure cosine similarity).
     """
 
     def __init__(
@@ -226,18 +230,37 @@ class LocalQortexClient:
         backend: Any,
         embedding_model: Any = None,
         llm_backend: Any = None,
+        mode: str = "auto",
+        interoception: Any = None,
     ) -> None:
-        from qortex.hippocampus.adapter import VecOnlyAdapter
+        from qortex.hippocampus.adapter import GraphRAGAdapter, VecOnlyAdapter
 
         self._vector_index = vector_index
         self._backend = backend
         self._embedding_model = embedding_model
         self._llm_backend = llm_backend
+        self._mode = mode
 
         if vector_index is not None and embedding_model is not None:
-            self._adapter = VecOnlyAdapter(vector_index, backend, embedding_model)
+            if mode == "graph" or (mode == "auto" and self._has_graph_edges()):
+                self._adapter = GraphRAGAdapter(
+                    vector_index, backend, embedding_model,
+                    interoception=interoception,
+                )
+            else:
+                self._adapter = VecOnlyAdapter(vector_index, backend, embedding_model)
         else:
             self._adapter = None
+
+    def _has_graph_edges(self) -> bool:
+        """Check if the backend has any edges (worth running PPR)."""
+        try:
+            from qortex.core.memory import InMemoryBackend
+            if isinstance(self._backend, InMemoryBackend):
+                return len(self._backend._edges) > 0
+        except ImportError:
+            pass
+        return self._backend.supports_mage()
 
     def query(
         self,

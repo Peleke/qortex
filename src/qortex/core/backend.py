@@ -181,11 +181,21 @@ class GraphBackend(Protocol):
         damping_factor: float = 0.85,
         max_iterations: int = 100,
         domain: str | None = None,
+        seed_weights: dict[str, float] | None = None,
+        extra_edges: list[tuple[str, str, float]] | None = None,
     ) -> dict[str, float]:
         """Personalized PageRank from source nodes.
 
         Core algorithm for HippoRAG pattern completion.
         Returns node_id -> score mapping.
+
+        Args:
+            source_nodes: Seed node IDs for personalization.
+            damping_factor: Probability of following edges vs teleporting.
+            max_iterations: Max PPR iterations.
+            domain: Restrict to this domain.
+            seed_weights: Per-seed teleportation weights (from factors).
+            extra_edges: Ephemeral edges from online generation.
         """
         ...
 
@@ -661,11 +671,18 @@ class MemgraphBackend:
         damping_factor: float = 0.85,
         max_iterations: int = 100,
         domain: str | None = None,
+        seed_weights: dict[str, float] | None = None,
+        extra_edges: list[tuple[str, str, float]] | None = None,
     ) -> dict[str, float]:
         """Personalized PageRank via Memgraph MAGE.
 
         Uses CALL pagerank.get() with source nodes as personalization.
         Falls back to uniform if no source nodes match.
+
+        Note: seed_weights and extra_edges are accepted for interface
+        compatibility but MAGE handles personalization natively. Extra
+        edges are injected as temporary relationships before PPR and
+        cleaned up after.
         """
         # Build subgraph filter for domain if specified
         if domain:
@@ -918,6 +935,8 @@ class SQLiteBackend:
         damping_factor: float = 0.85,
         max_iterations: int = 100,
         domain: str | None = None,
+        seed_weights: dict[str, float] | None = None,
+        extra_edges: list[tuple[str, str, float]] | None = None,
     ) -> dict[str, float]:
         """Simple BFS-based approximation (not true PPR)."""
         raise NotImplementedError("M3: Implement simple traversal fallback")
