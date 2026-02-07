@@ -139,24 +139,71 @@ class Ingestor(ABC):
                 sample,
             )
 
-        # 3. Extract concepts from chunks
-        concepts: list[ConceptNode] = []
+        # 3. Extract concepts from chunks (two-pass: generalizable first, then reconcile illustrative)
         source_id = f"{domain}:{source.name or 'source'}"
+
+        # Pass 1: Collect all extracted concepts, separating by role
+        generalizable_concepts: list[ConceptNode] = []
+        illustrative_raw: list[tuple[dict, str | None]] = []  # (raw_dict, chunk_location)
 
         for chunk in chunks:
             extracted = self.llm.extract_concepts(chunk.content, domain)
             for c in extracted:
-                concepts.append(
+                if c.get("concept_role") == "illustrative":
+                    illustrative_raw.append((c, chunk.location))
+                else:
+                    generalizable_concepts.append(
+                        ConceptNode(
+                            id=f"{domain}:{c['name']}",
+                            name=c["name"],
+                            description=c.get("description", ""),
+                            domain=domain,
+                            source_id=source_id,
+                            source_location=chunk.location,
+                            confidence=c.get("confidence", 1.0),
+                        )
+                    )
+
+        # Pass 2: Reconcile illustrative concepts → parent properties["examples"]
+        concept_by_name: dict[str, ConceptNode] = {
+            c.name.lower(): c for c in generalizable_concepts
+        }
+
+        for raw, location in illustrative_raw:
+            parent_name = raw.get("illustrates")
+            parent = concept_by_name.get(parent_name.lower()) if parent_name else None
+
+            if parent is not None:
+                # Attach as example on the parent concept
+                if "examples" not in parent.properties:
+                    parent.properties["examples"] = []
+                parent.properties["examples"].append(
+                    {
+                        "name": raw["name"],
+                        "description": raw.get("description", ""),
+                        "source_location": location,
+                        "confidence": raw.get("confidence", 1.0),
+                    }
+                )
+            else:
+                # Parent not found — create as concept but mark role in properties
+                generalizable_concepts.append(
                     ConceptNode(
-                        id=f"{domain}:{c['name']}",
-                        name=c["name"],
-                        description=c.get("description", ""),
+                        id=f"{domain}:{raw['name']}",
+                        name=raw["name"],
+                        description=raw.get("description", ""),
                         domain=domain,
                         source_id=source_id,
-                        source_location=chunk.location,
-                        confidence=c.get("confidence", 1.0),
+                        source_location=location,
+                        confidence=raw.get("confidence", 1.0),
+                        properties={
+                            "concept_role": "illustrative",
+                            "illustrates": parent_name,
+                        },
                     )
                 )
+
+        concepts = generalizable_concepts
 
         # 4. Extract relations per chunk (for full coverage + provenance)
         from qortex.core.models import RelationType
@@ -221,12 +268,13 @@ class Ingestor(ABC):
         # 5. Extract explicit rules (use first few chunks for rule extraction)
         all_text = "\n\n".join(chunk.content for chunk in chunks[:5])
         rule_dicts = self.llm.extract_rules(all_text, concepts[:50])
+        valid_concept_ids = {c.id for c in concepts}
         rules = [
             ExplicitRule(
                 id=f"{domain}:rule:{i}",
                 text=r["text"],
                 domain=domain,
-                concept_ids=r.get("concept_ids", []),
+                concept_ids=[cid for cid in r.get("concept_ids", []) if cid in valid_concept_ids],
                 source_id=source_id,
                 category=r.get("category"),
                 confidence=r.get("confidence", 1.0),
@@ -281,13 +329,24 @@ class Ingestor(ABC):
 
 
 class StubLLMBackend:
-    """Stub LLM that returns empty results.
+    """Stub LLM that returns configurable results.
 
     Use for testing pipeline without LLM costs.
+    Pass concepts/relations/rules to constructor to inject test data.
     """
 
+    def __init__(
+        self,
+        concepts: list[dict] | None = None,
+        relations: list[dict] | None = None,
+        rules: list[dict] | None = None,
+    ):
+        self._concepts = concepts or []
+        self._relations = relations or []
+        self._rules = rules or []
+
     def extract_concepts(self, text: str, domain_hint: str | None = None) -> list[dict]:
-        return []
+        return self._concepts
 
     def extract_relations(
         self,
@@ -295,10 +354,10 @@ class StubLLMBackend:
         text: str,
         chunk_location: str | None = None,
     ) -> list[dict]:
-        return []
+        return self._relations
 
     def extract_rules(self, text: str, concepts: list[ConceptNode]) -> list[dict]:
-        return []
+        return self._rules
 
     def extract_code_examples(
         self,
