@@ -634,6 +634,81 @@ class LocalQortexClient:
             warnings=manifest.warnings,
         )
 
+    # -- Public accessors for adapter interop --
+
+    @property
+    def embedding_model(self) -> Any:
+        """The embedding model, or None. Public accessor for adapters."""
+        return self._embedding_model
+
+    def add_concepts(
+        self,
+        texts: list[str],
+        domain: str = "default",
+        metadatas: list[dict[str, Any]] | None = None,
+        ids: list[str] | None = None,
+    ) -> list[str]:
+        """Add text concepts to the knowledge graph.
+
+        Creates ConceptNodes, generates embeddings, and indexes them.
+        This is the text-based counterpart to ingest() (file-based).
+
+        Args:
+            texts: Texts to add as concepts.
+            domain: Domain to add concepts to.
+            metadatas: Optional metadata per text.
+            ids: Optional IDs. Auto-generated if not provided.
+
+        Returns:
+            List of concept IDs added.
+        """
+        import hashlib
+
+        from qortex.core.models import ConceptNode
+
+        metadatas_list = metadatas or [{}] * len(texts)
+
+        if ids is None:
+            ids = [
+                f"{domain}:{hashlib.sha256(t.encode()).hexdigest()[:12]}"
+                for t in texts
+            ]
+
+        if self._backend.get_domain(domain) is None:
+            self._backend.create_domain(domain)
+
+        embeddings = self._embedding_model.embed(texts)
+        for text, meta, node_id, emb in zip(texts, metadatas_list, ids, embeddings):
+            name = meta.get("name", text[:80])
+            node = ConceptNode(
+                id=node_id,
+                name=name,
+                description=text,
+                domain=domain,
+                source_id=meta.get("source_id", "langchain"),
+                properties=meta,
+            )
+            self._backend.add_node(node)
+            self._backend.add_embedding(node_id, emb)
+
+        if self._vector_index is not None:
+            self._vector_index.add(ids, embeddings)
+
+        return ids
+
+    def get_nodes(self, ids: list[str]) -> list[NodeItem]:
+        """Get nodes by their IDs. Public accessor for adapters.
+
+        Returns:
+            List of NodeItems for found IDs (missing IDs are skipped).
+        """
+        result = []
+        for node_id in ids:
+            node = self._backend.get_node(node_id)
+            if node is not None:
+                result.append(_node_to_item(node))
+        return result
+
     def domains(self) -> list[DomainInfo]:
         return [
             DomainInfo(

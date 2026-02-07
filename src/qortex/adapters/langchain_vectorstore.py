@@ -1,6 +1,6 @@
 """LangChain VectorStore: qortex as a drop-in VectorStore.
 
-This is the full VectorStore integration — not just a retriever.
+This is the full VectorStore integration, not just a retriever.
 Use this anywhere LangChain expects a VectorStore: chains, agents,
 as_retriever(), similarity_search(), add_documents(), etc.
 
@@ -33,8 +33,6 @@ Requires: pip install langchain-core
 
 from __future__ import annotations
 
-import hashlib
-import uuid
 from typing import TYPE_CHECKING, Any
 
 try:
@@ -95,7 +93,7 @@ if _HAS_LANGCHAIN:
         @property
         def embeddings(self) -> Embeddings | None:
             """Access the embedding model if available."""
-            emb = getattr(self._client, "_embedding_model", None)
+            emb = getattr(self._client, "embedding_model", None)
             if emb is None:
                 return None
             # Wrap qortex embedding model in LangChain Embeddings interface
@@ -125,46 +123,13 @@ if _HAS_LANGCHAIN:
             Returns:
                 List of IDs of added concepts.
             """
-            from qortex.core.models import ConceptNode
-
             domain = kwargs.get("domain", self._domain)
-            texts_list = list(texts)
-            metadatas_list = metadatas or [{}] * len(texts_list)
-
-            if ids is None:
-                ids = [
-                    f"{domain}:{hashlib.sha256(t.encode()).hexdigest()[:12]}"
-                    for t in texts_list
-                ]
-
-            backend = self._client._backend
-            embedding_model = self._client._embedding_model
-            vector_index = self._client._vector_index
-
-            # Ensure domain exists
-            if backend.get_domain(domain) is None:
-                backend.create_domain(domain)
-
-            # Create nodes
-            embeddings = embedding_model.embed(texts_list)
-            for text, meta, node_id, emb in zip(texts_list, metadatas_list, ids, embeddings):
-                name = meta.get("name", text[:80])
-                node = ConceptNode(
-                    id=node_id,
-                    name=name,
-                    description=text,
-                    domain=domain,
-                    source_id=meta.get("source_id", "langchain"),
-                    properties=meta,
-                )
-                backend.add_node(node)
-                backend.add_embedding(node_id, emb)
-
-            # Also add to vector index for search
-            if vector_index is not None:
-                vector_index.add(ids, embeddings)
-
-            return ids
+            return self._client.add_concepts(
+                texts=list(texts),
+                domain=domain,
+                metadatas=metadatas,
+                ids=ids,
+            )
 
         def similarity_search(
             self, query: str, k: int = 4, **kwargs: Any
@@ -284,21 +249,19 @@ if _HAS_LANGCHAIN:
 
         def get_by_ids(self, ids: Sequence[str], /) -> list[Document]:
             """Get documents by their node IDs."""
-            backend = self._client._backend
+            nodes = self._client.get_nodes(list(ids))
             docs = []
-            for node_id in ids:
-                node = backend.get_node(node_id)
-                if node is not None:
-                    meta = {
-                        "domain": node.domain,
-                        "node_id": node.id,
-                    }
-                    meta.update(node.properties)
-                    docs.append(Document(
-                        page_content=f"{node.name}: {node.description}",
-                        metadata=meta,
-                        id=node.id,
-                    ))
+            for node in nodes:
+                meta = {
+                    "domain": node.domain,
+                    "node_id": node.id,
+                }
+                meta.update(node.properties)
+                docs.append(Document(
+                    page_content=f"{node.name}: {node.description}",
+                    metadata=meta,
+                    id=node.id,
+                ))
             return docs
 
         # -- qortex extras: graph exploration + rules --
