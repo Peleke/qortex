@@ -76,6 +76,14 @@ class CausalEdge:
     functional_form: str | None = None
     learned_params: dict[str, Any] | None = None
 
+    def __post_init__(self) -> None:
+        import math
+
+        if not math.isfinite(self.strength):
+            raise ValueError(f"strength must be finite, got {self.strength}")
+        if self.strength < 0:
+            raise ValueError(f"strength must be non-negative, got {self.strength}")
+
 
 @dataclass(frozen=True)
 class CausalAnnotation:
@@ -97,9 +105,24 @@ class CausalAnnotation:
 
     @classmethod
     def from_dict(cls, data: dict[str, Any]) -> CausalAnnotation:
+        import math
+
+        if "direction" not in data:
+            raise ValueError("CausalAnnotation.from_dict: missing 'direction' key")
+        if "strength" not in data:
+            raise ValueError("CausalAnnotation.from_dict: missing 'strength' key")
+
+        strength = data["strength"]
+        if not isinstance(strength, (int, float)):
+            raise TypeError(
+                f"CausalAnnotation.from_dict: strength must be numeric, got {type(strength).__name__}"
+            )
+        if not math.isfinite(strength):
+            raise ValueError(f"CausalAnnotation.from_dict: strength must be finite, got {strength}")
+
         return cls(
             direction=CausalDirection(data["direction"]),
-            strength=data["strength"],
+            strength=float(strength),
             functional_form=data.get("functional_form"),
         )
 

@@ -1,5 +1,9 @@
 """Tests for causal type system."""
 
+import pytest
+from hypothesis import given
+from hypothesis import strategies as st
+
 from qortex.causal.types import (
     RELATION_CAUSAL_DIRECTION,
     CausalAnnotation,
@@ -147,3 +151,69 @@ class TestRelationMapping:
     def test_confidence_range(self):
         for _, (_, conf) in RELATION_CAUSAL_DIRECTION.items():
             assert 0.0 < conf <= 1.0
+
+
+class TestAnnotationErrorPaths:
+    """CausalAnnotation.from_dict() error handling."""
+
+    def test_missing_direction_key(self):
+        with pytest.raises(ValueError, match="missing 'direction'"):
+            CausalAnnotation.from_dict({"strength": 0.9})
+
+    def test_missing_strength_key(self):
+        with pytest.raises(ValueError, match="missing 'strength'"):
+            CausalAnnotation.from_dict({"direction": "forward"})
+
+    def test_invalid_direction_value(self):
+        with pytest.raises(ValueError):
+            CausalAnnotation.from_dict({"direction": "bogus", "strength": 0.5})
+
+    def test_non_numeric_strength(self):
+        with pytest.raises(TypeError, match="strength must be numeric"):
+            CausalAnnotation.from_dict({"direction": "forward", "strength": "high"})
+
+    def test_nan_strength(self):
+        with pytest.raises(ValueError, match="strength must be finite"):
+            CausalAnnotation.from_dict({"direction": "forward", "strength": float("nan")})
+
+    def test_inf_strength(self):
+        with pytest.raises(ValueError, match="strength must be finite"):
+            CausalAnnotation.from_dict({"direction": "forward", "strength": float("inf")})
+
+
+class TestAnnotationPropertyBased:
+    """Property-based roundtrip test for CausalAnnotation."""
+
+    @given(
+        direction=st.sampled_from(list(CausalDirection)),
+        strength=st.floats(min_value=0.0, max_value=1e6, allow_nan=False, allow_infinity=False),
+        functional_form=st.one_of(st.none(), st.text(min_size=0, max_size=50)),
+    )
+    def test_roundtrip(self, direction, strength, functional_form):
+        ann = CausalAnnotation(
+            direction=direction,
+            strength=strength,
+            functional_form=functional_form,
+        )
+        restored = CausalAnnotation.from_dict(ann.to_dict())
+        assert restored == ann
+
+
+class TestEdgeStrengthValidation:
+    """CausalEdge strength validation."""
+
+    def test_nan_strength_rejected(self):
+        with pytest.raises(ValueError, match="finite"):
+            CausalEdge("a", "b", "r", CausalDirection.FORWARD, strength=float("nan"))
+
+    def test_inf_strength_rejected(self):
+        with pytest.raises(ValueError, match="finite"):
+            CausalEdge("a", "b", "r", CausalDirection.FORWARD, strength=float("inf"))
+
+    def test_negative_strength_rejected(self):
+        with pytest.raises(ValueError, match="non-negative"):
+            CausalEdge("a", "b", "r", CausalDirection.FORWARD, strength=-0.1)
+
+    def test_zero_strength_accepted(self):
+        edge = CausalEdge("a", "b", "r", CausalDirection.FORWARD, strength=0.0)
+        assert edge.strength == 0.0
