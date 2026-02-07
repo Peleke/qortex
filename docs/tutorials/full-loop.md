@@ -15,7 +15,7 @@ It's late. You've been debugging for three hours. The AI assistant just made the
 
 You fix it. Again. Move on. Again.
 
-But here's the thing: that mistake *could* have been prevented. Somewhere in a design patterns book you read last year, there's a principle that would have caught this. The assistant doesn't know about that principle. And even if it did, it wouldn't know that *this specific type of error* is the one it keeps making.
+That mistake *could* have been prevented. Somewhere in a design patterns book you read last year, there's a principle that would have caught this. The assistant doesn't know about that principle. And even if it did, it wouldn't know that *this specific type of error* is the one it keeps making.
 
 What if the assistant could learn from books? What if it could learn from its own mistakes? What if those two knowledge sources could *talk to each other*?
 
@@ -25,35 +25,28 @@ That's what we built.
 
 ## The Architecture
 
-```
-┌─────────────────────────────────────────────────────────────────────┐
-│                      BIDIRECTIONAL KNOWLEDGE FLOW                   │
-├─────────────────────────────────────────────────────────────────────┤
-│                                                                     │
-│   FORWARD: Knowledge → Agents                                       │
-│   ══════════════════════════════                                    │
-│   📚 Book Chapter                                                   │
-│      ↓ qortex ingest                                                │
-│   🧠 Memgraph Knowledge Graph                                       │
-│      ↓ qortex project buildlog                                      │
-│   📋 YAML Seed File                                                 │
-│      ↓ buildlog ingest-seeds                                        │
-│   🤖 Agent Personas (test_terrorist, security_karen)                │
-│                                                                     │
-│   REVERSE: Agents → Knowledge                                       │
-│   ═════════════════════════════                                     │
-│   🤖 Agent makes mistakes                                           │
-│      ↓ buildlog emits mistake_manifest                              │
-│   📁 Emissions directory                                            │
-│      ↓ transform to manifest                                        │
-│   🧠 Memgraph (experiential domain)                                 │
-│      ↓ cross-domain edges                                           │
-│   🔗 Mistakes linked to design patterns                             │
-│                                                                     │
-└─────────────────────────────────────────────────────────────────────┘
+```mermaid
+flowchart TB
+    subgraph forward["FORWARD: Knowledge → Agents"]
+        direction TB
+        book["Book Chapter"]
+        book -->|"qortex ingest"| kg["Memgraph Knowledge Graph"]
+        kg -->|"qortex project buildlog"| seed["YAML Seed File"]
+        seed -->|"buildlog ingest-seeds"| personas["Agent Personas"]
+    end
+
+    subgraph reverse["REVERSE: Agents → Knowledge"]
+        direction TB
+        agent["Agent makes mistakes"]
+        agent -->|"buildlog emits"| emissions["Emissions Directory"]
+        emissions -->|"transform to manifest"| exp["Memgraph (experiential)"]
+        exp -->|"cross-domain edges"| links["Mistakes ↔ Patterns"]
+    end
+
+    kg <-.->|"bidirectional"| exp
 ```
 
-Two flows. One graph. Let's walk through both.
+The architecture has two flows sharing one graph. Let's walk through both.
 
 ---
 
@@ -85,7 +78,7 @@ Each red dot is a concept. Each line is a relationship. The clusters you see are
 
 ![Force-directed layout](../demo-screenshots/04-graph-results.png)
 
-But here's the thing that matters: **the edges have types**.
+The edges have types, and that matters.
 
 ### Edge Types Are Everything
 
@@ -141,6 +134,7 @@ uv run qortex ingest file \
 ```
 
 The extraction finds:
+
 - **265 concepts** (publisher-subscriber, loose coupling, event objects...)
 - **139 edges** (Observer IMPLEMENTS Loose Coupling, Publisher USES Event...)
 - **6 explicit rules** directly from the text
@@ -166,12 +160,12 @@ ORDER BY concepts DESC
 
 | Domain | Concepts |
 |--------|----------|
-| iterator_visitor_patterns | 249 |
-| implementation_hiding | 237 |
-| template_strategy_patterns | 170 |
-| factory_patterns | 158 |
-| observer_pattern | 137 |
-| adapter_facade_patterns | 137 |
+| `iterator_visitor_patterns` | 249 |
+| `implementation_hiding` | 237 |
+| `template_strategy_patterns` | 170 |
+| `factory_patterns` | 158 |
+| `observer_pattern` | 137 |
+| `adapter_facade_patterns` | 137 |
 
 Six domains. Over a thousand concepts. But which concepts *matter most*?
 
@@ -190,17 +184,19 @@ ORDER BY rank DESC LIMIT 15
 
 The top concepts:
 
-1. **Interface Compatibility** (adapter_facade_patterns) - 0.0071
-2. **Visitor Design Pattern** (iterator_visitor_patterns) - 0.0068
-3. **Tree Node Processing** (iterator_visitor_patterns) - 0.0067
-4. **Architecture Problem** (iterator_visitor_patterns) - 0.0063
-5. **Algorithm Encapsulation** (iterator_visitor_patterns) - 0.0059
+1. **Interface Compatibility** (`adapter_facade_patterns`) - 0.0071
+2. **Visitor Design Pattern** (`iterator_visitor_patterns`) - 0.0068
+3. **Tree Node Processing** (`iterator_visitor_patterns`) - 0.0067
+4. **Architecture Problem** (`iterator_visitor_patterns`) - 0.0063
+5. **Algorithm Encapsulation** (`iterator_visitor_patterns`) - 0.0059
 
-These are the hub concepts - the ideas that bridge multiple patterns. If an agent needs to understand design patterns, these are the concepts to prioritize.
+These are the hub concepts, the ideas that bridge multiple patterns. If an agent needs to understand design patterns, these are the concepts to prioritize.
+
+We've ingested knowledge. We've analyzed its structure. Now comes the payoff: turning that knowledge into something an agent can use.
 
 ### Projecting to Buildlog
 
-Now we turn knowledge into rules. The projection creates a YAML seed file that buildlog can ingest:
+Knowledge in a graph is useful for analysis, but agents need *rules*. The projection creates a YAML seed file that buildlog can ingest:
 
 ```bash
 uv run qortex project buildlog \
@@ -238,11 +234,15 @@ buildlog ingest-seeds
 
 The Observer Pattern is now influencing agent behavior during code reviews.
 
+**Recap**: We took a book chapter, extracted a knowledge graph, ran analytics to find the most important concepts, and projected rules to an AI agent system. The forward flow is complete.
+
 ---
 
 ## Part 2: Reverse Flow
 
-Here's where it gets interesting. The forward flow is useful, but it's one-directional. What if the agents could teach the knowledge graph?
+So far we've moved knowledge in one direction: books to graph to agents. Useful, but incomplete.
+
+The agents aren't just consumers of knowledge. They're also *producers*. Every time an agent catches itself making a mistake, that's information. Every time it learns a new pattern from reviewing code, that's data. What if we could feed that experience back into the graph?
 
 ### The Emissions
 
@@ -273,11 +273,15 @@ Let's look at a mistake manifest:
 }
 ```
 
-This is *experience*. The agent made a typo. It got caught. That's data.
+The agent made a typo, and caught it. That's *experience*.
+
+Hundreds of these files accumulate over time. Each one is a data point. Together, they form a picture of what the agent struggles with.
 
 ### Loading Mistakes into the Graph
 
-We transform 192 mistake manifests into a qortex manifest and load them:
+Those 192 mistake manifests are sitting in a directory. What if we could query them the same way we query design patterns? What if we could find connections between the mistakes agents make and the knowledge that might prevent them?
+
+We transform the emissions into a qortex manifest and load them:
 
 ```bash
 uv run qortex ingest load /tmp/buildlog_mistakes_manifest.json
@@ -290,7 +294,7 @@ Loaded manifest: experiential
   Rules: 0
 ```
 
-Now we can query the mistakes:
+100 mistake concepts, now queryable. Let's see what they tell us:
 
 ```cypher
 MATCH (n:Concept {domain: 'experiential'})
@@ -302,7 +306,7 @@ ORDER BY cnt DESC
 
 ### The Repeat Rate Problem
 
-Here's what the data reveals:
+The data reveals a pattern:
 
 | Error Class | Total | Repeats | Rate |
 |-------------|-------|---------|------|
@@ -312,13 +316,15 @@ Here's what the data reveals:
 | validation | 13 | 0 | 0.0% |
 | typo | 13 | 0 | 0.0% |
 
-**61.6% of test errors are repeats.** The agent keeps making the same testing mistakes. Security errors? Zero repeats - they get fixed and stay fixed.
+**61.6% of test errors are repeats.** The agent keeps making the same testing mistakes. Security errors? Zero repeats. They get fixed and stay fixed.
 
-This is a *signal*. Test-related patterns need reinforcement.
+The signal? Test-related patterns need reinforcement. Security patterns consolidate more swiftly.
+
+But knowing *that* the agent struggles with tests isn't enough. We need to know *what knowledge* would help.
 
 ### Cross-Domain Edges
 
-Here's the payoff. We can now link mistakes to the design patterns that might prevent them:
+The graph now contains both design pattern knowledge and experiential data. We can link mistakes to the design patterns that might prevent them:
 
 ```cypher
 MATCH (e:Concept {domain: 'experiential'})-[r]->(p:Concept)
@@ -330,11 +336,11 @@ RETURN e.name, type(r), p.name, p.domain
 
 | Mistake Type | Relation | Pattern Concept | Domain |
 |--------------|----------|-----------------|--------|
-| Test Errors (Aggregate) | CHALLENGES | Algorithm Encapsulation | iterator_visitor_patterns |
-| Test Errors (Aggregate) | CHALLENGES | Object Creation | factory_patterns |
-| Missing Test Errors (Aggregate) | CHALLENGES | Algorithm Steps | template_strategy_patterns |
-| Security Errors (Aggregate) | SUPPORTS | Private Methods | implementation_hiding |
-| Validation Errors (Aggregate) | CHALLENGES | External Code Integration | adapter_facade_patterns |
+| Test Errors (Aggregate) | `CHALLENGES` | Algorithm Encapsulation | `iterator_visitor_patterns` |
+| Test Errors (Aggregate) | `CHALLENGES` | Object Creation | `factory_patterns` |
+| Missing Test Errors (Aggregate) | `CHALLENGES` | Algorithm Steps | `template_strategy_patterns` |
+| Security Errors (Aggregate) | `SUPPORTS` | Private Methods | `implementation_hiding` |
+| Validation Errors (Aggregate) | `CHALLENGES` | External Code Integration | `adapter_facade_patterns` |
 
 The 61.6% repeat rate on test errors? It `CHALLENGES` Algorithm Encapsulation and Object Creation. The fix isn't "try harder" - it's "learn Iterator and Factory patterns better."
 
@@ -342,29 +348,40 @@ The 61.6% repeat rate on test errors? It `CHALLENGES` Algorithm Encapsulation an
 
 ## The Insight
 
-The graph now has **1,238 nodes** and **833 edges** across **7 domains**:
+We've walked both directions. Books flowed into rules. Mistakes flowed back into the graph. Now we have something neither source could provide alone.
+
+The graph holds **1,238 nodes** and **833 edges** across **7 domains**:
 
 - Six domains of design pattern knowledge (from books)
 - One domain of experiential knowledge (from agent mistakes)
 - Cross-domain edges connecting them
 
-When the test_terrorist persona reviews code, it should prioritize rules from iterator_visitor_patterns and factory_patterns - because those are the patterns that address the mistakes it keeps making.
+When the `test_terrorist` persona reviews code, it should prioritize rules from `iterator_visitor_patterns` and `factory_patterns`. Those are the patterns that address the mistakes it keeps making.
 
 That's not a heuristic we invented. That's what the graph told us.
 
 ---
 
-## What We Learned
+## What We Built
 
-The bidirectional flow creates a learning system:
+Step back and look at what just happened.
 
-1. **Design pattern knowledge improves agent behavior** - 135 Observer Pattern rules now guide code reviews
-2. **Agent mistakes reveal blind spots** - 61.6% test error repeat rate is a signal
-3. **Cross-domain links suggest fixes** - Iterator and Factory patterns address the repeated mistakes
-4. **The graph gets smarter over time** - every mistake is data, every pattern is potential cure
+We read a book chapter. The Observer Pattern, 50 pages of design wisdom written by humans for humans. We fed it to qortex, which extracted 265 concepts, 139 relationships, and 6 explicit rules. We projected those rules to buildlog, where they now guide an AI agent during code reviews.
 
-This isn't AGI. It's plumbing. But it's plumbing that lets knowledge flow both ways, accumulate, and compound.
+Books teach agents.
 
-The assistant that kept making the same mistake? Now there's a path to fix that. Ingest the relevant book chapter. Project the rules. Watch the repeat rate drop.
+Then we looked at what the agent actually does. 192 mistake manifests, each one a moment where the agent caught itself doing something wrong. We loaded those into the same graph. We ran analytics. We found that 61.6% of test-related errors are repeats. We created cross-domain edges linking those persistent mistakes to the design patterns that might prevent them.
 
-That's the loop. That's why we built this.
+Agents teach the graph.
+
+The two flows meet in the middle. The graph now contains design patterns from books alongside experiential data from agent mistakes, connected by cross-domain edges that link test errors to the patterns (like Algorithm Encapsulation) that might prevent them.
+
+This changes everything about how we think about AI assistants.
+
+The agent that keeps making the same testing mistakes? Don't just scold it. Don't write more rules by hand. Instead: find the design patterns that address the gap. Ingest the relevant chapters. Project the rules. Let the graph tell you what knowledge is missing, then fill the gap systematically.
+
+The 61.6% repeat rate on test errors isn't a bug. It's a diagnostic. It points directly at `iterator_visitor_patterns` and `factory_patterns` as the knowledge domains that need reinforcement. The graph tells you where the gaps are.
+
+The graph now holds 1,238 nodes and 833 edges across 7 domains, with two knowledge sources connected by cross-domain edges.
+
+That's the loop.
