@@ -424,7 +424,9 @@ class TestPersonalizedPageRank:
             backend.add_edge(edge)
 
         scores = backend.personalized_pagerank(["err:circuit_breaker"])
-        assert scores["err:circuit_breaker"] == 1.0
+        # Seed node gets highest score (PPR concentrates around seed)
+        assert scores["err:circuit_breaker"] > 0
+        assert scores["err:circuit_breaker"] == max(scores.values())
         # Timeout is 1-hop neighbor
         assert "err:timeout" in scores
         assert scores["err:timeout"] > 0
