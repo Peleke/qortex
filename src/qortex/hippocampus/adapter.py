@@ -164,17 +164,39 @@ class GraphRAGAdapter:
         edge_buffer: "EdgePromotionBuffer | None" = None,
         online_sim_threshold: float = 0.7,
         kg_weight_bonus: float = 0.3,
+        interoception: "InteroceptionProvider | None" = None,
     ) -> None:
         from qortex.hippocampus.buffer import EdgePromotionBuffer
         from qortex.hippocampus.factors import TeleportationFactors
+        from qortex.hippocampus.interoception import (
+            InteroceptionProvider,
+            LocalInteroceptionProvider,
+        )
 
         self.vector_index = vector_index
         self.backend = backend
         self.embedding_model = embedding_model
-        self.factors = factors or TeleportationFactors()
-        self.edge_buffer = edge_buffer or EdgePromotionBuffer()
         self.online_sim_threshold = online_sim_threshold
         self.kg_weight_bonus = kg_weight_bonus
+
+        # Interoception layer: prefer explicit, else wrap legacy params
+        if interoception is not None:
+            self._interoception = interoception
+            if factors is not None or edge_buffer is not None:
+                logger.warning(
+                    "Both interoception= and factors=/edge_buffer= provided. "
+                    "Using interoception=, ignoring factors=/edge_buffer=."
+                )
+        elif factors is not None or edge_buffer is not None:
+            # Backward compat: wrap legacy params in LocalInteroceptionProvider
+            provider = LocalInteroceptionProvider()
+            if factors is not None:
+                provider._factors = factors
+            if edge_buffer is not None:
+                provider._buffer = edge_buffer
+            self._interoception = provider
+        else:
+            self._interoception = LocalInteroceptionProvider()
 
         # Cache: query_id → list of item_ids (for feedback routing)
         self._query_cache: dict[str, list[str]] = {}
@@ -219,7 +241,7 @@ class GraphRAGAdapter:
 
         # 3. Buffer online edges for future promotion
         for src, tgt, weight in online_edges:
-            self.edge_buffer.record(src, tgt, weight)
+            self._interoception.record_online_edge(src, tgt, weight)
 
         # 4. Compute KG coverage (research metric)
         persistent_count = self._count_persistent_edges(seed_ids)
@@ -227,7 +249,7 @@ class GraphRAGAdapter:
         kg_coverage = persistent_count / max(total_edges, 1)
 
         # 5. PPR over merged graph (persistent edges in backend + online extras)
-        seed_weights = self.factors.weight_seeds(seed_ids)
+        seed_weights = self._interoception.get_seed_weights(seed_ids)
 
         ppr_scores = self.backend.personalized_pagerank(
             source_nodes=seed_ids,
@@ -279,22 +301,27 @@ class GraphRAGAdapter:
         )
 
     def feedback(self, query_id: str, outcomes: dict[str, str]) -> None:
-        """Update teleportation factors from feedback.
+        """Update teleportation factors from feedback via interoception.
 
         Accepted items get boosted, rejected items get penalized.
         This biases future PPR toward nodes that produce good results.
         """
-        updates = self.factors.update(query_id, outcomes)
-        if updates:
-            logger.debug(
-                "Factor updates for query %s: %d items, %d boosted, %d penalized",
-                query_id,
-                len(updates),
-                sum(1 for u in updates if u.delta > 0),
-                sum(1 for u in updates if u.delta < 0),
-            )
-            # Persist factors after update
-            self.factors.persist()
+        self._interoception.report_outcome(query_id, outcomes)
+        logger.debug(
+            "Feedback routed via interoception for query %s: %d outcomes",
+            query_id,
+            len(outcomes),
+        )
+
+    @property
+    def factors(self) -> "TeleportationFactors":
+        """Backward-compat: proxy to interoception's factors."""
+        return self._interoception.factors
+
+    @property
+    def edge_buffer(self) -> "EdgePromotionBuffer":
+        """Backward-compat: proxy to interoception's buffer."""
+        return self._interoception.buffer
 
     def _build_online_edges(
         self,
@@ -355,6 +382,7 @@ def get_adapter(
     embedding_model=None,
     factors: "TeleportationFactors | None" = None,
     edge_buffer: "EdgePromotionBuffer | None" = None,
+    interoception: "InteroceptionProvider | None" = None,
 ) -> RetrievalAdapter:
     """Factory: returns the best available adapter.
 
@@ -369,4 +397,5 @@ def get_adapter(
     return GraphRAGAdapter(
         vector_index, backend, embedding_model,
         factors=factors, edge_buffer=edge_buffer,
+        interoception=interoception,
     )
