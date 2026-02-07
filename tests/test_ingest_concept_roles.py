@@ -337,6 +337,27 @@ class TestBackwardCompatibility:
         assert manifest.concepts[0].name == "WeirdConcept"
         assert manifest.concepts[0].properties.get("concept_role") == "illustrative"
 
+    def test_unexpected_concept_role_treated_as_generalizable(self):
+        """Unexpected concept_role value (e.g. typo) treated as generalizable."""
+        llm = StubLLMBackend(
+            concepts=[
+                {
+                    "name": "Some Concept",
+                    "description": "Has a typo in role",
+                    "concept_role": "illlustrative",  # typo
+                    "illustrates": "Something",
+                },
+            ]
+        )
+        ingestor = SimpleIngestor(llm)
+        manifest = ingestor.ingest(_make_source(), domain="design")
+
+        # Treated as generalizable (else branch), so it becomes a standalone node
+        assert len(manifest.concepts) == 1
+        assert manifest.concepts[0].name == "Some Concept"
+        # No concept_role in properties since it went through the generalizable path
+        assert "concept_role" not in manifest.concepts[0].properties
+
     def test_stub_backend_default_no_args(self):
         """StubLLMBackend() with no args still works (backward compat)."""
         llm = StubLLMBackend()

@@ -186,7 +186,7 @@ class Ingestor(ABC):
                     }
                 )
             else:
-                # Parent not found — create as concept but mark role in properties
+                # Parent not found: create as concept but mark role in properties
                 generalizable_concepts.append(
                     ConceptNode(
                         id=f"{domain}:{raw['name']}",
