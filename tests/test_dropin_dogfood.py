@@ -189,8 +189,8 @@ class TestMastraDropIn:
         from qortex.adapters.mastra import QortexVectorStore
 
         store = QortexVectorStore(client=knowledge_base)
-        store.create_index("new-domain", dimension=768, metric="cosine")
-        # No error — graceful
+        result = store.create_index("new-domain", dimension=768, metric="cosine")
+        assert result is None  # graceful no-op
 
     def test_feedback_is_the_upgrade(self, knowledge_base):
         """This is what Mastra CAN'T do. qortex learns from outcomes."""
@@ -353,8 +353,8 @@ class TestCrewAIDropIn:
         from qortex.adapters.crewai import QortexKnowledgeStorage
 
         storage = QortexKnowledgeStorage(client=knowledge_base)
-        storage.save(["doc1", "doc2"])  # no-op, no error
-        storage.reset()  # no-op, no error
+        assert storage.save(["doc1", "doc2"]) is None  # no-op
+        assert storage.reset() is None  # no-op
 
     def test_score_threshold_filters(self, knowledge_base):
         """CrewAI's score_threshold is passed through."""

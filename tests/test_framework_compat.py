@@ -60,17 +60,28 @@ def _load_crewai_search_result():
 
 
 def _load_agno_document():
-    """Load agno's Document dataclass from source."""
+    """Load agno's Document dataclass from source.
+
+    Temporarily stubs agno.knowledge.embedder in sys.modules so the Document
+    module can import without the full agno dependency chain. Cleans up after.
+    """
     doc_path = AGNO_SRC / "agno" / "knowledge" / "document" / "base.py"
     if not doc_path.exists():
         return None
-    # Stub agno.knowledge.embedder so Document can import
+    # Track which modules we stub so we can clean up
+    stubbed: list[str] = []
     for mod_name in ("agno", "agno.knowledge", "agno.knowledge.embedder"):
         if mod_name not in sys.modules:
             sys.modules[mod_name] = types.ModuleType(mod_name)
+            stubbed.append(mod_name)
     sys.modules["agno.knowledge.embedder"].Embedder = None  # type: ignore[attr-defined]
-    mod = _load_module_from_file("agno_document", doc_path)
-    return getattr(mod, "Document", None)
+    try:
+        mod = _load_module_from_file("agno_document", doc_path)
+        return getattr(mod, "Document", None)
+    finally:
+        # Remove stubs we added — don't pollute sys.modules for other tests
+        for mod_name in stubbed:
+            sys.modules.pop(mod_name, None)
 
 
 # Attempt to load framework types
