@@ -163,7 +163,7 @@ class LocalInteroceptionProvider:
             self._buffer = EdgePromotionBuffer.load(self._config.buffer_path)
             logger.info(
                 "Loaded edge buffer: %d entries from %s",
-                len(self._buffer._buffer),
+                self._buffer.summary()["buffered_edges"],
                 self._config.buffer_path,
             )
         else:
@@ -198,14 +198,12 @@ class LocalInteroceptionProvider:
         """Record an online edge observation in the buffer."""
         self._buffer.record(source_id, target_id, score)
 
-        if (
-            self._config.auto_flush_threshold > 0
-            and len(self._buffer._buffer) >= self._config.auto_flush_threshold
-        ):
+        buffered = self._buffer.summary()["buffered_edges"]
+        if self._config.auto_flush_threshold > 0 and buffered >= self._config.auto_flush_threshold:
             logger.info(
                 "Edge buffer reached auto-flush threshold (%d entries). "
                 "Call flush_buffer() with a backend to promote qualifying edges.",
-                len(self._buffer._buffer),
+                buffered,
             )
 
     def flush_buffer(self, backend: Any, **kwargs: Any) -> Any:
