@@ -1,23 +1,25 @@
 # Case Study: Replacing Mastra's Vector Store via MCP
 
-> **Status**: E2E proven — `tests/test_e2e_mastra.py` (13 tests, real embeddings)
+> **Status**: E2E proven in `tests/test_e2e_mastra.py` (13 tests, real embeddings) and `tests/test_mastra_mcp_dogfood.py` (19 tests, graph-enhanced pipeline)
 >
-> **The hook**: Mastra is TypeScript. qortex is Python. MCP bridges the gap. One config change gives any Mastra app graph-enhanced retrieval with a feedback loop — something Mastra's own GraphRAG can't do.
+> **The hook**: Mastra is TypeScript. qortex is Python. MCP bridges the gap. One config change gives any Mastra app graph-enhanced retrieval with graph exploration, projected rules, and a feedback loop.
 
 ## What Mastra Has
 
-Mastra provides `MastraVector`, an abstract class with 22 implementations (PgVector, Chroma, Pinecone, Qdrant, etc.). Their `GraphRAG` builds an in-memory cosine similarity graph at query time — O(N²), no persistence, no learning.
+Mastra provides `MastraVector`, an abstract class with 22 implementations (PgVector, Chroma, Pinecone, Qdrant, etc.). Their `GraphRAG` builds an in-memory cosine similarity graph at query time (O(N²), no persistence, no learning).
 
 | MastraVector Method | qortex MCP Equivalent |
 |--------------------|----------------------|
-| `query(indexName, queryVector, topK)` | `qortex_query(context, domains, top_k)` |
+| `query(indexName, queryVector, topK)` | `qortex_query(context, domains, top_k)` (includes rules) |
 | `listIndexes()` | `qortex_domains()` |
 | `describeIndex(name)` | `qortex_domains()` + filter |
 | `upsert(indexName, vectors)` | `qortex_ingest(source_path, domain)` |
 | `createIndex(name, dimension)` | Auto-created on ingest |
-| — (nothing) | `qortex_feedback(query_id, outcomes)` |
+| (no equivalent) | `qortex_explore(node_id, depth)` |
+| (no equivalent) | `qortex_rules(domains, concept_ids)` |
+| (no equivalent) | `qortex_feedback(query_id, outcomes)` |
 
-The last row is the point. Mastra has no feedback mechanism.
+Mastra's vector store API is excellent for standard retrieval. qortex augments it with graph structure, rules, and a learning loop.
 
 ## The Swap
 
@@ -52,28 +54,109 @@ The MCP server exposes the same operations over JSON-RPC. A TypeScript Mastra cl
 
 Response maps 1:1 to Mastra's `QueryResult[]` shape.
 
+## Graph-Enhanced MCP Pipeline
+
+The graph-enhanced pipeline adds typed edges, rules, and exploration to MCP:
+
+```mermaid
+sequenceDiagram
+    participant M as Mastra TS Client
+    participant Q as qortex MCP Server
+
+    M->>Q: qortex_status()
+    Q-->>M: {status: "ok", vector_search: true}
+
+    M->>Q: qortex_query("authentication?", domains=["security"])
+    Q-->>M: {items: [...], rules: [{id, text, relevance}]}
+
+    M->>Q: qortex_explore(items[0].node_id)
+    Q-->>M: {node, edges: [{REQUIRES→JWT}], neighbors, rules}
+
+    M->>Q: qortex_rules(concept_ids=[...activated...])
+    Q-->>M: {rules: [...], projection: "rules"}
+
+    M->>Q: qortex_feedback(query_id, {item_id: "accepted"})
+    Q-->>M: {status: "recorded"}
+
+    M->>Q: qortex_query("authentication?")
+    Note over Q: PPR weights adjusted by feedback
+    Q-->>M: {items: [...improved...], rules: [...]}
+```
+
+### Rules in query results
+
+`qortex_query` now auto-surfaces linked rules:
+
+```json
+{
+  "query_id": "q-abc123",
+  "items": [
+    {"id": "i-1", "content": "OAuth2: ...", "score": 0.94, "node_id": "sec:oauth"}
+  ],
+  "rules": [
+    {
+      "id": "rule:use-oauth",
+      "text": "Always use OAuth2 for third-party API access",
+      "domain": "security",
+      "category": "security",
+      "relevance": 0.94,
+      "source_concepts": ["sec:oauth"]
+    }
+  ]
+}
+```
+
+### Graph exploration
+
+Navigate typed edges from any query result:
+
+```json
+// Request
+{"method": "tools/call", "params": {"name": "qortex_explore", "arguments": {"node_id": "sec:oauth"}}}
+
+// Response
+{
+  "node": {"id": "sec:oauth", "name": "OAuth2", "description": "..."},
+  "edges": [
+    {"source_id": "sec:oauth", "target_id": "sec:jwt", "relation_type": "REQUIRES"},
+    {"source_id": "sec:oauth", "target_id": "sec:rbac", "relation_type": "USES"}
+  ],
+  "neighbors": [
+    {"id": "sec:jwt", "name": "JWT", "description": "..."},
+    {"id": "sec:rbac", "name": "RBAC", "description": "..."}
+  ],
+  "rules": [
+    {"id": "rule:use-oauth", "text": "Always use OAuth2 for third-party API access"}
+  ]
+}
+```
+
 ## What We Proved
 
-**Real embeddings**: sentence-transformers/all-MiniLM-L6-v2 (384 dimensions). Not mocks.
+| Claim | Evidence |
+|-------|----------|
+| Real embeddings | sentence-transformers/all-MiniLM-L6-v2 (384 dimensions), not mocks |
+| Real ingestion | Text document → concept extraction → embedding generation → vector index + graph storage |
+| Real semantic search | Query "How does OAuth2 work?" → top result contains OAuth2 content (verified) |
+| Graph exploration | query, take node_id, explore: typed edges + neighbors + linked rules |
+| Rules auto-surfaced | query results include linked rules with relevance scores |
+| Rules projection | qortex_rules returns filtered rules by domain, concept, or category |
+| Real feedback loop | Query, accept/reject outcomes, recorded for future PPR weight adjustment |
+| JSON serializable | Every MCP response round-trips through `json.dumps()`/`json.loads()` |
 
-**Real ingestion**: Text document → concept extraction → embedding generation → vector index + graph storage.
+## What qortex Adds to Mastra
 
-**Real semantic search**: Query "How does OAuth2 work?" → top result contains OAuth2 content (verified).
+Mastra's `MastraVector` is a clean, well-designed abstraction with 22 implementations. qortex augments it with capabilities that complement what Mastra already does well:
 
-**Real feedback loop**: Query → accept/reject outcomes → recorded for future PPR weight adjustment.
-
-**JSON serializable**: Every MCP response round-trips through `json.dumps()`/`json.loads()`.
-
-## Where qortex Is Strictly Better
-
-| Dimension | Mastra GraphRAG | qortex |
-|-----------|----------------|--------|
-| Graph edges | Cosine sim threshold (one type) | Typed edges (REQUIRES, REFINES...) + cosine fallback |
-| Graph construction | O(N²) all-pairs, in-memory, per query | Persistent KG + online gen for gaps |
-| Walk algorithm | Monte Carlo random walk (stochastic) | PPR power iteration (deterministic) |
-| Persistence | None — rebuilt every query | SqliteVec + Memgraph |
-| Learning | None | Teleportation factors from feedback |
-| Cross-session | Nothing carries over | Graph + factors accumulate |
+| Dimension | Mastra (great foundation) | qortex (augmentation) |
+|-----------|--------------------------|----------------------|
+| Graph edges | Cosine sim threshold (auto-constructed) | Typed edges (REQUIRES, REFINES...) from source material |
+| Graph construction | Dynamic, per-query | Persistent KG + dynamic gap-filling |
+| Walk algorithm | Monte Carlo random walk | PPR power iteration (deterministic) |
+| Persistence | In-memory per query | SqliteVec + Memgraph across sessions |
+| Learning | — | Teleportation factors from feedback |
+| Rules | — | Auto-surfaced from knowledge graph |
+| Exploration | — | Typed edge traversal from results |
 
 ## Next Steps
 

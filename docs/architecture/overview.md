@@ -59,7 +59,28 @@ This allows:
 - KG to be agnostic of source formats
 - Future: ingestion as a separate microservice
 
-### 4. Universal Schema
+### 4. Query Layer
+
+The query layer provides graph-enhanced retrieval through QortexClient:
+
+```mermaid
+graph LR
+    CONSUMER[Consumer] --> CLIENT[QortexClient]
+    CLIENT --> QUERY["query()"]
+    CLIENT --> EXPLORE["explore()"]
+    CLIENT --> RULES["rules()"]
+    CLIENT --> FEEDBACK["feedback()"]
+    QUERY --> VEC[Vector Index]
+    QUERY --> PPR[Graph PPR]
+    VEC --> COMBINE[Combined Scoring]
+    PPR --> COMBINE
+    COMBINE --> RESULTS[Results + Rules]
+    FEEDBACK -->|teleportation| PPR
+```
+
+Unlike flat vector stores, qortex combines vector similarity with Personalized PageRank over typed edges. Feedback adjusts teleportation factors, creating a continuous learning loop.
+
+### 5. Universal Schema
 
 All outputs follow a single schema that any consumer can validate:
 
@@ -86,7 +107,20 @@ qortex/
 │   ├── models.py          # ConceptNode, ConceptEdge, Rule, etc.
 │   ├── backend.py         # GraphBackend protocol, MemgraphBackend
 │   ├── memory.py          # InMemoryBackend
-│   └── templates.py       # 30 edge rule templates
+│   ├── templates.py       # 30 edge rule templates
+│   └── rules.py           # collect_rules_for_concepts()
+├── client.py              # QortexClient protocol + LocalQortexClient
+├── vec/
+│   └── index.py           # NumpyVectorIndex, SqliteVecIndex
+├── hippocampus/           # GraphRAG pipeline (PPR, combined scoring)
+├── adapters/
+│   ├── langchain.py           # QortexRetriever (BaseRetriever)
+│   ├── langchain_vectorstore.py  # QortexVectorStore (VectorStore)
+│   ├── crewai.py              # QortexKnowledgeStorage
+│   ├── agno.py                # QortexKnowledge
+│   └── mastra.py              # QortexVectorStore (MastraVector)
+├── mcp/
+│   └── server.py          # MCP tools (query, explore, rules, feedback...)
 ├── projectors/
 │   ├── base.py            # ProjectionSource, Enricher, ProjectionTarget
 │   ├── models.py          # EnrichedRule, ProjectionFilter
@@ -158,6 +192,31 @@ result = projection.project(domains=["patterns"])
 | CONTRADICTS | "Choose A or B, not both" | "If using A, avoid B" | "A and B conflict" |
 | ... | ... | ... | ... |
 
+### QortexClient
+
+The consumer-facing query interface:
+
+| Method | Purpose |
+|--------|---------|
+| `query(context, domains, top_k)` | Vec + PPR combined search, returns results + auto-surfaced rules |
+| `explore(node_id, depth)` | Traverse typed edges, surface neighbors + linked rules |
+| `rules(domains, concept_ids, categories)` | Get projected rules filtered by criteria |
+| `feedback(query_id, outcomes)` | Report accepted/rejected outcomes, adjust teleportation factors |
+
+One implementation (`LocalQortexClient`) for in-process use. The MCP server exposes the same methods as JSON-RPC tools for cross-language consumers.
+
+### Framework Adapters
+
+Drop-in replacements that wrap QortexClient:
+
+| Adapter | Target Framework | Replaces |
+|---------|-----------------|----------|
+| `QortexVectorStore` | LangChain | Chroma, FAISS, Pinecone |
+| `QortexRetriever` | LangChain | Any BaseRetriever |
+| `QortexKnowledgeStorage` | CrewAI | ChromaDB default |
+| `QortexKnowledge` | Agno | Any KnowledgeProtocol |
+| MCP tools | Mastra (TS) | Any MastraVector impl |
+
 ### Consumer Interop
 
 Hybrid pull/push model for any consumer:
@@ -195,13 +254,15 @@ class MyTarget:
 
 ## Roadmap
 
-### Phase 2: HippoRAG-Style Retrieval
+### Phase 2: HippoRAG-Style Retrieval (Implemented)
 
-Cross-domain retrieval using Personalized PageRank for pattern completion:
+Graph-enhanced retrieval using Personalized PageRank for combined scoring:
 
 ![query-query-ppr-personalized-p](../images/diagrams/overview-4-query-query-ppr-personalized-p.svg)
 
-The scaffolding exists in `src/qortex/hippocampus/` but is not yet fully implemented.
+Implemented in `src/qortex/hippocampus/`. The pipeline: vector search → PPR over typed edges → combined scoring → results with auto-surfaced rules. Feedback adjusts teleportation factors via the interoception layer.
+
+See [Querying Guide](../guides/querying.md) for usage.
 
 ### Phase 3: Causal DAG
 

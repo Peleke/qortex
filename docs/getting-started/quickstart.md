@@ -132,8 +132,59 @@ qortex project buildlog --domain error_handling -o rules.yaml
 qortex project buildlog --domain error_handling --pending
 ```
 
+## 5. Query the Graph
+
+Use QortexClient for graph-enhanced search with feedback:
+
+```python
+from qortex.client import LocalQortexClient
+from qortex.vec.index import NumpyVectorIndex
+
+# Set up vector search
+vector_index = NumpyVectorIndex(dimensions=384)
+# ... (add embeddings to vector_index)
+
+client = LocalQortexClient(
+    vector_index=vector_index,
+    backend=backend,
+    embedding_model=my_embedding,
+    mode="graph",
+)
+
+# Search
+result = client.query("circuit breaker patterns", domains=["error_handling"], top_k=5)
+for item in result.items:
+    print(f"{item.score:.2f}: {item.content}")
+
+# Rules auto-surfaced in results
+for rule in result.rules:
+    print(f"Rule: {rule.text}")
+
+# Explore graph from a result
+explore = client.explore(result.items[0].node_id)
+for edge in explore.edges:
+    print(f"{edge.source_id} --{edge.relation_type}--> {edge.target_id}")
+
+# Feedback: close the learning loop
+client.feedback(result.query_id, {result.items[0].id: "accepted"})
+```
+
+Or use it as a LangChain VectorStore:
+
+```python
+from qortex.adapters.langchain_vectorstore import QortexVectorStore
+
+vs = QortexVectorStore(client=client, domain="error_handling")
+docs = vs.similarity_search("timeout patterns", k=5)
+retriever = vs.as_retriever()
+```
+
+See [Querying Guide](../guides/querying.md) for the full query pipeline.
+
 ## Next Steps
 
 - [Core Concepts](concepts.md) - Deep dive into domains, concepts, edges, and rules
+- [Querying](../guides/querying.md) - Graph-enhanced search with feedback
 - [Projecting Rules](../guides/projecting-rules.md) - Master the projection pipeline
 - [Consumer Integration](../guides/consumer-integration.md) - Connect to buildlog and other tools
+- [Case Studies](../tutorials/case-studies/index.md) - Framework adapter integrations

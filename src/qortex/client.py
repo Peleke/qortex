@@ -19,6 +19,7 @@ from __future__ import annotations
 
 import logging
 import uuid
+from collections import deque
 from dataclasses import dataclass, field
 from typing import Any, Protocol, runtime_checkable
 
@@ -112,12 +113,73 @@ class QueryItem:
         }
 
 
+# -- Graph exploration result types --
+
+
+@dataclass
+class NodeItem:
+    """A node in the knowledge graph."""
+
+    id: str
+    name: str
+    description: str
+    domain: str
+    confidence: float = 1.0
+    properties: dict[str, Any] = field(default_factory=dict)
+
+
+@dataclass
+class EdgeItem:
+    """A typed edge between two nodes."""
+
+    source_id: str
+    target_id: str
+    relation_type: str
+    confidence: float = 1.0
+    properties: dict[str, Any] = field(default_factory=dict)
+
+
+@dataclass
+class RuleItem:
+    """A rule surfaced from the knowledge graph."""
+
+    id: str
+    text: str
+    domain: str
+    category: str | None = None
+    confidence: float = 1.0
+    relevance: float = 0.0
+    derivation: str = "explicit"
+    source_concepts: list[str] = field(default_factory=list)
+    metadata: dict[str, Any] = field(default_factory=dict)
+
+
+@dataclass
+class ExploreResult:
+    """Result of exploring a node's neighborhood."""
+
+    node: NodeItem
+    edges: list[EdgeItem] = field(default_factory=list)
+    rules: list[RuleItem] = field(default_factory=list)
+    neighbors: list[NodeItem] = field(default_factory=list)
+
+
+@dataclass
+class RulesResult:
+    """Result of a rules projection query."""
+
+    rules: list[RuleItem]
+    domain_count: int = 0
+    projection: str = "rules"
+
+
 @dataclass
 class QueryResult:
     """Result of a qortex query."""
 
     items: list[QueryItem]
     query_id: str
+    rules: list[RuleItem] = field(default_factory=list)
 
 
 @dataclass
@@ -167,6 +229,49 @@ class StatusResult:
 
 
 # ---------------------------------------------------------------------------
+# Helpers: convert core models → client result types
+# ---------------------------------------------------------------------------
+
+
+def _node_to_item(node: Any) -> NodeItem:
+    """Convert a ConceptNode to NodeItem."""
+    return NodeItem(
+        id=node.id,
+        name=node.name,
+        description=node.description,
+        domain=node.domain,
+        confidence=node.confidence,
+        properties=node.properties,
+    )
+
+
+def _edge_to_item(edge: Any) -> EdgeItem:
+    """Convert a ConceptEdge to EdgeItem."""
+    return EdgeItem(
+        source_id=edge.source_id,
+        target_id=edge.target_id,
+        relation_type=edge.relation_type.value if hasattr(edge.relation_type, "value") else str(edge.relation_type),
+        confidence=edge.confidence,
+        properties=edge.properties,
+    )
+
+
+def _rule_to_item(rule: Any) -> RuleItem:
+    """Convert a core Rule to RuleItem."""
+    return RuleItem(
+        id=rule.id,
+        text=rule.text,
+        domain=rule.domain,
+        category=rule.category,
+        confidence=rule.confidence,
+        relevance=rule.relevance,
+        derivation=rule.derivation,
+        source_concepts=rule.source_concepts,
+        metadata=rule.metadata,
+    )
+
+
+# ---------------------------------------------------------------------------
 # QortexClient protocol
 # ---------------------------------------------------------------------------
 
@@ -205,6 +310,21 @@ class QortexClient(Protocol):
     def domains(self) -> list[DomainInfo]: ...
 
     def status(self) -> StatusResult: ...
+
+    def explore(
+        self,
+        node_id: str,
+        depth: int = 1,
+    ) -> ExploreResult | None: ...
+
+    def rules(
+        self,
+        domains: list[str] | None = None,
+        concept_ids: list[str] | None = None,
+        categories: list[str] | None = None,
+        include_derived: bool = True,
+        min_confidence: float = 0.0,
+    ) -> RulesResult: ...
 
 
 # ---------------------------------------------------------------------------
@@ -291,7 +411,147 @@ class LocalQortexClient:
             )
             for item in result.items
         ]
-        return QueryResult(items=items, query_id=result.query_id)
+
+        # Collect rules linked to activated concepts
+        rule_items = self._collect_query_rules(items, domains)
+
+        return QueryResult(items=items, query_id=result.query_id, rules=rule_items)
+
+    def _collect_query_rules(
+        self,
+        items: list[QueryItem],
+        domains: list[str] | None,
+    ) -> list[RuleItem]:
+        """Collect rules linked to query result concepts."""
+        if not items or self._backend is None:
+            return []
+
+        from qortex.core.rules import collect_rules_for_concepts
+
+        activated_ids = [item.node_id for item in items]
+        scores_map = {item.node_id: item.score for item in items}
+
+        rules = collect_rules_for_concepts(
+            self._backend, activated_ids, domains, scores_map,
+        )
+        return [_rule_to_item(r) for r in rules]
+
+    def explore(
+        self,
+        node_id: str,
+        depth: int = 1,
+    ) -> ExploreResult | None:
+        """Explore a node's neighborhood in the knowledge graph.
+
+        Returns the node, its typed edges, neighbor nodes, and linked rules.
+        Returns None if the node doesn't exist.
+
+        Args:
+            node_id: The concept node ID to explore.
+            depth: How many hops to traverse (1-3). Default 1 = immediate neighbors.
+        """
+        depth = max(1, min(depth, 3))
+
+        node = self._backend.get_node(node_id)
+        if node is None:
+            return None
+
+        # BFS to collect edges and neighbors at each depth
+        visited: set[str] = {node_id}
+        all_edges: list[EdgeItem] = []
+        all_neighbors: list[NodeItem] = []
+        frontier: deque[str] = deque([node_id])
+
+        for _hop in range(depth):
+            next_frontier: deque[str] = deque()
+            while frontier:
+                current_id = frontier.popleft()
+                edges = list(self._backend.get_edges(current_id, "both"))
+                for edge in edges:
+                    all_edges.append(_edge_to_item(edge))
+                    # Determine neighbor
+                    neighbor_id = (
+                        edge.target_id if edge.source_id == current_id else edge.source_id
+                    )
+                    if neighbor_id not in visited:
+                        visited.add(neighbor_id)
+                        neighbor_node = self._backend.get_node(neighbor_id)
+                        if neighbor_node is not None:
+                            all_neighbors.append(_node_to_item(neighbor_node))
+                            next_frontier.append(neighbor_id)
+            frontier = next_frontier
+
+        # Deduplicate edges by (source_id, target_id, relation_type)
+        seen_edges: set[tuple[str, str, str]] = set()
+        unique_edges: list[EdgeItem] = []
+        for e in all_edges:
+            key = (e.source_id, e.target_id, e.relation_type)
+            if key not in seen_edges:
+                seen_edges.add(key)
+                unique_edges.append(e)
+
+        # Collect rules linked to the explored node and its neighbors
+        from qortex.core.rules import collect_rules_for_concepts
+
+        all_concept_ids = list(visited)
+        rules = collect_rules_for_concepts(self._backend, all_concept_ids)
+        rule_items = [_rule_to_item(r) for r in rules]
+
+        return ExploreResult(
+            node=_node_to_item(node),
+            edges=unique_edges,
+            rules=rule_items,
+            neighbors=all_neighbors,
+        )
+
+    def rules(
+        self,
+        domains: list[str] | None = None,
+        concept_ids: list[str] | None = None,
+        categories: list[str] | None = None,
+        include_derived: bool = True,
+        min_confidence: float = 0.0,
+    ) -> RulesResult:
+        """Get rules from the knowledge graph via the projector system.
+
+        Delegates to FlatRuleSource.derive() — the projector system, not ad-hoc.
+
+        Args:
+            domains: Filter to these domains. None = all.
+            concept_ids: If provided, only return rules linked to these concepts.
+            categories: Filter by rule category.
+            include_derived: Include edge-derived rules (default True).
+            min_confidence: Minimum rule confidence.
+        """
+        from qortex.projectors.models import ProjectionFilter
+        from qortex.projectors.sources.flat import FlatRuleSource
+
+        filt = ProjectionFilter(
+            domains=domains,
+            categories=categories,
+            min_confidence=min_confidence,
+        )
+
+        source = FlatRuleSource(backend=self._backend, include_derived=include_derived)
+        all_rules = source.derive(domains=domains, filters=filt)
+
+        # Filter by concept_ids if provided
+        if concept_ids is not None:
+            concept_set = set(concept_ids)
+            all_rules = [
+                r for r in all_rules
+                if concept_set.intersection(r.source_concepts)
+            ]
+
+        # Count distinct domains
+        domain_names = {r.domain for r in all_rules}
+
+        rule_items = [_rule_to_item(r) for r in all_rules]
+
+        return RulesResult(
+            rules=rule_items,
+            domain_count=len(domain_names),
+        )
 
     def feedback(
         self,
@@ -373,6 +633,81 @@ class LocalQortexClient:
             rules=len(manifest.rules),
             warnings=manifest.warnings,
         )
+
+    # -- Public accessors for adapter interop --
+
+    @property
+    def embedding_model(self) -> Any:
+        """The embedding model, or None. Public accessor for adapters."""
+        return self._embedding_model
+
+    def add_concepts(
+        self,
+        texts: list[str],
+        domain: str = "default",
+        metadatas: list[dict[str, Any]] | None = None,
+        ids: list[str] | None = None,
+    ) -> list[str]:
+        """Add text concepts to the knowledge graph.
+
+        Creates ConceptNodes, generates embeddings, and indexes them.
+        This is the text-based counterpart to ingest() (file-based).
+
+        Args:
+            texts: Texts to add as concepts.
+            domain: Domain to add concepts to.
+            metadatas: Optional metadata per text.
+            ids: Optional IDs. Auto-generated if not provided.
+
+        Returns:
+            List of concept IDs added.
+        """
+        import hashlib
+
+        from qortex.core.models import ConceptNode
+
+        metadatas_list = metadatas or [{}] * len(texts)
+
+        if ids is None:
+            ids = [
+                f"{domain}:{hashlib.sha256(t.encode()).hexdigest()[:12]}"
+                for t in texts
+            ]
+
+        if self._backend.get_domain(domain) is None:
+            self._backend.create_domain(domain)
+
+        embeddings = self._embedding_model.embed(texts)
+        for text, meta, node_id, emb in zip(texts, metadatas_list, ids, embeddings):
+            name = meta.get("name", text[:80])
+            node = ConceptNode(
+                id=node_id,
+                name=name,
+                description=text,
+                domain=domain,
+                source_id=meta.get("source_id", "langchain"),
+                properties=meta,
+            )
+            self._backend.add_node(node)
+            self._backend.add_embedding(node_id, emb)
+
+        if self._vector_index is not None:
+            self._vector_index.add(ids, embeddings)
+
+        return ids
+
+    def get_nodes(self, ids: list[str]) -> list[NodeItem]:
+        """Get nodes by their IDs. Public accessor for adapters.
+
+        Returns:
+            List of NodeItems for found IDs (missing IDs are skipped).
+        """
+        result = []
+        for node_id in ids:
+            node = self._backend.get_node(node_id)
+            if node is not None:
+                result.append(_node_to_item(node))
+        return result
 
     def domains(self) -> list[DomainInfo]:
         return [

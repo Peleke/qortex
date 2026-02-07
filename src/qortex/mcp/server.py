@@ -6,6 +6,8 @@ Tools exposed:
 - qortex_ingest: Ingest a file into a domain
 - qortex_domains: List available domains
 - qortex_status: Server health + backend info
+- qortex_explore: Explore a node's neighborhood in the graph
+- qortex_rules: Get projected rules from the knowledge graph
 
 Architecture:
     Each tool has a plain `_<name>_impl()` function with the core logic,
@@ -243,19 +245,25 @@ def _query_impl(
         min_confidence=min_confidence,
     )
 
+    items = [
+        {
+            "id": item.id,
+            "content": item.content,
+            "score": round(item.score, 4),
+            "domain": item.domain,
+            "node_id": item.node_id,
+            "metadata": item.metadata,
+        }
+        for item in result.items
+    ]
+
+    # Collect rules linked to activated concepts
+    rules = _collect_query_rules(items, domains)
+
     return {
-        "items": [
-            {
-                "id": item.id,
-                "content": item.content,
-                "score": round(item.score, 4),
-                "domain": item.domain,
-                "node_id": item.node_id,
-                "metadata": item.metadata,
-            }
-            for item in result.items
-        ],
+        "items": items,
         "query_id": result.query_id,
+        "rules": rules,
     }
 
 
@@ -402,6 +410,184 @@ def _status_impl() -> dict:
     }
 
 
+def _collect_query_rules(
+    items: list[dict],
+    domains: list[str] | None,
+) -> list[dict]:
+    """Collect rules linked to query result concepts (for MCP _query_impl)."""
+    if not items or _backend is None:
+        return []
+
+    from qortex.core.rules import collect_rules_for_concepts
+
+    activated_ids = [item["node_id"] for item in items if item.get("node_id")]
+    scores_map = {item["node_id"]: item["score"] for item in items if item.get("node_id")}
+
+    rules = collect_rules_for_concepts(_backend, activated_ids, domains, scores_map)
+    return [
+        {
+            "id": r.id,
+            "text": r.text,
+            "domain": r.domain,
+            "category": r.category,
+            "confidence": r.confidence,
+            "relevance": r.relevance,
+            "derivation": r.derivation,
+            "source_concepts": r.source_concepts,
+            "metadata": r.metadata,
+        }
+        for r in rules
+    ]
+
+
+def _explore_impl(
+    node_id: str,
+    depth: int = 1,
+) -> dict | None:
+    """Explore a node's neighborhood in the knowledge graph."""
+    _ensure_initialized()
+
+    from collections import deque
+
+    depth = max(1, min(depth, 3))
+
+    node = _backend.get_node(node_id)
+    if node is None:
+        return None
+
+    # BFS to collect edges and neighbors
+    visited: set[str] = {node_id}
+    all_edges: list[dict] = []
+    all_neighbors: list[dict] = []
+    frontier: deque[str] = deque([node_id])
+
+    for _hop in range(depth):
+        next_frontier: deque[str] = deque()
+        while frontier:
+            current_id = frontier.popleft()
+            edges = list(_backend.get_edges(current_id, "both"))
+            for edge in edges:
+                edge_dict = {
+                    "source_id": edge.source_id,
+                    "target_id": edge.target_id,
+                    "relation_type": edge.relation_type.value if hasattr(edge.relation_type, "value") else str(edge.relation_type),
+                    "confidence": edge.confidence,
+                    "properties": edge.properties,
+                }
+                all_edges.append(edge_dict)
+                neighbor_id = (
+                    edge.target_id if edge.source_id == current_id else edge.source_id
+                )
+                if neighbor_id not in visited:
+                    visited.add(neighbor_id)
+                    neighbor_node = _backend.get_node(neighbor_id)
+                    if neighbor_node is not None:
+                        all_neighbors.append({
+                            "id": neighbor_node.id,
+                            "name": neighbor_node.name,
+                            "description": neighbor_node.description,
+                            "domain": neighbor_node.domain,
+                            "confidence": neighbor_node.confidence,
+                            "properties": neighbor_node.properties,
+                        })
+                        next_frontier.append(neighbor_id)
+        frontier = next_frontier
+
+    # Deduplicate edges
+    seen_edges: set[tuple[str, str, str]] = set()
+    unique_edges: list[dict] = []
+    for e in all_edges:
+        key = (e["source_id"], e["target_id"], e["relation_type"])
+        if key not in seen_edges:
+            seen_edges.add(key)
+            unique_edges.append(e)
+
+    # Collect rules linked to explored concepts
+    from qortex.core.rules import collect_rules_for_concepts
+
+    rules = collect_rules_for_concepts(_backend, list(visited))
+    rule_dicts = [
+        {
+            "id": r.id,
+            "text": r.text,
+            "domain": r.domain,
+            "category": r.category,
+            "confidence": r.confidence,
+            "relevance": r.relevance,
+            "derivation": r.derivation,
+            "source_concepts": r.source_concepts,
+            "metadata": r.metadata,
+        }
+        for r in rules
+    ]
+
+    return {
+        "node": {
+            "id": node.id,
+            "name": node.name,
+            "description": node.description,
+            "domain": node.domain,
+            "confidence": node.confidence,
+            "properties": node.properties,
+        },
+        "edges": unique_edges,
+        "rules": rule_dicts,
+        "neighbors": all_neighbors,
+    }
+
+
+def _rules_impl(
+    domains: list[str] | None = None,
+    concept_ids: list[str] | None = None,
+    categories: list[str] | None = None,
+    include_derived: bool = True,
+    min_confidence: float = 0.0,
+) -> dict:
+    """Get projected rules from the knowledge graph."""
+    _ensure_initialized()
+
+    from qortex.projectors.models import ProjectionFilter
+    from qortex.projectors.sources.flat import FlatRuleSource
+
+    filt = ProjectionFilter(
+        domains=domains,
+        categories=categories,
+        min_confidence=min_confidence,
+    )
+
+    source = FlatRuleSource(backend=_backend, include_derived=include_derived)
+    all_rules = source.derive(domains=domains, filters=filt)
+
+    # Filter by concept_ids if provided
+    if concept_ids is not None:
+        concept_set = set(concept_ids)
+        all_rules = [
+            r for r in all_rules
+            if concept_set.intersection(r.source_concepts)
+        ]
+
+    domain_names = {r.domain for r in all_rules}
+
+    return {
+        "rules": [
+            {
+                "id": r.id,
+                "text": r.text,
+                "domain": r.domain,
+                "category": r.category,
+                "confidence": r.confidence,
+                "relevance": r.relevance,
+                "derivation": r.derivation,
+                "source_concepts": r.source_concepts,
+                "metadata": r.metadata,
+            }
+            for r in all_rules
+        ],
+        "domain_count": len(domain_names),
+        "projection": "rules",
+    }
+
+
 # ---------------------------------------------------------------------------
 # MCP tool wrappers (thin delegates to _impl functions)
 # ---------------------------------------------------------------------------
@@ -479,6 +665,49 @@ def qortex_domains() -> dict:
 def qortex_status() -> dict:
     """Check server health and backend info."""
     return _status_impl()
+
+
+@mcp.tool
+def qortex_explore(
+    node_id: str,
+    depth: int = 1,
+) -> dict:
+    """Explore a node's neighborhood in the knowledge graph.
+
+    Returns the node, its typed edges, neighbor nodes, and linked rules.
+    Returns {"node": null} if the node doesn't exist.
+
+    Args:
+        node_id: The concept node ID to explore.
+        depth: How many hops to traverse (1-3). Default 1 = immediate neighbors.
+    """
+    result = _explore_impl(node_id, depth)
+    if result is None:
+        return {"node": None}
+    return result
+
+
+@mcp.tool
+def qortex_rules(
+    domains: list[str] | None = None,
+    concept_ids: list[str] | None = None,
+    categories: list[str] | None = None,
+    include_derived: bool = True,
+    min_confidence: float = 0.0,
+) -> dict:
+    """Get projected rules from the knowledge graph.
+
+    Delegates to the FlatRuleSource projector system. Returns both explicit
+    rules (from ingestion) and derived rules (from edge templates).
+
+    Args:
+        domains: Filter to these domains. None = all.
+        concept_ids: Only return rules linked to these concept IDs.
+        categories: Filter by rule category (e.g. "architectural", "testing").
+        include_derived: Include edge-derived rules (default True).
+        min_confidence: Minimum rule confidence (0.0 to 1.0).
+    """
+    return _rules_impl(domains, concept_ids, categories, include_derived, min_confidence)
 
 
 # ---------------------------------------------------------------------------
