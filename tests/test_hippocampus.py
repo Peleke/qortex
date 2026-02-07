@@ -33,6 +33,7 @@ from qortex.hippocampus.interoception import (
     Outcome,
     OutcomeSource,
 )
+from qortex.client import LocalQortexClient
 from qortex.vec.index import NumpyVectorIndex
 
 
@@ -1449,3 +1450,336 @@ class TestInteroceptionMetamorphic:
         assert provider.factors.get("a") == 1.1
         assert provider.factors.get("b") == 1.1
         assert provider.factors.get("c") == 0.95
+
+
+# =============================================================================
+# E2E Dogfood: Feedback-Driven Retrieval Delta
+# =============================================================================
+
+
+class TestFeedbackDrivenRetrievalDelta:
+    """E2E test proving feedback changes retrieval scores.
+
+    This is the P0 test: the first test that proves feedback-driven retrieval
+    actually works end-to-end. Not looking for an improvement per se — just
+    a measurable delta so we can show we can start measuring deltas.
+
+    Protocol:
+        1. Build graph with known embeddings
+        2. Query → baseline scores
+        3. Accept some items, reject others
+        4. Query again → assert scores shifted
+        5. Shutdown → startup → query → assert persistence
+    """
+
+    def _build_e2e_graph(self, dims=3):
+        """Build a 5-node graph for E2E testing.
+
+        Nodes: alpha, beta, gamma, delta, epsilon
+        Embeddings: alpha/beta/delta are similar (x-axis), gamma/epsilon different (z-axis)
+        Edges: alpha→beta (REQUIRES), gamma→epsilon (SIMILAR_TO)
+        """
+        emb_a = [1.0, 0.0, 0.0]
+        emb_b = [0.9, 0.1, 0.0]
+        emb_c = [0.0, 0.0, 1.0]
+        emb_d = [0.8, 0.2, 0.0]
+        emb_e = [0.1, 0.0, 0.9]
+
+        def norm(v):
+            n = math.sqrt(sum(x * x for x in v))
+            return [x / n for x in v] if n > 0 else v
+
+        emb_a, emb_b, emb_c, emb_d, emb_e = [norm(v) for v in [emb_a, emb_b, emb_c, emb_d, emb_e]]
+
+        nodes = [
+            make_node("testing", "alpha", "Alpha concept"),
+            make_node("testing", "beta", "Beta concept"),
+            make_node("testing", "gamma", "Gamma concept"),
+            make_node("testing", "delta", "Delta concept"),
+            make_node("testing", "epsilon", "Epsilon concept"),
+        ]
+        embeddings = {
+            "testing:alpha": emb_a,
+            "testing:beta": emb_b,
+            "testing:gamma": emb_c,
+            "testing:delta": emb_d,
+            "testing:epsilon": emb_e,
+        }
+
+        vector_index = NumpyVectorIndex(dimensions=dims)
+        backend = InMemoryBackend(vector_index=vector_index)
+        backend.connect()
+        backend.create_domain("testing")
+
+        for node in nodes:
+            backend.add_node(node)
+        for nid, emb in embeddings.items():
+            backend.add_embedding(nid, emb)
+
+        backend.add_edge(ConceptEdge(
+            source_id="testing:alpha", target_id="testing:beta",
+            relation_type=RelationType.REQUIRES, confidence=0.9,
+        ))
+        backend.add_edge(ConceptEdge(
+            source_id="testing:gamma", target_id="testing:epsilon",
+            relation_type=RelationType.SIMILAR_TO, confidence=0.8,
+        ))
+
+        mapping = {
+            "find alpha": emb_a,
+            "find gamma": emb_c,
+            "find beta": emb_b,
+        }
+        embedding_model = ControlledEmbedding(mapping, dims=dims)
+
+        return backend, vector_index, embedding_model
+
+    def test_feedback_shifts_scores(self):
+        """Core delta test: feedback changes retrieval scores."""
+        backend, vector_index, embedding_model = self._build_e2e_graph()
+
+        config = InteroceptionConfig(teleportation_enabled=True)
+        interoception = LocalInteroceptionProvider(config)
+
+        adapter = GraphRAGAdapter(
+            vector_index, backend, embedding_model,
+            interoception=interoception,
+        )
+
+        # --- Baseline query ---
+        result1 = adapter.retrieve("find alpha", top_k=5)
+        assert len(result1.items) > 0
+
+        baseline_scores = {item.id: item.score for item in result1.items}
+
+        # --- Feedback: accept alpha, reject gamma ---
+        outcomes = {}
+        for item in result1.items:
+            if "alpha" in item.id:
+                outcomes[item.id] = "accepted"
+            elif "gamma" in item.id:
+                outcomes[item.id] = "rejected"
+        adapter.feedback(result1.query_id, outcomes)
+
+        # --- Post-feedback query (same query) ---
+        result2 = adapter.retrieve("find alpha", top_k=5)
+        post_scores = {item.id: item.score for item in result2.items}
+
+        # Alpha should have a higher score after being accepted
+        if "testing:alpha" in baseline_scores and "testing:alpha" in post_scores:
+            assert post_scores["testing:alpha"] > baseline_scores["testing:alpha"], (
+                f"Expected alpha score to increase after 'accepted' feedback. "
+                f"Baseline: {baseline_scores['testing:alpha']}, "
+                f"Post: {post_scores['testing:alpha']}"
+            )
+
+        # Gamma should have a lower score after being rejected
+        if "testing:gamma" in baseline_scores and "testing:gamma" in post_scores:
+            assert post_scores["testing:gamma"] < baseline_scores["testing:gamma"], (
+                f"Expected gamma score to decrease after 'rejected' feedback. "
+                f"Baseline: {baseline_scores['testing:gamma']}, "
+                f"Post: {post_scores['testing:gamma']}"
+            )
+
+    def test_repeated_feedback_amplifies_delta(self):
+        """Multiple feedback rounds amplify the score shift."""
+        backend, vector_index, embedding_model = self._build_e2e_graph()
+
+        config = InteroceptionConfig(teleportation_enabled=True)
+        interoception = LocalInteroceptionProvider(config)
+
+        adapter = GraphRAGAdapter(
+            vector_index, backend, embedding_model,
+            interoception=interoception,
+        )
+
+        # Baseline
+        result0 = adapter.retrieve("find alpha", top_k=5)
+        baseline_alpha = next(
+            (i.score for i in result0.items if i.id == "testing:alpha"), None
+        )
+        assert baseline_alpha is not None
+
+        # 5 rounds of "accepted" feedback for alpha
+        for _ in range(5):
+            result = adapter.retrieve("find alpha", top_k=5)
+            outcomes = {
+                item.id: "accepted"
+                for item in result.items
+                if "alpha" in item.id
+            }
+            adapter.feedback(result.query_id, outcomes)
+
+        # Final query
+        result_final = adapter.retrieve("find alpha", top_k=5)
+        final_alpha = next(
+            (i.score for i in result_final.items if i.id == "testing:alpha"), None
+        )
+        assert final_alpha is not None
+        assert final_alpha > baseline_alpha, (
+            f"Expected alpha score to increase after 5 rounds of feedback. "
+            f"Baseline: {baseline_alpha}, Final: {final_alpha}"
+        )
+
+    def test_feedback_persists_across_restart(self, tmp_path):
+        """Shutdown → startup → scores survive."""
+        backend, vector_index, embedding_model = self._build_e2e_graph()
+
+        factors_path = tmp_path / "factors.json"
+        buffer_path = tmp_path / "buffer.json"
+        config = InteroceptionConfig(
+            factors_path=factors_path,
+            buffer_path=buffer_path,
+            teleportation_enabled=True,
+        )
+
+        # Session 1: query, feedback, shutdown
+        interoception1 = LocalInteroceptionProvider(config)
+        interoception1.startup()
+
+        adapter1 = GraphRAGAdapter(
+            vector_index, backend, embedding_model,
+            interoception=interoception1,
+        )
+
+        result1 = adapter1.retrieve("find alpha", top_k=5)
+        # Accept alpha repeatedly to build up factor
+        for _ in range(3):
+            r = adapter1.retrieve("find alpha", top_k=5)
+            outcomes = {i.id: "accepted" for i in r.items if "alpha" in i.id}
+            adapter1.feedback(r.query_id, outcomes)
+
+        # Query after feedback
+        post_feedback = adapter1.retrieve("find alpha", top_k=5)
+        post_alpha = next(
+            (i.score for i in post_feedback.items if i.id == "testing:alpha"), None
+        )
+
+        # Capture factor state
+        factor_before = interoception1.factors.get("testing:alpha")
+        assert factor_before > 1.0, "Factor should be > 1.0 after accepted feedback"
+
+        interoception1.shutdown()
+        assert factors_path.exists(), "factors.json should exist after shutdown"
+
+        # Session 2: startup with same config, query → same bias
+        interoception2 = LocalInteroceptionProvider(config)
+        interoception2.startup()
+
+        factor_after = interoception2.factors.get("testing:alpha")
+        assert abs(factor_after - factor_before) < 1e-6, (
+            f"Factor should survive restart. Before: {factor_before}, After: {factor_after}"
+        )
+
+        adapter2 = GraphRAGAdapter(
+            vector_index, backend, embedding_model,
+            interoception=interoception2,
+        )
+
+        result_restarted = adapter2.retrieve("find alpha", top_k=5)
+        restarted_alpha = next(
+            (i.score for i in result_restarted.items if i.id == "testing:alpha"), None
+        )
+
+        assert restarted_alpha is not None
+        assert abs(restarted_alpha - post_alpha) < 1e-6, (
+            f"Score should be identical after restart. "
+            f"Pre-restart: {post_alpha}, Post-restart: {restarted_alpha}"
+        )
+
+    def test_no_feedback_no_change(self):
+        """Without feedback, repeated queries produce identical scores."""
+        backend, vector_index, embedding_model = self._build_e2e_graph()
+
+        config = InteroceptionConfig(teleportation_enabled=True)
+        interoception = LocalInteroceptionProvider(config)
+
+        adapter = GraphRAGAdapter(
+            vector_index, backend, embedding_model,
+            interoception=interoception,
+        )
+
+        result1 = adapter.retrieve("find alpha", top_k=5)
+        result2 = adapter.retrieve("find alpha", top_k=5)
+
+        scores1 = {i.id: i.score for i in result1.items}
+        scores2 = {i.id: i.score for i in result2.items}
+
+        for node_id in scores1:
+            assert abs(scores1[node_id] - scores2.get(node_id, 0)) < 1e-6, (
+                f"Scores should be stable without feedback. "
+                f"Node {node_id}: {scores1[node_id]} vs {scores2.get(node_id)}"
+            )
+
+    def test_disabled_teleportation_no_delta(self):
+        """With teleportation disabled, feedback has no effect on scores."""
+        backend, vector_index, embedding_model = self._build_e2e_graph()
+
+        config = InteroceptionConfig(teleportation_enabled=False)
+        interoception = LocalInteroceptionProvider(config)
+
+        adapter = GraphRAGAdapter(
+            vector_index, backend, embedding_model,
+            interoception=interoception,
+        )
+
+        # Baseline
+        result1 = adapter.retrieve("find alpha", top_k=5)
+        baseline = {i.id: i.score for i in result1.items}
+
+        # Feedback
+        outcomes = {i.id: "accepted" for i in result1.items if "alpha" in i.id}
+        adapter.feedback(result1.query_id, outcomes)
+
+        # Post-feedback — should be identical (teleportation off)
+        result2 = adapter.retrieve("find alpha", top_k=5)
+        post = {i.id: i.score for i in result2.items}
+
+        for node_id in baseline:
+            assert abs(baseline[node_id] - post.get(node_id, 0)) < 1e-6, (
+                f"Scores should NOT change when teleportation is disabled. "
+                f"Node {node_id}: {baseline[node_id]} vs {post.get(node_id)}"
+            )
+
+        # But factors still accumulated
+        assert interoception.factors.get("testing:alpha") > 1.0
+
+    def test_client_e2e_feedback_loop(self):
+        """Full E2E through QortexClient (not just adapter)."""
+        backend, vector_index, embedding_model = self._build_e2e_graph()
+
+        config = InteroceptionConfig(teleportation_enabled=True)
+        interoception = LocalInteroceptionProvider(config)
+
+        client = LocalQortexClient(
+            vector_index=vector_index,
+            backend=backend,
+            embedding_model=embedding_model,
+            mode="graph",
+            interoception=interoception,
+        )
+
+        # Baseline query through client
+        result1 = client.query("find alpha", top_k=5)
+        assert len(result1.items) > 0
+        baseline_alpha = next(
+            (i.score for i in result1.items if i.id == "testing:alpha"), None
+        )
+        assert baseline_alpha is not None
+
+        # Feedback through client
+        outcomes = {i.id: "accepted" for i in result1.items if "alpha" in i.id}
+        fb_result = client.feedback(result1.query_id, outcomes)
+        assert fb_result.status == "recorded"
+        assert fb_result.outcome_count == len(outcomes)
+
+        # Post-feedback query
+        result2 = client.query("find alpha", top_k=5)
+        post_alpha = next(
+            (i.score for i in result2.items if i.id == "testing:alpha"), None
+        )
+        assert post_alpha is not None
+        assert post_alpha > baseline_alpha, (
+            f"Expected score increase through client feedback loop. "
+            f"Baseline: {baseline_alpha}, Post: {post_alpha}"
+        )
