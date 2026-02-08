@@ -419,6 +419,212 @@ def _ingest_impl(
     }
 
 
+def _ingest_text_impl(
+    text: str,
+    domain: str,
+    format: str = "text",
+    name: str | None = None,
+) -> dict:
+    """Ingest raw text or markdown into a domain."""
+    _ensure_initialized()
+
+    if format not in ("text", "markdown"):
+        return {"error": f"Invalid format: {format}. Must be 'text' or 'markdown'"}
+
+    if not text or not text.strip():
+        return {
+            "domain": domain,
+            "source": name or "raw_text",
+            "concepts": 0,
+            "edges": 0,
+            "rules": 0,
+            "warnings": ["Empty text provided"],
+        }
+
+    from qortex_ingest.base import Source
+
+    source = Source(
+        raw_content=text,
+        source_type=format,
+        name=name or "raw_text",
+    )
+
+    llm = _get_llm_backend()
+
+    if format == "markdown":
+        from qortex_ingest.markdown import MarkdownIngestor
+
+        ingestor = MarkdownIngestor(llm, embedding_model=_embedding_model)
+    else:
+        from qortex_ingest.text import TextIngestor
+
+        ingestor = TextIngestor(llm, embedding_model=_embedding_model)
+
+    manifest = ingestor.ingest(source, domain=domain)
+    _backend.ingest_manifest(manifest)
+
+    # Dual-write embeddings
+    ids_with_embeddings = []
+    embeddings_list = []
+    for concept in manifest.concepts:
+        if concept.embedding is not None:
+            _backend.add_embedding(concept.id, concept.embedding)
+            ids_with_embeddings.append(concept.id)
+            embeddings_list.append(concept.embedding)
+
+    if _vector_index is not None and ids_with_embeddings:
+        _vector_index.add(ids_with_embeddings, embeddings_list)
+
+    return {
+        "domain": domain,
+        "source": name or "raw_text",
+        "concepts": len(manifest.concepts),
+        "edges": len(manifest.edges),
+        "rules": len(manifest.rules),
+        "warnings": manifest.warnings,
+    }
+
+
+def _ingest_structured_impl(
+    concepts: list[dict],
+    domain: str,
+    edges: list[dict] | None = None,
+    rules: list[dict] | None = None,
+) -> dict:
+    """Ingest pre-structured data directly into the knowledge graph."""
+    import hashlib
+
+    _ensure_initialized()
+
+    from qortex.core.models import (
+        ConceptEdge,
+        ConceptNode,
+        ExplicitRule,
+        IngestionManifest,
+        RelationType,
+        SourceMetadata,
+    )
+
+    edges = edges or []
+    rules = rules or []
+
+    if _backend.get_domain(domain) is None:
+        _backend.create_domain(domain)
+
+    source_id = f"structured:{hashlib.sha256(domain.encode()).hexdigest()[:12]}"
+
+    # Build ConceptNodes
+    concept_nodes: list[ConceptNode] = []
+    name_to_id: dict[str, str] = {}
+    for c in concepts:
+        cname = c.get("name")
+        if not cname:
+            continue
+        desc = c.get("description", cname)
+        node_id = c.get("id", f"{domain}:{hashlib.sha256(cname.encode()).hexdigest()[:12]}")
+        node = ConceptNode(
+            id=node_id,
+            name=cname,
+            description=desc,
+            domain=domain,
+            source_id=source_id,
+            properties=c.get("properties", {}),
+            confidence=c.get("confidence", 1.0),
+        )
+        concept_nodes.append(node)
+        name_to_id[cname] = node_id
+        name_to_id[node_id] = node_id
+
+    # Generate embeddings
+    if _embedding_model is not None and concept_nodes:
+        texts = [f"{n.name}: {n.description}" for n in concept_nodes]
+        embs = _embedding_model.embed(texts)
+        for node, emb in zip(concept_nodes, embs):
+            node.embedding = emb
+
+    # Build ConceptEdges
+    concept_edges: list[ConceptEdge] = []
+    for e in edges:
+        source_ref = e.get("source", "")
+        target_ref = e.get("target", "")
+        rel_type_str = e.get("relation_type", "")
+
+        source_node_id = name_to_id.get(source_ref)
+        target_node_id = name_to_id.get(target_ref)
+        if source_node_id is None or target_node_id is None:
+            continue
+
+        try:
+            rel_type = RelationType(rel_type_str)
+        except ValueError:
+            continue
+
+        concept_edges.append(
+            ConceptEdge(
+                source_id=source_node_id,
+                target_id=target_node_id,
+                relation_type=rel_type,
+                confidence=e.get("confidence", 1.0),
+            )
+        )
+
+    # Build ExplicitRules
+    explicit_rules: list[ExplicitRule] = []
+    for r in rules:
+        rtext = r.get("text", "")
+        if not rtext:
+            continue
+        rule_id = f"{domain}:rule:{hashlib.sha256(rtext.encode()).hexdigest()[:12]}"
+        explicit_rules.append(
+            ExplicitRule(
+                id=rule_id,
+                text=rtext,
+                domain=domain,
+                source_id=source_id,
+                category=r.get("category"),
+                confidence=r.get("confidence", 1.0),
+                concept_ids=[n.id for n in concept_nodes],
+            )
+        )
+
+    source_meta = SourceMetadata(
+        id=source_id,
+        name="structured_input",
+        source_type="text",
+        path_or_url="structured://input",
+    )
+
+    manifest = IngestionManifest(
+        source=source_meta,
+        domain=domain,
+        concepts=concept_nodes,
+        edges=concept_edges,
+        rules=explicit_rules,
+    )
+
+    _backend.ingest_manifest(manifest)
+
+    # Dual-write embeddings
+    ids_with_embeddings = []
+    embeddings_list = []
+    for concept in manifest.concepts:
+        if concept.embedding is not None:
+            _backend.add_embedding(concept.id, concept.embedding)
+            ids_with_embeddings.append(concept.id)
+            embeddings_list.append(concept.embedding)
+
+    if _vector_index is not None and ids_with_embeddings:
+        _vector_index.add(ids_with_embeddings, embeddings_list)
+
+    return {
+        "domain": domain,
+        "source": "structured_input",
+        "concepts": len(concept_nodes),
+        "edges": len(concept_edges),
+        "rules": len(explicit_rules),
+    }
+
+
 def _domains_impl() -> dict:
     _ensure_initialized()
 
@@ -996,6 +1202,48 @@ def qortex_ingest(
         source_type: File type override: "text", "markdown", or "pdf". Auto-detected if None.
     """
     return _ingest_impl(source_path, domain, source_type)
+
+
+@mcp.tool
+def qortex_ingest_text(
+    text: str,
+    domain: str,
+    format: str = "text",
+    name: str | None = None,
+) -> dict:
+    """Ingest raw text or markdown into a domain.
+
+    No file needed — paste text directly. Runs the full LLM extraction
+    pipeline (concepts + typed edges + rules) on the provided content.
+
+    Args:
+        text: The text content to ingest.
+        domain: Target domain name.
+        format: "text" or "markdown". Selects the chunking strategy.
+        name: Optional human-readable source name.
+    """
+    return _ingest_text_impl(text, domain, format, name)
+
+
+@mcp.tool
+def qortex_ingest_structured(
+    concepts: list[dict],
+    domain: str,
+    edges: list[dict] | None = None,
+    rules: list[dict] | None = None,
+) -> dict:
+    """Ingest pre-structured data directly into the knowledge graph.
+
+    Bypasses LLM extraction — takes concepts, edges, and rules directly.
+    Use when you already have structured data to add.
+
+    Args:
+        concepts: List of concept dicts, each with "name" and "description".
+        domain: Target domain name.
+        edges: Optional edges. Each dict: {"source": "name", "target": "name", "relation_type": "requires"}.
+        rules: Optional rules. Each dict: {"text": "rule text", "category": "optional"}.
+    """
+    return _ingest_structured_impl(concepts, domain, edges, rules)
 
 
 @mcp.tool
