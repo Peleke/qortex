@@ -344,6 +344,15 @@ class QortexClient(Protocol):
         rules: list[dict[str, Any]] | None = None,
     ) -> IngestResult: ...
 
+    async def ingest_database(
+        self,
+        connection_string: str,
+        source_id: str,
+        domain_map: dict[str, str] | None = None,
+        embed_catalog_tables: bool = True,
+        extract_rules: bool = True,
+    ) -> dict[str, int]: ...
+
 
 # ---------------------------------------------------------------------------
 # LocalQortexClient — direct in-process, no MCP
@@ -1067,3 +1076,51 @@ class LocalQortexClient:
 
         self._llm_backend = StubLLMBackend()
         return self._llm_backend
+
+    async def ingest_database(
+        self,
+        connection_string: str,
+        source_id: str,
+        domain_map: dict[str, str] | None = None,
+        embed_catalog_tables: bool = True,
+        extract_rules: bool = True,
+    ) -> dict[str, int]:
+        """Ingest a PostgreSQL database schema into the knowledge graph.
+
+        Connects via asyncpg, discovers schema with FK/CHECK/UNIQUE metadata,
+        maps to graph structure, and creates ConceptNodes/Edges/Rules.
+
+        Returns: {concepts: int, edges: int, rules: int}
+        """
+        from dataclasses import dataclass as _dc, field as _field
+
+        @_dc
+        class _IngestConf:
+            embed_catalog_tables: bool = embed_catalog_tables
+            extract_rules: bool = extract_rules
+
+        @_dc
+        class _SourceConf:
+            source_id: str = source_id
+            schemas: list[str] = _field(default_factory=lambda: ["public"])
+            domain_map: dict[str, str] = _field(default_factory=dict)
+
+        import asyncpg
+
+        from qortex.sources.postgres_graph import PostgresGraphIngestor
+
+        source_conf = _SourceConf()
+        source_conf.domain_map = domain_map or {}
+
+        ingestor = PostgresGraphIngestor(
+            config=source_conf,
+            ingest_config=_IngestConf(),
+            backend=self._backend,
+            embedding_model=self._embedding_model,
+        )
+
+        conn = await asyncpg.connect(connection_string)
+        try:
+            return await ingestor.run(conn=conn)
+        finally:
+            await conn.close()

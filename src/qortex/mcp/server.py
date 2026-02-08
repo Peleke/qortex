@@ -13,6 +13,8 @@ Tools exposed:
 - qortex_source_sync: Sync source data to vec layer
 - qortex_source_list: List connected sources
 - qortex_source_disconnect: Disconnect a source
+- qortex_source_inspect_schema: Inspect database schema with constraint metadata
+- qortex_source_ingest_graph: Ingest database schema into knowledge graph
 - qortex_vector_create_index: Create a named vector index
 - qortex_vector_list_indexes: List named vector indexes
 - qortex_vector_describe_index: Get index stats
@@ -998,6 +1000,156 @@ def _source_disconnect_impl(source_id: str) -> dict:
 
 
 # ---------------------------------------------------------------------------
+# Source graph tools (PostgresGraphIngestor — database schema → knowledge graph)
+# ---------------------------------------------------------------------------
+
+
+def _source_inspect_schema_impl(
+    connection_string: str,
+    source_id: str,
+    schemas: list[str] | None = None,
+    domain_map: dict[str, str] | None = None,
+) -> dict:
+    """Inspect a database schema with FK, CHECK, UNIQUE constraint metadata.
+
+    Connects via asyncpg, discovers schema, returns structured overview.
+    """
+    import asyncio
+
+    try:
+        import asyncpg  # noqa: F811
+    except ImportError:
+        return {"error": "asyncpg not installed. Install qortex[source-postgres]."}
+
+    async def _inspect():
+        from qortex.sources.postgres_graph import PostgresGraphIngestor
+
+        conn = await asyncpg.connect(connection_string)
+        try:
+            ingestor = PostgresGraphIngestor()
+            schema = await ingestor.discover_schema(
+                conn, source_id=source_id, database_name=source_id
+            )
+            mapping = ingestor.map_schema(schema, domain_map=domain_map)
+
+            tables_info = []
+            table_map = {tm.table_name: tm for tm in mapping.tables}
+            for t in schema.tables:
+                tm = table_map.get(t.name)
+                tables_info.append({
+                    "name": t.name,
+                    "schema": t.schema_name,
+                    "columns": len(t.columns),
+                    "row_count": t.row_count,
+                    "foreign_keys": len(t.foreign_keys),
+                    "check_constraints": len(t.check_constraints),
+                    "unique_constraints": len(t.unique_constraints),
+                    "is_catalog": tm.is_catalog if tm else False,
+                    "domain": tm.domain if tm else None,
+                    "name_column": tm.name_column if tm else None,
+                })
+
+            edges_info = [
+                {
+                    "source": em.source_table,
+                    "target": em.target_table,
+                    "fk_column": em.fk_column,
+                    "relation_type": em.relation_type,
+                }
+                for em in mapping.edges
+            ]
+
+            rules_info = [
+                {
+                    "table": rm.table_name,
+                    "constraint": rm.constraint_name,
+                    "rule_text": rm.rule_text,
+                    "category": rm.category,
+                }
+                for rm in mapping.rules
+            ]
+
+            return {
+                "source_id": source_id,
+                "tables": tables_info,
+                "edges": edges_info,
+                "rules": rules_info,
+                "table_count": len(schema.tables),
+                "edge_count": len(mapping.edges),
+                "rule_count": len(mapping.rules),
+            }
+        finally:
+            await conn.close()
+
+    try:
+        return asyncio.run(_inspect())
+    except Exception as e:
+        return {"error": str(e)}
+
+
+def _source_ingest_graph_impl(
+    connection_string: str,
+    source_id: str,
+    schemas: list[str] | None = None,
+    domain_map: dict[str, str] | None = None,
+    embed_catalog_tables: bool = True,
+    extract_rules: bool = True,
+) -> dict:
+    """Ingest database schema into the knowledge graph.
+
+    Connects via asyncpg, discovers schema, maps to graph structure,
+    and ingests ConceptNodes/Edges/Rules into the backend.
+    """
+    _ensure_initialized()
+
+    import asyncio
+
+    try:
+        import asyncpg  # noqa: F811
+    except ImportError:
+        return {"error": "asyncpg not installed. Install qortex[source-postgres]."}
+
+    async def _ingest():
+        from dataclasses import dataclass as _dc
+
+        @_dc
+        class _IngestConf:
+            embed_catalog_tables: bool = embed_catalog_tables
+            extract_rules: bool = extract_rules
+
+        @_dc
+        class _SourceConf:
+            source_id: str = source_id
+            schemas: list[str] = schemas or ["public"]
+            domain_map: dict[str, str] = domain_map or {}
+
+        from qortex.sources.postgres_graph import PostgresGraphIngestor
+
+        conn = await asyncpg.connect(connection_string)
+        try:
+            ingestor = PostgresGraphIngestor(
+                config=_SourceConf(),
+                ingest_config=_IngestConf(),
+                backend=_backend,
+                embedding_model=_embedding_model,
+            )
+            counts = await ingestor.run(conn=conn)
+            return {
+                "source_id": source_id,
+                "concepts": counts.get("concepts", 0),
+                "edges": counts.get("edges", 0),
+                "rules": counts.get("rules", 0),
+            }
+        finally:
+            await conn.close()
+
+    try:
+        return asyncio.run(_ingest())
+    except Exception as e:
+        return {"error": str(e)}
+
+
+# ---------------------------------------------------------------------------
 # Vector-level operations (for MastraVector / raw vector consumers)
 # ---------------------------------------------------------------------------
 
@@ -1455,7 +1607,7 @@ def qortex_rules(
 
 
 # ---------------------------------------------------------------------------
-# Source-level MCP tools (database source adapters)
+# Source-level MCP tools (database source adapters + graph ingest)
 # ---------------------------------------------------------------------------
 
 
@@ -1521,6 +1673,56 @@ def qortex_source_disconnect(source_id: str) -> dict:
         source_id: The source to disconnect.
     """
     return _source_disconnect_impl(source_id)
+
+
+@mcp.tool
+def qortex_source_inspect_schema(
+    connection_string: str,
+    source_id: str,
+    schemas: list[str] | None = None,
+    domain_map: dict[str, str] | None = None,
+) -> dict:
+    """Inspect a PostgreSQL database schema with full constraint metadata.
+
+    Discovers tables, foreign keys, CHECK constraints, UNIQUE constraints.
+    Maps FK relationships to graph edge types and CHECK constraints to rules.
+    Returns a structured overview without modifying any data.
+
+    Args:
+        connection_string: PostgreSQL connection URL.
+        source_id: Identifier for this source (e.g. "mm_movements").
+        schemas: Database schemas to inspect. Defaults to ["public"].
+        domain_map: Optional glob→domain mapping (e.g. {"habit_*": "habits"}).
+    """
+    return _source_inspect_schema_impl(connection_string, source_id, schemas, domain_map)
+
+
+@mcp.tool
+def qortex_source_ingest_graph(
+    connection_string: str,
+    source_id: str,
+    schemas: list[str] | None = None,
+    domain_map: dict[str, str] | None = None,
+    embed_catalog_tables: bool = True,
+    extract_rules: bool = True,
+) -> dict:
+    """Ingest a PostgreSQL database schema into the knowledge graph.
+
+    Discovers schema, classifies FK relationships, detects catalog tables,
+    and creates ConceptNodes, ConceptEdges, and ExplicitRules in the backend.
+
+    Args:
+        connection_string: PostgreSQL connection URL.
+        source_id: Identifier for this source.
+        schemas: Database schemas to ingest. Defaults to ["public"].
+        domain_map: Optional glob→domain mapping.
+        embed_catalog_tables: Embed catalog table rows for similarity search.
+        extract_rules: Extract CHECK constraints as ExplicitRules.
+    """
+    return _source_ingest_graph_impl(
+        connection_string, source_id, schemas, domain_map,
+        embed_catalog_tables, extract_rules,
+    )
 
 
 # ---------------------------------------------------------------------------
