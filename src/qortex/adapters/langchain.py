@@ -27,14 +27,10 @@ try:
 except ImportError:
     _HAS_LANGCHAIN = False
 
-from qortex.client import QortexClient
-
 
 def _check_langchain():
     if not _HAS_LANGCHAIN:
-        raise ImportError(
-            "langchain-core required for QortexRetriever: pip install langchain-core"
-        )
+        raise ImportError("langchain-core required for QortexRetriever: pip install langchain-core")
 
 
 if _HAS_LANGCHAIN:

@@ -212,7 +212,10 @@ class Ingestor(ABC):
         if self.embedding_model is not None and concepts:
             texts = [f"{c.name}: {c.description}" for c in concepts]
             embeddings = self.embedding_model.embed(texts)
-            model_name = getattr(self.embedding_model, "_model_name", None) or type(self.embedding_model).__name__
+            model_name = (
+                getattr(self.embedding_model, "_model_name", None)
+                or type(self.embedding_model).__name__
+            )
             for concept, emb in zip(concepts, embeddings):
                 concept.embedding = emb
                 concept.embedding_model = model_name

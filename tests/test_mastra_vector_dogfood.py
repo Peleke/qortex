@@ -236,14 +236,18 @@ class TestMastraVectorDropIn:
         )
         # Filter: only handbook source
         r = _vector_query_impl(
-            "docs", [1, 0, 0, 0, 0, 0, 0, 0], top_k=10,
+            "docs",
+            [1, 0, 0, 0, 0, 0, 0, 0],
+            top_k=10,
             filter={"source": "handbook"},
         )
         assert all(res["metadata"]["source"] == "handbook" for res in r["results"])
 
         # Complex filter: handbook AND auth chapter
         r = _vector_query_impl(
-            "docs", [1, 0, 0, 0, 0, 0, 0, 0], top_k=10,
+            "docs",
+            [1, 0, 0, 0, 0, 0, 0, 0],
+            top_k=10,
             filter={"$and": [{"source": "handbook"}, {"chapter": "auth"}]},
         )
         assert len(r["results"]) == 1
@@ -502,9 +506,7 @@ class TestFullDropInSimulation:
         r = _vector_upsert_impl(
             "my_app",
             vectors=vectors,
-            metadata=[
-                {"text": t, "source": "security-handbook"} for t in texts
-            ],
+            metadata=[{"text": t, "source": "security-handbook"} for t in texts],
             ids=[f"doc_{i}" for i in range(len(texts))],
             documents=texts,
         )
@@ -519,7 +521,9 @@ class TestFullDropInSimulation:
 
         # Query with filter (Mastra supports this)
         r = _vector_query_impl(
-            "my_app", query_vec, top_k=10,
+            "my_app",
+            query_vec,
+            top_k=10,
             filter={"source": "security-handbook"},
         )
         assert len(r["results"]) > 0

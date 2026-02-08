@@ -13,10 +13,14 @@ from __future__ import annotations
 import logging
 import uuid
 from dataclasses import dataclass, field
-from typing import Protocol, runtime_checkable
+from typing import TYPE_CHECKING, Protocol, runtime_checkable
 
 from qortex.core.backend import GraphBackend
-from qortex.core.models import ConceptNode
+
+if TYPE_CHECKING:
+    from qortex.hippocampus.buffer import EdgePromotionBuffer
+    from qortex.hippocampus.factors import TeleportationFactors
+    from qortex.hippocampus.interoception import InteroceptionProvider
 
 logger = logging.getLogger(__name__)
 
@@ -160,16 +164,13 @@ class GraphRAGAdapter:
         vector_index,
         backend: GraphBackend,
         embedding_model,
-        factors: "TeleportationFactors | None" = None,
-        edge_buffer: "EdgePromotionBuffer | None" = None,
+        factors: TeleportationFactors | None = None,
+        edge_buffer: EdgePromotionBuffer | None = None,
         online_sim_threshold: float = 0.7,
         kg_weight_bonus: float = 0.3,
-        interoception: "InteroceptionProvider | None" = None,
+        interoception: InteroceptionProvider | None = None,
     ) -> None:
-        from qortex.hippocampus.buffer import EdgePromotionBuffer
-        from qortex.hippocampus.factors import TeleportationFactors
         from qortex.hippocampus.interoception import (
-            InteroceptionProvider,
             LocalInteroceptionProvider,
         )
 
@@ -214,7 +215,9 @@ class GraphRAGAdapter:
         query_embedding = self.embedding_model.embed([query])[0]
         fetch_k = max(top_k * 3, 30)  # Over-fetch for graph expansion
         vec_results = self.vector_index.search(
-            query_embedding, top_k=fetch_k, threshold=min_confidence,
+            query_embedding,
+            top_k=fetch_k,
+            threshold=min_confidence,
         )
 
         if not vec_results:
@@ -277,19 +280,21 @@ class GraphRAGAdapter:
             node = self.backend.get_node(node_id)
             if node is None:
                 continue
-            items.append(RetrievalItem(
-                id=node.id,
-                content=f"{node.name}: {node.description}",
-                score=score,
-                domain=node.domain,
-                node_id=node.id,
-                metadata={
-                    **node.properties,
-                    "vec_score": round(vec_scores.get(node_id, 0.0), 4),
-                    "ppr_score": round(ppr_scores.get(node_id, 0.0), 4),
-                    "kg_coverage": round(kg_coverage, 4),
-                },
-            ))
+            items.append(
+                RetrievalItem(
+                    id=node.id,
+                    content=f"{node.name}: {node.description}",
+                    score=score,
+                    domain=node.domain,
+                    node_id=node.id,
+                    metadata={
+                        **node.properties,
+                        "vec_score": round(vec_scores.get(node_id, 0.0), 4),
+                        "ppr_score": round(ppr_scores.get(node_id, 0.0), 4),
+                        "kg_coverage": round(kg_coverage, 4),
+                    },
+                )
+            )
 
         # Cache query for feedback routing
         self._query_cache[query_id] = [item.id for item in items]
@@ -314,12 +319,12 @@ class GraphRAGAdapter:
         )
 
     @property
-    def factors(self) -> "TeleportationFactors":
+    def factors(self) -> TeleportationFactors:
         """Backward-compat: proxy to interoception's factors."""
         return self._interoception.factors
 
     @property
-    def edge_buffer(self) -> "EdgePromotionBuffer":
+    def edge_buffer(self) -> EdgePromotionBuffer:
         """Backward-compat: proxy to interoception's buffer."""
         return self._interoception.buffer
 
@@ -380,9 +385,9 @@ def get_adapter(
     vector_index,
     backend: GraphBackend,
     embedding_model=None,
-    factors: "TeleportationFactors | None" = None,
-    edge_buffer: "EdgePromotionBuffer | None" = None,
-    interoception: "InteroceptionProvider | None" = None,
+    factors: TeleportationFactors | None = None,
+    edge_buffer: EdgePromotionBuffer | None = None,
+    interoception: InteroceptionProvider | None = None,
 ) -> RetrievalAdapter:
     """Factory: returns the best available adapter.
 
@@ -395,7 +400,10 @@ def get_adapter(
 
     # GraphRAGAdapter works with any backend that has PPR — including InMemoryBackend
     return GraphRAGAdapter(
-        vector_index, backend, embedding_model,
-        factors=factors, edge_buffer=edge_buffer,
+        vector_index,
+        backend,
+        embedding_model,
+        factors=factors,
+        edge_buffer=edge_buffer,
         interoception=interoception,
     )

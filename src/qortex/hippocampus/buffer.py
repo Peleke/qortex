@@ -64,9 +64,9 @@ class EdgePromotionBuffer:
 
         # Lifecycle hooks
         self._hooks: dict[str, list[Any]] = {
-            "on_record": [],    # Called when an edge observation is recorded
-            "on_promote": [],   # Called for each promoted edge
-            "on_flush": [],     # Called after flush completes with PromotionResult
+            "on_record": [],  # Called when an edge observation is recorded
+            "on_promote": [],  # Called for each promoted edge
+            "on_flush": [],  # Called after flush completes with PromotionResult
         }
 
     def record(self, source_id: str, target_id: str, score: float) -> None:
@@ -128,8 +128,10 @@ class EdgePromotionBuffer:
                     self._total_promoted += 1
 
                     detail = {
-                        "source": src, "target": tgt,
-                        "hits": stats.hit_count, "avg_score": round(stats.avg_score, 4),
+                        "source": src,
+                        "target": tgt,
+                        "hits": stats.hit_count,
+                        "avg_score": round(stats.avg_score, 4),
                     }
                     details.append(detail)
 
@@ -228,7 +230,6 @@ class EdgePromotionBuffer:
             "max_hits": max(hits),
             "avg_hits": round(sum(hits) / len(hits), 1),
             "ready_to_promote": sum(
-                1 for s in self._buffer.values()
-                if s.hit_count >= 3 and s.avg_score >= 0.75
+                1 for s in self._buffer.values() if s.hit_count >= 3 and s.avg_score >= 0.75
             ),
         }

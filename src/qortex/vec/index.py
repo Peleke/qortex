@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import logging
-import math
 from typing import Protocol, runtime_checkable
 
 logger = logging.getLogger(__name__)
@@ -95,9 +94,7 @@ class NumpyVectorIndex:
 
         new_vecs = np.array(embeddings, dtype=np.float32)
         if new_vecs.shape[1] != self._dimensions:
-            raise ValueError(
-                f"Expected {self._dimensions} dimensions, got {new_vecs.shape[1]}"
-            )
+            raise ValueError(f"Expected {self._dimensions} dimensions, got {new_vecs.shape[1]}")
 
         # L2-normalize for cosine similarity via dot product
         norms = np.linalg.norm(new_vecs, axis=1, keepdims=True)
@@ -230,13 +227,12 @@ class SqliteVecIndex:
         import struct
 
         self._ensure_connection()
+        assert self._conn is not None
 
         # Remove existing first (upsert)
         existing = []
         for id_ in ids:
-            row = self._conn.execute(
-                "SELECT row_id FROM vec_meta WHERE id = ?", (id_,)
-            ).fetchone()
+            row = self._conn.execute("SELECT row_id FROM vec_meta WHERE id = ?", (id_,)).fetchone()
             if row:
                 existing.append(id_)
         if existing:
@@ -248,13 +244,9 @@ class SqliteVecIndex:
 
             # sqlite-vec expects binary float32
             blob = struct.pack(f"{len(emb)}f", *emb)
-            cursor = self._conn.execute(
-                "INSERT INTO vec_index(embedding) VALUES (?)", (blob,)
-            )
+            cursor = self._conn.execute("INSERT INTO vec_index(embedding) VALUES (?)", (blob,))
             row_id = cursor.lastrowid
-            self._conn.execute(
-                "INSERT INTO vec_meta(id, row_id) VALUES (?, ?)", (id_, row_id)
-            )
+            self._conn.execute("INSERT INTO vec_meta(id, row_id) VALUES (?, ?)", (id_, row_id))
 
         self._conn.commit()
 
@@ -268,6 +260,7 @@ class SqliteVecIndex:
         import struct
 
         self._ensure_connection()
+        assert self._conn is not None
 
         blob = struct.pack(f"{len(query_embedding)}f", *query_embedding)
 
@@ -295,10 +288,9 @@ class SqliteVecIndex:
     def remove(self, ids: list[str]) -> None:
         """Remove vectors by ID."""
         self._ensure_connection()
+        assert self._conn is not None
         for id_ in ids:
-            row = self._conn.execute(
-                "SELECT row_id FROM vec_meta WHERE id = ?", (id_,)
-            ).fetchone()
+            row = self._conn.execute("SELECT row_id FROM vec_meta WHERE id = ?", (id_,)).fetchone()
             if row:
                 self._conn.execute("DELETE FROM vec_index WHERE rowid = ?", (row[0],))
                 self._conn.execute("DELETE FROM vec_meta WHERE id = ?", (id_,))
@@ -306,6 +298,7 @@ class SqliteVecIndex:
 
     def size(self) -> int:
         self._ensure_connection()
+        assert self._conn is not None
         row = self._conn.execute("SELECT COUNT(*) FROM vec_meta").fetchone()
         return row[0] if row else 0
 

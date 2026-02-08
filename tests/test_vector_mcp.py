@@ -310,9 +310,7 @@ class TestQuery:
 
 class TestUpdate:
     def test_update_metadata_by_id(self, populated_index):
-        result = _vector_update_impl(
-            populated_index, id="v1", metadata={"status": "archived"}
-        )
+        result = _vector_update_impl(populated_index, id="v1", metadata={"status": "archived"})
         assert result["count"] == 1
         q = _vector_query_impl(populated_index, [1, 0, 0, 0], top_k=1)
         meta = q["results"][0]["metadata"]
@@ -337,9 +335,7 @@ class TestUpdate:
         assert "error" in result
 
     def test_update_both_id_and_filter(self, populated_index):
-        result = _vector_update_impl(
-            populated_index, id="v1", filter={"a": 1}, metadata={"x": 1}
-        )
+        result = _vector_update_impl(populated_index, id="v1", filter={"a": 1}, metadata={"x": 1})
         assert "error" in result
 
     def test_update_no_updates(self, populated_index):
@@ -370,9 +366,7 @@ class TestDeleteMany:
         assert _vector_describe_index_impl(populated_index)["count"] == 1
 
     def test_delete_by_filter(self, populated_index):
-        result = _vector_delete_many_impl(
-            populated_index, filter={"category": "auth"}
-        )
+        result = _vector_delete_many_impl(populated_index, filter={"category": "auth"})
         assert result["count"] == 2
         assert _vector_describe_index_impl(populated_index)["count"] == 1
 
@@ -381,9 +375,7 @@ class TestDeleteMany:
         assert "error" in result
 
     def test_delete_both_ids_and_filter(self, populated_index):
-        result = _vector_delete_many_impl(
-            populated_index, ids=["v1"], filter={"a": 1}
-        )
+        result = _vector_delete_many_impl(populated_index, ids=["v1"], filter={"a": 1})
         assert "error" in result
 
 
@@ -425,7 +417,9 @@ class TestMastraVectorLifecycle:
 
         # 5. Query with filter
         r = _vector_query_impl(
-            "docs", [1, 0, 0, 0], top_k=10,
+            "docs",
+            [1, 0, 0, 0],
+            top_k=10,
             filter={"source_id": "api.pdf"},
         )
         assert len(r["results"]) == 1

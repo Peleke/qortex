@@ -340,7 +340,9 @@ class InMemoryBackend:
         """Vector similarity search over concept embeddings."""
         if self._vector_index is not None:
             # Use the index for fast search
-            results = self._vector_index.search(query_embedding, top_k=top_k * 2, threshold=threshold)
+            results = self._vector_index.search(
+                query_embedding, top_k=top_k * 2, threshold=threshold
+            )
             filtered = []
             for node_id, score in results:
                 node = self._nodes.get(node_id)

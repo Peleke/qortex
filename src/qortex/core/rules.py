@@ -7,7 +7,7 @@ rules() — single source of truth for "which rules apply here?".
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
     from qortex.core.backend import GraphBackend

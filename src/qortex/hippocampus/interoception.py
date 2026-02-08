@@ -26,7 +26,11 @@ from __future__ import annotations
 import logging
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any, Protocol, runtime_checkable
+from typing import TYPE_CHECKING, Any, Protocol, runtime_checkable
+
+if TYPE_CHECKING:
+    from qortex.hippocampus.buffer import EdgePromotionBuffer
+    from qortex.hippocampus.factors import TeleportationFactors
 
 logger = logging.getLogger(__name__)
 
@@ -103,6 +107,16 @@ class InteroceptionProvider(Protocol):
 
     def summary(self) -> dict[str, Any]:
         """Summary stats for monitoring/logging."""
+        ...
+
+    @property
+    def factors(self) -> TeleportationFactors:
+        """Current teleportation factors."""
+        ...
+
+    @property
+    def buffer(self) -> EdgePromotionBuffer:
+        """Current edge promotion buffer."""
         ...
 
 

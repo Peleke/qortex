@@ -84,24 +84,32 @@ def setup_graph_server():
 
     nodes = [
         ConceptNode(
-            id="sec:oauth", name="OAuth2",
+            id="sec:oauth",
+            name="OAuth2",
             description="OAuth2 authorization framework for delegated API access",
-            domain="security", source_id="handbook",
+            domain="security",
+            source_id="handbook",
         ),
         ConceptNode(
-            id="sec:jwt", name="JWT",
+            id="sec:jwt",
+            name="JWT",
             description="JSON Web Tokens for stateless authentication",
-            domain="security", source_id="handbook",
+            domain="security",
+            source_id="handbook",
         ),
         ConceptNode(
-            id="sec:rbac", name="RBAC",
+            id="sec:rbac",
+            name="RBAC",
             description="Role-based access control for permission management",
-            domain="security", source_id="handbook",
+            domain="security",
+            source_id="handbook",
         ),
         ConceptNode(
-            id="sec:mfa", name="MFA",
+            id="sec:mfa",
+            name="MFA",
             description="Multi-factor authentication with multiple verification factors",
-            domain="security", source_id="handbook",
+            domain="security",
+            source_id="handbook",
         ),
     ]
 
@@ -117,35 +125,59 @@ def setup_graph_server():
     vector_index.add(ids, embeddings)
 
     # Typed edges
-    backend.add_edge(ConceptEdge(
-        source_id="sec:oauth", target_id="sec:jwt",
-        relation_type=RelationType.REQUIRES,
-    ))
-    backend.add_edge(ConceptEdge(
-        source_id="sec:oauth", target_id="sec:rbac",
-        relation_type=RelationType.USES,
-    ))
-    backend.add_edge(ConceptEdge(
-        source_id="sec:mfa", target_id="sec:oauth",
-        relation_type=RelationType.SUPPORTS,
-    ))
+    backend.add_edge(
+        ConceptEdge(
+            source_id="sec:oauth",
+            target_id="sec:jwt",
+            relation_type=RelationType.REQUIRES,
+        )
+    )
+    backend.add_edge(
+        ConceptEdge(
+            source_id="sec:oauth",
+            target_id="sec:rbac",
+            relation_type=RelationType.USES,
+        )
+    )
+    backend.add_edge(
+        ConceptEdge(
+            source_id="sec:mfa",
+            target_id="sec:oauth",
+            relation_type=RelationType.SUPPORTS,
+        )
+    )
 
     # Explicit rules
-    backend.add_rule(ExplicitRule(
-        id="rule:use-oauth", text="Always use OAuth2 for third-party API access",
-        domain="security", source_id="handbook",
-        concept_ids=["sec:oauth"], category="security",
-    ))
-    backend.add_rule(ExplicitRule(
-        id="rule:rotate-jwt", text="Rotate JWT signing keys every 90 days",
-        domain="security", source_id="handbook",
-        concept_ids=["sec:oauth", "sec:jwt"], category="operations",
-    ))
-    backend.add_rule(ExplicitRule(
-        id="rule:rbac-first", text="Define RBAC roles before writing authorization code",
-        domain="security", source_id="handbook",
-        concept_ids=["sec:rbac"], category="architectural",
-    ))
+    backend.add_rule(
+        ExplicitRule(
+            id="rule:use-oauth",
+            text="Always use OAuth2 for third-party API access",
+            domain="security",
+            source_id="handbook",
+            concept_ids=["sec:oauth"],
+            category="security",
+        )
+    )
+    backend.add_rule(
+        ExplicitRule(
+            id="rule:rotate-jwt",
+            text="Rotate JWT signing keys every 90 days",
+            domain="security",
+            source_id="handbook",
+            concept_ids=["sec:oauth", "sec:jwt"],
+            category="operations",
+        )
+    )
+    backend.add_rule(
+        ExplicitRule(
+            id="rule:rbac-first",
+            text="Define RBAC roles before writing authorization code",
+            domain="security",
+            source_id="handbook",
+            concept_ids=["sec:rbac"],
+            category="architectural",
+        )
+    )
 
     mcp_server.create_server(
         backend=backend,

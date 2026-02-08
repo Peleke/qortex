@@ -250,7 +250,9 @@ def _edge_to_item(edge: Any) -> EdgeItem:
     return EdgeItem(
         source_id=edge.source_id,
         target_id=edge.target_id,
-        relation_type=edge.relation_type.value if hasattr(edge.relation_type, "value") else str(edge.relation_type),
+        relation_type=edge.relation_type.value
+        if hasattr(edge.relation_type, "value")
+        else str(edge.relation_type),
         confidence=edge.confidence,
         properties=edge.properties,
     )
@@ -364,7 +366,9 @@ class LocalQortexClient:
         if vector_index is not None and embedding_model is not None:
             if mode == "graph" or (mode == "auto" and self._has_graph_edges()):
                 self._adapter = GraphRAGAdapter(
-                    vector_index, backend, embedding_model,
+                    vector_index,
+                    backend,
+                    embedding_model,
                     interoception=interoception,
                 )
             else:
@@ -376,6 +380,7 @@ class LocalQortexClient:
         """Check if the backend has any edges (worth running PPR)."""
         try:
             from qortex.core.memory import InMemoryBackend
+
             if isinstance(self._backend, InMemoryBackend):
                 return len(self._backend._edges) > 0
         except ImportError:
@@ -432,7 +437,10 @@ class LocalQortexClient:
         scores_map = {item.node_id: item.score for item in items}
 
         rules = collect_rules_for_concepts(
-            self._backend, activated_ids, domains, scores_map,
+            self._backend,
+            activated_ids,
+            domains,
+            scores_map,
         )
         return [_rule_to_item(r) for r in rules]
 
@@ -470,9 +478,7 @@ class LocalQortexClient:
                 for edge in edges:
                     all_edges.append(_edge_to_item(edge))
                     # Determine neighbor
-                    neighbor_id = (
-                        edge.target_id if edge.source_id == current_id else edge.source_id
-                    )
+                    neighbor_id = edge.target_id if edge.source_id == current_id else edge.source_id
                     if neighbor_id not in visited:
                         visited.add(neighbor_id)
                         neighbor_node = self._backend.get_node(neighbor_id)
@@ -538,10 +544,7 @@ class LocalQortexClient:
         # Filter by concept_ids if provided
         if concept_ids is not None:
             concept_set = set(concept_ids)
-            all_rules = [
-                r for r in all_rules
-                if concept_set.intersection(r.source_concepts)
-            ]
+            all_rules = [r for r in all_rules if concept_set.intersection(r.source_concepts)]
 
         # Count distinct domains
         domain_names = {r.domain for r in all_rules}
@@ -669,10 +672,7 @@ class LocalQortexClient:
         metadatas_list = metadatas or [{}] * len(texts)
 
         if ids is None:
-            ids = [
-                f"{domain}:{hashlib.sha256(t.encode()).hexdigest()[:12]}"
-                for t in texts
-            ]
+            ids = [f"{domain}:{hashlib.sha256(t.encode()).hexdigest()[:12]}" for t in texts]
 
         if self._backend.get_domain(domain) is None:
             self._backend.create_domain(domain)

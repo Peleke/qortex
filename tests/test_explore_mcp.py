@@ -97,16 +97,25 @@ def _setup_graph_with_rules(backend, embedding):
 
     nodes = [
         ConceptNode(
-            id="security:Auth", name="Auth", description="Authentication via OAuth2",
-            domain="security", source_id="test",
+            id="security:Auth",
+            name="Auth",
+            description="Authentication via OAuth2",
+            domain="security",
+            source_id="test",
         ),
         ConceptNode(
-            id="security:JWT", name="JWT", description="JSON Web Tokens",
-            domain="security", source_id="test",
+            id="security:JWT",
+            name="JWT",
+            description="JSON Web Tokens",
+            domain="security",
+            source_id="test",
         ),
         ConceptNode(
-            id="security:RBAC", name="RBAC", description="Role-based access control",
-            domain="security", source_id="test",
+            id="security:RBAC",
+            name="RBAC",
+            description="Role-based access control",
+            domain="security",
+            source_id="test",
         ),
     ]
 
@@ -119,34 +128,52 @@ def _setup_graph_with_rules(backend, embedding):
         backend.add_embedding(node.id, emb)
 
     # Edges
-    backend.add_edge(ConceptEdge(
-        source_id="security:Auth", target_id="security:JWT",
-        relation_type=RelationType.REQUIRES,
-    ))
-    backend.add_edge(ConceptEdge(
-        source_id="security:Auth", target_id="security:RBAC",
-        relation_type=RelationType.USES,
-    ))
+    backend.add_edge(
+        ConceptEdge(
+            source_id="security:Auth",
+            target_id="security:JWT",
+            relation_type=RelationType.REQUIRES,
+        )
+    )
+    backend.add_edge(
+        ConceptEdge(
+            source_id="security:Auth",
+            target_id="security:RBAC",
+            relation_type=RelationType.USES,
+        )
+    )
 
     # Rules
-    backend.add_rule(ExplicitRule(
-        id="r1", text="Always use OAuth2",
-        domain="security", source_id="test",
-        concept_ids=["security:Auth"],
-        category="architectural",
-    ))
-    backend.add_rule(ExplicitRule(
-        id="r2", text="Rotate JWT keys every 90 days",
-        domain="security", source_id="test",
-        concept_ids=["security:Auth", "security:JWT"],
-        category="security",
-    ))
-    backend.add_rule(ExplicitRule(
-        id="r3", text="Define roles before permissions",
-        domain="security", source_id="test",
-        concept_ids=["security:RBAC"],
-        category="architectural",
-    ))
+    backend.add_rule(
+        ExplicitRule(
+            id="r1",
+            text="Always use OAuth2",
+            domain="security",
+            source_id="test",
+            concept_ids=["security:Auth"],
+            category="architectural",
+        )
+    )
+    backend.add_rule(
+        ExplicitRule(
+            id="r2",
+            text="Rotate JWT keys every 90 days",
+            domain="security",
+            source_id="test",
+            concept_ids=["security:Auth", "security:JWT"],
+            category="security",
+        )
+    )
+    backend.add_rule(
+        ExplicitRule(
+            id="r3",
+            text="Define roles before permissions",
+            domain="security",
+            source_id="test",
+            concept_ids=["security:RBAC"],
+            category="architectural",
+        )
+    )
 
     return nodes
 
@@ -207,10 +234,7 @@ class TestQortexExploreMCP:
     def test_explore_edge_deduplication(self, configured_server, backend, embedding):
         _setup_graph_with_rules(backend, embedding)
         result = mcp_server._explore_impl("security:Auth")
-        edge_keys = [
-            (e["source_id"], e["target_id"], e["relation_type"])
-            for e in result["edges"]
-        ]
+        edge_keys = [(e["source_id"], e["target_id"], e["relation_type"]) for e in result["edges"]]
         assert len(edge_keys) == len(set(edge_keys))
 
     def test_explore_edge_relation_type_is_string(self, configured_server, backend, embedding):
@@ -273,10 +297,16 @@ class TestQortexRulesMCP:
 
     def test_rules_min_confidence(self, configured_server, backend, embedding):
         _setup_graph_with_rules(backend, embedding)
-        backend.add_rule(ExplicitRule(
-            id="r-low", text="Maybe", domain="security",
-            source_id="test", concept_ids=["security:Auth"], confidence=0.2,
-        ))
+        backend.add_rule(
+            ExplicitRule(
+                id="r-low",
+                text="Maybe",
+                domain="security",
+                source_id="test",
+                concept_ids=["security:Auth"],
+                confidence=0.2,
+            )
+        )
         result = mcp_server._rules_impl(min_confidence=0.5)
         ids = [r["id"] for r in result["rules"]]
         assert "r-low" not in ids
