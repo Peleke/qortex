@@ -1,6 +1,19 @@
+<div align="center">
+
 # qortex
 
-Graph-enhanced retrieval engine. Transforms unstructured content into a knowledge graph with typed edges, then uses Personalized PageRank for structurally-aware search with feedback-driven learning.
+### Graph-Enhanced Retrieval Engine
+
+[![PyPI](https://img.shields.io/pypi/v/qortex?style=for-the-badge&logo=pypi&logoColor=white)](https://pypi.org/project/qortex/)
+[![Python](https://img.shields.io/pypi/pyversions/qortex?style=for-the-badge&logo=python&logoColor=white)](https://pypi.org/project/qortex/)
+[![CI](https://img.shields.io/github/actions/workflow/status/Peleke/qortex/ci.yml?branch=main&style=for-the-badge&logo=github&label=CI)](https://github.com/Peleke/qortex/actions/workflows/ci.yml)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg?style=for-the-badge)](https://opensource.org/licenses/MIT)
+
+Transforms unstructured content into a knowledge graph with typed edges, then uses Personalized PageRank for structurally-aware search with feedback-driven learning.
+
+[Install](#install) · [Quick Start](#quick-start) · [Framework Adapters](#framework-adapters) · [Docs](https://peleke.github.io/qortex/)
+
+</div>
 
 ## Features
 
