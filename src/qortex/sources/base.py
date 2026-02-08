@@ -8,8 +8,9 @@ All types here are pure dataclasses — no database drivers needed.
 
 from __future__ import annotations
 
+import os
 from dataclasses import dataclass, field
-from typing import Any, Iterator, Protocol, runtime_checkable
+from typing import Any, Iterator, Literal, Protocol, runtime_checkable
 
 
 @dataclass
@@ -91,6 +92,72 @@ class SourceConfig:
             if fnmatch.fnmatch(table_name, pattern):
                 return domain
         return self.default_domain
+
+
+# ---------------------------------------------------------------------------
+# IngestConfig: user-friendly configuration for database ingestion
+# ---------------------------------------------------------------------------
+
+_VALID_TARGETS = {"vec", "graph", "both"}
+_VALID_MODES = {"online", "batch"}
+_VALID_STRATEGIES = {"natural_language", "key_value"}
+
+
+@dataclass
+class IngestConfig:
+    """User-friendly configuration for database ingestion.
+
+    Controls what the unified PostgresIngestor does on ``run()``:
+    - targets: which layers to populate ("vec", "graph", or "both")
+    - mode: "batch" processes all rows at once, "online" streams changes
+    - serialize_strategy: how rows become text for embedding
+    - embed_catalog_tables: whether to embed reference/catalog rows
+    - extract_rules: whether to extract CHECK constraints as rules
+    - user_filter: only ingest rows for this user_id (multi-tenant)
+
+    Environment overrides (following QORTEX_VEC/QORTEX_GRAPH pattern):
+        QORTEX_INGEST_TARGETS=vec|graph|both
+        QORTEX_INGEST_MODE=online|batch
+        QORTEX_INGEST_BATCH_SIZE=500
+    """
+
+    targets: Literal["vec", "graph", "both"] = "both"
+    mode: Literal["online", "batch"] = "batch"
+    batch_size: int = 500
+    serialize_strategy: Literal["natural_language", "key_value"] = "natural_language"
+    embed_catalog_tables: bool = True
+    extract_rules: bool = True
+    user_filter: str | None = None
+
+    def __post_init__(self) -> None:
+        # Apply environment overrides
+        env_targets = os.environ.get("QORTEX_INGEST_TARGETS")
+        if env_targets and env_targets in _VALID_TARGETS:
+            object.__setattr__(self, "targets", env_targets)
+
+        env_mode = os.environ.get("QORTEX_INGEST_MODE")
+        if env_mode and env_mode in _VALID_MODES:
+            object.__setattr__(self, "mode", env_mode)
+
+        env_batch = os.environ.get("QORTEX_INGEST_BATCH_SIZE")
+        if env_batch:
+            try:
+                object.__setattr__(self, "batch_size", int(env_batch))
+            except ValueError:
+                pass
+
+        # Validate
+        if self.targets not in _VALID_TARGETS:
+            raise ValueError(
+                f"Invalid targets={self.targets!r}. Must be one of: {_VALID_TARGETS}"
+            )
+        if self.mode not in _VALID_MODES:
+            raise ValueError(f"Invalid mode={self.mode!r}. Must be one of: {_VALID_MODES}")
+        if self.serialize_strategy not in _VALID_STRATEGIES:
+            raise ValueError(
+                f"Invalid serialize_strategy={self.serialize_strategy!r}. "
+                f"Must be one of: {_VALID_STRATEGIES}"
+            )
 
 
 @runtime_checkable

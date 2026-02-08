@@ -978,6 +978,74 @@ class LocalQortexClient:
             ),
         )
 
+    async def connect_source(
+        self,
+        config: Any,
+        ingest: Any = None,
+    ) -> dict:
+        """Connect to a database source and discover its schema.
+
+        Args:
+            config: SourceConfig for the database connection.
+            ingest: Optional IngestConfig.
+
+        Returns:
+            Dict with source_id, table count, table names.
+        """
+        from qortex.sources.base import IngestConfig, SourceConfig
+
+        if not isinstance(config, SourceConfig):
+            raise TypeError(f"Expected SourceConfig, got {type(config).__name__}")
+
+        try:
+            from qortex.sources.postgres import PostgresSourceAdapter
+        except ImportError:
+            raise ImportError("asyncpg required. Install qortex[source-postgres].")
+
+        adapter = PostgresSourceAdapter()
+        await adapter.connect(config)
+        schemas = await adapter.discover()
+
+        # Store for later sync
+        if not hasattr(self, "_source_adapters"):
+            self._source_adapters: dict[str, Any] = {}
+            self._source_configs: dict[str, Any] = {}
+            self._source_schemas: dict[str, list] = {}
+
+        self._source_adapters[config.source_id] = adapter
+        self._source_configs[config.source_id] = config
+        self._source_schemas[config.source_id] = schemas
+
+        return {
+            "source_id": config.source_id,
+            "tables": len(schemas),
+            "table_names": [t.name for t in schemas],
+        }
+
+    async def sync_source(
+        self,
+        source_id: str,
+        tables: list[str] | None = None,
+    ) -> Any:
+        """Sync a connected source's data to the vec layer.
+
+        Args:
+            source_id: The source to sync.
+            tables: Tables to sync. None = all.
+
+        Returns:
+            SyncResult with sync statistics.
+        """
+        if not hasattr(self, "_source_adapters") or source_id not in self._source_adapters:
+            raise ValueError(f"Source '{source_id}' not connected. Call connect_source() first.")
+
+        adapter = self._source_adapters[source_id]
+        return await adapter.sync(
+            tables=tables,
+            vector_index=self._vector_index,
+            embedding_model=self._embedding_model,
+        )
+
     def _get_llm_backend(self):
         if self._llm_backend is not None:
             return self._llm_backend

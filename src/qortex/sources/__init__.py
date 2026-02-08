@@ -12,6 +12,7 @@ Implementations:
 
 from qortex.sources.base import (
     ColumnSchema,
+    IngestConfig,
     SourceAdapter,
     SourceConfig,
     SyncResult,
@@ -40,6 +41,7 @@ __all__ = [
     "ColumnSchema",
     "GraphIngestor",
     "GraphMapping",
+    "IngestConfig",
     "KeyValueSerializer",
     "NaturalLanguageSerializer",
     "RowSerializer",
@@ -55,3 +57,11 @@ __all__ = [
     "detect_catalog_table",
     "detect_cross_db_edges_by_naming",
 ]
+
+# Conditional PostgresSourceAdapter import
+try:
+    from qortex.sources.postgres import PostgresIngestor, PostgresSourceAdapter
+
+    __all__ += ["PostgresSourceAdapter", "PostgresIngestor"]
+except ImportError:
+    pass
