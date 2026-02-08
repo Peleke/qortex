@@ -85,38 +85,38 @@ INSERT INTO courses (id, title, slug, language_code, level, description, is_publ
 
 -- Lessons
 INSERT INTO lessons (id, course_id, title, position, markdown_content, summary) VALUES
-    ('l1000000-0000-0000-0000-000000000001', 'c1000000-0000-0000-0000-000000000001', 'Greetings and Introductions', 0, '# Saludos\n\nLearn how to greet people in Spanish.\n\n- Hola = Hello\n- Buenos días = Good morning\n- ¿Cómo estás? = How are you?', 'Basic Spanish greetings'),
-    ('l1000000-0000-0000-0000-000000000002', 'c1000000-0000-0000-0000-000000000001', 'Numbers 1-20', 1, '# Los Números\n\nuno, dos, tres, cuatro, cinco...', 'Spanish numbers'),
-    ('l1000000-0000-0000-0000-000000000003', 'c1000000-0000-0000-0000-000000000002', 'The Present Tense (Praesens)', 0, '# The Present Tense\n\nLatin verbs are conjugated by adding endings to the verb stem.\n\n## First Conjugation (-āre)\n\namō, amās, amat, amāmus, amātis, amant', 'Latin present tense conjugation');
+    ('e1000000-0000-0000-0000-000000000001', 'c1000000-0000-0000-0000-000000000001', 'Greetings and Introductions', 0, '# Saludos\n\nLearn how to greet people in Spanish.\n\n- Hola = Hello\n- Buenos días = Good morning\n- ¿Cómo estás? = How are you?', 'Basic Spanish greetings'),
+    ('e1000000-0000-0000-0000-000000000002', 'c1000000-0000-0000-0000-000000000001', 'Numbers 1-20', 1, '# Los Números\n\nuno, dos, tres, cuatro, cinco...', 'Spanish numbers'),
+    ('e1000000-0000-0000-0000-000000000003', 'c1000000-0000-0000-0000-000000000002', 'The Present Tense (Praesens)', 0, '# The Present Tense\n\nLatin verbs are conjugated by adding endings to the verb stem.\n\n## First Conjugation (-āre)\n\namō, amās, amat, amāmus, amātis, amant', 'Latin present tense conjugation');
 
 -- Vocabulary (multilingual)
 INSERT INTO vocabulary (id, word, translation, language_code, part_of_speech, notes) VALUES
-    ('v1000000-0000-0000-0000-000000000001', 'hola', 'hello', 'es', 'interjection', 'Informal greeting'),
-    ('v1000000-0000-0000-0000-000000000002', 'buenos días', 'good morning', 'es', 'noun', 'Formal morning greeting'),
-    ('v1000000-0000-0000-0000-000000000003', 'amāre', 'to love', 'la', 'verb', 'First conjugation (-āre)'),
-    ('v1000000-0000-0000-0000-000000000004', 'uno', 'one', 'es', 'noun', 'Cardinal number'),
-    ('v1000000-0000-0000-0000-000000000005', 'dos', 'two', 'es', 'noun', 'Cardinal number');
+    ('a0100000-0000-0000-0000-000000000001', 'hola', 'hello', 'es', 'interjection', 'Informal greeting'),
+    ('a0100000-0000-0000-0000-000000000002', 'buenos días', 'good morning', 'es', 'noun', 'Formal morning greeting'),
+    ('a0100000-0000-0000-0000-000000000003', 'amāre', 'to love', 'la', 'verb', 'First conjugation (-āre)'),
+    ('a0100000-0000-0000-0000-000000000004', 'uno', 'one', 'es', 'noun', 'Cardinal number'),
+    ('a0100000-0000-0000-0000-000000000005', 'dos', 'two', 'es', 'noun', 'Cardinal number');
 
 -- Lesson-vocabulary links (M2M junction)
 INSERT INTO lesson_vocabulary_items (lesson_id, vocabulary_id, position) VALUES
-    ('l1000000-0000-0000-0000-000000000001', 'v1000000-0000-0000-0000-000000000001', 0),
-    ('l1000000-0000-0000-0000-000000000001', 'v1000000-0000-0000-0000-000000000002', 1),
-    ('l1000000-0000-0000-0000-000000000002', 'v1000000-0000-0000-0000-000000000004', 0),
-    ('l1000000-0000-0000-0000-000000000002', 'v1000000-0000-0000-0000-000000000005', 1),
-    ('l1000000-0000-0000-0000-000000000003', 'v1000000-0000-0000-0000-000000000003', 0);
+    ('e1000000-0000-0000-0000-000000000001', 'a0100000-0000-0000-0000-000000000001', 0),
+    ('e1000000-0000-0000-0000-000000000001', 'a0100000-0000-0000-0000-000000000002', 1),
+    ('e1000000-0000-0000-0000-000000000002', 'a0100000-0000-0000-0000-000000000004', 0),
+    ('e1000000-0000-0000-0000-000000000002', 'a0100000-0000-0000-0000-000000000005', 1),
+    ('e1000000-0000-0000-0000-000000000003', 'a0100000-0000-0000-0000-000000000003', 0);
 
 -- Grammar concepts
 INSERT INTO grammar_concepts (id, name, slug, language_code, description, level) VALUES
-    ('g1000000-0000-0000-0000-000000000001', 'Present Tense', 'present-tense', 'la', 'The praesens tense for ongoing or habitual actions', 'a1'),
-    ('g1000000-0000-0000-0000-000000000002', 'First Conjugation', 'first-conjugation', 'la', 'Verbs ending in -āre (e.g., amāre, laudāre)', 'a1');
+    ('90100000-0000-0000-0000-000000000001', 'Present Tense', 'present-tense', 'la', 'The praesens tense for ongoing or habitual actions', 'a1'),
+    ('90100000-0000-0000-0000-000000000002', 'First Conjugation', 'first-conjugation', 'la', 'Verbs ending in -āre (e.g., amāre, laudāre)', 'a1');
 
 -- Exercises
 INSERT INTO exercises (id, lesson_id, exercise_type, prompt, correct_answer, options, difficulty) VALUES
-    ('e1000000-0000-0000-0000-000000000001', 'l1000000-0000-0000-0000-000000000001', 'translation', 'Translate: Hello', 'Hola', NULL, 1),
-    ('e1000000-0000-0000-0000-000000000002', 'l1000000-0000-0000-0000-000000000001', 'multiple_choice', 'How do you say "good morning"?', 'Buenos días', '["Buenos días", "Buenas noches", "Buenas tardes", "Hola"]', 1),
-    ('e1000000-0000-0000-0000-000000000003', 'l1000000-0000-0000-0000-000000000003', 'conjugation', 'Conjugate amāre in 1st person singular present', 'amō', NULL, 2);
+    ('ee100000-0000-0000-0000-000000000001', 'e1000000-0000-0000-0000-000000000001', 'translation', 'Translate: Hello', 'Hola', NULL, 1),
+    ('ee100000-0000-0000-0000-000000000002', 'e1000000-0000-0000-0000-000000000001', 'multiple_choice', 'How do you say "good morning"?', 'Buenos días', '["Buenos días", "Buenas noches", "Buenas tardes", "Hola"]', 1),
+    ('ee100000-0000-0000-0000-000000000003', 'e1000000-0000-0000-0000-000000000003', 'conjugation', 'Conjugate amāre in 1st person singular present', 'amō', NULL, 2);
 
 -- AI generation logs (metadata domain)
 INSERT INTO ai_generation_logs (lesson_id, model_name, prompt_tokens, completion_tokens, metadata) VALUES
-    ('l1000000-0000-0000-0000-000000000001', 'claude-sonnet-4-5-20250929', 1200, 800, '{"task": "exercise_generation", "quality_score": 0.92}'),
-    ('l1000000-0000-0000-0000-000000000003', 'claude-sonnet-4-5-20250929', 1500, 1100, '{"task": "grammar_explanation", "quality_score": 0.88}');
+    ('e1000000-0000-0000-0000-000000000001', 'claude-sonnet-4-5-20250929', 1200, 800, '{"task": "exercise_generation", "quality_score": 0.92}'),
+    ('e1000000-0000-0000-0000-000000000003', 'claude-sonnet-4-5-20250929', 1500, 1100, '{"task": "grammar_explanation", "quality_score": 0.88}');

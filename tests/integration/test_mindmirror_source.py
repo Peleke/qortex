@@ -11,9 +11,7 @@ from __future__ import annotations
 
 import pytest
 
-from qortex.sources.base import SourceConfig
 from qortex.sources.postgres import PostgresSourceAdapter
-from qortex.sources.serializer import NaturalLanguageSerializer
 
 pytestmark = pytest.mark.integration
 
@@ -56,7 +54,9 @@ class TestMindMirrorDiscover:
 
             # Verify column counts
             food_items = next(s for s in schemas if s.name == "food_items")
-            assert len(food_items.columns) >= 8  # id, name, slug, calories, protein, carbs, fat, serving_size, source, user_id, created_at
+            assert (
+                len(food_items.columns) >= 8
+            )  # id, name, slug, calories, protein, carbs, fat, serving_size, source, user_id, created_at
             assert food_items.row_count == 5
 
             # Verify PKs
@@ -102,8 +102,8 @@ class TestMindMirrorDiscover:
     @pytest.mark.asyncio
     async def test_discover_movements_detects_slug_as_catalog(self, mm_movements_config):
         """detect_catalog_table() returns True for movements (has slug)."""
-        from qortex.sources.mapping_rules import detect_catalog_table
         from qortex.sources.graph_ingestor import TableSchemaFull
+        from qortex.sources.mapping_rules import detect_catalog_table
 
         adapter = PostgresSourceAdapter()
         await adapter.connect(mm_movements_config)
@@ -114,10 +114,7 @@ class TestMindMirrorDiscover:
             # Convert to TableSchemaFull for catalog detection
             full = TableSchemaFull(
                 name=movements.name,
-                columns=[
-                    {"name": c.name, "data_type": c.data_type}
-                    for c in movements.columns
-                ],
+                columns=[{"name": c.name, "data_type": c.data_type} for c in movements.columns],
             )
             assert detect_catalog_table(full) is True
         finally:
@@ -183,9 +180,7 @@ class TestMindMirrorSync:
             await adapter.disconnect()
 
     @pytest.mark.asyncio
-    async def test_domain_map_glob_matching(
-        self, mm_main_config, fake_embedding, fake_vec_index
-    ):
+    async def test_domain_map_glob_matching(self, mm_main_config, fake_embedding, fake_vec_index):
         """habit_* → 'habits' domain, food_items → 'nutrition'."""
         # The domain map is tested at the SourceConfig level
         assert mm_main_config.resolve_domain("habit_templates") == "habits"

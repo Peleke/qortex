@@ -25,8 +25,9 @@ def discover_all_cross_db(schemas: list[SchemaGraph]) -> list[CrossDatabaseEdge]
     Combines naming-convention detection and user-identity unification.
     """
     edges: list[CrossDatabaseEdge] = []
-    edges.extend(detect_cross_db_edges_by_naming(schemas))
+    # Identity edges first — higher confidence, more specific relation type
     edges.extend(create_user_identity_edges(schemas))
+    edges.extend(detect_cross_db_edges_by_naming(schemas))
 
     # Deduplicate by (source_db, source_table, source_col, target_db, target_table)
     seen: set[tuple[str, str, str, str, str]] = set()
@@ -69,12 +70,8 @@ def apply_cross_db_edges(
 
         # Try to find source and target nodes
         if node_id_maps:
-            source_nodes = node_id_maps.get(edge.source_database, {}).get(
-                edge.source_table, {}
-            )
-            target_nodes = node_id_maps.get(edge.target_database, {}).get(
-                edge.target_table, {}
-            )
+            source_nodes = node_id_maps.get(edge.source_database, {}).get(edge.source_table, {})
+            target_nodes = node_id_maps.get(edge.target_database, {}).get(edge.target_table, {})
 
             if not source_nodes or not target_nodes:
                 logger.debug(
@@ -86,18 +83,61 @@ def apply_cross_db_edges(
                 )
                 continue
 
-            # Create edges for all matching FK values
-            for pk_val, src_node_id in source_nodes.items():
-                # For cross-DB edges, we'd need the FK value from the row
-                # This is a simplified version — real implementation would
-                # re-read the FK column values
-                pass  # See integration tests for full wiring
+            # Create schema-level edge (table-to-table) for cross-DB relationships.
+            # Row-level edges require FK column values which aren't available here —
+            # they were only in the original rows. Schema-level edges capture the
+            # relationship structure for graph traversal.
+            src_schema_id = f"{edge.source_database}:{edge.source_table}:_schema"
+            tgt_schema_id = f"{edge.target_database}:{edge.target_table}:_schema"
 
-        # Fallback: create a schema-level edge between the tables
+            # Create schema placeholder nodes if they don't exist
+            if backend.get_node(src_schema_id) is None:
+                from qortex.core.models import ConceptNode
+
+                backend.add_node(
+                    ConceptNode(
+                        id=src_schema_id,
+                        name=f"{edge.source_table} (schema)",
+                        description=f"Schema node for {edge.source_database}.{edge.source_table}",
+                        domain="schema",
+                        source_id=edge.source_database,
+                        properties={"is_schema_node": True},
+                    )
+                )
+            if backend.get_node(tgt_schema_id) is None:
+                from qortex.core.models import ConceptNode
+
+                backend.add_node(
+                    ConceptNode(
+                        id=tgt_schema_id,
+                        name=f"{edge.target_table} (schema)",
+                        description=f"Schema node for {edge.target_database}.{edge.target_table}",
+                        domain="schema",
+                        source_id=edge.target_database,
+                        properties={"is_schema_node": True},
+                    )
+                )
+
+            concept_edge = ConceptEdge(
+                source_id=src_schema_id,
+                target_id=tgt_schema_id,
+                relation_type=rel_type,
+                confidence=edge.confidence,
+                properties={
+                    "cross_db": True,
+                    "source_column": edge.source_column,
+                    "target_column": edge.target_column,
+                    "description": edge.description,
+                },
+            )
+            backend.add_edge(concept_edge)
+            created += 1
+            continue
+
+        # Fallback (no node_id_maps): try schema-level edge if schema nodes exist
         src_id = f"{edge.source_database}:{edge.source_table}:_schema"
         tgt_id = f"{edge.target_database}:{edge.target_table}:_schema"
 
-        # Check if both schema nodes exist; if not, this edge can't be created
         if backend.get_node(src_id) is None or backend.get_node(tgt_id) is None:
             logger.debug(
                 "Schema nodes not found for cross-DB edge: %s → %s",

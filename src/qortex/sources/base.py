@@ -9,8 +9,9 @@ All types here are pure dataclasses — no database drivers needed.
 from __future__ import annotations
 
 import os
+from collections.abc import AsyncIterator
 from dataclasses import dataclass, field
-from typing import Any, Iterator, Literal, Protocol, runtime_checkable
+from typing import Any, Literal, Protocol, runtime_checkable
 
 
 @dataclass
@@ -93,6 +94,15 @@ class SourceConfig:
                 return domain
         return self.default_domain
 
+    def __repr__(self) -> str:
+        """Redact connection_string to prevent credential leaks in logs."""
+        return (
+            f"SourceConfig(source_id={self.source_id!r}, "
+            f"connection_string='***', "
+            f"schemas={self.schemas!r}, "
+            f"domain_map={self.domain_map!r})"
+        )
+
 
 # ---------------------------------------------------------------------------
 # IngestConfig: user-friendly configuration for database ingestion
@@ -148,9 +158,7 @@ class IngestConfig:
 
         # Validate
         if self.targets not in _VALID_TARGETS:
-            raise ValueError(
-                f"Invalid targets={self.targets!r}. Must be one of: {_VALID_TARGETS}"
-            )
+            raise ValueError(f"Invalid targets={self.targets!r}. Must be one of: {_VALID_TARGETS}")
         if self.mode not in _VALID_MODES:
             raise ValueError(f"Invalid mode={self.mode!r}. Must be one of: {_VALID_MODES}")
         if self.serialize_strategy not in _VALID_STRATEGIES:
@@ -185,7 +193,7 @@ class SourceAdapter(Protocol):
         table: str,
         batch_size: int = 500,
         offset: int = 0,
-    ) -> Iterator[dict[str, Any]]:
+    ) -> AsyncIterator[dict[str, Any]]:
         """Read rows from a table in batches."""
         ...
 

@@ -14,7 +14,6 @@ from qortex.core.memory import InMemoryBackend
 from qortex.core.models import RelationType
 from qortex.sources.graph_ingestor import (
     CheckConstraintInfo,
-    CrossDatabaseEdge,
     EdgeMapping,
     ForeignKeyInfo,
     GraphMapping,
@@ -22,7 +21,6 @@ from qortex.sources.graph_ingestor import (
     SchemaGraph,
     TableMapping,
     TableSchemaFull,
-    UniqueConstraintInfo,
 )
 from qortex.sources.mapping_rules import (
     auto_domain,
@@ -31,11 +29,9 @@ from qortex.sources.mapping_rules import (
     create_user_identity_edges,
     detect_catalog_table,
     detect_cross_db_edges_by_naming,
-    find_description_columns,
     find_name_column,
 )
 from qortex.sources.postgres_graph import PostgresGraphIngestor
-
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -101,7 +97,7 @@ def _make_mock_conn(tables_data: dict[str, list[dict]]) -> AsyncMock:
                             "is_nullable": "YES",
                             "column_default": None,
                         }
-                        for col in rows[0].keys()
+                        for col in rows[0]
                     ]
             return []
 
@@ -152,6 +148,7 @@ class FakeEmbedding:
 
     def embed(self, texts: list[str]) -> list[list[float]]:
         import numpy as np
+
         return [np.random.default_rng(42).random(4).tolist() for _ in texts]
 
 
@@ -166,12 +163,14 @@ class TestPostgresGraphDiscover:
     @pytest.mark.asyncio
     async def test_basic_schema(self):
         """Discovers tables with columns and PKs."""
-        conn = _make_mock_conn({
-            "movements": [
-                {"id": "mv1", "name": "Squat", "slug": "squat"},
-                {"id": "mv2", "name": "Deadlift", "slug": "deadlift"},
-            ],
-        })
+        conn = _make_mock_conn(
+            {
+                "movements": [
+                    {"id": "mv1", "name": "Squat", "slug": "squat"},
+                    {"id": "mv2", "name": "Deadlift", "slug": "deadlift"},
+                ],
+            }
+        )
 
         ingestor = PostgresGraphIngestor()
         schema = await ingestor.discover_schema(
@@ -189,10 +188,12 @@ class TestPostgresGraphDiscover:
     @pytest.mark.asyncio
     async def test_multiple_tables(self):
         """Discovers multiple tables."""
-        conn = _make_mock_conn({
-            "users": [{"id": "u1", "email": "a@b.com"}],
-            "roles": [{"id": "r1", "name": "admin"}],
-        })
+        conn = _make_mock_conn(
+            {
+                "users": [{"id": "u1", "email": "a@b.com"}],
+                "roles": [{"id": "r1", "name": "admin"}],
+            }
+        )
 
         ingestor = PostgresGraphIngestor()
         schema = await ingestor.discover_schema(conn, source_id="test")
@@ -219,13 +220,17 @@ class TestGraphMapping:
 
     def test_fk_edge_types(self):
         """FK → correct RelationType classification."""
-        # user_id → BELONGS_TO
+        # habit_events has rich data columns (date, response, notes) → not a junction table
         table = TableSchemaFull(
             name="habit_events",
             columns=[
                 _col("id", "uuid", is_pk=True),
                 _col("user_id", "uuid"),
                 _col("habit_template_id", "uuid"),
+                _col("date", "date"),
+                _col("response", "text"),
+                _col("notes", "text"),
+                _col("created_at", "timestamptz"),
             ],
             foreign_keys=[
                 _fk("habit_events", "user_id", "users"),
@@ -237,7 +242,8 @@ class TestGraphMapping:
         fk_template = table.foreign_keys[1]
 
         assert classify_fk_relation(fk_user) == RelationType.BELONGS_TO.value
-        assert classify_fk_relation(fk_template, table) == RelationType.INSTANCE_OF.value
+        # CASCADE overrides template pattern → PART_OF (lifecycle coupling)
+        assert classify_fk_relation(fk_template, table) == RelationType.PART_OF.value
 
     def test_cascade_part_of(self):
         """CASCADE FK without template pattern → PART_OF."""
@@ -393,10 +399,12 @@ class TestGraphIngest:
         backend = InMemoryBackend()
         backend.connect()
 
-        conn = _make_mock_conn({
-            "courses": [{"id": "c1", "title": "Spanish A1", "slug": "spanish-a1"}],
-            "lessons": [{"id": "l1", "course_id": "c1", "title": "Greetings"}],
-        })
+        conn = _make_mock_conn(
+            {
+                "courses": [{"id": "c1", "title": "Spanish A1", "slug": "spanish-a1"}],
+                "lessons": [{"id": "l1", "course_id": "c1", "title": "Greetings"}],
+            }
+        )
 
         schema = SchemaGraph(
             source_id="interlinear",
@@ -418,14 +426,28 @@ class TestGraphIngest:
 
         mapping = GraphMapping(
             tables=[
-                TableMapping(table_name="courses", domain="language", name_column="title",
-                             description_columns=[], is_catalog=True),
-                TableMapping(table_name="lessons", domain="language", name_column="title",
-                             description_columns=[], is_catalog=False),
+                TableMapping(
+                    table_name="courses",
+                    domain="language",
+                    name_column="title",
+                    description_columns=[],
+                    is_catalog=True,
+                ),
+                TableMapping(
+                    table_name="lessons",
+                    domain="language",
+                    name_column="title",
+                    description_columns=[],
+                    is_catalog=False,
+                ),
             ],
             edges=[
-                EdgeMapping(source_table="lessons", target_table="courses",
-                            fk_column="course_id", relation_type=RelationType.PART_OF.value),
+                EdgeMapping(
+                    source_table="lessons",
+                    target_table="courses",
+                    fk_column="course_id",
+                    relation_type=RelationType.PART_OF.value,
+                ),
             ],
         )
 
@@ -444,9 +466,11 @@ class TestGraphIngest:
         backend = InMemoryBackend()
         backend.connect()
 
-        conn = _make_mock_conn({
-            "food_items": [{"id": "f1", "name": "Chicken", "calories": 165}],
-        })
+        conn = _make_mock_conn(
+            {
+                "food_items": [{"id": "f1", "name": "Chicken", "calories": 165}],
+            }
+        )
 
         schema = SchemaGraph(
             source_id="mm_main",
@@ -469,8 +493,13 @@ class TestGraphIngest:
 
         mapping = GraphMapping(
             tables=[
-                TableMapping(table_name="food_items", domain="nutrition",
-                             name_column="name", description_columns=[], is_catalog=True),
+                TableMapping(
+                    table_name="food_items",
+                    domain="nutrition",
+                    name_column="name",
+                    description_columns=[],
+                    is_catalog=True,
+                ),
             ],
             rules=[
                 RuleMapping(
@@ -493,9 +522,11 @@ class TestGraphIngest:
         backend = InMemoryBackend()
         backend.connect()
 
-        conn = _make_mock_conn({
-            "movements": [{"id": "mv1", "name": "Squat", "slug": "squat"}],
-        })
+        conn = _make_mock_conn(
+            {
+                "movements": [{"id": "mv1", "name": "Squat", "slug": "squat"}],
+            }
+        )
 
         schema = SchemaGraph(
             source_id="test",
@@ -511,8 +542,9 @@ class TestGraphIngest:
 
         mapping = GraphMapping(
             tables=[
-                TableMapping(table_name="movements", domain="exercise",
-                             name_column="name", is_catalog=True),
+                TableMapping(
+                    table_name="movements", domain="exercise", name_column="name", is_catalog=True
+                ),
             ],
         )
 
@@ -539,9 +571,11 @@ class TestGraphIngest:
         backend = InMemoryBackend()
         backend.connect()
 
-        conn = _make_mock_conn({
-            "items": [{"id": "i1", "name": "Test"}],
-        })
+        conn = _make_mock_conn(
+            {
+                "items": [{"id": "i1", "name": "Test"}],
+            }
+        )
 
         schema = SchemaGraph(
             source_id="test",
@@ -612,8 +646,11 @@ class TestCrossDB:
         assert len(edges) >= 1
 
         mv_edge = next(
-            (e for e in edges if e.source_table == "movement_templates"
-             and e.target_table == "movements"),
+            (
+                e
+                for e in edges
+                if e.source_table == "movement_templates" and e.target_table == "movements"
+            ),
             None,
         )
         assert mv_edge is not None
@@ -719,13 +756,9 @@ class TestCrossDB:
         assert len(edges) >= 2
 
         has_movement = any(
-            e.source_column == "movement_id" and e.target_table == "movements"
-            for e in edges
+            e.source_column == "movement_id" and e.target_table == "movements" for e in edges
         )
-        has_user = any(
-            e.source_column == "user_id" and e.target_table == "users"
-            for e in edges
-        )
+        has_user = any(e.source_column == "user_id" and e.target_table == "users" for e in edges)
         assert has_movement
         assert has_user
 
@@ -746,12 +779,21 @@ class TestEndToEnd:
 
         tables_data = {
             "habit_templates": [
-                {"id": "ht1", "name": "Meditation", "slug": "meditation",
-                 "description": "Daily meditation practice"},
+                {
+                    "id": "ht1",
+                    "name": "Meditation",
+                    "slug": "meditation",
+                    "description": "Daily meditation practice",
+                },
             ],
             "habit_events": [
-                {"id": "he1", "user_id": "u1", "habit_template_id": "ht1",
-                 "date": "2026-02-01", "response": "completed"},
+                {
+                    "id": "he1",
+                    "user_id": "u1",
+                    "habit_template_id": "ht1",
+                    "date": "2026-02-01",
+                    "response": "completed",
+                },
             ],
         }
         conn = _make_mock_conn(tables_data)
@@ -780,13 +822,16 @@ class TestEndToEnd:
         backend = InMemoryBackend()
         backend.connect()
 
-        conn = _make_mock_conn({
-            "movements": [
-                {"id": "mv1", "name": "Squat", "slug": "squat"},
-            ],
-        })
+        conn = _make_mock_conn(
+            {
+                "movements": [
+                    {"id": "mv1", "name": "Squat", "slug": "squat"},
+                ],
+            }
+        )
 
-        from dataclasses import dataclass as _dc, field as _field
+        from dataclasses import dataclass as _dc
+        from dataclasses import field as _field
 
         @_dc
         class _FakeConfig:
@@ -824,14 +869,17 @@ class TestMCPGraphTools:
         backend = InMemoryBackend()
         backend.connect()
 
-        conn = _make_mock_conn({
-            "movements": [
-                {"id": "mv1", "name": "Squat", "slug": "squat"},
-                {"id": "mv2", "name": "Deadlift", "slug": "deadlift"},
-            ],
-        })
+        conn = _make_mock_conn(
+            {
+                "movements": [
+                    {"id": "mv1", "name": "Squat", "slug": "squat"},
+                    {"id": "mv2", "name": "Deadlift", "slug": "deadlift"},
+                ],
+            }
+        )
 
-        from dataclasses import dataclass as _dc, field as _field
+        from dataclasses import dataclass as _dc
+        from dataclasses import field as _field
 
         @_dc
         class FakeConfig:
@@ -884,8 +932,12 @@ class TestMCPGraphTools:
                         _col("habit_template_id", "uuid"),
                     ],
                     foreign_keys=[
-                        _fk("habit_events", "habit_template_id", "habit_templates",
-                             on_delete="CASCADE"),
+                        _fk(
+                            "habit_events",
+                            "habit_template_id",
+                            "habit_templates",
+                            on_delete="CASCADE",
+                        ),
                     ],
                     check_constraints=[
                         CheckConstraintInfo(
@@ -899,10 +951,12 @@ class TestMCPGraphTools:
             ],
         )
 
-        conn = _make_mock_conn({
-            "habit_templates": [{"id": "ht1", "name": "Meditation", "slug": "meditation"}],
-            "habit_events": [{"id": "he1", "habit_template_id": "ht1"}],
-        })
+        conn = _make_mock_conn(
+            {
+                "habit_templates": [{"id": "ht1", "name": "Meditation", "slug": "meditation"}],
+                "habit_events": [{"id": "he1", "habit_template_id": "ht1"}],
+            }
+        )
 
         ingestor = PostgresGraphIngestor(backend=backend)
         mapping = ingestor.map_schema(schema)

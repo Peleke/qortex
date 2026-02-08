@@ -37,6 +37,11 @@ from qortex.sources.mapping_rules import (
 logger = logging.getLogger(__name__)
 
 
+def _quote_ident(name: str) -> str:
+    """Safely quote a SQL identifier, escaping embedded double quotes."""
+    return '"' + name.replace('"', '""') + '"'
+
+
 # ---------------------------------------------------------------------------
 # pg_constraint ON DELETE code → human-readable
 # ---------------------------------------------------------------------------
@@ -162,7 +167,7 @@ class PostgresGraphIngestor:
                         att_src.attname AS source_column,
                         cls_tgt.relname AS target_table,
                         att_tgt.attname AS target_column,
-                        con.confdeltype AS on_delete_code
+                        con.confdeltype::char AS on_delete_code
                     FROM pg_constraint con
                     JOIN pg_class cls_src ON con.conrelid = cls_src.oid
                     JOIN pg_namespace nsp ON cls_src.relnamespace = nsp.oid
@@ -250,7 +255,7 @@ class PostgresGraphIngestor:
 
                 # Row count
                 count = await conn.fetchval(
-                    f'SELECT COUNT(*) FROM "{schema_name}"."{table_name}"'  # noqa: S608
+                    f"SELECT COUNT(*) FROM {_quote_ident(schema_name)}.{_quote_ident(table_name)}"
                 )
 
                 tables.append(
@@ -395,7 +400,7 @@ class PostgresGraphIngestor:
             node_id_map[table_schema.name] = {}
 
             rows = await conn.fetch(
-                f'SELECT * FROM "{table_schema.schema_name}"."{table_schema.name}"'  # noqa: S608
+                f"SELECT * FROM {_quote_ident(table_schema.schema_name)}.{_quote_ident(table_schema.name)}"
             )
 
             texts_for_embed: list[str] = []
@@ -414,9 +419,7 @@ class PostgresGraphIngestor:
 
                 # Build name + description
                 name = str(rd.get(tm.name_column, pk_val)) if tm.name_column else pk_val
-                desc_parts = [
-                    str(rd.get(c, "")) for c in tm.description_columns if rd.get(c)
-                ]
+                desc_parts = [str(rd.get(c, "")) for c in tm.description_columns if rd.get(c)]
                 description = ". ".join(desc_parts) if desc_parts else name
 
                 props: dict[str, Any] = {"table": table_schema.name, "pk": pk_val}
@@ -457,7 +460,7 @@ class PostgresGraphIngestor:
                 continue
 
             rows = await conn.fetch(
-                f'SELECT * FROM "{source_schema.schema_name}"."{source_schema.name}"'  # noqa: S608
+                f"SELECT * FROM {_quote_ident(source_schema.schema_name)}.{_quote_ident(source_schema.name)}"
             )
 
             rel_type = RelationType(edge_m.relation_type)
@@ -469,9 +472,7 @@ class PostgresGraphIngestor:
                     continue
 
                 pk_cols = source_schema.pk_columns
-                src_pk = (
-                    ":".join(str(rd.get(pk, "")) for pk in pk_cols) if pk_cols else ""
-                )
+                src_pk = ":".join(str(rd.get(pk, "")) for pk in pk_cols) if pk_cols else ""
                 src_node_id = source_nodes.get(src_pk)
                 if src_node_id is None:
                     continue

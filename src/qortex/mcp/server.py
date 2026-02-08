@@ -875,7 +875,7 @@ def _source_connect_impl(
     """Connect to a database source, discover schemas."""
     import asyncio
 
-    from qortex.sources.base import IngestConfig, SourceConfig
+    from qortex.sources.base import SourceConfig
 
     _ensure_initialized()
 
@@ -990,12 +990,7 @@ def _source_disconnect_impl(source_id: str) -> dict:
     if adapter is None:
         return {"error": f"Source '{source_id}' not found."}
 
-    try:
-        asyncio.get_event_loop().run_until_complete(adapter.disconnect())
-    except Exception:
-        pass
-
-    _source_registry.remove(source_id)
+    asyncio.get_event_loop().run_until_complete(_source_registry.remove_async(source_id))
     return {"status": "disconnected", "source_id": source_id}
 
 
@@ -1036,18 +1031,20 @@ def _source_inspect_schema_impl(
             table_map = {tm.table_name: tm for tm in mapping.tables}
             for t in schema.tables:
                 tm = table_map.get(t.name)
-                tables_info.append({
-                    "name": t.name,
-                    "schema": t.schema_name,
-                    "columns": len(t.columns),
-                    "row_count": t.row_count,
-                    "foreign_keys": len(t.foreign_keys),
-                    "check_constraints": len(t.check_constraints),
-                    "unique_constraints": len(t.unique_constraints),
-                    "is_catalog": tm.is_catalog if tm else False,
-                    "domain": tm.domain if tm else None,
-                    "name_column": tm.name_column if tm else None,
-                })
+                tables_info.append(
+                    {
+                        "name": t.name,
+                        "schema": t.schema_name,
+                        "columns": len(t.columns),
+                        "row_count": t.row_count,
+                        "foreign_keys": len(t.foreign_keys),
+                        "check_constraints": len(t.check_constraints),
+                        "unique_constraints": len(t.unique_constraints),
+                        "is_catalog": tm.is_catalog if tm else False,
+                        "domain": tm.domain if tm else None,
+                        "name_column": tm.name_column if tm else None,
+                    }
+                )
 
             edges_info = [
                 {
@@ -1720,8 +1717,12 @@ def qortex_source_ingest_graph(
         extract_rules: Extract CHECK constraints as ExplicitRules.
     """
     return _source_ingest_graph_impl(
-        connection_string, source_id, schemas, domain_map,
-        embed_catalog_tables, extract_rules,
+        connection_string,
+        source_id,
+        schemas,
+        domain_map,
+        embed_catalog_tables,
+        extract_rules,
     )
 
 

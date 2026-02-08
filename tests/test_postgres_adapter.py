@@ -16,20 +16,16 @@ from qortex.sources.base import (
     ColumnSchema,
     IngestConfig,
     SourceConfig,
-    SyncResult,
     TableSchema,
 )
-from qortex.sources.postgres import IngestResult, PostgresIngestor, PostgresSourceAdapter
-
+from qortex.sources.postgres import PostgresIngestor, PostgresSourceAdapter
 
 # ===========================================================================
 # Helpers
 # ===========================================================================
 
 
-def _make_col_row(
-    schema: str, table: str, col: str, dtype: str, nullable: str = "YES"
-) -> dict:
+def _make_col_row(schema: str, table: str, col: str, dtype: str, nullable: str = "YES") -> dict:
     """Build a mock information_schema.columns row."""
     return {
         "table_schema": schema,
@@ -45,9 +41,7 @@ def _make_pk_row(schema: str, table: str, col: str) -> dict:
     return {"table_schema": schema, "table_name": table, "column_name": col}
 
 
-def _make_fk_row(
-    schema: str, table: str, col: str, ftable: str, fcol: str
-) -> dict:
+def _make_fk_row(schema: str, table: str, col: str, ftable: str, fcol: str) -> dict:
     return {
         "table_schema": schema,
         "table_name": table,
@@ -174,9 +168,11 @@ class TestPostgresConnect:
         mock_asyncpg = MagicMock()
         mock_asyncpg.connect = AsyncMock(side_effect=OSError("Connection refused"))
 
-        with patch.dict(sys.modules, {"asyncpg": mock_asyncpg}):
-            with pytest.raises(OSError, match="Connection refused"):
-                await adapter.connect(config)
+        with (
+            patch.dict(sys.modules, {"asyncpg": mock_asyncpg}),
+            pytest.raises(OSError, match="Connection refused"),
+        ):
+            await adapter.connect(config)
 
     async def test_disconnect_idempotent(self):
         adapter = PostgresSourceAdapter()
@@ -213,9 +209,7 @@ class TestPostgresDiscover:
 
         adapter = PostgresSourceAdapter()
         config = SourceConfig(source_id="test", connection_string="mock://")
-        conn = _mock_asyncpg_connection(
-            columns=columns, pk_rows=pk_rows, row_counts={"users": 100}
-        )
+        conn = _mock_asyncpg_connection(columns=columns, pk_rows=pk_rows, row_counts={"users": 100})
         _inject_connection(adapter, config, conn)
 
         schemas = await adapter.discover()
@@ -242,9 +236,7 @@ class TestPostgresDiscover:
 
         adapter = PostgresSourceAdapter()
         config = SourceConfig(source_id="test", connection_string="mock://")
-        conn = _mock_asyncpg_connection(
-            columns=columns, pk_rows=pk_rows, fk_rows=fk_rows
-        )
+        conn = _mock_asyncpg_connection(columns=columns, pk_rows=pk_rows, fk_rows=fk_rows)
         _inject_connection(adapter, config, conn)
 
         schemas = await adapter.discover()
@@ -412,9 +404,7 @@ class TestPostgresSync:
                 ],
             )
         ]
-        conn = _mock_asyncpg_connection(
-            table_rows={"food_items": [{"id": 1, "name": "Chicken"}]}
-        )
+        conn = _mock_asyncpg_connection(table_rows={"food_items": [{"id": 1, "name": "Chicken"}]})
         _inject_connection(adapter, config, conn)
 
         result = await adapter.sync(vector_index=vec_index, embedding_model=embedding)
@@ -466,9 +456,7 @@ class TestPostgresSync:
                 ],
             )
         ]
-        conn = _mock_asyncpg_connection(
-            table_rows={"users": [{"id": "abc-123", "name": "Alice"}]}
-        )
+        conn = _mock_asyncpg_connection(table_rows={"users": [{"id": "abc-123", "name": "Alice"}]})
         _inject_connection(adapter, config, conn)
 
         await adapter.sync(vector_index=vec_index, embedding_model=embedding)
@@ -489,14 +477,14 @@ class TestPostgresSync:
                 ],
             )
         ]
-        conn = _mock_asyncpg_connection(
-            table_rows={"items": [{"id": 1, "name": "A"}]}
-        )
+        conn = _mock_asyncpg_connection(table_rows={"items": [{"id": 1, "name": "A"}]})
         _inject_connection(adapter, config, conn)
 
         result = await adapter.sync(
-            tables=["items"], mode="incremental",
-            vector_index=vec_index, embedding_model=embedding,
+            tables=["items"],
+            mode="incremental",
+            vector_index=vec_index,
+            embedding_model=embedding,
         )
         assert result.rows_added == 1
 
@@ -541,11 +529,14 @@ class TestIngestConfig:
         assert ic.user_filter is None
 
     def test_env_overrides(self):
-        with patch.dict(os.environ, {
-            "QORTEX_INGEST_TARGETS": "vec",
-            "QORTEX_INGEST_MODE": "online",
-            "QORTEX_INGEST_BATCH_SIZE": "100",
-        }):
+        with patch.dict(
+            os.environ,
+            {
+                "QORTEX_INGEST_TARGETS": "vec",
+                "QORTEX_INGEST_MODE": "online",
+                "QORTEX_INGEST_BATCH_SIZE": "100",
+            },
+        ):
             ic = IngestConfig()
             assert ic.targets == "vec"
             assert ic.mode == "online"
@@ -614,11 +605,18 @@ class TestPostgresIngestor:
         assert result.vec_result.rows_added == 1
         assert result.graph_result is None
 
-    async def test_run_graph_only_not_implemented(self):
+    async def test_run_graph_only_skips_vec(self):
+        """targets='graph' skips vec sync, runs graph ingest."""
+        from qortex.core.memory import InMemoryBackend
+
+        backend = InMemoryBackend()
+        backend.connect()
+
         ingestor = PostgresIngestor.from_url(
             "postgresql://localhost/testdb",
             source_id="test",
             ingest=IngestConfig(targets="graph"),
+            backend=backend,
         )
 
         mock_conn = _mock_asyncpg_connection(
@@ -631,12 +629,19 @@ class TestPostgresIngestor:
         mock_asyncpg.connect = AsyncMock(return_value=mock_conn)
 
         with patch.dict(sys.modules, {"asyncpg": mock_asyncpg}):
-            with pytest.raises(NotImplementedError):
-                await ingestor.run()
+            result = await ingestor.run()
+
+        # No vec sync happened
+        assert result.vec_result is None
 
     async def test_run_both_targets(self):
+        """targets='both' runs vec sync + graph ingest."""
+        from qortex.core.memory import InMemoryBackend
+
         vec_index = FakeVectorIndex()
         embedding = FakeEmbedding()
+        backend = InMemoryBackend()
+        backend.connect()
 
         ingestor = PostgresIngestor.from_url(
             "postgresql://localhost/testdb",
@@ -644,6 +649,7 @@ class TestPostgresIngestor:
             ingest=IngestConfig(targets="both"),
             vector_index=vec_index,
             embedding_model=embedding,
+            backend=backend,
         )
 
         mock_conn = _mock_asyncpg_connection(
@@ -660,8 +666,11 @@ class TestPostgresIngestor:
         mock_asyncpg.connect = AsyncMock(return_value=mock_conn)
 
         with patch.dict(sys.modules, {"asyncpg": mock_asyncpg}):
-            with pytest.raises(NotImplementedError):
-                await ingestor.run()
+            result = await ingestor.run()
+
+        # Vec sync ran
+        assert result.vec_result is not None
+        assert result.vec_result.vectors_created >= 1
 
 
 # ===========================================================================
@@ -690,9 +699,7 @@ class TestMCPSourceTools:
         _source_registry.clear()
         config = SourceConfig(source_id="mm", connection_string="mock://")
         _source_registry.register(config, object())
-        _source_registry.cache_schemas(
-            "mm", [TableSchema(name="users"), TableSchema(name="items")]
-        )
+        _source_registry.cache_schemas("mm", [TableSchema(name="users"), TableSchema(name="items")])
 
         result = _source_list_impl()
         assert len(result["sources"]) == 1

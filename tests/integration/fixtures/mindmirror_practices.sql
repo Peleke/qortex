@@ -49,21 +49,21 @@ CREATE TABLE practice_instances (
 -- ============================================================
 
 INSERT INTO practice_templates (id, name, slug, description, difficulty, estimated_duration) VALUES
-    ('pt100000-0000-0000-0000-000000000001', 'Full Body Strength A', 'full-body-strength-a', 'Squat-focused full body workout', 'intermediate', 60),
-    ('pt100000-0000-0000-0000-000000000002', 'Upper Body Push', 'upper-body-push', 'Chest and shoulder pressing day', 'intermediate', 45);
+    ('d1100000-0000-0000-0000-000000000001', 'Full Body Strength A', 'full-body-strength-a', 'Squat-focused full body workout', 'intermediate', 60),
+    ('d1100000-0000-0000-0000-000000000002', 'Upper Body Push', 'upper-body-push', 'Chest and shoulder pressing day', 'intermediate', 45);
 
 INSERT INTO prescription_templates (id, practice_template_id, position, sets, reps, rest_seconds) VALUES
-    ('rx100000-0000-0000-0000-000000000001', 'pt100000-0000-0000-0000-000000000001', 0, 5, '5', 180),
-    ('rx100000-0000-0000-0000-000000000002', 'pt100000-0000-0000-0000-000000000001', 1, 3, '8-12', 90),
-    ('rx100000-0000-0000-0000-000000000003', 'pt100000-0000-0000-0000-000000000002', 0, 4, '6-8', 120);
+    ('d2100000-0000-0000-0000-000000000001', 'd1100000-0000-0000-0000-000000000001', 0, 5, '5', 180),
+    ('d2100000-0000-0000-0000-000000000002', 'd1100000-0000-0000-0000-000000000001', 1, 3, '8-12', 90),
+    ('d2100000-0000-0000-0000-000000000003', 'd1100000-0000-0000-0000-000000000002', 0, 4, '6-8', 120);
 
 -- movement_id values reference movements in swae_movements DB (cross-DB)
 INSERT INTO movement_templates (id, prescription_template_id, movement_id, position, notes) VALUES
-    ('mt100000-0000-0000-0000-000000000001', 'rx100000-0000-0000-0000-000000000001', 'mv100000-0000-0000-0000-000000000001', 0, 'Barbell Back Squat - warm up with bar first'),
-    ('mt100000-0000-0000-0000-000000000002', 'rx100000-0000-0000-0000-000000000002', 'mv100000-0000-0000-0000-000000000002', 0, 'Conventional Deadlift'),
-    ('mt100000-0000-0000-0000-000000000003', 'rx100000-0000-0000-0000-000000000003', 'mv100000-0000-0000-0000-000000000003', 0, 'Bench Press');
+    ('d3100000-0000-0000-0000-000000000001', 'd2100000-0000-0000-0000-000000000001', 'ba100000-0000-0000-0000-000000000001', 0, 'Barbell Back Squat - warm up with bar first'),
+    ('d3100000-0000-0000-0000-000000000002', 'd2100000-0000-0000-0000-000000000002', 'ba100000-0000-0000-0000-000000000002', 0, 'Conventional Deadlift'),
+    ('d3100000-0000-0000-0000-000000000003', 'd2100000-0000-0000-0000-000000000003', 'ba100000-0000-0000-0000-000000000003', 0, 'Bench Press');
 
 -- Practice instances (user-scoped)
 INSERT INTO practice_instances (user_id, practice_template_id, title, started_at, completed_at, notes) VALUES
-    ('u1000000-0000-0000-0000-000000000001', 'pt100000-0000-0000-0000-000000000001', 'Monday Strength', '2026-02-03 07:00:00+00', '2026-02-03 08:05:00+00', 'Felt strong, PR on squats'),
-    ('u1000000-0000-0000-0000-000000000001', 'pt100000-0000-0000-0000-000000000002', 'Wednesday Push', '2026-02-05 07:00:00+00', NULL, 'Had to cut short');
+    ('01000000-0000-0000-0000-000000000001', 'd1100000-0000-0000-0000-000000000001', 'Monday Strength', '2026-02-03 07:00:00+00', '2026-02-03 08:05:00+00', 'Felt strong, PR on squats'),
+    ('01000000-0000-0000-0000-000000000001', 'd1100000-0000-0000-0000-000000000002', 'Wednesday Push', '2026-02-05 07:00:00+00', NULL, 'Had to cut short');

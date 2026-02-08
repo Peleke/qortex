@@ -17,7 +17,6 @@ from qortex.sources.graph_ingestor import (
     SchemaGraph,
     TableMapping,
     TableSchemaFull,
-    UniqueConstraintInfo,
 )
 from qortex.sources.mapping_rules import (
     auto_domain,
@@ -29,7 +28,6 @@ from qortex.sources.mapping_rules import (
     find_description_columns,
     find_name_column,
 )
-
 
 # ---------------------------------------------------------------------------
 # Helpers: build MindMirror-shaped schemas
@@ -81,7 +79,12 @@ class TestClassifyFKRelation:
         assert classify_fk_relation(fk) == RelationType.INSTANCE_OF.value
 
     def test_cascade_delete_is_part_of(self):
-        fk = _fk("prescription_instances", "practice_instance_id", "practice_instances", on_delete="CASCADE")
+        fk = _fk(
+            "prescription_instances",
+            "practice_instance_id",
+            "practice_instances",
+            on_delete="CASCADE",
+        )
         assert classify_fk_relation(fk) == RelationType.PART_OF.value
 
     def test_junction_table_is_uses(self):
@@ -312,12 +315,18 @@ class TestCrossDBEdges:
                     columns=[
                         _col("id", "uuid", is_pk=True),
                         _col("movement_id", "uuid"),  # Cross-DB ref to movements
-                        _col("exercise_id", "uuid"),  # Also cross-DB but name doesn't match any table
+                        _col(
+                            "exercise_id", "uuid"
+                        ),  # Also cross-DB but name doesn't match any table
                         _col("prescription_template_id", "uuid"),
                     ],
                     foreign_keys=[
                         # prescription_template_id is a local FK
-                        _fk("movement_templates", "prescription_template_id", "prescription_templates"),
+                        _fk(
+                            "movement_templates",
+                            "prescription_template_id",
+                            "prescription_templates",
+                        ),
                     ],
                 ),
                 TableSchemaFull(
@@ -413,12 +422,20 @@ class TestGraphMappingTypes:
     def test_graph_mapping_aggregation(self):
         gm = GraphMapping(
             tables=[TableMapping(table_name="t1", domain="d1")],
-            edges=[EdgeMapping(source_table="t1", target_table="t2", fk_column="t2_id", relation_type="uses")],
+            edges=[
+                EdgeMapping(
+                    source_table="t1", target_table="t2", fk_column="t2_id", relation_type="uses"
+                )
+            ],
             rules=[RuleMapping(table_name="t1", constraint_name="ck", rule_text="rule")],
             cross_db_edges=[
                 CrossDatabaseEdge(
-                    source_database="a", source_table="t1", source_column="x_id",
-                    target_database="b", target_table="t2", target_column="id",
+                    source_database="a",
+                    source_table="t1",
+                    source_column="x_id",
+                    target_database="b",
+                    target_table="t2",
+                    target_column="id",
                     relation_type="uses",
                 )
             ],

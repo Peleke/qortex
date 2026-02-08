@@ -1001,7 +1001,7 @@ class LocalQortexClient:
         Returns:
             Dict with source_id, table count, table names.
         """
-        from qortex.sources.base import IngestConfig, SourceConfig
+        from qortex.sources.base import SourceConfig
 
         if not isinstance(config, SourceConfig):
             raise TypeError(f"Expected SourceConfig, got {type(config).__name__}")
@@ -1092,7 +1092,8 @@ class LocalQortexClient:
 
         Returns: {concepts: int, edges: int, rules: int}
         """
-        from dataclasses import dataclass as _dc, field as _field
+        from dataclasses import dataclass as _dc
+        from dataclasses import field as _field
 
         @_dc
         class _IngestConf:

@@ -86,14 +86,14 @@ INSERT INTO habit_templates (id, name, slug, description, category, frequency) V
 
 -- Habit events (user-scoped)
 INSERT INTO habit_events (user_id, habit_template_id, date, response, notes) VALUES
-    ('u1000000-0000-0000-0000-000000000001', 'a1000000-0000-0000-0000-000000000001', '2026-02-01', 'completed', 'Great session, felt calm'),
-    ('u1000000-0000-0000-0000-000000000001', 'a1000000-0000-0000-0000-000000000001', '2026-02-02', 'skipped', 'Overslept'),
-    ('u1000000-0000-0000-0000-000000000001', 'a1000000-0000-0000-0000-000000000002', '2026-02-01', 'completed', NULL);
+    ('01000000-0000-0000-0000-000000000001', 'a1000000-0000-0000-0000-000000000001', '2026-02-01', 'completed', 'Great session, felt calm'),
+    ('01000000-0000-0000-0000-000000000001', 'a1000000-0000-0000-0000-000000000001', '2026-02-02', 'skipped', 'Overslept'),
+    ('01000000-0000-0000-0000-000000000001', 'a1000000-0000-0000-0000-000000000002', '2026-02-01', 'completed', NULL);
 
 -- Journal entries
 INSERT INTO journal_entries (user_id, entry_type, payload) VALUES
-    ('u1000000-0000-0000-0000-000000000001', 'freeform', '{"mood": "good", "themes": ["productivity", "sleep"], "text": "Slept well, productive day."}'),
-    ('u1000000-0000-0000-0000-000000000001', 'gratitude', '{"items": ["sunny weather", "good workout", "healthy lunch"]}');
+    ('01000000-0000-0000-0000-000000000001', 'freeform', '{"mood": "good", "themes": ["productivity", "sleep"], "text": "Slept well, productive day."}'),
+    ('01000000-0000-0000-0000-000000000001', 'gratitude', '{"items": ["sunny weather", "good workout", "healthy lunch"]}');
 
 -- Food items (global catalog)
 INSERT INTO food_items (id, name, slug, calories, protein, carbs, fat, serving_size, source) VALUES
@@ -105,12 +105,12 @@ INSERT INTO food_items (id, name, slug, calories, protein, carbs, fat, serving_s
 
 -- Meals (user-scoped)
 INSERT INTO meals (id, user_id, meal_type, notes) VALUES
-    ('m1000000-0000-0000-0000-000000000001', 'u1000000-0000-0000-0000-000000000001', 'lunch', 'Post-workout meal'),
-    ('m1000000-0000-0000-0000-000000000002', 'u1000000-0000-0000-0000-000000000001', 'dinner', NULL);
+    ('b1000000-0000-0000-0000-000000000001', '01000000-0000-0000-0000-000000000001', 'lunch', 'Post-workout meal'),
+    ('b1000000-0000-0000-0000-000000000002', '01000000-0000-0000-0000-000000000001', 'dinner', NULL);
 
 -- Meal-food links (M2M junction)
 INSERT INTO meal_food_items (meal_id, food_item_id, servings) VALUES
-    ('m1000000-0000-0000-0000-000000000001', 'f1000000-0000-0000-0000-000000000001', 1.5),
-    ('m1000000-0000-0000-0000-000000000001', 'f1000000-0000-0000-0000-000000000002', 1),
-    ('m1000000-0000-0000-0000-000000000002', 'f1000000-0000-0000-0000-000000000003', 1),
-    ('m1000000-0000-0000-0000-000000000002', 'f1000000-0000-0000-0000-000000000004', 2);
+    ('b1000000-0000-0000-0000-000000000001', 'f1000000-0000-0000-0000-000000000001', 1.5),
+    ('b1000000-0000-0000-0000-000000000001', 'f1000000-0000-0000-0000-000000000002', 1),
+    ('b1000000-0000-0000-0000-000000000002', 'f1000000-0000-0000-0000-000000000003', 1),
+    ('b1000000-0000-0000-0000-000000000002', 'f1000000-0000-0000-0000-000000000004', 2);
