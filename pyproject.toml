@@ -1,6 +1,6 @@
 [project]
 name = "qortex"
-version = "0.2.0"
+version = "0.2.1"
 description = "Knowledge graph ingestion engine for automated rule generation"
 readme = "README.md"
 requires-python = ">=3.11"
@@ -27,6 +27,7 @@ classifiers = [
 dependencies = [
     "typer>=0.9",
     "pyyaml>=6.0",
+    "fastmcp>=2.0",
 ]
 
 [project.optional-dependencies]
