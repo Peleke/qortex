@@ -1,4 +1,4 @@
-"""Edge rule template registry — 30 variants across 10 relation types.
+"""Edge rule template registry — 39 variants across 13 relation types.
 
 Each RelationType has 3 template variants with different severity levels
 and applicability contexts. Templates are used by FlatRuleSource to derive
@@ -310,6 +310,90 @@ EDGE_RULE_TEMPLATE_REGISTRY: list[EdgeRuleTemplate] = [
         category="architectural",
         severity="warning",
         applicability="When caveats affect how a concept should be applied",
+    ),
+    # --- BELONGS_TO (database-derived: ownership FK) ---
+    EdgeRuleTemplate(
+        id="belongs_to:ownership",
+        relation_type=RelationType.BELONGS_TO,
+        template="{source} belongs to {target}; access control should respect this ownership",
+        variant="ownership",
+        category="architectural",
+        severity="warning",
+        applicability="When ownership determines access control or data scoping",
+    ),
+    EdgeRuleTemplate(
+        id="belongs_to:scoping",
+        relation_type=RelationType.BELONGS_TO,
+        template="{source} is scoped to {target}; queries should filter by this ownership",
+        variant="scoping",
+        category="architectural",
+        severity="info",
+        applicability="When data should be filtered by owner in queries",
+    ),
+    EdgeRuleTemplate(
+        id="belongs_to:lifecycle",
+        relation_type=RelationType.BELONGS_TO,
+        template="{source} exists in the context of {target}; consider lifecycle implications",
+        variant="lifecycle",
+        category="general",
+        severity="info",
+        applicability="When the owned entity's lifecycle depends on the owner",
+    ),
+    # --- INSTANCE_OF (database-derived: template/catalog FK) ---
+    EdgeRuleTemplate(
+        id="instance_of:instantiation",
+        relation_type=RelationType.INSTANCE_OF,
+        template="{source} is an instance of {target}; it inherits the template's properties",
+        variant="instantiation",
+        category="general",
+        severity="info",
+        applicability="When instances derive behavior from templates or catalogs",
+    ),
+    EdgeRuleTemplate(
+        id="instance_of:conformance",
+        relation_type=RelationType.INSTANCE_OF,
+        template="{source} should conform to the contract defined by {target}",
+        variant="conformance",
+        category="architectural",
+        severity="warning",
+        applicability="When instances must match template specifications",
+    ),
+    EdgeRuleTemplate(
+        id="instance_of:variation",
+        relation_type=RelationType.INSTANCE_OF,
+        template="{source} is a variant of {target}; customizations should be documented",
+        variant="variation",
+        category="general",
+        severity="info",
+        applicability="When instances may diverge from templates",
+    ),
+    # --- CONTAINS (database-derived: parent-child containment) ---
+    EdgeRuleTemplate(
+        id="contains:aggregation",
+        relation_type=RelationType.CONTAINS,
+        template="{source} contains {target}; operations on {source} may cascade to {target}",
+        variant="aggregation",
+        category="architectural",
+        severity="warning",
+        applicability="When parent operations affect contained children",
+    ),
+    EdgeRuleTemplate(
+        id="contains:boundary",
+        relation_type=RelationType.CONTAINS,
+        template="{target} lives within the boundary of {source}; it should not be accessed independently",
+        variant="boundary",
+        category="architectural",
+        severity="info",
+        applicability="When containment implies aggregate root boundaries",
+    ),
+    EdgeRuleTemplate(
+        id="contains:enumeration",
+        relation_type=RelationType.CONTAINS,
+        template="{source} has {target} as a component; ensure all components are accounted for",
+        variant="enumeration",
+        category="general",
+        severity="info",
+        applicability="When listing all parts of a container",
     ),
 ]
 

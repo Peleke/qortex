@@ -17,6 +17,18 @@ from qortex.sources.base import (
     SyncResult,
     TableSchema,
 )
+from qortex.sources.graph_ingestor import (
+    GraphIngestor,
+    GraphMapping,
+    SchemaGraph,
+    TableSchemaFull,
+)
+from qortex.sources.mapping_rules import (
+    classify_fk_relation,
+    constraint_to_rule,
+    detect_catalog_table,
+    detect_cross_db_edges_by_naming,
+)
 from qortex.sources.registry import SourceRegistry
 from qortex.sources.serializer import (
     KeyValueSerializer,
@@ -26,12 +38,20 @@ from qortex.sources.serializer import (
 
 __all__ = [
     "ColumnSchema",
+    "GraphIngestor",
+    "GraphMapping",
     "KeyValueSerializer",
     "NaturalLanguageSerializer",
     "RowSerializer",
+    "SchemaGraph",
     "SourceAdapter",
     "SourceConfig",
     "SourceRegistry",
     "SyncResult",
     "TableSchema",
+    "TableSchemaFull",
+    "classify_fk_relation",
+    "constraint_to_rule",
+    "detect_catalog_table",
+    "detect_cross_db_edges_by_naming",
 ]
