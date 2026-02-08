@@ -8,6 +8,7 @@ import pytest
 
 from qortex.core.memory import InMemoryBackend
 from qortex.mcp.server import (
+    _feedback_impl,
     _match_filter,
     _vector_create_index_impl,
     _vector_delete_impl,
@@ -451,3 +452,99 @@ class TestMastraVectorLifecycle:
         # 10. Delete index
         _vector_delete_index_impl("docs")
         assert _vector_list_indexes_impl()["indexes"] == []
+
+
+# ---------------------------------------------------------------------------
+# Dimension validation (gauntlet fix)
+# ---------------------------------------------------------------------------
+
+
+class TestDimensionValidation:
+    """Validates that vector operations reject mismatched dimensions."""
+
+    def test_upsert_wrong_dimension(self, created_index):
+        result = _vector_upsert_impl(
+            created_index,
+            vectors=[[1, 0]],  # 2D, index is 4D
+            ids=["bad"],
+        )
+        assert "error" in result
+        assert "dimension 2" in result["error"]
+        assert "expected 4" in result["error"]
+
+    def test_upsert_mixed_dimensions(self, created_index):
+        result = _vector_upsert_impl(
+            created_index,
+            vectors=[[1, 0, 0, 0], [1, 0]],  # first ok, second wrong
+            ids=["ok", "bad"],
+        )
+        assert "error" in result
+        assert "Vector 1" in result["error"]
+
+    def test_upsert_correct_dimension(self, created_index):
+        result = _vector_upsert_impl(
+            created_index,
+            vectors=[[1, 0, 0, 0]],
+            ids=["good"],
+        )
+        assert "ids" in result
+
+    def test_query_wrong_dimension(self, populated_index):
+        result = _vector_query_impl(
+            populated_index,
+            query_vector=[1, 0],  # 2D, index is 4D
+        )
+        assert "error" in result
+        assert "dimension 2" in result["error"]
+
+    def test_query_correct_dimension(self, populated_index):
+        result = _vector_query_impl(
+            populated_index,
+            query_vector=[1, 0, 0, 0],
+        )
+        assert "results" in result
+
+    def test_update_wrong_dimension(self, populated_index):
+        result = _vector_update_impl(
+            populated_index,
+            id="v1",
+            vector=[1, 0],  # 2D, index is 4D
+        )
+        assert "error" in result
+        assert "dimension 2" in result["error"]
+
+    def test_update_correct_dimension(self, populated_index):
+        result = _vector_update_impl(
+            populated_index,
+            id="v1",
+            vector=[0, 0, 0, 1],  # 4D, correct
+        )
+        assert result["status"] == "updated"
+
+
+# ---------------------------------------------------------------------------
+# Feedback validation (gauntlet fix)
+# ---------------------------------------------------------------------------
+
+
+class TestFeedbackValidation:
+    """Validates that feedback rejects invalid outcome values."""
+
+    def test_valid_outcomes(self):
+        result = _feedback_impl(
+            "q1",
+            {"item1": "accepted", "item2": "rejected", "item3": "partial"},
+        )
+        assert result["status"] == "recorded"
+
+    def test_invalid_outcome(self):
+        result = _feedback_impl(
+            "q1",
+            {"item1": "accepted", "item2": "invalid_value"},
+        )
+        assert "error" in result
+        assert "invalid_value" in result["error"]
+
+    def test_empty_outcomes(self):
+        result = _feedback_impl("q1", {})
+        assert result["status"] == "recorded"

@@ -295,6 +295,9 @@ def _query_impl(
     }
 
 
+_ALLOWED_OUTCOMES = {"accepted", "rejected", "partial"}
+
+
 def _feedback_impl(
     query_id: str,
     outcomes: dict[str, str],
@@ -302,7 +305,15 @@ def _feedback_impl(
 ) -> dict:
     _ensure_initialized()
 
-    # Route feedback to both adapters — the graph adapter updates factors
+    # Validate outcome values
+    for item_id, outcome in outcomes.items():
+        if outcome not in _ALLOWED_OUTCOMES:
+            return {
+                "error": f"Invalid outcome '{outcome}' for item '{item_id}'. "
+                f"Must be one of: {', '.join(sorted(_ALLOWED_OUTCOMES))}",
+            }
+
+    # Route feedback to both adapters
     if _graph_adapter is not None:
         _graph_adapter.feedback(query_id, outcomes)
     elif _adapter is not None:
@@ -732,10 +743,19 @@ def _vector_upsert_impl(
     import uuid as _uuid
 
     idx = _vector_indexes[index_name]
+    cfg = _index_configs[index_name]
     generated_ids = ids or [str(_uuid.uuid4()) for _ in vectors]
 
     if len(generated_ids) != len(vectors):
         return {"error": f"ids ({len(generated_ids)}) and vectors ({len(vectors)}) must match"}
+
+    # Validate vector dimensions
+    expected_dim = cfg["dimension"]
+    for i, vec in enumerate(vectors):
+        if len(vec) != expected_dim:
+            return {
+                "error": f"Vector {i} has dimension {len(vec)}, expected {expected_dim}",
+            }
 
     idx.add(generated_ids, vectors)
 
@@ -765,8 +785,16 @@ def _vector_query_impl(
         return {"error": f"Index '{index_name}' not found"}
 
     idx = _vector_indexes[index_name]
+    cfg = _index_configs[index_name]
     meta_store = _vector_metadata[index_name]
     doc_store = _vector_documents[index_name]
+
+    # Validate query vector dimension
+    expected_dim = cfg["dimension"]
+    if len(query_vector) != expected_dim:
+        return {
+            "error": f"Query vector has dimension {len(query_vector)}, expected {expected_dim}",
+        }
 
     # If we have a filter, we need to over-fetch and post-filter
     fetch_k = top_k * 5 if filter else top_k
@@ -814,7 +842,16 @@ def _vector_update_impl(
         return {"error": "No updates provided"}
 
     idx = _vector_indexes[index_name]
+    cfg = _index_configs[index_name]
     meta_store = _vector_metadata[index_name]
+
+    # Validate update vector dimension
+    if vector is not None:
+        expected_dim = cfg["dimension"]
+        if len(vector) != expected_dim:
+            return {
+                "error": f"Update vector has dimension {len(vector)}, expected {expected_dim}",
+            }
 
     # Resolve target IDs
     if id:
@@ -1175,8 +1212,10 @@ def _get_llm_backend():
 
         _llm_backend = AnthropicBackend()
         return _llm_backend
-    except (ImportError, Exception):
+    except ImportError:
         pass
+    except Exception as e:
+        logger.warning("Failed to initialize AnthropicBackend: %s", e)
 
     # Fallback to stub
     from qortex_ingest.base import StubLLMBackend
