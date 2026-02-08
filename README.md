@@ -59,7 +59,7 @@ See [langchain-qortex](https://github.com/Peleke/langchain-qortex) for the stand
 ### Mastra MastraVector
 
 ```typescript
-import { QortexVector } from "@peleke/mastra-qortex";
+import { QortexVector } from "@peleke.s/mastra-qortex";
 
 const qortex = new QortexVector({ id: "qortex" });
 await qortex.createIndex({ indexName: "docs", dimension: 384 });
@@ -67,7 +67,7 @@ await qortex.upsert({ indexName: "docs", vectors: embeddings, metadata });
 const results = await qortex.query({ indexName: "docs", queryVector: q, topK: 10 });
 ```
 
-See [@peleke/mastra-qortex](https://github.com/Peleke/mastra-qortex) for the standalone package.
+See [@peleke.s/mastra-qortex](https://github.com/Peleke/mastra-qortex) for the standalone package.
 
 ### MCP server
 
@@ -96,7 +96,7 @@ result = projection.project(domains=["my_domain"])
 | Framework | Package | Language | Interface |
 |-----------|---------|----------|-----------|
 | LangChain | [`langchain-qortex`](https://github.com/Peleke/langchain-qortex) | Python | `VectorStore` ABC |
-| Mastra | [`@peleke/mastra-qortex`](https://github.com/Peleke/mastra-qortex) | TypeScript | `MastraVector` abstract class |
+| Mastra | [`@peleke.s/mastra-qortex`](https://github.com/Peleke/mastra-qortex) | TypeScript | `MastraVector` abstract class |
 | Any MCP client | Built-in MCP server | Any | MCP tools (JSON-RPC) |
 
 ## Architecture
