@@ -1,0 +1,89 @@
+# Docker Compose for qortex integration tests.
+# Simulates MindMirror (4 DBs) + interlinear (1 DB) architectures.
+#
+# Usage:
+#   docker compose -f tests/integration/docker-compose.yml up -d
+#   sleep 10  # wait for healthchecks
+#   pytest tests/integration/ -v -m integration
+#   docker compose -f tests/integration/docker-compose.yml down -v
+
+services:
+  mm_main:
+    image: postgres:16-alpine
+    ports:
+      - "15432:5432"
+    environment:
+      POSTGRES_DB: mindmirror
+      POSTGRES_USER: qortex_test
+      POSTGRES_PASSWORD: qortex_test
+    volumes:
+      - ./fixtures/mindmirror_main.sql:/docker-entrypoint-initdb.d/01-schema.sql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U qortex_test -d mindmirror"]
+      interval: 2s
+      timeout: 5s
+      retries: 10
+
+  mm_movements:
+    image: postgres:16-alpine
+    ports:
+      - "15435:5432"
+    environment:
+      POSTGRES_DB: swae_movements
+      POSTGRES_USER: qortex_test
+      POSTGRES_PASSWORD: qortex_test
+    volumes:
+      - ./fixtures/mindmirror_movements.sql:/docker-entrypoint-initdb.d/01-schema.sql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U qortex_test -d swae_movements"]
+      interval: 2s
+      timeout: 5s
+      retries: 10
+
+  mm_practices:
+    image: postgres:16-alpine
+    ports:
+      - "15436:5432"
+    environment:
+      POSTGRES_DB: swae_practices
+      POSTGRES_USER: qortex_test
+      POSTGRES_PASSWORD: qortex_test
+    volumes:
+      - ./fixtures/mindmirror_practices.sql:/docker-entrypoint-initdb.d/01-schema.sql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U qortex_test -d swae_practices"]
+      interval: 2s
+      timeout: 5s
+      retries: 10
+
+  mm_users:
+    image: postgres:16-alpine
+    ports:
+      - "15437:5432"
+    environment:
+      POSTGRES_DB: swae_users
+      POSTGRES_USER: qortex_test
+      POSTGRES_PASSWORD: qortex_test
+    volumes:
+      - ./fixtures/mindmirror_users.sql:/docker-entrypoint-initdb.d/01-schema.sql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U qortex_test -d swae_users"]
+      interval: 2s
+      timeout: 5s
+      retries: 10
+
+  interlinear:
+    image: postgres:16-alpine
+    ports:
+      - "15433:5432"
+    environment:
+      POSTGRES_DB: interlinear
+      POSTGRES_USER: qortex_test
+      POSTGRES_PASSWORD: qortex_test
+    volumes:
+      - ./fixtures/interlinear.sql:/docker-entrypoint-initdb.d/01-schema.sql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U qortex_test -d interlinear"]
+      interval: 2s
+      timeout: 5s
+      retries: 10

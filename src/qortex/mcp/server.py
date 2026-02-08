@@ -8,6 +8,11 @@ Tools exposed:
 - qortex_status: Server health + backend info
 - qortex_explore: Explore a node's neighborhood in the graph
 - qortex_rules: Get projected rules from the knowledge graph
+- qortex_source_connect: Connect to a database source
+- qortex_source_discover: Discover schemas from a connected source
+- qortex_source_sync: Sync source data to vec layer
+- qortex_source_list: List connected sources
+- qortex_source_disconnect: Disconnect a source
 - qortex_vector_create_index: Create a named vector index
 - qortex_vector_list_indexes: List named vector indexes
 - qortex_vector_describe_index: Get index stats
@@ -44,6 +49,7 @@ from fastmcp import FastMCP
 
 from qortex.core.memory import InMemoryBackend
 from qortex.hippocampus.adapter import VecOnlyAdapter
+from qortex.sources.registry import SourceRegistry
 
 logger = logging.getLogger(__name__)
 
@@ -57,6 +63,12 @@ _adapter: Any = None  # VecOnlyAdapter (Level 0)
 _graph_adapter: Any = None  # GraphRAGAdapter (Level 1+)
 _embedding_model: Any = None
 _interoception: Any = None  # InteroceptionProvider: feedback lifecycle
+
+# ---------------------------------------------------------------------------
+# Source registry (for database source adapters)
+# ---------------------------------------------------------------------------
+
+_source_registry = SourceRegistry()
 
 # ---------------------------------------------------------------------------
 # Vector-level index registry (for MastraVector / raw vector operations)
@@ -204,15 +216,17 @@ def create_server(
     """
     global _backend, _vector_index, _adapter, _graph_adapter, _embedding_model, _interoception
     global _vector_indexes, _index_configs, _vector_metadata, _vector_documents
+    global _source_registry
 
     _backend = backend
     _embedding_model = embedding_model
 
-    # Reset vector-level registry (clean state for tests)
+    # Reset registries (clean state for tests)
     _vector_indexes = {}
     _index_configs = {}
     _vector_metadata = {}
     _vector_documents = {}
+    _source_registry = SourceRegistry()
 
     # Auto-create in-memory vector index if not provided
     if vector_index is not None:
@@ -845,6 +859,145 @@ def _rules_impl(
 
 
 # ---------------------------------------------------------------------------
+# Source-level operations (database source adapters)
+# ---------------------------------------------------------------------------
+
+
+def _source_connect_impl(
+    source_id: str,
+    connection_string: str,
+    schemas: list[str] | None = None,
+    domain_map: dict[str, str] | None = None,
+    targets: str = "both",
+) -> dict:
+    """Connect to a database source, discover schemas."""
+    import asyncio
+
+    from qortex.sources.base import IngestConfig, SourceConfig
+
+    _ensure_initialized()
+
+    config = SourceConfig(
+        source_id=source_id,
+        connection_string=connection_string,
+        schemas=schemas or ["public"],
+        domain_map=domain_map or {},
+    )
+
+    try:
+        from qortex.sources.postgres import PostgresSourceAdapter
+    except ImportError:
+        return {"error": "asyncpg not installed. Install qortex[source-postgres]."}
+
+    adapter = PostgresSourceAdapter()
+
+    try:
+        asyncio.get_event_loop().run_until_complete(adapter.connect(config))
+        table_schemas = asyncio.get_event_loop().run_until_complete(adapter.discover())
+    except Exception as e:
+        return {"error": f"Connection failed: {e}"}
+
+    _source_registry.register(config, adapter)
+    _source_registry.cache_schemas(source_id, table_schemas)
+
+    return {
+        "status": "connected",
+        "source_id": source_id,
+        "tables": len(table_schemas),
+        "table_names": [t.name for t in table_schemas],
+    }
+
+
+def _source_discover_impl(source_id: str) -> dict:
+    """Return cached schemas for a connected source."""
+    schemas = _source_registry.get_schemas(source_id)
+    if schemas is None:
+        return {"error": f"Source '{source_id}' not found. Connect first."}
+
+    return {
+        "source_id": source_id,
+        "tables": [
+            {
+                "name": t.name,
+                "schema": t.schema_name,
+                "columns": len(t.columns),
+                "row_count": t.row_count,
+                "pk_columns": t.pk_columns,
+                "fk_count": len(t.fk_columns),
+            }
+            for t in schemas
+        ],
+    }
+
+
+def _source_sync_impl(
+    source_id: str,
+    tables: list[str] | None = None,
+    mode: str = "full",
+) -> dict:
+    """Sync a connected source's data to the vec layer."""
+    import asyncio
+
+    _ensure_initialized()
+
+    adapter = _source_registry.get(source_id)
+    config = _source_registry.get_config(source_id)
+    if adapter is None or config is None:
+        return {"error": f"Source '{source_id}' not found. Connect first."}
+
+    try:
+        result = asyncio.get_event_loop().run_until_complete(
+            adapter.sync(
+                tables=tables,
+                mode=mode,
+                vector_index=_vector_index,
+                embedding_model=_embedding_model,
+            )
+        )
+        return {
+            "source_id": result.source_id,
+            "tables_synced": result.tables_synced,
+            "rows_added": result.rows_added,
+            "vectors_created": result.vectors_created,
+            "duration_seconds": result.duration_seconds,
+            "errors": result.errors,
+        }
+    except Exception as e:
+        return {"error": f"Sync failed: {e}"}
+
+
+def _source_list_impl() -> dict:
+    """List connected sources."""
+    sources = _source_registry.list_sources()
+    return {
+        "sources": [
+            {
+                "source_id": sid,
+                "tables": len(_source_registry.get_schemas(sid) or []),
+            }
+            for sid in sources
+        ]
+    }
+
+
+def _source_disconnect_impl(source_id: str) -> dict:
+    """Disconnect a source and remove it from the registry."""
+    import asyncio
+
+    adapter = _source_registry.get(source_id)
+    if adapter is None:
+        return {"error": f"Source '{source_id}' not found."}
+
+    try:
+        asyncio.get_event_loop().run_until_complete(adapter.disconnect())
+    except Exception:
+        pass
+
+    _source_registry.remove(source_id)
+    return {"status": "disconnected", "source_id": source_id}
+
+
+# ---------------------------------------------------------------------------
 # Vector-level operations (for MastraVector / raw vector consumers)
 # ---------------------------------------------------------------------------
 
@@ -1299,6 +1452,75 @@ def qortex_rules(
         min_confidence: Minimum rule confidence (0.0 to 1.0).
     """
     return _rules_impl(domains, concept_ids, categories, include_derived, min_confidence)
+
+
+# ---------------------------------------------------------------------------
+# Source-level MCP tools (database source adapters)
+# ---------------------------------------------------------------------------
+
+
+@mcp.tool
+def qortex_source_connect(
+    source_id: str,
+    connection_string: str,
+    schemas: list[str] | None = None,
+    domain_map: dict[str, str] | None = None,
+    targets: str = "both",
+) -> dict:
+    """Connect to a PostgreSQL database and discover its schema.
+
+    Args:
+        source_id: Unique identifier for this source (e.g. "mm_movements").
+        connection_string: PostgreSQL connection URL.
+        schemas: Database schemas to discover. Default: ["public"].
+        domain_map: Glob pattern → domain name mapping.
+        targets: Ingestion targets: "vec", "graph", or "both".
+    """
+    return _source_connect_impl(source_id, connection_string, schemas, domain_map, targets)
+
+
+@mcp.tool
+def qortex_source_discover(source_id: str) -> dict:
+    """Return discovered schemas for a connected source.
+
+    Args:
+        source_id: The source to describe.
+    """
+    return _source_discover_impl(source_id)
+
+
+@mcp.tool
+def qortex_source_sync(
+    source_id: str,
+    tables: list[str] | None = None,
+    mode: str = "full",
+) -> dict:
+    """Sync a database source to the vector layer.
+
+    Serializes rows to text, generates embeddings, and upserts to VectorIndex.
+
+    Args:
+        source_id: The source to sync.
+        tables: Tables to sync. None = all discovered tables.
+        mode: "full" (re-sync everything) or "incremental" (only changes).
+    """
+    return _source_sync_impl(source_id, tables, mode)
+
+
+@mcp.tool
+def qortex_source_list() -> dict:
+    """List all connected database sources."""
+    return _source_list_impl()
+
+
+@mcp.tool
+def qortex_source_disconnect(source_id: str) -> dict:
+    """Disconnect a database source and remove it from the registry.
+
+    Args:
+        source_id: The source to disconnect.
+    """
+    return _source_disconnect_impl(source_id)
 
 
 # ---------------------------------------------------------------------------
