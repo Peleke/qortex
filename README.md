@@ -13,17 +13,28 @@ Graph-enhanced retrieval engine. Transforms unstructured content into a knowledg
 - **Projection pipeline**: Source, Enricher, Target architecture for rule generation
 - **Multiple backends**: InMemory (testing), Memgraph (production with MAGE algorithms)
 
-## Quick start
+## Install
 
 ```bash
-pip install qortex
-
-# With optional dependencies
-pip install qortex[vec]       # numpy + sentence-transformers
-pip install qortex[mcp]       # MCP server
-pip install qortex[memgraph]  # Memgraph backend
+pip install qortex            # Core: numpy, fastmcp, typer, pyyaml
+pip install qortex[vec]       # + sentence-transformers (text-level search)
+pip install qortex[vec-sqlite] # + sqlite-vec (persistent vector index)
+pip install qortex[memgraph]  # + neo4j driver (production graph backend)
 pip install qortex[all]       # Everything
 ```
+
+### What's included where
+
+| Capability | Install | What you get |
+|-----------|---------|-------------|
+| Vector-level MCP tools (`qortex_vector_*`) | `pip install qortex` | Create indexes, upsert/query raw vectors, metadata filters. Consumers provide their own embeddings. |
+| Text-level search (`qortex_query`) | `pip install qortex[vec]` | qortex embeds your text with sentence-transformers. Adds ~2GB for PyTorch + model weights. |
+| Persistent vectors | `pip install qortex[vec-sqlite]` | SqliteVec index survives restarts. Without this, vectors are in-memory only. |
+| Production graph | `pip install qortex[memgraph]` | Memgraph backend with MAGE algorithms for real PPR. Default is in-memory. |
+
+**For MCP consumers** (Mastra, Claude Desktop, etc.) that provide their own embeddings: the base `pip install qortex` is sufficient. The `[vec]` extra is only needed if you want qortex to embed text for you.
+
+## Quick start
 
 ### Search, explore, learn
 
