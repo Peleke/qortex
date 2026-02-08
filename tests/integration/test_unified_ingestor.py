@@ -21,9 +21,7 @@ class TestUnifiedIngestor:
     """PostgresIngestor.run() integration tests."""
 
     @pytest.mark.asyncio
-    async def test_from_url_vec_only(
-        self, mm_movements_config, fake_embedding, fake_vec_index
-    ):
+    async def test_from_url_vec_only(self, mm_movements_config, fake_embedding, fake_vec_index):
         """IngestConfig(targets='vec') → only vec sync, no graph."""
         ingestor = PostgresIngestor(
             config=mm_movements_config,
@@ -59,9 +57,7 @@ class TestUnifiedIngestor:
         assert result.vec_result.vectors_created >= 5
 
     @pytest.mark.asyncio
-    async def test_batch_mode(
-        self, mm_main_config, fake_embedding, fake_vec_index
-    ):
+    async def test_batch_mode(self, mm_main_config, fake_embedding, fake_vec_index):
         """Batch processing respects batch_size."""
         ingestor = PostgresIngestor(
             config=mm_main_config,
@@ -77,9 +73,7 @@ class TestUnifiedIngestor:
         assert result.vec_result.vectors_created >= 10  # Multiple tables, multiple rows
 
     @pytest.mark.asyncio
-    async def test_interlinear_full_sync(
-        self, interlinear_config, fake_embedding, fake_vec_index
-    ):
+    async def test_interlinear_full_sync(self, interlinear_config, fake_embedding, fake_vec_index):
         """Interlinear Supabase-like DB: full vec sync."""
         ingestor = PostgresIngestor(
             config=interlinear_config,
@@ -96,9 +90,7 @@ class TestUnifiedIngestor:
         assert len(result.vec_result.errors) == 0
 
     @pytest.mark.asyncio
-    async def test_tables_discovered_count(
-        self, mm_main_config, fake_embedding, fake_vec_index
-    ):
+    async def test_tables_discovered_count(self, mm_main_config, fake_embedding, fake_vec_index):
         """tables_discovered reflects actual schema discovery."""
         ingestor = PostgresIngestor(
             config=mm_main_config,

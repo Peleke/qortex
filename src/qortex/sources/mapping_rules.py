@@ -62,7 +62,8 @@ def classify_fk_relation(fk: ForeignKeyInfo, source_table: TableSchemaFull | Non
         non_key_cols = [
             c["name"]
             for c in source_table.columns
-            if c["name"] not in fk_cols and c["name"] not in pk_cols
+            if c["name"] not in fk_cols
+            and c["name"] not in pk_cols
             and c["name"] not in ("created_at", "modified_at", "id")
         ]
         if len(source_table.foreign_keys) >= 2 and len(non_key_cols) <= 2:
@@ -209,10 +210,7 @@ def detect_catalog_table(schema: TableSchemaFull) -> bool:
             return True
 
     # is_active/is_public flags
-    if "is_active" in col_names or "is_public" in col_names:
-        return True
-
-    return False
+    return "is_active" in col_names or "is_public" in col_names
 
 
 # ---------------------------------------------------------------------------
@@ -246,9 +244,7 @@ def detect_cross_db_edges_by_naming(schemas: list[SchemaGraph]) -> list[CrossDat
                 if not col_name.endswith("_id"):
                     continue
                 # Already an FK within the same database? Skip.
-                is_local_fk = any(
-                    fk.source_column == col["name"] for fk in table.foreign_keys
-                )
+                is_local_fk = any(fk.source_column == col["name"] for fk in table.foreign_keys)
                 if is_local_fk:
                     continue
 

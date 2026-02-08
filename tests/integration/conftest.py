@@ -8,13 +8,12 @@ from __future__ import annotations
 
 import socket
 import time
-from typing import Any
 
 import numpy as np
 import pytest
 
 from qortex.core.memory import InMemoryBackend
-from qortex.sources.base import IngestConfig, SourceConfig
+from qortex.sources.base import SourceConfig
 
 # ---------------------------------------------------------------------------
 # Port mapping: mirrors docker-compose.yml (15xxx to avoid prod conflicts)
@@ -58,13 +57,18 @@ def _pg_ready(port: int, db: str, retries: int = 3, delay: float = 1.0) -> bool:
     if not _pg_available(port):
         return False
     try:
-        import asyncpg
         import asyncio
+
+        import asyncpg
 
         async def _check():
             conn = await asyncpg.connect(
-                host="localhost", port=port, user=PG_USER, password=PG_PASSWORD,
-                database=db, timeout=5,
+                host="localhost",
+                port=port,
+                user=PG_USER,
+                password=PG_PASSWORD,
+                database=db,
+                timeout=5,
             )
             # Verify init scripts have run by checking for tables
             count = await conn.fetchval(
@@ -86,9 +90,7 @@ def _pg_ready(port: int, db: str, retries: int = 3, delay: float = 1.0) -> bool:
         return _pg_available(port)
 
 
-DOCKER_AVAILABLE = all(
-    _pg_ready(PORTS[svc], DB_NAMES[svc]) for svc in PORTS
-)
+DOCKER_AVAILABLE = all(_pg_ready(PORTS[svc], DB_NAMES[svc]) for svc in PORTS)
 
 pytestmark = [
     pytest.mark.integration,
@@ -141,9 +143,7 @@ class FakeVectorIndex:
         for vid, emb in zip(ids, embeddings):
             self.vectors[vid] = np.array(emb)
 
-    def search(
-        self, embedding: list[float], top_k: int = 10, **kwargs
-    ) -> list[tuple[str, float]]:
+    def search(self, embedding: list[float], top_k: int = 10, **kwargs) -> list[tuple[str, float]]:
         """Actual cosine similarity search (matches VectorIndex protocol)."""
         if not self.vectors:
             return []

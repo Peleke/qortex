@@ -7,10 +7,9 @@ Two strategies:
 
 from __future__ import annotations
 
-import re
 from typing import Any, Protocol, runtime_checkable
 
-from qortex.sources.base import ColumnSchema, TableSchema
+from qortex.sources.base import TableSchema
 
 # Columns to skip during serialization (internal/noise)
 _SKIP_PATTERNS = {
@@ -41,7 +40,11 @@ def _is_internal_column(col_name: str) -> bool:
 def _humanize_table_name(table_name: str) -> str:
     """Convert table_name to readable form: food_items → food item."""
     # Remove trailing 's' for plural
-    name = table_name.rstrip("s") if table_name.endswith("s") and not table_name.endswith("ss") else table_name
+    name = (
+        table_name.rstrip("s")
+        if table_name.endswith("s") and not table_name.endswith("ss")
+        else table_name
+    )
     # Replace underscores with spaces
     return name.replace("_", " ")
 
@@ -73,7 +76,9 @@ def _format_value(value: Any) -> str:
 class RowSerializer(Protocol):
     """Protocol for row serialization strategies."""
 
-    def serialize(self, table_name: str, row: dict[str, Any], schema: TableSchema | None = None) -> str:
+    def serialize(
+        self, table_name: str, row: dict[str, Any], schema: TableSchema | None = None
+    ) -> str:
         """Convert a database row to text for embedding."""
         ...
 
@@ -89,7 +94,9 @@ class NaturalLanguageSerializer:
         self.skip_internal = skip_internal
         self.max_length = max_length
 
-    def serialize(self, table_name: str, row: dict[str, Any], schema: TableSchema | None = None) -> str:
+    def serialize(
+        self, table_name: str, row: dict[str, Any], schema: TableSchema | None = None
+    ) -> str:
         """Serialize a row to a natural language sentence."""
         entity = _humanize_table_name(table_name)
 
@@ -146,7 +153,9 @@ class KeyValueSerializer:
         self.skip_internal = skip_internal
         self.separator = separator
 
-    def serialize(self, table_name: str, row: dict[str, Any], schema: TableSchema | None = None) -> str:
+    def serialize(
+        self, table_name: str, row: dict[str, Any], schema: TableSchema | None = None
+    ) -> str:
         """Serialize a row to key=value pairs."""
         parts = [f"table={table_name}"]
         for col_name, value in row.items():

@@ -48,8 +48,7 @@ class TestGraphDiscover:
 
             # Verify CASCADE on habit_events → habit_templates
             ht_fk = next(
-                fk for fk in habit_events.foreign_keys
-                if fk.source_column == "habit_template_id"
+                fk for fk in habit_events.foreign_keys if fk.source_column == "habit_template_id"
             )
             assert ht_fk.on_delete == "CASCADE"
 
@@ -95,8 +94,11 @@ class TestGraphMapping:
 
             # Find the edge mapping for habit_events → habit_templates
             edge = next(
-                (e for e in mapping.edges
-                 if e.source_table == "habit_events" and e.target_table == "habit_templates"),
+                (
+                    e
+                    for e in mapping.edges
+                    if e.source_table == "habit_events" and e.target_table == "habit_templates"
+                ),
                 None,
             )
             assert edge is not None
@@ -117,9 +119,7 @@ class TestGraphMapping:
             mapping = ingestor.map_schema(schema, domain_map=mm_main_config.domain_map)
 
             # meal_food_items should produce USES edges (M2M junction)
-            junction_edges = [
-                e for e in mapping.edges if e.source_table == "meal_food_items"
-            ]
+            junction_edges = [e for e in mapping.edges if e.source_table == "meal_food_items"]
             assert len(junction_edges) == 2  # meal_id + food_item_id
             assert all(e.relation_type == RelationType.USES.value for e in junction_edges)
         finally:
@@ -138,7 +138,8 @@ class TestGraphMapping:
 
             # Find rule about calories
             calorie_rules = [
-                r for r in mapping.rules
+                r
+                for r in mapping.rules
                 if r.table_name == "food_items" and "calories" in r.rule_text.lower()
             ]
             assert len(calorie_rules) >= 1
@@ -157,9 +158,7 @@ class TestGraphMapping:
             schema = await ingestor.discover_schema(conn=conn)
             mapping = ingestor.map_schema(schema, domain_map=mm_movements_config.domain_map)
 
-            movements_tm = next(
-                (t for t in mapping.tables if t.table_name == "movements"), None
-            )
+            movements_tm = next((t for t in mapping.tables if t.table_name == "movements"), None)
             assert movements_tm is not None
             assert movements_tm.is_catalog is True
         finally:
@@ -176,9 +175,7 @@ class TestGraphMapping:
             schema = await ingestor.discover_schema(conn=conn)
             mapping = ingestor.map_schema(schema, domain_map=mm_main_config.domain_map)
 
-            mfi_tm = next(
-                (t for t in mapping.tables if t.table_name == "meal_food_items"), None
-            )
+            mfi_tm = next((t for t in mapping.tables if t.table_name == "meal_food_items"), None)
             assert mfi_tm is not None
             # Junction table with 2 FKs should NOT be catalog
             assert mfi_tm.is_catalog is False
@@ -256,9 +253,7 @@ class TestCrossDB:
     """Cross-database edge detection across MindMirror databases."""
 
     @pytest.mark.asyncio
-    async def test_cross_db_movement_id_detection(
-        self, mm_movements_config, mm_practices_config
-    ):
+    async def test_cross_db_movement_id_detection(self, mm_movements_config, mm_practices_config):
         """movement_templates.movement_id → movements in another DB."""
         import asyncpg
 
@@ -277,9 +272,9 @@ class TestCrossDB:
 
             # movement_templates.movement_id should be detected
             mv_edges = [
-                e for e in cross_edges
-                if e.source_table == "movement_templates"
-                and e.target_table == "movements"
+                e
+                for e in cross_edges
+                if e.source_table == "movement_templates" and e.target_table == "movements"
             ]
             assert len(mv_edges) >= 1
             assert mv_edges[0].relation_type == RelationType.USES.value
@@ -312,9 +307,9 @@ class TestCrossDB:
             # user_id in habit_events, journal_entries, meals, practice_instances
             # all should point to users table
             user_edges = [
-                e for e in cross_edges
-                if e.target_table == "users"
-                and e.relation_type == RelationType.BELONGS_TO.value
+                e
+                for e in cross_edges
+                if e.target_table == "users" and e.relation_type == RelationType.BELONGS_TO.value
             ]
             # At least from mm_main and mm_practices (not mm_users itself)
             source_dbs = {e.source_database for e in user_edges}

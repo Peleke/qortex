@@ -419,9 +419,7 @@ class PostgresGraphIngestor:
 
                 # Build name + description
                 name = str(rd.get(tm.name_column, pk_val)) if tm.name_column else pk_val
-                desc_parts = [
-                    str(rd.get(c, "")) for c in tm.description_columns if rd.get(c)
-                ]
+                desc_parts = [str(rd.get(c, "")) for c in tm.description_columns if rd.get(c)]
                 description = ". ".join(desc_parts) if desc_parts else name
 
                 props: dict[str, Any] = {"table": table_schema.name, "pk": pk_val}
@@ -474,9 +472,7 @@ class PostgresGraphIngestor:
                     continue
 
                 pk_cols = source_schema.pk_columns
-                src_pk = (
-                    ":".join(str(rd.get(pk, "")) for pk in pk_cols) if pk_cols else ""
-                )
+                src_pk = ":".join(str(rd.get(pk, "")) for pk in pk_cols) if pk_cols else ""
                 src_node_id = source_nodes.get(src_pk)
                 if src_node_id is None:
                     continue

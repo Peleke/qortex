@@ -70,12 +70,8 @@ def apply_cross_db_edges(
 
         # Try to find source and target nodes
         if node_id_maps:
-            source_nodes = node_id_maps.get(edge.source_database, {}).get(
-                edge.source_table, {}
-            )
-            target_nodes = node_id_maps.get(edge.target_database, {}).get(
-                edge.target_table, {}
-            )
+            source_nodes = node_id_maps.get(edge.source_database, {}).get(edge.source_table, {})
+            target_nodes = node_id_maps.get(edge.target_database, {}).get(edge.target_table, {})
 
             if not source_nodes or not target_nodes:
                 logger.debug(

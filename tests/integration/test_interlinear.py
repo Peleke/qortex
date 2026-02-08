@@ -48,9 +48,7 @@ class TestInterlinearDiscover:
 
             # Verify exercises has JSONB column
             exercises = next(s for s in schemas if s.name == "exercises")
-            options_col = next(
-                (c for c in exercises.columns if c.name == "options"), None
-            )
+            options_col = next((c for c in exercises.columns if c.name == "options"), None)
             assert options_col is not None
             assert "json" in options_col.data_type.lower()
 
@@ -98,9 +96,7 @@ class TestInterlinearSync:
 
             assert len(results) >= 1
             # All from interlinear:vocabulary
-            assert all(
-                vid.startswith("interlinear:vocabulary:") for vid, _ in results
-            )
+            assert all(vid.startswith("interlinear:vocabulary:") for vid, _ in results)
         finally:
             await adapter.disconnect()
 
@@ -138,9 +134,7 @@ class TestInterlinearSync:
         assert interlinear_config.resolve_domain("ai_generation_logs") == "metadata"
 
     @pytest.mark.asyncio
-    async def test_sync_all_tables(
-        self, interlinear_config, fake_embedding, fake_vec_index
-    ):
+    async def test_sync_all_tables(self, interlinear_config, fake_embedding, fake_vec_index):
         """Sync all interlinear tables — no errors."""
         adapter = PostgresSourceAdapter()
         await adapter.connect(interlinear_config)

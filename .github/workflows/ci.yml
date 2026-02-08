@@ -68,11 +68,11 @@ jobs:
         run: uv pip install --system -e ".[dev,llm,memgraph,mcp]"
 
       - name: Run tests
-        run: pytest tests/ -v --tb=short
+        run: pytest tests/ -v --tb=short --ignore=tests/integration
 
       - name: Run tests with coverage
         if: matrix.python-version == '3.12'
-        run: pytest tests/ --cov=src --cov-report=xml
+        run: pytest tests/ --cov=src --cov-report=xml --ignore=tests/integration
 
       - name: Upload coverage
         if: matrix.python-version == '3.12'

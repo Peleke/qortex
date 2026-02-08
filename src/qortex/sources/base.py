@@ -158,9 +158,7 @@ class IngestConfig:
 
         # Validate
         if self.targets not in _VALID_TARGETS:
-            raise ValueError(
-                f"Invalid targets={self.targets!r}. Must be one of: {_VALID_TARGETS}"
-            )
+            raise ValueError(f"Invalid targets={self.targets!r}. Must be one of: {_VALID_TARGETS}")
         if self.mode not in _VALID_MODES:
             raise ValueError(f"Invalid mode={self.mode!r}. Must be one of: {_VALID_MODES}")
         if self.serialize_strategy not in _VALID_STRATEGIES:

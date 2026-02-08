@@ -121,9 +121,7 @@ class TestIngestText:
 
     def test_markdown_format(self):
         llm = make_stub_llm(
-            concepts=[
-                {"name": "Heading", "description": "A heading concept", "confidence": 1.0}
-            ]
+            concepts=[{"name": "Heading", "description": "A heading concept", "confidence": 1.0}]
         )
         client = make_client(llm_backend=llm)
         result = client.ingest_text(
@@ -171,9 +169,7 @@ class TestIngestText:
 
     def test_embeddings_indexed_in_vector_index(self):
         llm = make_stub_llm(
-            concepts=[
-                {"name": "Embed", "description": "Embeddable concept", "confidence": 1.0}
-            ]
+            concepts=[{"name": "Embed", "description": "Embeddable concept", "confidence": 1.0}]
         )
         client = make_client(llm_backend=llm)
         client.ingest_text("Embeddable concept for testing", domain="test")
@@ -199,14 +195,17 @@ class TestIngestText:
                 {"name": "JWT", "description": "Token format", "confidence": 0.9},
             ],
             relations=[
-                {"source_id": "OAuth2", "target_id": "JWT", "relation_type": "uses", "confidence": 0.8}
+                {
+                    "source_id": "OAuth2",
+                    "target_id": "JWT",
+                    "relation_type": "uses",
+                    "confidence": 0.8,
+                }
             ],
             rules=[{"text": "Always use HTTPS with OAuth2", "confidence": 1.0}],
         )
         client = make_client(llm_backend=llm)
-        result = client.ingest_text(
-            "OAuth2 authentication uses JWT tokens.", domain="security"
-        )
+        result = client.ingest_text("OAuth2 authentication uses JWT tokens.", domain="security")
 
         assert result.concepts == 2
         assert result.edges >= 0  # Edges may or may not be extracted depending on ingestor
@@ -377,15 +376,11 @@ class TestIngestStructured:
         concepts = [{"name": f"C{i}", "description": f"Concept {i}"} for i in range(11)]
         edges = []
         for i, rt in enumerate(RelationType):
-            edges.append(
-                {"source": f"C{i}", "target": f"C{i + 1}", "relation_type": rt.value}
-            )
+            edges.append({"source": f"C{i}", "target": f"C{i + 1}", "relation_type": rt.value})
             if i + 1 >= len(concepts) - 1:
                 break
 
-        result = client.ingest_structured(
-            concepts=concepts, domain="test", edges=edges
-        )
+        result = client.ingest_structured(concepts=concepts, domain="test", edges=edges)
         assert result.edges == len(edges)
 
 
@@ -514,9 +509,8 @@ class TestReactiveAdapter:
 
 class TestMCPIngestText:
     def _setup_server(self, llm_backend=None):
-        from qortex_ingest.base import StubLLMBackend
-
         from qortex.mcp import server
+        from qortex_ingest.base import StubLLMBackend
 
         vector_index = NumpyVectorIndex(dimensions=DIMS)
         backend = InMemoryBackend(vector_index=vector_index)
@@ -528,9 +522,12 @@ class TestMCPIngestText:
             embedding_model=embedding,
             vector_index=vector_index,
         )
-        server.set_llm_backend(llm_backend or StubLLMBackend(
-            concepts=[{"name": "Test", "description": "Test concept", "confidence": 1.0}]
-        ))
+        server.set_llm_backend(
+            llm_backend
+            or StubLLMBackend(
+                concepts=[{"name": "Test", "description": "Test concept", "confidence": 1.0}]
+            )
+        )
         return server
 
     def test_basic_ingest_text(self):
@@ -661,7 +658,11 @@ class TestRoundtrip:
     def test_ingest_text_then_query(self):
         llm = make_stub_llm(
             concepts=[
-                {"name": "OAuth2", "description": "OAuth2 authentication protocol", "confidence": 1.0},
+                {
+                    "name": "OAuth2",
+                    "description": "OAuth2 authentication protocol",
+                    "confidence": 1.0,
+                },
                 {"name": "RBAC", "description": "Role-based access control", "confidence": 0.9},
             ]
         )
