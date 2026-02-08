@@ -10,8 +10,9 @@ from __future__ import annotations
 
 import logging
 import time
-from dataclasses import dataclass, field
-from typing import Any, AsyncIterator
+from collections.abc import AsyncIterator
+from dataclasses import dataclass
+from typing import Any
 
 from qortex.sources.base import (
     ColumnSchema,
@@ -27,6 +28,11 @@ from qortex.sources.serializer import (
 )
 
 logger = logging.getLogger(__name__)
+
+
+def _quote_ident(name: str) -> str:
+    """Safely quote a SQL identifier, escaping embedded double quotes."""
+    return '"' + name.replace('"', '""') + '"'
 
 
 class PostgresSourceAdapter:
@@ -46,6 +52,11 @@ class PostgresSourceAdapter:
 
         self._config = config
         self._conn = await asyncpg.connect(config.connection_string)
+
+    @property
+    def connection(self) -> Any:
+        """The underlying asyncpg connection, or None if not connected."""
+        return self._conn
 
     async def disconnect(self) -> None:
         """Disconnect from the database."""
@@ -164,7 +175,7 @@ class PostgresSourceAdapter:
         for table in tables.values():
             try:
                 count_row = await self._conn.fetchval(
-                    f'SELECT COUNT(*) FROM "{table.schema_name}"."{table.name}"'
+                    f"SELECT COUNT(*) FROM {_quote_ident(table.schema_name)}.{_quote_ident(table.name)}"
                 )
                 table.row_count = count_row or 0
             except Exception:
@@ -187,7 +198,7 @@ class PostgresSourceAdapter:
         current_offset = offset
         while True:
             rows = await self._conn.fetch(
-                f'SELECT * FROM "{schema_name}"."{table}" LIMIT $1 OFFSET $2',
+                f"SELECT * FROM {_quote_ident(schema_name)}.{_quote_ident(table)} LIMIT $1 OFFSET $2",
                 batch_size,
                 current_offset,
             )
@@ -252,7 +263,7 @@ class PostgresSourceAdapter:
 
                 while True:
                     rows = await self._conn.fetch(
-                        f'SELECT * FROM "{table.schema_name}"."{table.name}" '
+                        f"SELECT * FROM {_quote_ident(table.schema_name)}.{_quote_ident(table.name)} "
                         f"LIMIT $1 OFFSET $2",
                         batch_size,
                         offset,
@@ -384,7 +395,7 @@ class PostgresIngestor:
                         backend=self._backend,
                         embedding_model=self._embedding_model,
                     )
-                    graph_ingestor._conn = self._adapter._conn
+                    graph_ingestor._conn = self._adapter.connection
                     schema_graph = await graph_ingestor.discover_schema()
                     mapping = graph_ingestor.map_schema(schema_graph)
                     graph_counts = await graph_ingestor.ingest(mapping, schema_graph)

@@ -6,9 +6,12 @@ and client to manage multiple database connections.
 
 from __future__ import annotations
 
+import logging
 from typing import Any
 
 from qortex.sources.base import SourceConfig, TableSchema
+
+logger = logging.getLogger(__name__)
 
 
 class SourceRegistry:
@@ -32,8 +35,24 @@ class SourceRegistry:
         """Get config by source_id."""
         return self._configs.get(source_id)
 
+    async def remove_async(self, source_id: str) -> bool:
+        """Remove an adapter, disconnecting it first. Returns True if it existed."""
+        adapter = self._adapters.pop(source_id, None)
+        self._configs.pop(source_id, None)
+        self._schemas.pop(source_id, None)
+        if adapter is not None:
+            if hasattr(adapter, "disconnect"):
+                try:
+                    await adapter.disconnect()
+                except Exception:
+                    logger.debug(
+                        "Error disconnecting adapter %s on remove", source_id, exc_info=True
+                    )
+            return True
+        return False
+
     def remove(self, source_id: str) -> bool:
-        """Remove an adapter. Returns True if it existed."""
+        """Remove an adapter without disconnecting. Use remove_async for cleanup."""
         existed = source_id in self._adapters
         self._adapters.pop(source_id, None)
         self._configs.pop(source_id, None)
@@ -52,8 +71,22 @@ class SourceRegistry:
         """Get cached schemas for a source."""
         return self._schemas.get(source_id)
 
+    async def clear_async(self) -> None:
+        """Clear all registered adapters, disconnecting each first."""
+        for source_id, adapter in list(self._adapters.items()):
+            if hasattr(adapter, "disconnect"):
+                try:
+                    await adapter.disconnect()
+                except Exception:
+                    logger.debug(
+                        "Error disconnecting adapter %s on clear", source_id, exc_info=True
+                    )
+        self._adapters.clear()
+        self._configs.clear()
+        self._schemas.clear()
+
     def clear(self) -> None:
-        """Clear all registered adapters."""
+        """Clear all registered adapters without disconnecting. Use clear_async for cleanup."""
         self._adapters.clear()
         self._configs.clear()
         self._schemas.clear()

@@ -875,7 +875,7 @@ def _source_connect_impl(
     """Connect to a database source, discover schemas."""
     import asyncio
 
-    from qortex.sources.base import IngestConfig, SourceConfig
+    from qortex.sources.base import SourceConfig
 
     _ensure_initialized()
 
@@ -990,12 +990,7 @@ def _source_disconnect_impl(source_id: str) -> dict:
     if adapter is None:
         return {"error": f"Source '{source_id}' not found."}
 
-    try:
-        asyncio.get_event_loop().run_until_complete(adapter.disconnect())
-    except Exception:
-        pass
-
-    _source_registry.remove(source_id)
+    asyncio.get_event_loop().run_until_complete(_source_registry.remove_async(source_id))
     return {"status": "disconnected", "source_id": source_id}
 
 

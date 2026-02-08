@@ -9,8 +9,9 @@ All types here are pure dataclasses — no database drivers needed.
 from __future__ import annotations
 
 import os
+from collections.abc import AsyncIterator
 from dataclasses import dataclass, field
-from typing import Any, Iterator, Literal, Protocol, runtime_checkable
+from typing import Any, Literal, Protocol, runtime_checkable
 
 
 @dataclass
@@ -92,6 +93,15 @@ class SourceConfig:
             if fnmatch.fnmatch(table_name, pattern):
                 return domain
         return self.default_domain
+
+    def __repr__(self) -> str:
+        """Redact connection_string to prevent credential leaks in logs."""
+        return (
+            f"SourceConfig(source_id={self.source_id!r}, "
+            f"connection_string='***', "
+            f"schemas={self.schemas!r}, "
+            f"domain_map={self.domain_map!r})"
+        )
 
 
 # ---------------------------------------------------------------------------
@@ -185,7 +195,7 @@ class SourceAdapter(Protocol):
         table: str,
         batch_size: int = 500,
         offset: int = 0,
-    ) -> Iterator[dict[str, Any]]:
+    ) -> AsyncIterator[dict[str, Any]]:
         """Read rows from a table in batches."""
         ...
 

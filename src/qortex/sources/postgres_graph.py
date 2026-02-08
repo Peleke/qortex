@@ -37,6 +37,11 @@ from qortex.sources.mapping_rules import (
 logger = logging.getLogger(__name__)
 
 
+def _quote_ident(name: str) -> str:
+    """Safely quote a SQL identifier, escaping embedded double quotes."""
+    return '"' + name.replace('"', '""') + '"'
+
+
 # ---------------------------------------------------------------------------
 # pg_constraint ON DELETE code → human-readable
 # ---------------------------------------------------------------------------
@@ -250,7 +255,7 @@ class PostgresGraphIngestor:
 
                 # Row count
                 count = await conn.fetchval(
-                    f'SELECT COUNT(*) FROM "{schema_name}"."{table_name}"'  # noqa: S608
+                    f"SELECT COUNT(*) FROM {_quote_ident(schema_name)}.{_quote_ident(table_name)}"
                 )
 
                 tables.append(
@@ -395,7 +400,7 @@ class PostgresGraphIngestor:
             node_id_map[table_schema.name] = {}
 
             rows = await conn.fetch(
-                f'SELECT * FROM "{table_schema.schema_name}"."{table_schema.name}"'  # noqa: S608
+                f"SELECT * FROM {_quote_ident(table_schema.schema_name)}.{_quote_ident(table_schema.name)}"
             )
 
             texts_for_embed: list[str] = []
@@ -457,7 +462,7 @@ class PostgresGraphIngestor:
                 continue
 
             rows = await conn.fetch(
-                f'SELECT * FROM "{source_schema.schema_name}"."{source_schema.name}"'  # noqa: S608
+                f"SELECT * FROM {_quote_ident(source_schema.schema_name)}.{_quote_ident(source_schema.name)}"
             )
 
             rel_type = RelationType(edge_m.relation_type)

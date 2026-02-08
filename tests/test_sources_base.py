@@ -18,7 +18,6 @@ from qortex.sources.serializer import (
     _is_internal_column,
 )
 
-
 # ===========================================================================
 # Schema types
 # ===========================================================================
@@ -380,6 +379,24 @@ class TestSourceRegistry:
         assert registry.get("test") is None
         assert registry.remove("test") is False
 
+    @pytest.mark.asyncio
+    async def test_remove_async_disconnects(self):
+        registry = SourceRegistry()
+        config = SourceConfig(source_id="test", connection_string="mock://")
+
+        class FakeAdapter:
+            disconnected = False
+
+            async def disconnect(self):
+                self.disconnected = True
+
+        adapter = FakeAdapter()
+        registry.register(config, adapter)
+
+        assert await registry.remove_async("test") is True
+        assert adapter.disconnected is True
+        assert registry.get("test") is None
+
     def test_list_sources(self):
         registry = SourceRegistry()
         registry.register(SourceConfig(source_id="a", connection_string=""), object())
@@ -407,3 +424,22 @@ class TestSourceRegistry:
 
         registry.clear()
         assert registry.list_sources() == []
+
+    @pytest.mark.asyncio
+    async def test_clear_async_disconnects(self):
+        registry = SourceRegistry()
+
+        class FakeAdapter:
+            disconnected = False
+
+            async def disconnect(self):
+                self.disconnected = True
+
+        a1, a2 = FakeAdapter(), FakeAdapter()
+        registry.register(SourceConfig(source_id="a", connection_string=""), a1)
+        registry.register(SourceConfig(source_id="b", connection_string=""), a2)
+
+        await registry.clear_async()
+        assert registry.list_sources() == []
+        assert a1.disconnected is True
+        assert a2.disconnected is True
