@@ -1,48 +1,89 @@
 # qortex
 
-Knowledge graph ingestion engine for automated rule generation.
+Graph-enhanced retrieval engine. Transforms unstructured content into a knowledge graph with typed edges, then uses Personalized PageRank for structurally-aware search with feedback-driven learning.
 
-## What It Does
+## Features
 
-qortex transforms unstructured content (books, docs, PDFs) into a knowledge graph, then projects actionable rules for AI agents and other consumers.
+- **Graph-enhanced retrieval**: Vector similarity + PPR over typed edges (REQUIRES, REFINES, USES...)
+- **Explore and navigate**: Traverse typed edges, discover neighbors and linked rules from any search result
+- **Rules auto-surfaced**: Query results include linked rules with relevance scores, zero consumer effort
+- **Feedback-driven learning**: Consumer outcomes adjust PPR teleportation factors; results improve over time
+- **Framework adapters**: Drop-in for [LangChain](https://github.com/Peleke/langchain-qortex), [Mastra](https://github.com/Peleke/mastra-qortex), and any MCP client
+- **Flexible ingestion**: PDF, Markdown, and text sources into a unified knowledge graph
+- **Projection pipeline**: Source, Enricher, Target architecture for rule generation
+- **Multiple backends**: InMemory (testing), Memgraph (production with MAGE algorithms)
 
-```
-📚 Sources    →    🧠 qortex    →    📋 Rules    →    🤖 Consumers
-(PDF/MD/Text)      (Knowledge Graph)   (Universal Schema)  (buildlog, agents, CI)
-```
-
-## Core Features
-
-- **Content Ingestion**: PDF, Markdown, and text into structured knowledge graphs
-- **Rich Type System**: 10 semantic relation types (REQUIRES, CONTRADICTS, REFINES, etc.)
-- **Rule Derivation**: 30 edge templates generate rules from concept relationships
-- **Rule Enrichment**: Add context, antipatterns, rationale via templates or LLM
-- **Universal Schema**: JSON Schema artifacts for any-language validation
-- **Consumer Interop**: Hybrid pull/push protocol for rule distribution
-
-## Quick Start
+## Quick start
 
 ```bash
-# Install
 pip install qortex
 
-# Or with all optional dependencies
-pip install qortex[all]
+# With optional dependencies
+pip install qortex[vec]       # numpy + sentence-transformers
+pip install qortex[mcp]       # MCP server
+pip install qortex[memgraph]  # Memgraph backend
+pip install qortex[all]       # Everything
 ```
 
+### Search, explore, learn
+
 ```python
-from qortex.core.memory import InMemoryBackend
+from qortex.client import LocalQortexClient
+
+client = LocalQortexClient(vector_index, backend, embedding, mode="graph")
+
+# Search: vec + graph combined scoring, rules auto-surfaced
+result = client.query("OAuth2 authorization", domains=["security"], top_k=5)
+
+# Explore: traverse typed edges from any result
+explore = client.explore(result.items[0].node_id)
+for edge in explore.edges:
+    print(f"{edge.source_id} --{edge.relation_type}--> {edge.target_id}")
+
+# Feedback: close the learning loop
+client.feedback(result.query_id, {result.items[0].id: "accepted"})
+```
+
+### LangChain VectorStore
+
+```python
+from langchain_qortex import QortexVectorStore
+
+vs = QortexVectorStore.from_texts(texts, embedding, domain="security")
+docs = vs.similarity_search("authentication", k=5)
+retriever = vs.as_retriever()
+```
+
+See [langchain-qortex](https://github.com/Peleke/langchain-qortex) for the standalone package.
+
+### Mastra MastraVector
+
+```typescript
+import { QortexVector } from "@peleke/mastra-qortex";
+
+const qortex = new QortexVector({ id: "qortex" });
+await qortex.createIndex({ indexName: "docs", dimension: 384 });
+await qortex.upsert({ indexName: "docs", vectors: embeddings, metadata });
+const results = await qortex.query({ indexName: "docs", queryVector: q, topK: 10 });
+```
+
+See [@peleke/mastra-qortex](https://github.com/Peleke/mastra-qortex) for the standalone package.
+
+### MCP server
+
+```bash
+qortex mcp-serve  # stdio transport, works with Claude Desktop / any MCP client
+```
+
+Tools: `qortex_query`, `qortex_explore`, `qortex_rules`, `qortex_feedback`, `qortex_ingest`, `qortex_domains`, `qortex_status`, plus 9 vector-level tools (`qortex_vector_*`).
+
+### Project rules
+
+```python
+from qortex.projectors.projection import Projection
 from qortex.projectors.sources.flat import FlatRuleSource
 from qortex.projectors.targets.buildlog_seed import BuildlogSeedTarget
-from qortex.projectors.projection import Projection
 
-# Set up backend
-backend = InMemoryBackend()
-backend.connect()
-
-# ... add concepts, edges, rules ...
-
-# Project rules
 projection = Projection(
     source=FlatRuleSource(backend=backend),
     target=BuildlogSeedTarget(persona_name="my_rules"),
@@ -50,33 +91,30 @@ projection = Projection(
 result = projection.project(domains=["my_domain"])
 ```
 
-Or use the CLI:
+## Framework adapters
 
-```bash
-# Project rules to interop pending directory
-qortex project buildlog --domain my_domain --pending
-
-# Check interop status
-qortex interop status
-```
+| Framework | Package | Language | Interface |
+|-----------|---------|----------|-----------|
+| LangChain | [`langchain-qortex`](https://github.com/Peleke/langchain-qortex) | Python | `VectorStore` ABC |
+| Mastra | [`@peleke/mastra-qortex`](https://github.com/Peleke/mastra-qortex) | TypeScript | `MastraVector` abstract class |
+| Any MCP client | Built-in MCP server | Any | MCP tools (JSON-RPC) |
 
 ## Architecture
 
-- **GraphBackend**: Protocol with InMemoryBackend (testing) and MemgraphBackend (production)
-- **Projection Pipeline**: Source → Enricher → Target composition
-- **Consumer Interop**: Pending directory + signal log for any consumer
+```
+Sources (PDF/MD/Text)
+  -> Ingestion (LLM extraction -> concepts + typed edges + rules)
+    -> Knowledge Graph (InMemoryBackend | Memgraph)
+      -> VectorIndex (NumpyVectorIndex | SqliteVecIndex)
+        -> Retrieval (PPR + cosine -> combined scoring)
+          -> Consumers (LangChain, Mastra, MCP, buildlog, agents)
+```
 
 ## Documentation
 
-Full documentation: https://peleke.github.io/qortex/
-
-## Roadmap
-
-- [x] Phase 1: KG core, projection pipeline, consumer interop
-- [ ] Phase 2: HippoRAG-style cross-domain retrieval (PPR-based pattern completion)
-- [ ] Phase 3: Causal DAG for confidence feedback loops
-
-See [Issues](https://github.com/Peleke/qortex/issues) for detailed roadmap.
+- [Full docs](https://peleke.github.io/qortex/)
+- [LangChain integration](https://github.com/Peleke/langchain-qortex)
+- [Mastra integration](https://github.com/Peleke/mastra-qortex)
 
 ## License
 

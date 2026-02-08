@@ -8,6 +8,15 @@ Tools exposed:
 - qortex_status: Server health + backend info
 - qortex_explore: Explore a node's neighborhood in the graph
 - qortex_rules: Get projected rules from the knowledge graph
+- qortex_vector_create_index: Create a named vector index
+- qortex_vector_list_indexes: List named vector indexes
+- qortex_vector_describe_index: Get index stats
+- qortex_vector_delete_index: Delete a named index
+- qortex_vector_upsert: Upsert vectors into an index
+- qortex_vector_query: Query vectors by similarity
+- qortex_vector_update: Update vector/metadata
+- qortex_vector_delete: Delete a single vector
+- qortex_vector_delete_many: Delete vectors by IDs or filter
 
 Architecture:
     Each tool has a plain `_<name>_impl()` function with the core logic,
@@ -18,6 +27,9 @@ Architecture:
         QORTEX_VEC=memory|sqlite   → VectorIndex (similarity search)
         QORTEX_GRAPH=memory|memgraph → GraphBackend (node metadata, PPR, rules)
     The adapter composes both layers.
+
+    Vector-level tools (qortex_vector_*) manage a separate registry of
+    named indexes for MastraVector and other raw-vector consumers.
 """
 
 from __future__ import annotations
@@ -45,6 +57,15 @@ _adapter: Any = None  # VecOnlyAdapter (Level 0)
 _graph_adapter: Any = None  # GraphRAGAdapter (Level 1+)
 _embedding_model: Any = None
 _interoception: Any = None  # InteroceptionProvider: feedback lifecycle
+
+# ---------------------------------------------------------------------------
+# Vector-level index registry (for MastraVector / raw vector operations)
+# ---------------------------------------------------------------------------
+
+_vector_indexes: dict[str, Any] = {}  # name -> VectorIndex instance
+_index_configs: dict[str, dict] = {}  # name -> {dimension, metric}
+_vector_metadata: dict[str, dict[str, dict]] = {}  # name -> {id -> metadata}
+_vector_documents: dict[str, dict[str, str]] = {}  # name -> {id -> document}
 
 mcp = FastMCP("qortex")
 
@@ -177,9 +198,16 @@ def create_server(
     Used by tests and advanced configurations. For normal usage, call serve().
     """
     global _backend, _vector_index, _adapter, _graph_adapter, _embedding_model, _interoception
+    global _vector_indexes, _index_configs, _vector_metadata, _vector_documents
 
     _backend = backend
     _embedding_model = embedding_model
+
+    # Reset vector-level registry (clean state for tests)
+    _vector_indexes = {}
+    _index_configs = {}
+    _vector_metadata = {}
+    _vector_documents = {}
 
     # Auto-create in-memory vector index if not provided
     if vector_index is not None:
@@ -267,6 +295,9 @@ def _query_impl(
     }
 
 
+_ALLOWED_OUTCOMES = {"accepted", "rejected", "partial"}
+
+
 def _feedback_impl(
     query_id: str,
     outcomes: dict[str, str],
@@ -274,7 +305,15 @@ def _feedback_impl(
 ) -> dict:
     _ensure_initialized()
 
-    # Route feedback to both adapters — the graph adapter updates factors
+    # Validate outcome values
+    for item_id, outcome in outcomes.items():
+        if outcome not in _ALLOWED_OUTCOMES:
+            return {
+                "error": f"Invalid outcome '{outcome}' for item '{item_id}'. "
+                f"Must be one of: {', '.join(sorted(_ALLOWED_OUTCOMES))}",
+            }
+
+    # Route feedback to both adapters
     if _graph_adapter is not None:
         _graph_adapter.feedback(query_id, outcomes)
     elif _adapter is not None:
@@ -589,6 +628,299 @@ def _rules_impl(
 
 
 # ---------------------------------------------------------------------------
+# Vector-level operations (for MastraVector / raw vector consumers)
+# ---------------------------------------------------------------------------
+
+
+def _match_filter(metadata: dict, filt: dict) -> bool:
+    """Evaluate a MongoDB-like filter against a metadata dict.
+
+    Supports: equality, $ne, $gt, $gte, $lt, $lte, $in, $nin, $and, $or, $not.
+    """
+    for key, value in filt.items():
+        if key == "$and":
+            if not all(_match_filter(metadata, sub) for sub in value):
+                return False
+        elif key == "$or":
+            if not any(_match_filter(metadata, sub) for sub in value):
+                return False
+        elif key == "$not":
+            if _match_filter(metadata, value):
+                return False
+        elif isinstance(value, dict):
+            # Operator expression: {field: {$op: val}}
+            actual = metadata.get(key)
+            for op, operand in value.items():
+                if op == "$ne" and actual == operand:
+                    return False
+                elif op == "$gt" and not (actual is not None and actual > operand):
+                    return False
+                elif op == "$gte" and not (actual is not None and actual >= operand):
+                    return False
+                elif op == "$lt" and not (actual is not None and actual < operand):
+                    return False
+                elif op == "$lte" and not (actual is not None and actual <= operand):
+                    return False
+                elif op == "$in" and actual not in operand:
+                    return False
+                elif op == "$nin" and actual in operand:
+                    return False
+        else:
+            # Simple equality
+            if metadata.get(key) != value:
+                return False
+    return True
+
+
+def _vector_create_index_impl(
+    index_name: str,
+    dimension: int,
+    metric: str = "cosine",
+) -> dict:
+    """Create a named vector index."""
+    if index_name in _vector_indexes:
+        existing = _index_configs[index_name]
+        if existing["dimension"] != dimension:
+            return {
+                "error": f"Index '{index_name}' already exists with dimension "
+                f"{existing['dimension']}, requested {dimension}",
+            }
+        return {"status": "exists", "index_name": index_name}
+
+    from qortex.vec.index import NumpyVectorIndex
+
+    _vector_indexes[index_name] = NumpyVectorIndex(dimensions=dimension)
+    _index_configs[index_name] = {"dimension": dimension, "metric": metric}
+    _vector_metadata[index_name] = {}
+    _vector_documents[index_name] = {}
+
+    return {"status": "created", "index_name": index_name}
+
+
+def _vector_list_indexes_impl() -> dict:
+    """List all named vector indexes."""
+    return {"indexes": list(_vector_indexes.keys())}
+
+
+def _vector_describe_index_impl(index_name: str) -> dict:
+    """Describe a named vector index."""
+    if index_name not in _vector_indexes:
+        return {"error": f"Index '{index_name}' not found"}
+
+    idx = _vector_indexes[index_name]
+    cfg = _index_configs[index_name]
+    return {
+        "dimension": cfg["dimension"],
+        "count": idx.size(),
+        "metric": cfg.get("metric", "cosine"),
+    }
+
+
+def _vector_delete_index_impl(index_name: str) -> dict:
+    """Delete a named vector index."""
+    if index_name not in _vector_indexes:
+        return {"error": f"Index '{index_name}' not found"}
+
+    del _vector_indexes[index_name]
+    del _index_configs[index_name]
+    _vector_metadata.pop(index_name, None)
+    _vector_documents.pop(index_name, None)
+
+    return {"status": "deleted", "index_name": index_name}
+
+
+def _vector_upsert_impl(
+    index_name: str,
+    vectors: list[list[float]],
+    metadata: list[dict] | None = None,
+    ids: list[str] | None = None,
+    documents: list[str] | None = None,
+) -> dict:
+    """Upsert vectors into a named index."""
+    if index_name not in _vector_indexes:
+        return {"error": f"Index '{index_name}' not found"}
+
+    import uuid as _uuid
+
+    idx = _vector_indexes[index_name]
+    cfg = _index_configs[index_name]
+    generated_ids = ids or [str(_uuid.uuid4()) for _ in vectors]
+
+    if len(generated_ids) != len(vectors):
+        return {"error": f"ids ({len(generated_ids)}) and vectors ({len(vectors)}) must match"}
+
+    # Validate vector dimensions
+    expected_dim = cfg["dimension"]
+    for i, vec in enumerate(vectors):
+        if len(vec) != expected_dim:
+            return {
+                "error": f"Vector {i} has dimension {len(vec)}, expected {expected_dim}",
+            }
+
+    idx.add(generated_ids, vectors)
+
+    # Store metadata alongside vectors
+    meta_store = _vector_metadata[index_name]
+    doc_store = _vector_documents[index_name]
+    meta_list = metadata or [{}] * len(vectors)
+    doc_list = documents or [None] * len(vectors)
+
+    for vid, meta, doc in zip(generated_ids, meta_list, doc_list):
+        meta_store[vid] = meta or {}
+        if doc is not None:
+            doc_store[vid] = doc
+
+    return {"ids": generated_ids}
+
+
+def _vector_query_impl(
+    index_name: str,
+    query_vector: list[float],
+    top_k: int = 10,
+    filter: dict | None = None,
+    include_vector: bool = False,
+) -> dict:
+    """Query vectors from a named index."""
+    if index_name not in _vector_indexes:
+        return {"error": f"Index '{index_name}' not found"}
+
+    idx = _vector_indexes[index_name]
+    cfg = _index_configs[index_name]
+    meta_store = _vector_metadata[index_name]
+    doc_store = _vector_documents[index_name]
+
+    # Validate query vector dimension
+    expected_dim = cfg["dimension"]
+    if len(query_vector) != expected_dim:
+        return {
+            "error": f"Query vector has dimension {len(query_vector)}, expected {expected_dim}",
+        }
+
+    # If we have a filter, we need to over-fetch and post-filter
+    fetch_k = top_k * 5 if filter else top_k
+    raw_results = idx.search(query_vector, top_k=fetch_k)
+
+    results: list[dict] = []
+    for vid, score in raw_results:
+        meta = meta_store.get(vid, {})
+        if filter and not _match_filter(meta, filter):
+            continue
+
+        result: dict = {
+            "id": vid,
+            "score": round(score, 4),
+            "metadata": meta,
+        }
+        if vid in doc_store:
+            result["document"] = doc_store[vid]
+        if include_vector:
+            result["vector"] = None  # VectorIndex doesn't store raw vectors
+        results.append(result)
+
+        if len(results) >= top_k:
+            break
+
+    return {"results": results}
+
+
+def _vector_update_impl(
+    index_name: str,
+    id: str | None = None,
+    filter: dict | None = None,
+    vector: list[float] | None = None,
+    metadata: dict | None = None,
+) -> dict:
+    """Update a vector's embedding and/or metadata."""
+    if index_name not in _vector_indexes:
+        return {"error": f"Index '{index_name}' not found"}
+
+    if not id and not filter:
+        return {"error": "Either id or filter must be provided"}
+    if id and filter:
+        return {"error": "Cannot specify both id and filter"}
+    if not vector and not metadata:
+        return {"error": "No updates provided"}
+
+    idx = _vector_indexes[index_name]
+    cfg = _index_configs[index_name]
+    meta_store = _vector_metadata[index_name]
+
+    # Validate update vector dimension
+    if vector is not None:
+        expected_dim = cfg["dimension"]
+        if len(vector) != expected_dim:
+            return {
+                "error": f"Update vector has dimension {len(vector)}, expected {expected_dim}",
+            }
+
+    # Resolve target IDs
+    if id:
+        target_ids = [id]
+    else:
+        target_ids = [
+            vid for vid, meta in meta_store.items()
+            if _match_filter(meta, filter)
+        ]
+
+    updated = 0
+    for vid in target_ids:
+        if vector is not None:
+            idx.add([vid], [vector])
+        if metadata is not None:
+            existing = meta_store.get(vid, {})
+            existing.update(metadata)
+            meta_store[vid] = existing
+        updated += 1
+
+    return {"status": "updated", "count": updated}
+
+
+def _vector_delete_impl(index_name: str, id: str) -> dict:
+    """Delete a single vector by ID."""
+    if index_name not in _vector_indexes:
+        return {"error": f"Index '{index_name}' not found"}
+
+    idx = _vector_indexes[index_name]
+    idx.remove([id])
+    _vector_metadata[index_name].pop(id, None)
+    _vector_documents[index_name].pop(id, None)
+
+    return {"status": "deleted", "id": id}
+
+
+def _vector_delete_many_impl(
+    index_name: str,
+    ids: list[str] | None = None,
+    filter: dict | None = None,
+) -> dict:
+    """Delete multiple vectors by IDs or filter."""
+    if index_name not in _vector_indexes:
+        return {"error": f"Index '{index_name}' not found"}
+
+    if not ids and not filter:
+        return {"error": "Either ids or filter must be provided"}
+    if ids and filter:
+        return {"error": "Cannot specify both ids and filter"}
+
+    idx = _vector_indexes[index_name]
+    meta_store = _vector_metadata[index_name]
+    doc_store = _vector_documents[index_name]
+
+    if filter:
+        ids = [
+            vid for vid, meta in meta_store.items()
+            if _match_filter(meta, filter)
+        ]
+
+    idx.remove(ids)
+    for vid in ids:
+        meta_store.pop(vid, None)
+        doc_store.pop(vid, None)
+
+    return {"status": "deleted", "count": len(ids)}
+
+
+# ---------------------------------------------------------------------------
 # MCP tool wrappers (thin delegates to _impl functions)
 # ---------------------------------------------------------------------------
 
@@ -711,6 +1043,156 @@ def qortex_rules(
 
 
 # ---------------------------------------------------------------------------
+# Vector-level MCP tools (for MastraVector / raw vector consumers)
+# ---------------------------------------------------------------------------
+
+
+@mcp.tool
+def qortex_vector_create_index(
+    index_name: str,
+    dimension: int,
+    metric: str = "cosine",
+) -> dict:
+    """Create a named vector index for raw vector operations.
+
+    Used by MastraVector and other vector-level consumers. Separate from
+    the text-level index used by qortex_query/qortex_ingest.
+
+    Args:
+        index_name: Unique name for the index.
+        dimension: Vector dimensionality (e.g. 384, 768, 1536).
+        metric: Distance metric: "cosine", "euclidean", or "dotproduct".
+    """
+    return _vector_create_index_impl(index_name, dimension, metric)
+
+
+@mcp.tool
+def qortex_vector_list_indexes() -> dict:
+    """List all named vector indexes."""
+    return _vector_list_indexes_impl()
+
+
+@mcp.tool
+def qortex_vector_describe_index(index_name: str) -> dict:
+    """Get statistics for a named vector index.
+
+    Returns dimension, vector count, and distance metric.
+
+    Args:
+        index_name: The index to describe.
+    """
+    return _vector_describe_index_impl(index_name)
+
+
+@mcp.tool
+def qortex_vector_delete_index(index_name: str) -> dict:
+    """Delete a named vector index and all its data.
+
+    Args:
+        index_name: The index to delete.
+    """
+    return _vector_delete_index_impl(index_name)
+
+
+@mcp.tool
+def qortex_vector_upsert(
+    index_name: str,
+    vectors: list[list[float]],
+    metadata: list[dict] | None = None,
+    ids: list[str] | None = None,
+    documents: list[str] | None = None,
+) -> dict:
+    """Upsert vectors into a named index.
+
+    If IDs already exist, their vectors and metadata are replaced.
+    If no IDs are provided, UUIDs are generated.
+
+    Args:
+        index_name: Target index.
+        vectors: List of embedding vectors (number[][]).
+        metadata: Optional metadata per vector.
+        ids: Optional IDs. Auto-generated if omitted.
+        documents: Optional document text per vector.
+    """
+    return _vector_upsert_impl(index_name, vectors, metadata, ids, documents)
+
+
+@mcp.tool
+def qortex_vector_query(
+    index_name: str,
+    query_vector: list[float],
+    top_k: int = 10,
+    filter: dict | None = None,
+    include_vector: bool = False,
+) -> dict:
+    """Query a named vector index by similarity.
+
+    Returns results sorted by descending similarity score.
+    Supports MongoDB-like metadata filters ($eq, $ne, $gt, $lt, $in, $and, $or).
+
+    Args:
+        index_name: Index to query.
+        query_vector: Query embedding vector.
+        top_k: Maximum results to return.
+        filter: Optional metadata filter (MongoDB-like syntax).
+        include_vector: Whether to include the vector in results.
+    """
+    return _vector_query_impl(index_name, query_vector, top_k, filter, include_vector)
+
+
+@mcp.tool
+def qortex_vector_update(
+    index_name: str,
+    id: str | None = None,
+    filter: dict | None = None,
+    vector: list[float] | None = None,
+    metadata: dict | None = None,
+) -> dict:
+    """Update a vector's embedding and/or metadata.
+
+    Specify either id (single vector) or filter (multiple vectors).
+    At least one of vector or metadata must be provided.
+
+    Args:
+        index_name: Target index.
+        id: Single vector ID to update. Mutually exclusive with filter.
+        filter: Metadata filter for bulk update. Mutually exclusive with id.
+        vector: New embedding vector.
+        metadata: Metadata fields to merge.
+    """
+    return _vector_update_impl(index_name, id, filter, vector, metadata)
+
+
+@mcp.tool
+def qortex_vector_delete(index_name: str, id: str) -> dict:
+    """Delete a single vector by ID.
+
+    Args:
+        index_name: Target index.
+        id: Vector ID to delete.
+    """
+    return _vector_delete_impl(index_name, id)
+
+
+@mcp.tool
+def qortex_vector_delete_many(
+    index_name: str,
+    ids: list[str] | None = None,
+    filter: dict | None = None,
+) -> dict:
+    """Delete multiple vectors by IDs or metadata filter.
+
+    Specify either ids or filter (mutually exclusive).
+
+    Args:
+        index_name: Target index.
+        ids: List of vector IDs to delete.
+        filter: Metadata filter for bulk delete.
+    """
+    return _vector_delete_many_impl(index_name, ids, filter)
+
+
+# ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
 
@@ -730,8 +1212,10 @@ def _get_llm_backend():
 
         _llm_backend = AnthropicBackend()
         return _llm_backend
-    except (ImportError, Exception):
+    except ImportError:
         pass
+    except Exception as e:
+        logger.warning("Failed to initialize AnthropicBackend: %s", e)
 
     # Fallback to stub
     from qortex_ingest.base import StubLLMBackend
