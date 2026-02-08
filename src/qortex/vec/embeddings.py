@@ -65,9 +65,7 @@ class SentenceTransformerEmbedding:
         try:
             from sentence_transformers import SentenceTransformer
         except ImportError as e:
-            raise ImportError(
-                "sentence-transformers required: pip install qortex[vec]"
-            ) from e
+            raise ImportError("sentence-transformers required: pip install qortex[vec]") from e
         self._model = SentenceTransformer(self._model_name)
         self._dimensions = self._model.get_sentence_embedding_dimension()
         logger.info("Loaded embedding model %s (%d dims)", self._model_name, self._dimensions)
@@ -75,6 +73,7 @@ class SentenceTransformerEmbedding:
     def embed(self, texts: list[str]) -> list[list[float]]:
         """Embed texts using sentence-transformers."""
         self._load()
+        assert self._model is not None
         embeddings = self._model.encode(texts, convert_to_numpy=True)
         return embeddings.tolist()
 

@@ -24,9 +24,9 @@ logger = logging.getLogger(__name__)
 
 # Outcome weights: how much each outcome shifts the factor
 _OUTCOME_WEIGHTS: dict[str, float] = {
-    "accepted": 0.1,   # boost: this node was useful
+    "accepted": 0.1,  # boost: this node was useful
     "rejected": -0.05,  # penalize: this node was not useful (smaller magnitude — be conservative)
-    "partial": 0.03,    # slight boost: partially useful
+    "partial": 0.03,  # slight boost: partially useful
 }
 
 # Factor bounds: prevent runaway amplification or suppression
@@ -62,11 +62,14 @@ class TeleportationFactors:
 
     # Lifecycle hooks — callables invoked at key moments.
     # Consumers can register hooks for event systems, logging, metrics.
-    _hooks: dict[str, list[Any]] = field(default_factory=lambda: {
-        "on_update": [],      # Called after each factor update: (FactorUpdate) -> None
-        "on_persist": [],     # Called after factors are written to disk: (Path) -> None
-        "on_load": [],        # Called after factors are loaded from disk: (int) -> None
-    }, repr=False)
+    _hooks: dict[str, list[Any]] = field(
+        default_factory=lambda: {
+            "on_update": [],  # Called after each factor update: (FactorUpdate) -> None
+            "on_persist": [],  # Called after factors are written to disk: (Path) -> None
+            "on_load": [],  # Called after factors are loaded from disk: (int) -> None
+        },
+        repr=False,
+    )
 
     def get(self, node_id: str) -> float:
         """Get the teleportation factor for a node (default 1.0)."""
@@ -178,7 +181,12 @@ class TeleportationFactors:
     def summary(self) -> dict[str, Any]:
         """Summary stats for monitoring/logging."""
         if not self.factors:
-            return {"count": 0, "mean": _DEFAULT_FACTOR, "min": _DEFAULT_FACTOR, "max": _DEFAULT_FACTOR}
+            return {
+                "count": 0,
+                "mean": _DEFAULT_FACTOR,
+                "min": _DEFAULT_FACTOR,
+                "max": _DEFAULT_FACTOR,
+            }
 
         vals = list(self.factors.values())
         return {

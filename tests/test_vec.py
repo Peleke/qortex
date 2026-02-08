@@ -67,8 +67,11 @@ class ControlledEmbedding:
 
 def make_node(domain: str, name: str, desc: str = "") -> ConceptNode:
     return ConceptNode(
-        id=f"{domain}:{name}", name=name, description=desc or f"A {name} concept",
-        domain=domain, source_id="test-source",
+        id=f"{domain}:{name}",
+        name=name,
+        description=desc or f"A {name} concept",
+        domain=domain,
+        source_id="test-source",
     )
 
 
@@ -231,15 +234,24 @@ class TestNumpyVectorIndex:
 # Strategy for generating normalized vectors
 def normalized_vector(dims):
     """Generate a random normalized vector of given dimensions."""
-    return st.lists(st.floats(min_value=-1.0, max_value=1.0, allow_nan=False, allow_infinity=False),
-                    min_size=dims, max_size=dims)
+    return st.lists(
+        st.floats(min_value=-1.0, max_value=1.0, allow_nan=False, allow_infinity=False),
+        min_size=dims,
+        max_size=dims,
+    )
 
 
 class TestNumpyVectorIndexProperties:
     """Property-based tests for NumpyVectorIndex."""
 
-    @given(st.lists(st.text(min_size=1, max_size=10, alphabet="abcdefghij"),
-                    min_size=1, max_size=20, unique=True))
+    @given(
+        st.lists(
+            st.text(min_size=1, max_size=10, alphabet="abcdefghij"),
+            min_size=1,
+            max_size=20,
+            unique=True,
+        )
+    )
     @settings(max_examples=30)
     def test_size_equals_unique_id_count(self, ids):
         """Size should always equal the number of unique IDs added."""
@@ -249,8 +261,9 @@ class TestNumpyVectorIndexProperties:
         idx.add(ids, vecs)
         assert idx.size() == len(ids)
 
-    @given(st.lists(st.floats(min_value=0.01, max_value=1.0, allow_nan=False),
-                    min_size=3, max_size=3))
+    @given(
+        st.lists(st.floats(min_value=0.01, max_value=1.0, allow_nan=False), min_size=3, max_size=3)
+    )
     @settings(max_examples=30)
     def test_self_similarity_is_one(self, vec):
         """A vector's cosine similarity with itself should be 1.0."""
@@ -347,7 +360,8 @@ class TestNumpyVectorIndexMetamorphic:
 # =============================================================================
 
 try:
-    import sqlite_vec
+    import sqlite_vec  # noqa: F401
+
     HAS_SQLITE_VEC = True
 except ImportError:
     HAS_SQLITE_VEC = False
@@ -361,6 +375,7 @@ class TestSqliteVecIndex:
 
     def _make_index(self, tmp_path, dims=3):
         from qortex.vec.index import SqliteVecIndex
+
         return SqliteVecIndex(db_path=str(tmp_path / "test_vectors.db"), dimensions=dims)
 
     def test_add_and_size(self, tmp_path):
@@ -415,17 +430,21 @@ class TestSqliteVecIndex:
 # Parametrized parity: NumpyVectorIndex and SqliteVecIndex same behavior
 # =============================================================================
 
+
 def get_index_factories(tmp_path):
     """Return list of (name, factory) for parametrized testing."""
     factories = [("numpy", lambda dims: NumpyVectorIndex(dimensions=dims))]
     if HAS_SQLITE_VEC:
         from qortex.vec.index import SqliteVecIndex
-        factories.append((
-            "sqlite",
-            lambda dims, p=tmp_path: SqliteVecIndex(
-                db_path=str(p / f"parity_{uuid.uuid4().hex[:8]}.db"), dimensions=dims
-            ),
-        ))
+
+        factories.append(
+            (
+                "sqlite",
+                lambda dims, p=tmp_path: SqliteVecIndex(
+                    db_path=str(p / f"parity_{uuid.uuid4().hex[:8]}.db"), dimensions=dims
+                ),
+            )
+        )
     return factories
 
 
@@ -802,11 +821,13 @@ class TestEmbeddingModelProtocol:
 
     def test_fake_embedding_implements_protocol(self):
         from qortex.vec.embeddings import EmbeddingModel
+
         emb = FakeEmbedding()
         assert isinstance(emb, EmbeddingModel)
 
     def test_controlled_embedding_implements_protocol(self):
         from qortex.vec.embeddings import EmbeddingModel
+
         emb = ControlledEmbedding({}, dims=3)
         assert isinstance(emb, EmbeddingModel)
 
@@ -876,8 +897,13 @@ class TestConceptNodeEmbedding:
 
     def test_embedding_can_be_set(self):
         node = ConceptNode(
-            id="x", name="x", description="", domain="d", source_id="s",
-            embedding=[1.0, 2.0, 3.0], embedding_model="test-model",
+            id="x",
+            name="x",
+            description="",
+            domain="d",
+            source_id="s",
+            embedding=[1.0, 2.0, 3.0],
+            embedding_model="test-model",
         )
         assert node.embedding == [1.0, 2.0, 3.0]
         assert node.embedding_model == "test-model"
@@ -889,8 +915,13 @@ class TestConceptNodeEmbedding:
         backend.create_domain("test")
 
         node = ConceptNode(
-            id="test:x", name="x", description="", domain="test", source_id="s",
-            embedding=[1.0, 2.0], embedding_model="test",
+            id="test:x",
+            name="x",
+            description="",
+            domain="test",
+            source_id="s",
+            embedding=[1.0, 2.0],
+            embedding_model="test",
         )
         backend.add_node(node)
         retrieved = backend.get_node("test:x")

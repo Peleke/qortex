@@ -131,9 +131,7 @@ if _HAS_LANGCHAIN:
                 ids=ids,
             )
 
-        def similarity_search(
-            self, query: str, k: int = 4, **kwargs: Any
-        ) -> list[Document]:
+        def similarity_search(self, query: str, k: int = 4, **kwargs: Any) -> list[Document]:
             """Return docs most similar to query.
 
             Args:
@@ -164,7 +162,10 @@ if _HAS_LANGCHAIN:
             min_confidence = kwargs.get("min_confidence", 0.0)
 
             result = self._client.query(
-                context=query, domains=domains, top_k=k, min_confidence=min_confidence,
+                context=query,
+                domains=domains,
+                top_k=k,
+                min_confidence=min_confidence,
             )
             self._last_query_id = result.query_id
 
@@ -257,11 +258,13 @@ if _HAS_LANGCHAIN:
                     "node_id": node.id,
                 }
                 meta.update(node.properties)
-                docs.append(Document(
-                    page_content=f"{node.name}: {node.description}",
-                    metadata=meta,
-                    id=node.id,
-                ))
+                docs.append(
+                    Document(
+                        page_content=f"{node.name}: {node.description}",
+                        metadata=meta,
+                        id=node.id,
+                    )
+                )
             return docs
 
         # -- qortex extras: graph exploration + rules --
@@ -297,7 +300,6 @@ if _HAS_LANGCHAIN:
         def last_query_id(self) -> str | None:
             return self._last_query_id
 
-
     class _QortexEmbeddingsWrapper(Embeddings):
         """Wrap a qortex embedding model in LangChain's Embeddings interface."""
 
@@ -309,7 +311,6 @@ if _HAS_LANGCHAIN:
 
         def embed_query(self, text: str) -> list[float]:
             return self._model.embed([text])[0]
-
 
     class _LangChainEmbeddingWrapper:
         """Wrap a LangChain Embeddings instance in qortex's embed() interface."""

@@ -71,32 +71,36 @@ def real_backend():
         vector_index=vector_index,
     )
 
-    set_llm_backend(StubLLMBackend(concepts=[
-        {
-            "name": "OAuth2",
-            "description": "OAuth2 is an open standard for access delegation, "
-                           "commonly used for token-based authentication and authorization",
-            "confidence": 1.0,
-        },
-        {
-            "name": "JWT",
-            "description": "JSON Web Tokens are compact, URL-safe tokens for "
-                           "transmitting claims between parties in web applications",
-            "confidence": 0.95,
-        },
-        {
-            "name": "RBAC",
-            "description": "Role-based access control restricts system access to "
-                           "authorized users based on their assigned organizational roles",
-            "confidence": 0.9,
-        },
-        {
-            "name": "MFA",
-            "description": "Multi-factor authentication requires users to provide "
-                           "two or more verification factors to gain access to a resource",
-            "confidence": 0.85,
-        },
-    ]))
+    set_llm_backend(
+        StubLLMBackend(
+            concepts=[
+                {
+                    "name": "OAuth2",
+                    "description": "OAuth2 is an open standard for access delegation, "
+                    "commonly used for token-based authentication and authorization",
+                    "confidence": 1.0,
+                },
+                {
+                    "name": "JWT",
+                    "description": "JSON Web Tokens are compact, URL-safe tokens for "
+                    "transmitting claims between parties in web applications",
+                    "confidence": 0.95,
+                },
+                {
+                    "name": "RBAC",
+                    "description": "Role-based access control restricts system access to "
+                    "authorized users based on their assigned organizational roles",
+                    "confidence": 0.9,
+                },
+                {
+                    "name": "MFA",
+                    "description": "Multi-factor authentication requires users to provide "
+                    "two or more verification factors to gain access to a resource",
+                    "confidence": 0.85,
+                },
+            ]
+        )
+    )
 
     return {
         "backend": backend,
@@ -111,7 +115,8 @@ def ingested_domain(real_backend, tmp_path_factory):
     from qortex.mcp.server import _ingest_impl
 
     doc_path = tmp_path_factory.mktemp("docs") / "auth_guide.txt"
-    doc_path.write_text(textwrap.dedent("""\
+    doc_path.write_text(
+        textwrap.dedent("""\
         Authentication and Authorization Best Practices
 
         OAuth2 provides delegated authorization for web applications.
@@ -124,7 +129,8 @@ def ingested_domain(real_backend, tmp_path_factory):
 
         When implementing authentication, always use HTTPS, validate all tokens server-side,
         and implement proper token rotation and revocation mechanisms.
-    """))
+    """)
+    )
 
     result = _ingest_impl(str(doc_path), "security")
     assert "error" not in result, f"Ingest failed: {result}"
@@ -194,9 +200,9 @@ class TestAgnoRetrieve:
         # Top result should be semantically related to OAuth2
         top = docs[0]
         content = top["content"].lower() if isinstance(top, dict) else top.content.lower()
-        assert any(
-            term in content for term in ["oauth", "auth", "token", "access"]
-        ), f"Top result not relevant: {content[:200]}"
+        assert any(term in content for term in ["oauth", "auth", "token", "access"]), (
+            f"Top result not relevant: {content[:200]}"
+        )
 
     def test_retrieve_respects_domain_filter(self, agno_knowledge):
         """QortexKnowledge is initialized with domains=["security"].
@@ -204,10 +210,7 @@ class TestAgnoRetrieve:
         docs = agno_knowledge.retrieve("authentication")
 
         for doc in docs:
-            if isinstance(doc, dict):
-                meta = doc["meta_data"]
-            else:
-                meta = doc.meta_data
+            meta = doc["meta_data"] if isinstance(doc, dict) else doc.meta_data
             assert meta.get("domain") == "security"
 
     def test_scores_are_between_zero_and_one(self, agno_knowledge):
@@ -241,10 +244,9 @@ class TestAgnoBuildContext:
 
         # Real embeddings → context should contain auth-related content
         context_lower = context.lower()
-        assert any(
-            term in context_lower
-            for term in ["auth", "token", "oauth", "jwt", "access"]
-        ), f"Context not relevant: {context[:200]}"
+        assert any(term in context_lower for term in ["auth", "token", "oauth", "jwt", "access"]), (
+            f"Context not relevant: {context[:200]}"
+        )
 
     def test_build_context_concatenates_multiple_results(self, agno_knowledge):
         """build_context joins multiple retrieved docs with newlines."""
@@ -387,16 +389,16 @@ class TestAgnoFeedbackUpgrade:
         # Cycle 1
         docs1 = agno_knowledge.retrieve("OAuth2 tokens")
         qid1 = agno_knowledge.last_query_id
-        agno_knowledge.feedback({
-            (docs1[0]["id"] if isinstance(docs1[0], dict) else docs1[0].id): "accepted"
-        })
+        agno_knowledge.feedback(
+            {(docs1[0]["id"] if isinstance(docs1[0], dict) else docs1[0].id): "accepted"}
+        )
 
         # Cycle 2
         docs2 = agno_knowledge.retrieve("role-based access control")
         qid2 = agno_knowledge.last_query_id
-        agno_knowledge.feedback({
-            (docs2[0]["id"] if isinstance(docs2[0], dict) else docs2[0].id): "accepted"
-        })
+        agno_knowledge.feedback(
+            {(docs2[0]["id"] if isinstance(docs2[0], dict) else docs2[0].id): "accepted"}
+        )
 
         # Different queries → different query IDs
         assert qid1 != qid2
@@ -456,13 +458,11 @@ class TestAgnoE2ESimulation:
 
         # Semantic relevance with real embeddings
         all_content = " ".join(
-            (d["content"] if isinstance(d, dict) else d.content).lower()
-            for d in docs
+            (d["content"] if isinstance(d, dict) else d.content).lower() for d in docs
         )
-        assert any(
-            term in all_content
-            for term in ["auth", "token", "oauth", "jwt", "access"]
-        ), f"Results not semantically relevant: {all_content[:200]}"
+        assert any(term in all_content for term in ["auth", "token", "oauth", "jwt", "access"]), (
+            f"Results not semantically relevant: {all_content[:200]}"
+        )
 
         # --- Step 5: Feedback (Agno Phase 2 — we have it NOW) ---
         assert knowledge.last_query_id is not None
@@ -492,25 +492,26 @@ class TestAgnoE2ESimulation:
 
         # Agno
         agno_docs = QortexKnowledge(
-            client=client, domains=["security"], top_k=3,
+            client=client,
+            domains=["security"],
+            top_k=3,
         ).retrieve(query)
 
         # Mastra
         mastra_results = QortexVectorStore(client=client).query(
-            index_name="security", query_text=query, top_k=3,
+            index_name="security",
+            query_text=query,
+            top_k=3,
         )
 
         # Same IDs, same order
-        agno_ids = [
-            d["id"] if isinstance(d, dict) else d.id for d in agno_docs
-        ]
+        agno_ids = [d["id"] if isinstance(d, dict) else d.id for d in agno_docs]
         mastra_ids = [r["id"] for r in mastra_results]
         assert agno_ids == mastra_ids
 
         # Same scores
         agno_scores = [
-            d["reranking_score"] if isinstance(d, dict) else d.reranking_score
-            for d in agno_docs
+            d["reranking_score"] if isinstance(d, dict) else d.reranking_score for d in agno_docs
         ]
         mastra_scores = [r["score"] for r in mastra_results]
         assert agno_scores == mastra_scores

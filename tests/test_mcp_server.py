@@ -359,9 +359,7 @@ class TestQortexIngest:
             f.flush()
             path = f.name
 
-        result = mcp_server._ingest_impl(
-            source_path=path, domain="test", source_type="text"
-        )
+        result = mcp_server._ingest_impl(source_path=path, domain="test", source_type="text")
         assert "error" not in result
 
         Path(path).unlink()
@@ -384,9 +382,7 @@ class TestQortexIngest:
             f.flush()
             path = f.name
 
-        result = mcp_server._ingest_impl(
-            source_path=path, domain="test", source_type="invalid"
-        )
+        result = mcp_server._ingest_impl(source_path=path, domain="test", source_type="invalid")
         assert "error" in result
         assert "Invalid source_type" in result["error"]
 
@@ -403,9 +399,7 @@ class TestQortexIngest:
         from qortex_ingest.base import StubLLMBackend
 
         llm = StubLLMBackend(
-            concepts=[
-                {"name": "TestConcept", "description": "A test concept", "confidence": 0.9}
-            ],
+            concepts=[{"name": "TestConcept", "description": "A test concept", "confidence": 0.9}],
             rules=[{"text": "Always test your code", "confidence": 1.0}],
         )
         mcp_server.set_llm_backend(llm)

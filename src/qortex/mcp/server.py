@@ -159,7 +159,10 @@ def _ensure_initialized() -> None:
         from qortex.hippocampus.adapter import GraphRAGAdapter
 
         _graph_adapter = GraphRAGAdapter(
-            _vector_index, _backend, _embedding_model, interoception=_interoception,
+            _vector_index,
+            _backend,
+            _embedding_model,
+            interoception=_interoception,
         )
     else:
         _adapter = None
@@ -226,14 +229,19 @@ def create_server(
         _interoception = interoception
     else:
         from qortex.hippocampus.interoception import LocalInteroceptionProvider
+
         _interoception = LocalInteroceptionProvider()
 
     if _vector_index is not None and _backend is not None and _embedding_model is not None:
         _adapter = VecOnlyAdapter(_vector_index, _backend, _embedding_model)
 
         from qortex.hippocampus.adapter import GraphRAGAdapter
+
         _graph_adapter = GraphRAGAdapter(
-            _vector_index, _backend, _embedding_model, interoception=_interoception,
+            _vector_index,
+            _backend,
+            _embedding_model,
+            interoception=_interoception,
         )
     else:
         _adapter = None
@@ -348,7 +356,9 @@ def _ingest_impl(
 
     # Validate source_type if provided
     if source_type is not None and source_type not in _ALLOWED_SOURCE_TYPES:
-        return {"error": f"Invalid source_type: {source_type}. Must be one of {_ALLOWED_SOURCE_TYPES}"}
+        return {
+            "error": f"Invalid source_type: {source_type}. Must be one of {_ALLOWED_SOURCE_TYPES}"
+        }
 
     # Auto-detect source type from extension
     if source_type is None:
@@ -511,26 +521,28 @@ def _explore_impl(
                 edge_dict = {
                     "source_id": edge.source_id,
                     "target_id": edge.target_id,
-                    "relation_type": edge.relation_type.value if hasattr(edge.relation_type, "value") else str(edge.relation_type),
+                    "relation_type": edge.relation_type.value
+                    if hasattr(edge.relation_type, "value")
+                    else str(edge.relation_type),
                     "confidence": edge.confidence,
                     "properties": edge.properties,
                 }
                 all_edges.append(edge_dict)
-                neighbor_id = (
-                    edge.target_id if edge.source_id == current_id else edge.source_id
-                )
+                neighbor_id = edge.target_id if edge.source_id == current_id else edge.source_id
                 if neighbor_id not in visited:
                     visited.add(neighbor_id)
                     neighbor_node = _backend.get_node(neighbor_id)
                     if neighbor_node is not None:
-                        all_neighbors.append({
-                            "id": neighbor_node.id,
-                            "name": neighbor_node.name,
-                            "description": neighbor_node.description,
-                            "domain": neighbor_node.domain,
-                            "confidence": neighbor_node.confidence,
-                            "properties": neighbor_node.properties,
-                        })
+                        all_neighbors.append(
+                            {
+                                "id": neighbor_node.id,
+                                "name": neighbor_node.name,
+                                "description": neighbor_node.description,
+                                "domain": neighbor_node.domain,
+                                "confidence": neighbor_node.confidence,
+                                "properties": neighbor_node.properties,
+                            }
+                        )
                         next_frontier.append(neighbor_id)
         frontier = next_frontier
 
@@ -602,10 +614,7 @@ def _rules_impl(
     # Filter by concept_ids if provided
     if concept_ids is not None:
         concept_set = set(concept_ids)
-        all_rules = [
-            r for r in all_rules
-            if concept_set.intersection(r.source_concepts)
-        ]
+        all_rules = [r for r in all_rules if concept_set.intersection(r.source_concepts)]
 
     domain_names = {r.domain for r in all_rules}
 
@@ -655,17 +664,17 @@ def _match_filter(metadata: dict, filt: dict) -> bool:
             for op, operand in value.items():
                 if op == "$ne" and actual == operand:
                     return False
-                elif op == "$gt" and not (actual is not None and actual > operand):
+                if op == "$gt" and not (actual is not None and actual > operand):
                     return False
-                elif op == "$gte" and not (actual is not None and actual >= operand):
+                if op == "$gte" and not (actual is not None and actual >= operand):
                     return False
-                elif op == "$lt" and not (actual is not None and actual < operand):
+                if op == "$lt" and not (actual is not None and actual < operand):
                     return False
-                elif op == "$lte" and not (actual is not None and actual <= operand):
+                if op == "$lte" and not (actual is not None and actual <= operand):
                     return False
-                elif op == "$in" and actual not in operand:
+                if op == "$in" and actual not in operand:
                     return False
-                elif op == "$nin" and actual in operand:
+                if op == "$nin" and actual in operand:
                     return False
         else:
             # Simple equality
@@ -771,7 +780,7 @@ def _vector_upsert_impl(
     meta_store = _vector_metadata[index_name]
     doc_store = _vector_documents[index_name]
     meta_list = metadata or [{}] * len(vectors)
-    doc_list = documents or [None] * len(vectors)
+    doc_list: list[str | None] = list(documents) if documents is not None else [None] * len(vectors)
 
     for vid, meta, doc in zip(generated_ids, meta_list, doc_list):
         meta_store[vid] = meta or {}
@@ -865,10 +874,7 @@ def _vector_update_impl(
     if id:
         target_ids = [id]
     else:
-        target_ids = [
-            vid for vid, meta in meta_store.items()
-            if _match_filter(meta, filter)
-        ]
+        target_ids = [vid for vid, meta in meta_store.items() if _match_filter(meta, filter)]
 
     updated = 0
     for vid in target_ids:
@@ -915,10 +921,7 @@ def _vector_delete_many_impl(
     doc_store = _vector_documents[index_name]
 
     if filter:
-        ids = [
-            vid for vid, meta in meta_store.items()
-            if _match_filter(meta, filter)
-        ]
+        ids = [vid for vid, meta in meta_store.items() if _match_filter(meta, filter)]
 
     idx.remove(ids)
     for vid in ids:

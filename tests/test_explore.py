@@ -75,16 +75,25 @@ def make_graph_with_rules():
 
     nodes = {
         "Auth": ConceptNode(
-            id="security:Auth", name="Auth", description="Authentication via OAuth2",
-            domain="security", source_id="test",
+            id="security:Auth",
+            name="Auth",
+            description="Authentication via OAuth2",
+            domain="security",
+            source_id="test",
         ),
         "JWT": ConceptNode(
-            id="security:JWT", name="JWT", description="JSON Web Tokens",
-            domain="security", source_id="test",
+            id="security:JWT",
+            name="JWT",
+            description="JSON Web Tokens",
+            domain="security",
+            source_id="test",
         ),
         "RBAC": ConceptNode(
-            id="security:RBAC", name="RBAC", description="Role-based access control",
-            domain="security", source_id="test",
+            id="security:RBAC",
+            name="RBAC",
+            description="Role-based access control",
+            domain="security",
+            source_id="test",
         ),
     }
 
@@ -97,38 +106,59 @@ def make_graph_with_rules():
         backend.add_embedding(node.id, emb)
 
     # Edges
-    backend.add_edge(ConceptEdge(
-        source_id="security:Auth", target_id="security:JWT",
-        relation_type=RelationType.REQUIRES,
-    ))
-    backend.add_edge(ConceptEdge(
-        source_id="security:Auth", target_id="security:RBAC",
-        relation_type=RelationType.USES,
-    ))
-    backend.add_edge(ConceptEdge(
-        source_id="security:JWT", target_id="security:Auth",
-        relation_type=RelationType.PART_OF,
-    ))
+    backend.add_edge(
+        ConceptEdge(
+            source_id="security:Auth",
+            target_id="security:JWT",
+            relation_type=RelationType.REQUIRES,
+        )
+    )
+    backend.add_edge(
+        ConceptEdge(
+            source_id="security:Auth",
+            target_id="security:RBAC",
+            relation_type=RelationType.USES,
+        )
+    )
+    backend.add_edge(
+        ConceptEdge(
+            source_id="security:JWT",
+            target_id="security:Auth",
+            relation_type=RelationType.PART_OF,
+        )
+    )
 
     # Rules
-    backend.add_rule(ExplicitRule(
-        id="r1", text="Always use OAuth2 for authentication",
-        domain="security", source_id="test",
-        concept_ids=["security:Auth"],
-        category="architectural",
-    ))
-    backend.add_rule(ExplicitRule(
-        id="r2", text="Rotate JWT signing keys every 90 days",
-        domain="security", source_id="test",
-        concept_ids=["security:Auth", "security:JWT"],
-        category="security",
-    ))
-    backend.add_rule(ExplicitRule(
-        id="r3", text="Define roles before assigning permissions",
-        domain="security", source_id="test",
-        concept_ids=["security:RBAC"],
-        category="architectural",
-    ))
+    backend.add_rule(
+        ExplicitRule(
+            id="r1",
+            text="Always use OAuth2 for authentication",
+            domain="security",
+            source_id="test",
+            concept_ids=["security:Auth"],
+            category="architectural",
+        )
+    )
+    backend.add_rule(
+        ExplicitRule(
+            id="r2",
+            text="Rotate JWT signing keys every 90 days",
+            domain="security",
+            source_id="test",
+            concept_ids=["security:Auth", "security:JWT"],
+            category="security",
+        )
+    )
+    backend.add_rule(
+        ExplicitRule(
+            id="r3",
+            text="Define roles before assigning permissions",
+            domain="security",
+            source_id="test",
+            concept_ids=["security:RBAC"],
+            category="architectural",
+        )
+    )
 
     return backend, vector_index, embedding, nodes
 
@@ -167,9 +197,7 @@ class TestRuleCollection:
 
     def test_multiple_concepts_union(self):
         backend, _, _, _ = make_graph_with_rules()
-        result = collect_rules_for_concepts(
-            backend, ["security:Auth", "security:RBAC"]
-        )
+        result = collect_rules_for_concepts(backend, ["security:Auth", "security:RBAC"])
         ids = [r.id for r in result]
         assert "r1" in ids
         assert "r2" in ids
@@ -178,16 +206,16 @@ class TestRuleCollection:
     def test_deduplication(self):
         """r2 is linked to both Auth and JWT — should appear once."""
         backend, _, _, _ = make_graph_with_rules()
-        result = collect_rules_for_concepts(
-            backend, ["security:Auth", "security:JWT"]
-        )
+        result = collect_rules_for_concepts(backend, ["security:Auth", "security:JWT"])
         ids = [r.id for r in result]
         assert ids.count("r2") == 1
 
     def test_relevance_scoring_with_scores(self):
         backend, _, _, _ = make_graph_with_rules()
         scores = {"security:Auth": 0.9, "security:JWT": 0.7}
-        result = collect_rules_for_concepts(backend, ["security:Auth", "security:JWT"], scores=scores)
+        result = collect_rules_for_concepts(
+            backend, ["security:Auth", "security:JWT"], scores=scores
+        )
 
         r2 = next(r for r in result if r.id == "r2")
         # r2 linked to both Auth(0.9) and JWT(0.7), relevance = max = 0.9
@@ -215,13 +243,16 @@ class TestRuleCollection:
         backend, _, _, _ = make_graph_with_rules()
         # Add a rule in a different domain
         backend.create_domain("other")
-        backend.add_rule(ExplicitRule(
-            id="r-other", text="Other rule", domain="other", source_id="test",
-            concept_ids=["security:Auth"],  # overlaps concept but wrong domain
-        ))
-        result = collect_rules_for_concepts(
-            backend, ["security:Auth"], domains=["security"]
+        backend.add_rule(
+            ExplicitRule(
+                id="r-other",
+                text="Other rule",
+                domain="other",
+                source_id="test",
+                concept_ids=["security:Auth"],  # overlaps concept but wrong domain
+            )
         )
+        result = collect_rules_for_concepts(backend, ["security:Auth"], domains=["security"])
         ids = [r.id for r in result]
         assert "r-other" not in ids
 
@@ -365,11 +396,16 @@ class TestExploreClient:
     def test_explore_node_item_has_properties(self):
         client, backend, _ = make_client_with_rules()
         # Add a node with properties
-        backend.add_node(ConceptNode(
-            id="security:Custom", name="Custom", description="With props",
-            domain="security", source_id="test",
-            properties={"key": "value"},
-        ))
+        backend.add_node(
+            ConceptNode(
+                id="security:Custom",
+                name="Custom",
+                description="With props",
+                domain="security",
+                source_id="test",
+                properties={"key": "value"},
+            )
+        )
         result = client.explore("security:Custom")
         assert result.node.properties == {"key": "value"}
 
@@ -425,7 +461,9 @@ class TestRulesInQuery:
         backend.connect()
         embedding = FakeEmbedding()
         client = LocalQortexClient(
-            vector_index=vector_index, backend=backend, embedding_model=embedding,
+            vector_index=vector_index,
+            backend=backend,
+            embedding_model=embedding,
         )
         result = client.query("nothing here")
         assert result.rules == []
@@ -499,7 +537,9 @@ class TestRulesProjection:
         backend.connect()
         embedding = FakeEmbedding()
         client = LocalQortexClient(
-            vector_index=vector_index, backend=backend, embedding_model=embedding,
+            vector_index=vector_index,
+            backend=backend,
+            embedding_model=embedding,
         )
         result = client.rules()
         assert result.rules == []
@@ -508,10 +548,16 @@ class TestRulesProjection:
     def test_rules_min_confidence(self):
         client, backend, _ = make_client_with_rules()
         # Add a low-confidence rule
-        backend.add_rule(ExplicitRule(
-            id="r-low", text="Maybe do this", domain="security",
-            source_id="test", concept_ids=["security:Auth"], confidence=0.3,
-        ))
+        backend.add_rule(
+            ExplicitRule(
+                id="r-low",
+                text="Maybe do this",
+                domain="security",
+                source_id="test",
+                concept_ids=["security:Auth"],
+                confidence=0.3,
+            )
+        )
         result = client.rules(min_confidence=0.5)
         ids = [r.id for r in result.rules]
         assert "r-low" not in ids

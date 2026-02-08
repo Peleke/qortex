@@ -72,12 +72,27 @@ def make_client(with_data: bool = False) -> LocalQortexClient:
     if with_data:
         backend.create_domain("security")
         nodes = [
-            ConceptNode(id="security:Auth", name="Auth", description="Authentication via OAuth2",
-                        domain="security", source_id="test"),
-            ConceptNode(id="security:RBAC", name="RBAC", description="Role-based access control",
-                        domain="security", source_id="test"),
-            ConceptNode(id="security:JWT", name="JWT", description="JSON Web Tokens for session management",
-                        domain="security", source_id="test"),
+            ConceptNode(
+                id="security:Auth",
+                name="Auth",
+                description="Authentication via OAuth2",
+                domain="security",
+                source_id="test",
+            ),
+            ConceptNode(
+                id="security:RBAC",
+                name="RBAC",
+                description="Role-based access control",
+                domain="security",
+                source_id="test",
+            ),
+            ConceptNode(
+                id="security:JWT",
+                name="JWT",
+                description="JSON Web Tokens for session management",
+                domain="security",
+                source_id="test",
+            ),
         ]
         for node in nodes:
             backend.add_node(node)
@@ -97,8 +112,12 @@ def make_client(with_data: bool = False) -> LocalQortexClient:
 class TestQueryItem:
     def test_fields(self):
         item = QueryItem(
-            id="test:foo", content="Foo concept", score=0.95,
-            domain="test", node_id="test:foo", metadata={"key": "val"},
+            id="test:foo",
+            content="Foo concept",
+            score=0.95,
+            domain="test",
+            node_id="test:foo",
+            metadata={"key": "val"},
         )
         assert item.id == "test:foo"
         assert item.content == "Foo concept"
@@ -113,8 +132,12 @@ class TestQueryItem:
 
     def test_to_crewai_result(self):
         item = QueryItem(
-            id="test:foo", content="Foo", score=0.9,
-            domain="test", node_id="test:foo", metadata={"extra": 1},
+            id="test:foo",
+            content="Foo",
+            score=0.9,
+            domain="test",
+            node_id="test:foo",
+            metadata={"extra": 1},
         )
         result = item.to_crewai_result()
         assert result["id"] == "test:foo"
@@ -126,8 +149,11 @@ class TestQueryItem:
 
     def test_to_mastra_result(self):
         item = QueryItem(
-            id="test:foo", content="Foo", score=0.9,
-            domain="test", node_id="test:foo",
+            id="test:foo",
+            content="Foo",
+            score=0.9,
+            domain="test",
+            node_id="test:foo",
         )
         result = item.to_mastra_result()
         assert result["id"] == "test:foo"
@@ -138,8 +164,11 @@ class TestQueryItem:
     def test_to_agno_document_fallback(self):
         """Without agno installed, returns a dict with agno Document shape."""
         item = QueryItem(
-            id="test:foo", content="Foo", score=0.9,
-            domain="test", node_id="test:foo",
+            id="test:foo",
+            content="Foo",
+            score=0.9,
+            domain="test",
+            node_id="test:foo",
         )
         result = item.to_agno_document()
         assert isinstance(result, dict)
@@ -152,8 +181,11 @@ class TestQueryItem:
     def test_to_langchain_document_fallback(self):
         """Without langchain installed, returns a dict with Document shape."""
         item = QueryItem(
-            id="test:foo", content="Foo", score=0.9,
-            domain="test", node_id="test:foo",
+            id="test:foo",
+            content="Foo",
+            score=0.9,
+            domain="test",
+            node_id="test:foo",
         )
         result = item.to_langchain_document()
         # Might be a real Document or a dict depending on langchain availability
@@ -389,7 +421,11 @@ class TestLocalQortexClientRoundtrip:
 
         llm = StubLLMBackend(
             concepts=[
-                {"name": "OAuth2", "description": "OAuth2 authentication protocol", "confidence": 1.0},
+                {
+                    "name": "OAuth2",
+                    "description": "OAuth2 authentication protocol",
+                    "confidence": 1.0,
+                },
                 {"name": "RBAC", "description": "Role-based access control", "confidence": 0.9},
             ],
         )
@@ -742,8 +778,12 @@ class TestLangChainAdapter:
     def test_langchain_document_conversion(self):
         """QueryItem.to_langchain_document() returns actual Document."""
         item = QueryItem(
-            id="test:foo", content="Foo content", score=0.9,
-            domain="test", node_id="test:foo", metadata={"extra": 1},
+            id="test:foo",
+            content="Foo content",
+            score=0.9,
+            domain="test",
+            node_id="test:foo",
+            metadata={"extra": 1},
         )
         doc = item.to_langchain_document()
         assert isinstance(doc, LCDocument)
@@ -771,12 +811,8 @@ class TestCrossAdapterConsistency:
         query = "Authentication via OAuth2"
 
         # Query through each adapter
-        crewai_results = QortexKnowledgeStorage(
-            client=client, domains=["security"]
-        ).search(query)
-        agno_results = QortexKnowledge(
-            client=client, domains=["security"]
-        ).retrieve(query)
+        crewai_results = QortexKnowledgeStorage(client=client, domains=["security"]).search(query)
+        agno_results = QortexKnowledge(client=client, domains=["security"]).retrieve(query)
         mastra_results = QortexVectorStore(client=client).query(
             index_name="security", query_text=query
         )
@@ -798,9 +834,7 @@ class TestCrossAdapterConsistency:
         client = make_client(with_data=True)
         query = "role-based access"
 
-        crewai_results = QortexKnowledgeStorage(
-            client=client, domains=["security"]
-        ).search(query)
+        crewai_results = QortexKnowledgeStorage(client=client, domains=["security"]).search(query)
         mastra_results = QortexVectorStore(client=client).query(
             index_name="security", query_text=query
         )

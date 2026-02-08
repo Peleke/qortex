@@ -60,28 +60,36 @@ def knowledge_base():
     backend.create_domain("security")
     security_nodes = [
         ConceptNode(
-            id="security:oauth2", name="OAuth2",
+            id="security:oauth2",
+            name="OAuth2",
             description="OAuth2 is an authorization framework that enables applications "
-                        "to obtain limited access to user accounts on HTTP services",
-            domain="security", source_id="docs/auth.md",
+            "to obtain limited access to user accounts on HTTP services",
+            domain="security",
+            source_id="docs/auth.md",
         ),
         ConceptNode(
-            id="security:jwt", name="JWT",
+            id="security:jwt",
+            name="JWT",
             description="JSON Web Tokens provide a compact, URL-safe means of "
-                        "representing claims to be transferred between two parties",
-            domain="security", source_id="docs/auth.md",
+            "representing claims to be transferred between two parties",
+            domain="security",
+            source_id="docs/auth.md",
         ),
         ConceptNode(
-            id="security:rbac", name="RBAC",
+            id="security:rbac",
+            name="RBAC",
             description="Role-based access control restricts system access to "
-                        "authorized users based on their assigned roles",
-            domain="security", source_id="docs/auth.md",
+            "authorized users based on their assigned roles",
+            domain="security",
+            source_id="docs/auth.md",
         ),
         ConceptNode(
-            id="security:mfa", name="MFA",
+            id="security:mfa",
+            name="MFA",
             description="Multi-factor authentication requires users to provide "
-                        "two or more verification factors to gain access",
-            domain="security", source_id="docs/auth.md",
+            "two or more verification factors to gain access",
+            domain="security",
+            source_id="docs/auth.md",
         ),
     ]
 
@@ -89,22 +97,28 @@ def knowledge_base():
     backend.create_domain("architecture")
     arch_nodes = [
         ConceptNode(
-            id="arch:microservices", name="Microservices",
+            id="arch:microservices",
+            name="Microservices",
             description="Microservices architecture structures an application as "
-                        "a collection of loosely coupled, independently deployable services",
-            domain="architecture", source_id="docs/arch.md",
+            "a collection of loosely coupled, independently deployable services",
+            domain="architecture",
+            source_id="docs/arch.md",
         ),
         ConceptNode(
-            id="arch:event-driven", name="Event-Driven",
+            id="arch:event-driven",
+            name="Event-Driven",
             description="Event-driven architecture uses events to trigger and "
-                        "communicate between decoupled services and components",
-            domain="architecture", source_id="docs/arch.md",
+            "communicate between decoupled services and components",
+            domain="architecture",
+            source_id="docs/arch.md",
         ),
         ConceptNode(
-            id="arch:cqrs", name="CQRS",
+            id="arch:cqrs",
+            name="CQRS",
             description="Command Query Responsibility Segregation separates read "
-                        "and write operations for a data store into distinct models",
-            domain="architecture", source_id="docs/arch.md",
+            "and write operations for a data store into distinct models",
+            domain="architecture",
+            source_id="docs/arch.md",
         ),
     ]
 
@@ -209,10 +223,12 @@ class TestMastraDropIn:
 
         # Feedback — close the learning loop
         # In Mastra: not possible. In qortex: one method call.
-        store.feedback({
-            results[0]["id"]: "accepted",
-            results[-1]["id"]: "rejected",
-        })
+        store.feedback(
+            {
+                results[0]["id"]: "accepted",
+                results[-1]["id"]: "rejected",
+            }
+        )
         # No error. Feedback recorded. Future queries improve.
 
 
@@ -281,8 +297,7 @@ class TestLangChainDropIn:
 
         # Step 2: Format context (what you'd pipe to an LLM)
         context = "\n\n".join(
-            f"[{doc.metadata.get('domain', 'unknown')}] {doc.page_content}"
-            for doc in docs
+            f"[{doc.metadata.get('domain', 'unknown')}] {doc.page_content}" for doc in docs
         )
 
         assert len(context) > 0
@@ -296,7 +311,6 @@ class TestLangChainDropIn:
         docs = retriever.invoke("system design")
 
         # Should find results from both domains
-        domains = {doc.metadata["domain"] for doc in docs}
         assert len(docs) > 0
         # With our hash-based embeddings, we can't guarantee both domains
         # match "system design", but results should be non-empty
@@ -435,17 +449,21 @@ class TestCrossFrameworkDogfood:
 
         # Mastra
         mastra_results = QortexVectorStore(client=knowledge_base).query(
-            index_name="security", query_text=query, top_k=3,
+            index_name="security",
+            query_text=query,
+            top_k=3,
         )
 
         # CrewAI
-        crewai_results = QortexKnowledgeStorage(
-            client=knowledge_base, domains=["security"]
-        ).search(query, limit=3)
+        crewai_results = QortexKnowledgeStorage(client=knowledge_base, domains=["security"]).search(
+            query, limit=3
+        )
 
         # Agno
         agno_results = QortexKnowledge(
-            client=knowledge_base, domains=["security"], top_k=3,
+            client=knowledge_base,
+            domains=["security"],
+            top_k=3,
         ).retrieve(query)
 
         # All return same number of results
@@ -454,9 +472,7 @@ class TestCrossFrameworkDogfood:
         # All return same IDs in same order
         mastra_ids = [r["id"] for r in mastra_results]
         crewai_ids = [r["id"] for r in crewai_results]
-        agno_ids = [
-            r["id"] if isinstance(r, dict) else r.id for r in agno_results
-        ]
+        agno_ids = [r["id"] if isinstance(r, dict) else r.id for r in agno_results]
 
         assert mastra_ids == crewai_ids == agno_ids
 
@@ -464,8 +480,7 @@ class TestCrossFrameworkDogfood:
         mastra_scores = [r["score"] for r in mastra_results]
         crewai_scores = [r["score"] for r in crewai_results]
         agno_scores = [
-            r["reranking_score"] if isinstance(r, dict) else r.reranking_score
-            for r in agno_results
+            r["reranking_score"] if isinstance(r, dict) else r.reranking_score for r in agno_results
         ]
 
         assert mastra_scores == crewai_scores == agno_scores
@@ -479,11 +494,14 @@ class TestCrossFrameworkDogfood:
         query = "role-based access control"
 
         lc_docs = QortexRetriever(
-            client=knowledge_base, domains=["security"], top_k=3,
+            client=knowledge_base,
+            domains=["security"],
+            top_k=3,
         ).invoke(query)
 
         crewai_results = QortexKnowledgeStorage(
-            client=knowledge_base, domains=["security"],
+            client=knowledge_base,
+            domains=["security"],
         ).search(query, limit=3)
 
         # Same IDs
@@ -526,9 +544,11 @@ class TestFeedbackLoopDogfood:
         query_id_1 = store.last_query_id
 
         # Cycle 1: Feedback
-        store.feedback({
-            results[0]["id"]: "accepted",
-        })
+        store.feedback(
+            {
+                results[0]["id"]: "accepted",
+            }
+        )
 
         # Cycle 2: Query again
         results_2 = store.query(
@@ -542,9 +562,11 @@ class TestFeedbackLoopDogfood:
         assert query_id_1 != query_id_2
 
         # Cycle 2: Feedback
-        store.feedback({
-            results_2[0]["id"]: "accepted",
-        })
+        store.feedback(
+            {
+                results_2[0]["id"]: "accepted",
+            }
+        )
 
         # At Level 0: feedback is recorded, retrieval is unchanged
         # At Level 2: feedback would adjust teleportation factors
@@ -569,9 +591,7 @@ class TestFeedbackLoopDogfood:
         mastra.feedback({results[0]["id"]: "accepted"})
 
         # CrewAI queries the same backend — same data, same improvements
-        crewai = QortexKnowledgeStorage(
-            client=knowledge_base, domains=["security"]
-        )
+        crewai = QortexKnowledgeStorage(client=knowledge_base, domains=["security"])
         crewai_results = crewai.search("authentication", limit=3)
 
         # Both get the same results (shared backend)
@@ -607,10 +627,7 @@ class TestTheOneliner:
         store = QortexVectorStore(client=knowledge_base)
         results = store.query(index_name="security", query_text="auth", top_k=3)
         assert len(results) > 0
-        assert all(
-            set(r.keys()) == {"id", "score", "metadata", "document"}
-            for r in results
-        )
+        assert all(set(r.keys()) == {"id", "score", "metadata", "document"} for r in results)
 
     def test_crewai_oneliner(self, knowledge_base):
         from qortex.adapters.crewai import QortexKnowledgeStorage
@@ -618,10 +635,7 @@ class TestTheOneliner:
         storage = QortexKnowledgeStorage(client=knowledge_base, domains=["security"])
         results = storage.search("auth", limit=3)
         assert len(results) > 0
-        assert all(
-            set(r.keys()) == {"id", "content", "metadata", "score"}
-            for r in results
-        )
+        assert all(set(r.keys()) == {"id", "content", "metadata", "score"} for r in results)
 
     @pytest.mark.skipif(not _HAS_LANGCHAIN, reason="langchain-core not installed")
     def test_langchain_oneliner(self, knowledge_base):

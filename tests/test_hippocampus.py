@@ -78,8 +78,11 @@ class ControlledEmbedding:
 
 def make_node(domain: str, name: str, desc: str = "") -> ConceptNode:
     return ConceptNode(
-        id=f"{domain}:{name}", name=name, description=desc or f"A {name} concept",
-        domain=domain, source_id="test-source",
+        id=f"{domain}:{name}",
+        name=name,
+        description=desc or f"A {name} concept",
+        domain=domain,
+        source_id="test-source",
     )
 
 
@@ -129,14 +132,22 @@ def make_graph_with_embeddings(dims=3):
         backend.add_embedding(nid, emb)
 
     # Add typed edges: alpha → beta (REQUIRES), gamma → epsilon (SIMILAR_TO)
-    backend.add_edge(ConceptEdge(
-        source_id="testing:alpha", target_id="testing:beta",
-        relation_type=RelationType.REQUIRES, confidence=0.9,
-    ))
-    backend.add_edge(ConceptEdge(
-        source_id="testing:gamma", target_id="testing:epsilon",
-        relation_type=RelationType.SIMILAR_TO, confidence=0.8,
-    ))
+    backend.add_edge(
+        ConceptEdge(
+            source_id="testing:alpha",
+            target_id="testing:beta",
+            relation_type=RelationType.REQUIRES,
+            confidence=0.9,
+        )
+    )
+    backend.add_edge(
+        ConceptEdge(
+            source_id="testing:gamma",
+            target_id="testing:epsilon",
+            relation_type=RelationType.SIMILAR_TO,
+            confidence=0.8,
+        )
+    )
 
     # Embedding model that maps query text → known vectors
     mapping = {
@@ -264,9 +275,8 @@ class TestTeleportationFactors:
         fired = []
         loaded = TeleportationFactors.load(path)
         loaded.register_hook("on_load", lambda n: fired.append(n))
-        # Hook fires during load, not after register — re-load to test
-        fired2 = []
 
+        # Hook fires during load, not after register — re-load to test
         class HookFactors(TeleportationFactors):
             pass
 
@@ -502,9 +512,7 @@ class TestPPRPowerIteration:
         backend.create_domain("other")
         backend.add_node(make_node("other", "outsider"))
 
-        scores = backend.personalized_pagerank(
-            ["testing:alpha"], domain="testing"
-        )
+        scores = backend.personalized_pagerank(["testing:alpha"], domain="testing")
         assert "other:outsider" not in scores
 
     def test_seed_weights_bias_results(self):
@@ -512,9 +520,7 @@ class TestPPRPowerIteration:
         backend, vi, emb, node_ids = make_graph_with_embeddings()
 
         # Equal seeds
-        scores_equal = backend.personalized_pagerank(
-            ["testing:alpha", "testing:gamma"]
-        )
+        scores_equal = backend.personalized_pagerank(["testing:alpha", "testing:gamma"])
 
         # Bias toward gamma
         scores_biased = backend.personalized_pagerank(
@@ -523,8 +529,12 @@ class TestPPRPowerIteration:
         )
 
         # Gamma's score should increase relative to alpha when biased
-        ratio_equal = scores_equal.get("testing:gamma", 0) / max(scores_equal.get("testing:alpha", 0), 1e-10)
-        ratio_biased = scores_biased.get("testing:gamma", 0) / max(scores_biased.get("testing:alpha", 0), 1e-10)
+        ratio_equal = scores_equal.get("testing:gamma", 0) / max(
+            scores_equal.get("testing:alpha", 0), 1e-10
+        )
+        ratio_biased = scores_biased.get("testing:gamma", 0) / max(
+            scores_biased.get("testing:alpha", 0), 1e-10
+        )
         assert ratio_biased > ratio_equal
 
     def test_extra_edges_create_connections(self):
@@ -563,18 +573,30 @@ class TestPPRPowerIteration:
         backend.add_node(make_node("test", "b"))
         backend.add_node(make_node("test", "c"))
         # Cycle: a → b → c → a
-        backend.add_edge(ConceptEdge(
-            source_id="test:a", target_id="test:b",
-            relation_type=RelationType.REQUIRES, confidence=1.0,
-        ))
-        backend.add_edge(ConceptEdge(
-            source_id="test:b", target_id="test:c",
-            relation_type=RelationType.REQUIRES, confidence=1.0,
-        ))
-        backend.add_edge(ConceptEdge(
-            source_id="test:c", target_id="test:a",
-            relation_type=RelationType.REQUIRES, confidence=1.0,
-        ))
+        backend.add_edge(
+            ConceptEdge(
+                source_id="test:a",
+                target_id="test:b",
+                relation_type=RelationType.REQUIRES,
+                confidence=1.0,
+            )
+        )
+        backend.add_edge(
+            ConceptEdge(
+                source_id="test:b",
+                target_id="test:c",
+                relation_type=RelationType.REQUIRES,
+                confidence=1.0,
+            )
+        )
+        backend.add_edge(
+            ConceptEdge(
+                source_id="test:c",
+                target_id="test:a",
+                relation_type=RelationType.REQUIRES,
+                confidence=1.0,
+            )
+        )
 
         scores = backend.personalized_pagerank(["test:a"])
         # All nodes should have positive mass
@@ -664,13 +686,11 @@ class TestGraphRAGAdapter:
         adapter = GraphRAGAdapter(vi, backend, emb, online_sim_threshold=0.5)
 
         # alpha, beta, delta are all similar (emb_a ≈ emb_b ≈ emb_d)
-        edges = adapter._build_online_edges(
-            ["testing:alpha", "testing:beta", "testing:delta"]
-        )
+        edges = adapter._build_online_edges(["testing:alpha", "testing:beta", "testing:delta"])
         # Should have at least some edges between the similar nodes
         assert len(edges) > 0
         # Each edge is (src, tgt, weight)
-        for src, tgt, weight in edges:
+        for _src, _tgt, weight in edges:
             assert weight >= 0.5
 
     def test_online_edge_gen_skips_dissimilar(self):
@@ -678,9 +698,7 @@ class TestGraphRAGAdapter:
         adapter = GraphRAGAdapter(vi, backend, emb, online_sim_threshold=0.95)
 
         # alpha and gamma are orthogonal, shouldn't connect at 0.95 threshold
-        edges = adapter._build_online_edges(
-            ["testing:alpha", "testing:gamma"]
-        )
+        edges = adapter._build_online_edges(["testing:alpha", "testing:gamma"])
         assert len(edges) == 0
 
     def test_online_edge_gen_single_node_returns_empty(self):
@@ -692,8 +710,11 @@ class TestGraphRAGAdapter:
         backend, vi, emb, node_ids = make_graph_with_embeddings()
         buffer = EdgePromotionBuffer()
         adapter = GraphRAGAdapter(
-            vi, backend, emb,
-            edge_buffer=buffer, online_sim_threshold=0.5,
+            vi,
+            backend,
+            emb,
+            edge_buffer=buffer,
+            online_sim_threshold=0.5,
         )
 
         adapter.retrieve("find alpha", top_k=5)
@@ -707,9 +728,7 @@ class TestGraphRAGAdapter:
         adapter = GraphRAGAdapter(vi, backend, emb)
 
         # alpha → beta edge exists
-        count = adapter._count_persistent_edges(
-            ["testing:alpha", "testing:beta"]
-        )
+        count = adapter._count_persistent_edges(["testing:alpha", "testing:beta"])
         assert count >= 1
 
     def test_vec_only_vs_graph_different_results(self):
@@ -827,9 +846,11 @@ class TestInteroceptionProtocol:
         assert isinstance(source, OutcomeSource)
 
     def test_interoception_protocol_is_runtime_checkable(self):
-        assert hasattr(InteroceptionProvider, "__protocol_attrs__") or hasattr(
-            InteroceptionProvider, "__abstractmethods__"
-        ) or True  # runtime_checkable protocols work with isinstance
+        assert (
+            hasattr(InteroceptionProvider, "__protocol_attrs__")
+            or hasattr(InteroceptionProvider, "__abstractmethods__")
+            or True
+        )  # runtime_checkable protocols work with isinstance
 
     def test_outcome_source_protocol_is_runtime_checkable(self):
         assert hasattr(OutcomeSource, "__protocol_attrs__") or True
@@ -876,9 +897,13 @@ class TestLocalInteroceptionProvider:
     def test_startup_loads_buffer_from_disk(self, tmp_path):
         # Pre-seed buffer file
         buffer_path = tmp_path / "buffer.json"
-        buffer_path.write_text(json.dumps({
-            "a|b": {"hit_count": 3, "scores": [0.8, 0.9, 0.85], "last_seen": "2026-01-01"},
-        }))
+        buffer_path.write_text(
+            json.dumps(
+                {
+                    "a|b": {"hit_count": 3, "scores": [0.8, 0.9, 0.85], "last_seen": "2026-01-01"},
+                }
+            )
+        )
 
         config = InteroceptionConfig(buffer_path=buffer_path)
         provider = LocalInteroceptionProvider(config)
@@ -1022,7 +1047,11 @@ class TestLocalInteroceptionProvider:
 
         weights = provider.get_seed_weights(["a", "b", "c"])
         # All uniform despite different factors
-        assert weights == {"a": pytest.approx(1 / 3), "b": pytest.approx(1 / 3), "c": pytest.approx(1 / 3)}
+        assert weights == {
+            "a": pytest.approx(1 / 3),
+            "b": pytest.approx(1 / 3),
+            "c": pytest.approx(1 / 3),
+        }
 
     def test_teleportation_enabled_applies_factors(self):
         config = InteroceptionConfig(teleportation_enabled=True)
@@ -1139,12 +1168,15 @@ class TestInteroceptionLifecycle:
         provider = LocalInteroceptionProvider(config)
         provider.startup()
 
-        provider.report_outcome("q1", {
-            "a": "accepted",
-            "b": "rejected",
-            "c": "partial",
-            "d": "unknown_garbage",
-        })
+        provider.report_outcome(
+            "q1",
+            {
+                "a": "accepted",
+                "b": "rejected",
+                "c": "partial",
+                "d": "unknown_garbage",
+            },
+        )
 
         assert provider.factors.get("a") == 1.1
         assert provider.factors.get("b") == 0.95
@@ -1187,9 +1219,9 @@ class TestMcpOutcomeSource:
         ]
         source.report(outcomes)
 
-        assert provider.factors.get("a") == 1.1   # accepted
-        assert provider.factors.get("b") == 0.95   # rejected
-        assert provider.factors.get("c") == 1.03   # partial
+        assert provider.factors.get("a") == 1.1  # accepted
+        assert provider.factors.get("b") == 0.95  # rejected
+        assert provider.factors.get("c") == 1.03  # partial
 
     def test_report_empty_outcomes(self):
         provider = LocalInteroceptionProvider()
@@ -1201,9 +1233,11 @@ class TestMcpOutcomeSource:
         provider = LocalInteroceptionProvider()
         source = McpOutcomeSource(provider)
 
-        source.report([
-            Outcome(query_id="q1", item_id="x", result="accepted", source="openclaw"),
-        ])
+        source.report(
+            [
+                Outcome(query_id="q1", item_id="x", result="accepted", source="openclaw"),
+            ]
+        )
         assert provider.factors.get("x") == 1.1
 
 
@@ -1242,7 +1276,11 @@ class TestAdapterInteroception:
         backend, vi, emb, node_ids = make_graph_with_embeddings()
         provider = LocalInteroceptionProvider()
         adapter = GraphRAGAdapter(
-            vi, backend, emb, interoception=provider, online_sim_threshold=0.5,
+            vi,
+            backend,
+            emb,
+            interoception=provider,
+            online_sim_threshold=0.5,
         )
 
         adapter.retrieve("find alpha", top_k=5)
@@ -1273,8 +1311,11 @@ class TestAdapterInteroception:
 
         with caplog.at_level(logging.WARNING):
             adapter = GraphRAGAdapter(
-                vi, backend, emb,
-                factors=factors, interoception=provider,
+                vi,
+                backend,
+                emb,
+                factors=factors,
+                interoception=provider,
             )
 
         assert any("ignoring factors" in r.message.lower() for r in caplog.records)
@@ -1349,7 +1390,9 @@ class TestInteroceptionPropertyTests:
     @given(
         outcomes=st.lists(
             st.tuples(
-                st.text(min_size=1, max_size=10, alphabet=st.characters(whitelist_categories=("L", "N"))),
+                st.text(
+                    min_size=1, max_size=10, alphabet=st.characters(whitelist_categories=("L", "N"))
+                ),
                 st.sampled_from(["accepted", "rejected", "partial"]),
             ),
             min_size=2,
@@ -1439,11 +1482,14 @@ class TestInteroceptionMetamorphic:
     def test_multiple_items_same_query(self):
         """Multiple items in same query batch all get updated."""
         provider = LocalInteroceptionProvider()
-        provider.report_outcome("q1", {
-            "a": "accepted",
-            "b": "accepted",
-            "c": "rejected",
-        })
+        provider.report_outcome(
+            "q1",
+            {
+                "a": "accepted",
+                "b": "accepted",
+                "c": "rejected",
+            },
+        )
         assert provider.factors.get("a") == 1.1
         assert provider.factors.get("b") == 1.1
         assert provider.factors.get("c") == 0.95
@@ -1513,14 +1559,22 @@ class TestFeedbackDrivenRetrievalDelta:
         for nid, emb in embeddings.items():
             backend.add_embedding(nid, emb)
 
-        backend.add_edge(ConceptEdge(
-            source_id="testing:alpha", target_id="testing:beta",
-            relation_type=RelationType.REQUIRES, confidence=0.9,
-        ))
-        backend.add_edge(ConceptEdge(
-            source_id="testing:gamma", target_id="testing:epsilon",
-            relation_type=RelationType.SIMILAR_TO, confidence=0.8,
-        ))
+        backend.add_edge(
+            ConceptEdge(
+                source_id="testing:alpha",
+                target_id="testing:beta",
+                relation_type=RelationType.REQUIRES,
+                confidence=0.9,
+            )
+        )
+        backend.add_edge(
+            ConceptEdge(
+                source_id="testing:gamma",
+                target_id="testing:epsilon",
+                relation_type=RelationType.SIMILAR_TO,
+                confidence=0.8,
+            )
+        )
 
         mapping = {
             "find alpha": emb_a,
@@ -1539,7 +1593,9 @@ class TestFeedbackDrivenRetrievalDelta:
         interoception = LocalInteroceptionProvider(config)
 
         adapter = GraphRAGAdapter(
-            vector_index, backend, embedding_model,
+            vector_index,
+            backend,
+            embedding_model,
             interoception=interoception,
         )
 
@@ -1586,32 +1642,26 @@ class TestFeedbackDrivenRetrievalDelta:
         interoception = LocalInteroceptionProvider(config)
 
         adapter = GraphRAGAdapter(
-            vector_index, backend, embedding_model,
+            vector_index,
+            backend,
+            embedding_model,
             interoception=interoception,
         )
 
         # Baseline
         result0 = adapter.retrieve("find alpha", top_k=5)
-        baseline_alpha = next(
-            (i.score for i in result0.items if i.id == "testing:alpha"), None
-        )
+        baseline_alpha = next((i.score for i in result0.items if i.id == "testing:alpha"), None)
         assert baseline_alpha is not None
 
         # 5 rounds of "accepted" feedback for alpha
         for _ in range(5):
             result = adapter.retrieve("find alpha", top_k=5)
-            outcomes = {
-                item.id: "accepted"
-                for item in result.items
-                if "alpha" in item.id
-            }
+            outcomes = {item.id: "accepted" for item in result.items if "alpha" in item.id}
             adapter.feedback(result.query_id, outcomes)
 
         # Final query
         result_final = adapter.retrieve("find alpha", top_k=5)
-        final_alpha = next(
-            (i.score for i in result_final.items if i.id == "testing:alpha"), None
-        )
+        final_alpha = next((i.score for i in result_final.items if i.id == "testing:alpha"), None)
         assert final_alpha is not None
         assert final_alpha > baseline_alpha, (
             f"Expected alpha score to increase after 5 rounds of feedback. "
@@ -1635,11 +1685,13 @@ class TestFeedbackDrivenRetrievalDelta:
         interoception1.startup()
 
         adapter1 = GraphRAGAdapter(
-            vector_index, backend, embedding_model,
+            vector_index,
+            backend,
+            embedding_model,
             interoception=interoception1,
         )
 
-        result1 = adapter1.retrieve("find alpha", top_k=5)
+        adapter1.retrieve("find alpha", top_k=5)
         # Accept alpha repeatedly to build up factor
         for _ in range(3):
             r = adapter1.retrieve("find alpha", top_k=5)
@@ -1648,9 +1700,7 @@ class TestFeedbackDrivenRetrievalDelta:
 
         # Query after feedback
         post_feedback = adapter1.retrieve("find alpha", top_k=5)
-        post_alpha = next(
-            (i.score for i in post_feedback.items if i.id == "testing:alpha"), None
-        )
+        post_alpha = next((i.score for i in post_feedback.items if i.id == "testing:alpha"), None)
 
         # Capture factor state
         factor_before = interoception1.factors.get("testing:alpha")
@@ -1669,7 +1719,9 @@ class TestFeedbackDrivenRetrievalDelta:
         )
 
         adapter2 = GraphRAGAdapter(
-            vector_index, backend, embedding_model,
+            vector_index,
+            backend,
+            embedding_model,
             interoception=interoception2,
         )
 
@@ -1692,7 +1744,9 @@ class TestFeedbackDrivenRetrievalDelta:
         interoception = LocalInteroceptionProvider(config)
 
         adapter = GraphRAGAdapter(
-            vector_index, backend, embedding_model,
+            vector_index,
+            backend,
+            embedding_model,
             interoception=interoception,
         )
 
@@ -1716,7 +1770,9 @@ class TestFeedbackDrivenRetrievalDelta:
         interoception = LocalInteroceptionProvider(config)
 
         adapter = GraphRAGAdapter(
-            vector_index, backend, embedding_model,
+            vector_index,
+            backend,
+            embedding_model,
             interoception=interoception,
         )
 
@@ -1759,9 +1815,7 @@ class TestFeedbackDrivenRetrievalDelta:
         # Baseline query through client
         result1 = client.query("find alpha", top_k=5)
         assert len(result1.items) > 0
-        baseline_alpha = next(
-            (i.score for i in result1.items if i.id == "testing:alpha"), None
-        )
+        baseline_alpha = next((i.score for i in result1.items if i.id == "testing:alpha"), None)
         assert baseline_alpha is not None
 
         # Feedback through client
@@ -1772,9 +1826,7 @@ class TestFeedbackDrivenRetrievalDelta:
 
         # Post-feedback query
         result2 = client.query("find alpha", top_k=5)
-        post_alpha = next(
-            (i.score for i in result2.items if i.id == "testing:alpha"), None
-        )
+        post_alpha = next((i.score for i in result2.items if i.id == "testing:alpha"), None)
         assert post_alpha is not None
         assert post_alpha > baseline_alpha, (
             f"Expected score increase through client feedback loop. "

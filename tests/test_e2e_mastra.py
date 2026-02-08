@@ -66,32 +66,36 @@ def mcp_server():
         vector_index=vector_index,
     )
 
-    set_llm_backend(StubLLMBackend(concepts=[
-        {
-            "name": "OAuth2",
-            "description": "OAuth2 is an open standard for access delegation, "
-                           "commonly used for token-based authentication and authorization",
-            "confidence": 1.0,
-        },
-        {
-            "name": "JWT",
-            "description": "JSON Web Tokens are compact, URL-safe tokens for "
-                           "transmitting claims between parties in web applications",
-            "confidence": 0.95,
-        },
-        {
-            "name": "RBAC",
-            "description": "Role-based access control restricts system access to "
-                           "authorized users based on their assigned organizational roles",
-            "confidence": 0.9,
-        },
-        {
-            "name": "MFA",
-            "description": "Multi-factor authentication requires users to provide "
-                           "two or more verification factors to gain access to a resource",
-            "confidence": 0.85,
-        },
-    ]))
+    set_llm_backend(
+        StubLLMBackend(
+            concepts=[
+                {
+                    "name": "OAuth2",
+                    "description": "OAuth2 is an open standard for access delegation, "
+                    "commonly used for token-based authentication and authorization",
+                    "confidence": 1.0,
+                },
+                {
+                    "name": "JWT",
+                    "description": "JSON Web Tokens are compact, URL-safe tokens for "
+                    "transmitting claims between parties in web applications",
+                    "confidence": 0.95,
+                },
+                {
+                    "name": "RBAC",
+                    "description": "Role-based access control restricts system access to "
+                    "authorized users based on their assigned organizational roles",
+                    "confidence": 0.9,
+                },
+                {
+                    "name": "MFA",
+                    "description": "Multi-factor authentication requires users to provide "
+                    "two or more verification factors to gain access to a resource",
+                    "confidence": 0.85,
+                },
+            ]
+        )
+    )
 
     return server
 
@@ -102,7 +106,8 @@ def ingested_domain(mcp_server, tmp_path_factory):
     from qortex.mcp.server import _ingest_impl
 
     doc_path = tmp_path_factory.mktemp("docs") / "auth_guide.txt"
-    doc_path.write_text(textwrap.dedent("""\
+    doc_path.write_text(
+        textwrap.dedent("""\
         Authentication and Authorization Best Practices
 
         OAuth2 provides delegated authorization for web applications.
@@ -115,7 +120,8 @@ def ingested_domain(mcp_server, tmp_path_factory):
 
         When implementing authentication, always use HTTPS, validate all tokens server-side,
         and implement proper token rotation and revocation mechanisms.
-    """))
+    """)
+    )
 
     result = _ingest_impl(str(doc_path), "security")
     assert "error" not in result, f"Ingest failed: {result}"
@@ -247,12 +253,14 @@ class TestMastraListIndexes:
         # Map to Mastra IndexStats shape
         mastra_indexes = []
         for d in result["domains"]:
-            mastra_indexes.append({
-                "name": d["name"],
-                "dimension": _embedding_model.dimensions,
-                "metric": "cosine",
-                "count": d["concept_count"],
-            })
+            mastra_indexes.append(
+                {
+                    "name": d["name"],
+                    "dimension": _embedding_model.dimensions,
+                    "metric": "cosine",
+                    "count": d["concept_count"],
+                }
+            )
 
         expected_keys = {"name", "dimension", "metric", "count"}
         assert len(mastra_indexes) > 0
@@ -409,10 +417,9 @@ class TestMastraE2ESimulation:
 
         # With real embeddings, results should be semantically relevant
         all_content = " ".join(r["document"].lower() for r in mastra_results)
-        assert any(
-            term in all_content
-            for term in ["auth", "token", "oauth", "jwt", "access"]
-        ), f"Results not semantically relevant: {all_content[:200]}"
+        assert any(term in all_content for term in ["auth", "token", "oauth", "jwt", "access"]), (
+            f"Results not semantically relevant: {all_content[:200]}"
+        )
 
         # --- Step 5: feedback() (the upgrade Mastra doesn't have) ---
         fb = _feedback_impl(

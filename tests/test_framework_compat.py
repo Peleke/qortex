@@ -130,19 +130,25 @@ def client():
     backend.create_domain("security")
     nodes = [
         ConceptNode(
-            id="security:oauth2", name="OAuth2",
+            id="security:oauth2",
+            name="OAuth2",
             description="OAuth2 authorization framework for HTTP services",
-            domain="security", source_id="docs/auth.md",
+            domain="security",
+            source_id="docs/auth.md",
         ),
         ConceptNode(
-            id="security:jwt", name="JWT",
+            id="security:jwt",
+            name="JWT",
             description="JSON Web Tokens for compact claims transfer",
-            domain="security", source_id="docs/auth.md",
+            domain="security",
+            source_id="docs/auth.md",
         ),
         ConceptNode(
-            id="security:rbac", name="RBAC",
+            id="security:rbac",
+            name="RBAC",
             description="Role-based access control for authorization",
-            domain="security", source_id="docs/auth.md",
+            domain="security",
+            source_id="docs/auth.md",
         ),
     ]
     for node in nodes:
@@ -153,7 +159,9 @@ def client():
         backend.add_embedding(node.id, emb)
 
     return LocalQortexClient(
-        vector_index=vector_index, backend=backend, embedding_model=embedding,
+        vector_index=vector_index,
+        backend=backend,
+        embedding_model=embedding,
     )
 
 
@@ -195,7 +203,9 @@ class TestCrewAICompat:
         for r in results:
             assert isinstance(r["id"], str), f"id should be str, got {type(r['id'])}"
             assert isinstance(r["content"], str), f"content should be str, got {type(r['content'])}"
-            assert isinstance(r["metadata"], dict), f"metadata should be dict, got {type(r['metadata'])}"
+            assert isinstance(r["metadata"], dict), (
+                f"metadata should be dict, got {type(r['metadata'])}"
+            )
             assert isinstance(r["score"], float), f"score should be float, got {type(r['score'])}"
 
     def test_accepts_list_str_query(self, client):
@@ -285,7 +295,9 @@ class TestAgnoCompat:
                 assert doc["id"] is None or isinstance(doc["id"], str)
                 assert doc["name"] is None or isinstance(doc["name"], str)
                 assert isinstance(doc["meta_data"], dict)
-                assert doc["reranking_score"] is None or isinstance(doc["reranking_score"], (int, float))
+                assert doc["reranking_score"] is None or isinstance(
+                    doc["reranking_score"], (int, float)
+                )
 
     def test_can_construct_real_agno_document_from_output(self, client):
         """Our dict output can construct an actual agno Document instance."""
@@ -367,8 +379,7 @@ class TestLangChainCompat:
         # This is REAL langchain LCEL — not a mock
         def format_docs(docs):
             return "\n---\n".join(
-                f"[{doc.metadata.get('domain', '?')}] {doc.page_content}"
-                for doc in docs
+                f"[{doc.metadata.get('domain', '?')}] {doc.page_content}" for doc in docs
             )
 
         chain = retriever | RunnableLambda(format_docs)
@@ -422,8 +433,12 @@ class TestLangChainCompat:
     def test_query_item_to_langchain_document_roundtrip(self):
         """QueryItem.to_langchain_document() returns a real Document."""
         item = QueryItem(
-            id="test:1", content="OAuth2 protocol", score=0.95,
-            domain="security", node_id="test:1", metadata={"source": "docs"},
+            id="test:1",
+            content="OAuth2 protocol",
+            score=0.95,
+            domain="security",
+            node_id="test:1",
+            metadata={"source": "docs"},
         )
         doc = item.to_langchain_document()
 
@@ -524,16 +539,20 @@ class TestCrossFrameworkCompat:
         query = "OAuth2 authentication"
 
         crewai_ids = [
-            r["id"] for r in
-            QortexKnowledgeStorage(client=client, domains=["security"]).search([query], limit=3)
+            r["id"]
+            for r in QortexKnowledgeStorage(client=client, domains=["security"]).search(
+                [query], limit=3
+            )
         ]
         agno_ids = [
-            (r["id"] if isinstance(r, dict) else r.id) for r in
-            QortexKnowledge(client=client, domains=["security"], top_k=3).retrieve(query)
+            (r["id"] if isinstance(r, dict) else r.id)
+            for r in QortexKnowledge(client=client, domains=["security"], top_k=3).retrieve(query)
         ]
         mastra_ids = [
-            r["id"] for r in
-            QortexVectorStore(client=client).query(index_name="security", query_text=query, top_k=3)
+            r["id"]
+            for r in QortexVectorStore(client=client).query(
+                index_name="security", query_text=query, top_k=3
+            )
         ]
 
         assert crewai_ids == agno_ids == mastra_ids
@@ -546,12 +565,14 @@ class TestCrossFrameworkCompat:
         query = "role-based access"
 
         lc_ids = [
-            doc.id for doc in
-            QortexRetriever(client=client, domains=["security"], top_k=3).invoke(query)
+            doc.id
+            for doc in QortexRetriever(client=client, domains=["security"], top_k=3).invoke(query)
         ]
         crewai_ids = [
-            r["id"] for r in
-            QortexKnowledgeStorage(client=client, domains=["security"]).search([query], limit=3)
+            r["id"]
+            for r in QortexKnowledgeStorage(client=client, domains=["security"]).search(
+                [query], limit=3
+            )
         ]
 
         assert lc_ids == crewai_ids
