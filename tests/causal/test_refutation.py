@@ -56,7 +56,7 @@ class TestMarginalIndependence:
             method="d_separation",
         )
         result = refuter.test_independence(assertion, independent_data)
-        assert result.consistent is True
+        assert result.consistent == True  # noqa: E712 — numpy bool fails `is True`
         assert result.p_value > 0.05
 
     def test_dependent_data_consistent(self, refuter, dependent_data):
@@ -68,7 +68,7 @@ class TestMarginalIndependence:
             method="d_separation",
         )
         result = refuter.test_independence(assertion, dependent_data)
-        assert result.consistent is True
+        assert result.consistent == True  # noqa: E712 — numpy bool fails `is True`
         assert result.p_value < 0.05
 
     def test_wrong_claim_detected(self, refuter, dependent_data):
@@ -81,7 +81,7 @@ class TestMarginalIndependence:
             method="d_separation",
         )
         result = refuter.test_independence(assertion, dependent_data)
-        assert result.consistent is False
+        assert result.consistent == False  # noqa: E712 — numpy bool fails `is True`
 
 
 class TestConditionalIndependence:
