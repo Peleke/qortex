@@ -12,8 +12,8 @@ from qortex.core.templates import (
 
 
 class TestRegistry:
-    def test_registry_has_30_templates(self):
-        assert len(EDGE_RULE_TEMPLATE_REGISTRY) == 30
+    def test_registry_has_39_templates(self):
+        assert len(EDGE_RULE_TEMPLATE_REGISTRY) == 39
 
     def test_3_variants_per_relation_type(self):
         for rt in RelationType:

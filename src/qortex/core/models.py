@@ -46,6 +46,11 @@ class RelationType(StrEnum):
     SUPPORTS = "supports"  # A provides evidence for B
     CHALLENGES = "challenges"  # A provides counter-evidence for B
 
+    # Database-derived relationships (Layer 3: schema → graph)
+    BELONGS_TO = "belongs_to"  # FK ownership (e.g. meal.user_id → user)
+    INSTANCE_OF = "instance_of"  # FK to template/catalog (e.g. event.template_id → template)
+    CONTAINS = "contains"  # Parent contains children (inverse of PART_OF for schema)
+
 
 @dataclass
 class ConceptNode:
@@ -144,7 +149,7 @@ class SourceMetadata:
 
     id: str
     name: str
-    source_type: Literal["pdf", "markdown", "text", "url"]
+    source_type: Literal["pdf", "markdown", "text", "url", "database"]
     path_or_url: str
 
     # Ingestion info
