@@ -91,8 +91,10 @@ def _ensure_initialized() -> None:
         from qortex.vec.embeddings import SentenceTransformerEmbedding
 
         _embedding_model = SentenceTransformerEmbedding()
-    except ImportError:
-        logger.warning("qortex[vec] not installed. Vector search unavailable.")
+        # Eagerly verify the underlying model is loadable
+        _ = _embedding_model.dimensions
+    except (ImportError, Exception) as e:
+        logger.warning("qortex[vec] not installed (%s). Vector search unavailable.", e)
         _embedding_model = None
 
     # --- Vec layer (independent of graph) ---
