@@ -8,20 +8,16 @@ common database patterns.
 from __future__ import annotations
 
 import re
-from typing import Any
 
 from qortex.core.models import RelationType
 from qortex.sources.graph_ingestor import (
     CheckConstraintInfo,
     CrossDatabaseEdge,
-    EdgeMapping,
     ForeignKeyInfo,
     RuleMapping,
     SchemaGraph,
-    TableMapping,
     TableSchemaFull,
 )
-
 
 # ---------------------------------------------------------------------------
 # FK → RelationType classification
@@ -44,9 +40,9 @@ def classify_fk_relation(fk: ForeignKeyInfo, source_table: TableSchemaFull | Non
 
     Rules (in priority order):
     1. user_id, owner_id, etc. → BELONGS_TO
-    2. *_template_id, *_type_id → INSTANCE_OF
-    3. Source table is a junction table (M2M) → USES
-    4. CASCADE on delete → PART_OF (child lifecycle depends on parent)
+    2. Source table is a junction table (M2M) → USES
+    3. CASCADE on delete → PART_OF (child lifecycle depends on parent)
+    4. *_template_id, *_type_id → INSTANCE_OF (only if not CASCADE)
     5. Default → PART_OF
     """
     col_lower = fk.source_column.lower()
@@ -55,11 +51,7 @@ def classify_fk_relation(fk: ForeignKeyInfo, source_table: TableSchemaFull | Non
     if col_lower in _OWNERSHIP_PATTERNS:
         return RelationType.BELONGS_TO.value
 
-    # 2. Template/catalog instantiation
-    if _TEMPLATE_PATTERNS.match(col_lower):
-        return RelationType.INSTANCE_OF.value
-
-    # 3. Junction table (M2M)
+    # 2. Junction table (M2M) — check before template pattern
     if source_table is not None:
         table_lower = source_table.name.lower()
         if any(table_lower.endswith(s) for s in _JUNCTION_SUFFIXES):
@@ -76,9 +68,13 @@ def classify_fk_relation(fk: ForeignKeyInfo, source_table: TableSchemaFull | Non
         if len(source_table.foreign_keys) >= 2 and len(non_key_cols) <= 2:
             return RelationType.USES.value
 
-    # 4. CASCADE → tight coupling → PART_OF
+    # 3. CASCADE → tight coupling → PART_OF (overrides template pattern)
     if fk.on_delete == "CASCADE":
         return RelationType.PART_OF.value
+
+    # 4. Template/catalog instantiation (only if not CASCADE)
+    if _TEMPLATE_PATTERNS.match(col_lower):
+        return RelationType.INSTANCE_OF.value
 
     # 5. Default
     return RelationType.PART_OF.value
@@ -201,9 +197,16 @@ def detect_catalog_table(schema: TableSchemaFull) -> bool:
     if "slug" in col_names:
         return True
 
-    # Template/type/category suffix
-    if any(table_lower.endswith(s) for s in ("_templates", "_types", "_categories", "_items")):
+    # Template/type/category suffix (but NOT junction tables like meal_food_items)
+    _CATALOG_SUFFIXES = ("_templates", "_types", "_categories")
+    if any(table_lower.endswith(s) for s in _CATALOG_SUFFIXES):
         return True
+
+    # _items suffix: only catalog if NOT a junction table (has ≤1 FK)
+    if table_lower.endswith("_items"):
+        fk_count = len(schema.foreign_keys) if hasattr(schema, "foreign_keys") else 0
+        if fk_count <= 1:
+            return True
 
     # is_active/is_public flags
     if "is_active" in col_names or "is_public" in col_names:

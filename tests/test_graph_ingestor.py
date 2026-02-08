@@ -219,13 +219,17 @@ class TestGraphMapping:
 
     def test_fk_edge_types(self):
         """FK → correct RelationType classification."""
-        # user_id → BELONGS_TO
+        # habit_events has rich data columns (date, response, notes) → not a junction table
         table = TableSchemaFull(
             name="habit_events",
             columns=[
                 _col("id", "uuid", is_pk=True),
                 _col("user_id", "uuid"),
                 _col("habit_template_id", "uuid"),
+                _col("date", "date"),
+                _col("response", "text"),
+                _col("notes", "text"),
+                _col("created_at", "timestamptz"),
             ],
             foreign_keys=[
                 _fk("habit_events", "user_id", "users"),
@@ -237,7 +241,8 @@ class TestGraphMapping:
         fk_template = table.foreign_keys[1]
 
         assert classify_fk_relation(fk_user) == RelationType.BELONGS_TO.value
-        assert classify_fk_relation(fk_template, table) == RelationType.INSTANCE_OF.value
+        # CASCADE overrides template pattern → PART_OF (lifecycle coupling)
+        assert classify_fk_relation(fk_template, table) == RelationType.PART_OF.value
 
     def test_cascade_part_of(self):
         """CASCADE FK without template pattern → PART_OF."""

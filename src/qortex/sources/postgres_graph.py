@@ -162,7 +162,7 @@ class PostgresGraphIngestor:
                         att_src.attname AS source_column,
                         cls_tgt.relname AS target_table,
                         att_tgt.attname AS target_column,
-                        con.confdeltype AS on_delete_code
+                        con.confdeltype::char AS on_delete_code
                     FROM pg_constraint con
                     JOIN pg_class cls_src ON con.conrelid = cls_src.oid
                     JOIN pg_namespace nsp ON cls_src.relnamespace = nsp.oid

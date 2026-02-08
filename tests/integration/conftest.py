@@ -7,6 +7,7 @@ Provides SourceConfig fixtures for MindMirror (4 DBs) and interlinear (1 DB).
 from __future__ import annotations
 
 import socket
+import time
 from typing import Any
 
 import numpy as np
@@ -35,6 +36,10 @@ DB_NAMES = {
     "interlinear": "interlinear",
 }
 
+# Docker credentials (must match docker-compose.yml)
+PG_USER = "qortex_test"
+PG_PASSWORD = "qortex_test"
+
 
 def _pg_available(port: int, host: str = "localhost", timeout: float = 1.0) -> bool:
     """Check if a PostgreSQL port is reachable via TCP."""
@@ -48,7 +53,42 @@ def _pg_available(port: int, host: str = "localhost", timeout: float = 1.0) -> b
         return False
 
 
-DOCKER_AVAILABLE = all(_pg_available(p) for p in PORTS.values())
+def _pg_ready(port: int, db: str, retries: int = 3, delay: float = 1.0) -> bool:
+    """Check if PostgreSQL is ready to accept queries (not just TCP open)."""
+    if not _pg_available(port):
+        return False
+    try:
+        import asyncpg
+        import asyncio
+
+        async def _check():
+            conn = await asyncpg.connect(
+                host="localhost", port=port, user=PG_USER, password=PG_PASSWORD,
+                database=db, timeout=5,
+            )
+            # Verify init scripts have run by checking for tables
+            count = await conn.fetchval(
+                "SELECT count(*) FROM information_schema.tables WHERE table_schema = 'public'"
+            )
+            await conn.close()
+            return count > 0
+
+        for i in range(retries):
+            try:
+                if asyncio.run(_check()):
+                    return True
+            except Exception:
+                if i < retries - 1:
+                    time.sleep(delay)
+        return False
+    except ImportError:
+        # asyncpg not installed — fall back to socket check
+        return _pg_available(port)
+
+
+DOCKER_AVAILABLE = all(
+    _pg_ready(PORTS[svc], DB_NAMES[svc]) for svc in PORTS
+)
 
 pytestmark = [
     pytest.mark.integration,
@@ -101,10 +141,10 @@ class FakeVectorIndex:
         for vid, emb in zip(ids, embeddings):
             self.vectors[vid] = np.array(emb)
 
-    def query(
+    def search(
         self, embedding: list[float], top_k: int = 10, **kwargs
     ) -> list[tuple[str, float]]:
-        """Actual cosine similarity search."""
+        """Actual cosine similarity search (matches VectorIndex protocol)."""
         if not self.vectors:
             return []
         q = np.array(embedding)
@@ -119,6 +159,16 @@ class FakeVectorIndex:
         scores.sort(key=lambda x: x[1], reverse=True)
         return scores[:top_k]
 
+    # Alias for backward compat with tests that use query()
+    query = search
+
+    def size(self) -> int:
+        return len(self.vectors)
+
+    def remove(self, ids: list[str]) -> None:
+        for vid in ids:
+            self.vectors.pop(vid, None)
+
     def __len__(self) -> int:
         return len(self.vectors)
 
@@ -132,7 +182,7 @@ def _conn_string(service: str) -> str:
     """Build connection string for a Docker service."""
     port = PORTS[service]
     db = DB_NAMES[service]
-    return f"postgresql://postgres:postgres@localhost:{port}/{db}"
+    return f"postgresql://{PG_USER}:{PG_PASSWORD}@localhost:{port}/{db}"
 
 
 @pytest.fixture

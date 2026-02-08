@@ -11,7 +11,7 @@ from __future__ import annotations
 
 import pytest
 
-from qortex.sources.base import IngestConfig, SourceConfig
+from qortex.sources.base import IngestConfig
 from qortex.sources.postgres import PostgresIngestor
 
 pytestmark = pytest.mark.integration
@@ -44,7 +44,7 @@ class TestUnifiedIngestor:
     async def test_from_url_factory(self, fake_embedding, fake_vec_index):
         """from_url() factory creates working ingestor."""
         ingestor = PostgresIngestor.from_url(
-            "postgresql://postgres:postgres@localhost:15435/swae_movements",
+            "postgresql://qortex_test:qortex_test@localhost:15435/swae_movements",
             source_id="mm_movements",
             domain_map={"*": "exercise"},
             ingest=IngestConfig(targets="vec"),

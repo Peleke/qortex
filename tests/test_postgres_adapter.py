@@ -614,11 +614,18 @@ class TestPostgresIngestor:
         assert result.vec_result.rows_added == 1
         assert result.graph_result is None
 
-    async def test_run_graph_only_not_implemented(self):
+    async def test_run_graph_only_skips_vec(self):
+        """targets='graph' skips vec sync, runs graph ingest."""
+        from qortex.core.memory import InMemoryBackend
+
+        backend = InMemoryBackend()
+        backend.connect()
+
         ingestor = PostgresIngestor.from_url(
             "postgresql://localhost/testdb",
             source_id="test",
             ingest=IngestConfig(targets="graph"),
+            backend=backend,
         )
 
         mock_conn = _mock_asyncpg_connection(
@@ -631,12 +638,19 @@ class TestPostgresIngestor:
         mock_asyncpg.connect = AsyncMock(return_value=mock_conn)
 
         with patch.dict(sys.modules, {"asyncpg": mock_asyncpg}):
-            with pytest.raises(NotImplementedError):
-                await ingestor.run()
+            result = await ingestor.run()
+
+        # No vec sync happened
+        assert result.vec_result is None
 
     async def test_run_both_targets(self):
+        """targets='both' runs vec sync + graph ingest."""
+        from qortex.core.memory import InMemoryBackend
+
         vec_index = FakeVectorIndex()
         embedding = FakeEmbedding()
+        backend = InMemoryBackend()
+        backend.connect()
 
         ingestor = PostgresIngestor.from_url(
             "postgresql://localhost/testdb",
@@ -644,6 +658,7 @@ class TestPostgresIngestor:
             ingest=IngestConfig(targets="both"),
             vector_index=vec_index,
             embedding_model=embedding,
+            backend=backend,
         )
 
         mock_conn = _mock_asyncpg_connection(
@@ -660,8 +675,11 @@ class TestPostgresIngestor:
         mock_asyncpg.connect = AsyncMock(return_value=mock_conn)
 
         with patch.dict(sys.modules, {"asyncpg": mock_asyncpg}):
-            with pytest.raises(NotImplementedError):
-                await ingestor.run()
+            result = await ingestor.run()
+
+        # Vec sync ran
+        assert result.vec_result is not None
+        assert result.vec_result.vectors_created >= 1
 
 
 # ===========================================================================
