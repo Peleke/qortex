@@ -22,14 +22,12 @@ from __future__ import annotations
 
 import hashlib
 
-import pytest
-
 from langchain_core.documents import Document
 from langchain_core.embeddings import Embeddings
 from langchain_core.vectorstores import VectorStore
 
 from qortex.adapters.langchain_vectorstore import QortexVectorStore
-from qortex.client import LocalQortexClient, RuleItem
+from qortex.client import LocalQortexClient
 from qortex.core.memory import InMemoryBackend
 from qortex.core.models import ConceptEdge, ConceptNode, ExplicitRule, RelationType
 from qortex.vec.index import NumpyVectorIndex

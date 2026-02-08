@@ -19,7 +19,7 @@ import hashlib
 
 import pytest
 
-from qortex.client import LocalQortexClient, QueryItem, QueryResult
+from qortex.client import LocalQortexClient
 from qortex.core.memory import InMemoryBackend
 from qortex.core.models import ConceptNode
 from qortex.vec.index import NumpyVectorIndex

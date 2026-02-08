@@ -689,7 +689,13 @@ def _vector_create_index_impl(
             }
         return {"status": "exists", "index_name": index_name}
 
-    from qortex.vec.index import NumpyVectorIndex
+    try:
+        from qortex.vec.index import NumpyVectorIndex
+    except ImportError:
+        return {
+            "error": "numpy is required for vector operations. "
+            "Install with: pip install qortex (numpy is a required dependency).",
+        }
 
     _vector_indexes[index_name] = NumpyVectorIndex(dimensions=dimension)
     _index_configs[index_name] = {"dimension": dimension, "metric": metric}

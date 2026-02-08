@@ -2929,9 +2929,11 @@ wheels = [
 
 [[package]]
 name = "qortex"
-version = "0.1.0"
+version = "0.2.3"
 source = { editable = "." }
 dependencies = [
+    { name = "fastmcp" },
+    { name = "numpy" },
     { name = "pyyaml" },
     { name = "typer" },
 ]
@@ -2944,7 +2946,6 @@ all = [
     { name = "mypy" },
     { name = "neo4j" },
     { name = "networkx" },
-    { name = "numpy" },
     { name = "pdfplumber" },
     { name = "pymupdf" },
     { name = "pytest" },
@@ -2971,7 +2972,6 @@ dev = [
     { name = "hypothesis" },
     { name = "mypy" },
     { name = "networkx" },
-    { name = "numpy" },
     { name = "pytest" },
     { name = "pytest-asyncio" },
     { name = "pytest-cov" },
@@ -2992,11 +2992,9 @@ pdf = [
     { name = "pymupdf" },
 ]
 vec = [
-    { name = "numpy" },
     { name = "sentence-transformers" },
 ]
 vec-sqlite = [
-    { name = "numpy" },
     { name = "sentence-transformers" },
     { name = "sqlite-vec" },
 ]
@@ -3006,6 +3004,7 @@ requires-dist = [
     { name = "anthropic", marker = "extra == 'llm'", specifier = ">=0.18" },
     { name = "chirho", marker = "extra == 'causal-full'", specifier = ">=0.2" },
     { name = "dowhy", marker = "extra == 'causal-dowhy'", specifier = ">=0.11" },
+    { name = "fastmcp", specifier = ">=2.0" },
     { name = "fastmcp", marker = "extra == 'mcp'", specifier = ">=2.0" },
     { name = "hypothesis", marker = "extra == 'dev'", specifier = ">=6.0" },
     { name = "mypy", marker = "extra == 'dev'", specifier = ">=1.8" },
@@ -3014,8 +3013,7 @@ requires-dist = [
     { name = "networkx", marker = "extra == 'causal-dowhy'", specifier = ">=3.0" },
     { name = "networkx", marker = "extra == 'causal-full'", specifier = ">=3.0" },
     { name = "networkx", marker = "extra == 'dev'", specifier = ">=3.0" },
-    { name = "numpy", marker = "extra == 'dev'", specifier = ">=1.24" },
-    { name = "numpy", marker = "extra == 'vec'", specifier = ">=1.24" },
+    { name = "numpy", specifier = ">=1.24" },
     { name = "pdfplumber", marker = "extra == 'pdf'", specifier = ">=0.10" },
     { name = "pymupdf", marker = "extra == 'pdf'", specifier = ">=1.23" },
     { name = "pyro-ppl", marker = "extra == 'causal-full'", specifier = ">=1.8" },

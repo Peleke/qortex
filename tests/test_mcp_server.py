@@ -16,7 +16,6 @@ from qortex.core.memory import InMemoryBackend
 from qortex.core.models import ConceptNode
 from qortex.mcp import server as mcp_server
 
-
 # ---------------------------------------------------------------------------
 # Test embedding model (deterministic, no external deps)
 # ---------------------------------------------------------------------------

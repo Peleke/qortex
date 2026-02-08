@@ -13,14 +13,11 @@ from __future__ import annotations
 
 import hashlib
 
-import pytest
-
 from qortex.client import (
     EdgeItem,
     ExploreResult,
     LocalQortexClient,
     NodeItem,
-    QueryItem,
     QueryResult,
     RuleItem,
     RulesResult,

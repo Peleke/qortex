@@ -23,9 +23,9 @@ from qortex.client import (
     FeedbackResult,
     IngestResult,
     LocalQortexClient,
+    QortexClient,
     QueryItem,
     QueryResult,
-    QortexClient,
     StatusResult,
 )
 from qortex.core.memory import InMemoryBackend
@@ -792,7 +792,6 @@ class TestCrossAdapterConsistency:
         assert crewai_ids == agno_ids == mastra_ids
 
     def test_scores_consistent_across_adapters(self):
-        from qortex.adapters.agno import QortexKnowledge
         from qortex.adapters.crewai import QortexKnowledgeStorage
         from qortex.adapters.mastra import QortexVectorStore
 

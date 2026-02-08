@@ -1,6 +1,6 @@
 [project]
 name = "qortex"
-version = "0.2.2"
+version = "0.2.3"
 description = "Knowledge graph ingestion engine for automated rule generation"
 readme = "README.md"
 requires-python = ">=3.11"
@@ -28,6 +28,7 @@ dependencies = [
     "typer>=0.9",
     "pyyaml>=6.0",
     "fastmcp>=2.0",
+    "numpy>=1.24",
 ]
 
 [project.optional-dependencies]
@@ -36,7 +37,6 @@ pdf = [
     "pdfplumber>=0.10",
 ]
 vec = [
-    "numpy>=1.24",
     "sentence-transformers>=2.2",
 ]
 vec-sqlite = [
@@ -67,7 +67,6 @@ dev = [
     "mypy>=1.8",
     "types-PyYAML>=6.0",
     "networkx>=3.0",
-    "numpy>=1.24",
 ]
 llm = [
     "anthropic>=0.18",

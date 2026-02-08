@@ -14,17 +14,17 @@ Coverage:
 import json
 import logging
 import math
-import uuid
 
 import pytest
 from hypothesis import given, settings
 from hypothesis import strategies as st
 
+from qortex.client import LocalQortexClient
 from qortex.core.memory import InMemoryBackend
 from qortex.core.models import ConceptEdge, ConceptNode, RelationType
 from qortex.hippocampus.adapter import GraphRAGAdapter, VecOnlyAdapter, get_adapter
 from qortex.hippocampus.buffer import EdgePromotionBuffer, EdgeStats, PromotionResult
-from qortex.hippocampus.factors import TeleportationFactors, FactorUpdate
+from qortex.hippocampus.factors import FactorUpdate, TeleportationFactors
 from qortex.hippocampus.interoception import (
     InteroceptionConfig,
     InteroceptionProvider,
@@ -33,9 +33,7 @@ from qortex.hippocampus.interoception import (
     Outcome,
     OutcomeSource,
 )
-from qortex.client import LocalQortexClient
 from qortex.vec.index import NumpyVectorIndex
-
 
 # =============================================================================
 # Helpers
@@ -1361,7 +1359,6 @@ class TestInteroceptionPropertyTests:
     @settings(max_examples=30)
     def test_outcome_order_independence(self, outcomes):
         """Same outcomes in different order produce the same final state."""
-        import random
 
         p1 = LocalInteroceptionProvider()
         p2 = LocalInteroceptionProvider()

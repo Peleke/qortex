@@ -18,7 +18,7 @@ from hypothesis import given, settings
 from hypothesis import strategies as st
 
 from qortex.core.memory import InMemoryBackend
-from qortex.core.models import ConceptEdge, ConceptNode, ExplicitRule, RelationType
+from qortex.core.models import ConceptNode
 from qortex.hippocampus.adapter import RetrievalItem, RetrievalResult, VecOnlyAdapter
 from qortex.vec.index import NumpyVectorIndex
 
