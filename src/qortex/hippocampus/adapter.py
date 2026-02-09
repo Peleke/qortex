@@ -10,19 +10,30 @@ vec-only and GraphRAG is transparent to consumers.
 
 from __future__ import annotations
 
-import logging
+import time
 import uuid
 from dataclasses import dataclass, field
+from datetime import UTC, datetime
 from typing import TYPE_CHECKING, Protocol, runtime_checkable
 
 from qortex.core.backend import GraphBackend
+from qortex.observability import emit
+from qortex.observability.events import (
+    FeedbackReceived,
+    KGCoverageComputed,
+    OnlineEdgesGenerated,
+    QueryCompleted,
+    QueryStarted,
+    VecSearchCompleted,
+)
+from qortex.observability.logging import get_logger
 
 if TYPE_CHECKING:
     from qortex.hippocampus.buffer import EdgePromotionBuffer
     from qortex.hippocampus.factors import TeleportationFactors
     from qortex.hippocampus.interoception import InteroceptionProvider
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 @dataclass
@@ -98,6 +109,16 @@ class VecOnlyAdapter:
         min_confidence: float = 0.0,
     ) -> RetrievalResult:
         query_id = str(uuid.uuid4())
+        t0 = time.perf_counter()
+
+        emit(QueryStarted(
+            query_id=query_id,
+            query_text=query,
+            domains=tuple(domains) if domains else None,
+            mode="vec",
+            top_k=top_k,
+            timestamp=datetime.now(UTC).isoformat(),
+        ))
 
         # 1. Embed query
         query_embedding = self.embedding_model.embed([query])[0]
@@ -130,15 +151,28 @@ class VecOnlyAdapter:
             if len(items) >= top_k:
                 break
 
+        elapsed = (time.perf_counter() - t0) * 1000
+        activated = [item.node_id for item in items if item.node_id]
+
+        emit(QueryCompleted(
+            query_id=query_id,
+            latency_ms=elapsed,
+            seed_count=len(vec_results),
+            result_count=len(items),
+            activated_nodes=len(activated),
+            mode="vec",
+            timestamp=datetime.now(UTC).isoformat(),
+        ))
+
         return RetrievalResult(
             items=items,
             query_id=query_id,
-            activated_nodes=[item.node_id for item in items if item.node_id],
+            activated_nodes=activated,
         )
 
     def feedback(self, query_id: str, outcomes: dict[str, str]) -> None:
         """No-op for vec-only — no teleportation factors to update."""
-        logger.debug("VecOnlyAdapter: feedback ignored (no graph), query_id=%s", query_id)
+        logger.debug("vec.feedback.ignored", query_id=query_id)
 
 
 class GraphRAGAdapter:
@@ -210,6 +244,16 @@ class GraphRAGAdapter:
         min_confidence: float = 0.0,
     ) -> RetrievalResult:
         query_id = str(uuid.uuid4())
+        t0 = time.perf_counter()
+
+        emit(QueryStarted(
+            query_id=query_id,
+            query_text=query,
+            domains=tuple(domains) if domains else None,
+            mode="graph",
+            top_k=top_k,
+            timestamp=datetime.now(UTC).isoformat(),
+        ))
 
         # 1. Vec layer: embed query → vector search → seed candidates
         query_embedding = self.embedding_model.embed([query])[0]
@@ -239,8 +283,23 @@ class GraphRAGAdapter:
         seed_ids = [nid for nid, _ in seed_nodes]
         vec_scores = dict(seed_nodes)
 
+        vec_elapsed = (time.perf_counter() - t0) * 1000
+        emit(VecSearchCompleted(
+            query_id=query_id,
+            candidates=len(vec_results),
+            fetch_k=fetch_k,
+            latency_ms=vec_elapsed,
+        ))
+
         # 2. Online edge generation: cosine sim between candidate pairs
         online_edges = self._build_online_edges(seed_ids)
+
+        emit(OnlineEdgesGenerated(
+            query_id=query_id,
+            edge_count=len(online_edges),
+            threshold=self.online_sim_threshold,
+            seed_count=len(seed_ids),
+        ))
 
         # 3. Buffer online edges for future promotion
         for src, tgt, weight in online_edges:
@@ -250,6 +309,13 @@ class GraphRAGAdapter:
         persistent_count = self._count_persistent_edges(seed_ids)
         total_edges = len(online_edges) + persistent_count
         kg_coverage = persistent_count / max(total_edges, 1)
+
+        emit(KGCoverageComputed(
+            query_id=query_id,
+            persistent_edges=persistent_count,
+            online_edges=len(online_edges),
+            coverage=kg_coverage,
+        ))
 
         # 5. PPR over merged graph (persistent edges in backend + online extras)
         seed_weights = self._interoception.get_seed_weights(seed_ids)
@@ -299,6 +365,17 @@ class GraphRAGAdapter:
         # Cache query for feedback routing
         self._query_cache[query_id] = [item.id for item in items]
 
+        elapsed = (time.perf_counter() - t0) * 1000
+        emit(QueryCompleted(
+            query_id=query_id,
+            latency_ms=elapsed,
+            seed_count=len(seed_ids),
+            result_count=len(items),
+            activated_nodes=len(ppr_scores),
+            mode="graph",
+            timestamp=datetime.now(UTC).isoformat(),
+        ))
+
         return RetrievalResult(
             items=items,
             query_id=query_id,
@@ -311,11 +388,19 @@ class GraphRAGAdapter:
         Accepted items get boosted, rejected items get penalized.
         This biases future PPR toward nodes that produce good results.
         """
+        emit(FeedbackReceived(
+            query_id=query_id,
+            outcomes=len(outcomes),
+            accepted=sum(1 for v in outcomes.values() if v == "accepted"),
+            rejected=sum(1 for v in outcomes.values() if v == "rejected"),
+            partial=sum(1 for v in outcomes.values() if v == "partial"),
+            source="adapter",
+        ))
         self._interoception.report_outcome(query_id, outcomes)
         logger.debug(
-            "Feedback routed via interoception for query %s: %d outcomes",
-            query_id,
-            len(outcomes),
+            "graph.feedback.routed",
+            query_id=query_id,
+            outcome_count=len(outcomes),
         )
 
     @property

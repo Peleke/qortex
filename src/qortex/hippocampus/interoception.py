@@ -23,16 +23,19 @@ cadence's ambient events, or a future network-backed federation layer.
 
 from __future__ import annotations
 
-import logging
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Protocol, runtime_checkable
+
+from qortex.observability import emit
+from qortex.observability.events import InteroceptionShutdown, InteroceptionStarted
+from qortex.observability.logging import get_logger
 
 if TYPE_CHECKING:
     from qortex.hippocampus.buffer import EdgePromotionBuffer
     from qortex.hippocampus.factors import TeleportationFactors
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 # ---------------------------------------------------------------------------
@@ -175,9 +178,9 @@ class LocalInteroceptionProvider:
         if self._config.factors_path is not None:
             self._factors = TeleportationFactors.load(self._config.factors_path)
             logger.info(
-                "Loaded teleportation factors: %d entries from %s",
-                len(self._factors.factors),
-                self._config.factors_path,
+                "interoception.factors.loaded",
+                count=len(self._factors.factors),
+                path=str(self._config.factors_path),
             )
         else:
             self._factors = TeleportationFactors()
@@ -185,27 +188,39 @@ class LocalInteroceptionProvider:
         if self._config.buffer_path is not None:
             self._buffer = EdgePromotionBuffer.load(self._config.buffer_path)
             logger.info(
-                "Loaded edge buffer: %d entries from %s",
-                self._buffer.summary()["buffered_edges"],
-                self._config.buffer_path,
+                "interoception.buffer.loaded",
+                count=self._buffer.summary()["buffered_edges"],
+                path=str(self._config.buffer_path),
             )
         else:
             self._buffer = EdgePromotionBuffer()
 
         self._started = True
 
+        emit(InteroceptionStarted(
+            factors_loaded=len(self._factors.factors),
+            buffer_loaded=self._buffer.summary()["buffered_edges"],
+            teleportation_enabled=self._config.teleportation_enabled,
+        ))
+
     def shutdown(self) -> None:
         """Persist state to disk and log summary."""
         if self._config.factors_path is not None:
             self._factors.persist(self._config.factors_path)
-            logger.info("Persisted factors to %s", self._config.factors_path)
+            logger.info("interoception.factors.persisted", path=str(self._config.factors_path))
 
         if self._config.buffer_path is not None:
             self._buffer.persist(self._config.buffer_path)
-            logger.info("Persisted edge buffer to %s", self._config.buffer_path)
+            logger.info("interoception.buffer.persisted", path=str(self._config.buffer_path))
 
         s = self.summary()
-        logger.info("Interoception shutdown: %s", s)
+        logger.info("interoception.shutdown", **s)
+
+        emit(InteroceptionShutdown(
+            factors_persisted=len(self._factors.factors),
+            buffer_persisted=self._buffer.summary()["buffered_edges"],
+            summary=s,
+        ))
 
     def get_seed_weights(self, seed_ids: list[str]) -> dict[str, float]:
         """Normalized teleportation weights for PPR seeds.
@@ -234,9 +249,9 @@ class LocalInteroceptionProvider:
         buffered = self._buffer.summary()["buffered_edges"]
         if self._config.auto_flush_threshold > 0 and buffered >= self._config.auto_flush_threshold:
             logger.info(
-                "Edge buffer reached auto-flush threshold (%d entries). "
-                "Call flush_buffer() with a backend to promote qualifying edges.",
-                buffered,
+                "interoception.buffer.threshold_reached",
+                buffered_edges=buffered,
+                threshold=self._config.auto_flush_threshold,
             )
 
     def flush_buffer(self, backend: Any, **kwargs: Any) -> Any:

@@ -1,6 +1,6 @@
 [project]
 name = "qortex"
-version = "0.2.4"
+version = "0.3.0"
 description = "Knowledge graph ingestion engine for automated rule generation"
 readme = "README.md"
 requires-python = ">=3.11"
@@ -29,6 +29,8 @@ dependencies = [
     "pyyaml>=6.0",
     "fastmcp>=2.0",
     "numpy>=1.24",
+    "pyventus>=0.7",
+    "structlog>=24.0",
 ]
 
 [project.optional-dependencies]
@@ -78,8 +80,14 @@ llm = [
 memgraph = [
     "neo4j>=5.0",
 ]
+observability = [
+    "opentelemetry-api>=1.20",
+    "opentelemetry-sdk>=1.20",
+    "opentelemetry-exporter-otlp>=1.20",
+    "prometheus-client>=0.20",
+]
 all = [
-    "qortex[pdf,vec-sqlite,mcp,llm,memgraph,causal,source-postgres,dev]",
+    "qortex[pdf,vec-sqlite,mcp,llm,memgraph,causal,source-postgres,observability,dev]",
 ]
 
 [project.scripts]

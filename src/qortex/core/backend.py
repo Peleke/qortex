@@ -10,11 +10,15 @@ from __future__ import annotations
 import contextlib
 import json
 import logging
+import time
 import uuid
 from abc import abstractmethod
 from collections.abc import Iterator
 from datetime import UTC, datetime
 from typing import Any, Literal, Protocol, runtime_checkable
+
+from qortex.observability import emit
+from qortex.observability.events import ManifestIngested
 
 from .models import ConceptEdge, ConceptNode, Domain, ExplicitRule, IngestionManifest, RelationType
 
@@ -631,6 +635,7 @@ class MemgraphBackend:
 
     def ingest_manifest(self, manifest: IngestionManifest) -> None:
         """Atomically ingest a manifest. Uses a single transaction."""
+        t0 = time.perf_counter()
         self.create_domain(manifest.domain)
 
         # Update domain source tracking
@@ -646,6 +651,16 @@ class MemgraphBackend:
             self.add_edge(edge)
         for rule in manifest.rules:
             self.add_rule(rule)
+
+        elapsed = (time.perf_counter() - t0) * 1000
+        emit(ManifestIngested(
+            domain=manifest.domain,
+            node_count=len(manifest.concepts),
+            edge_count=len(manifest.edges),
+            rule_count=len(manifest.rules),
+            source_id=manifest.source.id,
+            latency_ms=elapsed,
+        ))
 
     # -------------------------------------------------------------------------
     # Query

@@ -42,7 +42,6 @@ Architecture:
 from __future__ import annotations
 
 import atexit
-import logging
 import os
 from pathlib import Path
 from typing import Any
@@ -51,9 +50,10 @@ from fastmcp import FastMCP
 
 from qortex.core.memory import InMemoryBackend
 from qortex.hippocampus.adapter import VecOnlyAdapter
+from qortex.observability.logging import get_logger
 from qortex.sources.registry import SourceRegistry
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 # ---------------------------------------------------------------------------
 # Server-level state: initialized once via create_server() or serve()
@@ -90,7 +90,7 @@ def _shutdown_interoception() -> None:
         try:
             _interoception.shutdown()
         except Exception:
-            logger.warning("Failed to shut down interoception layer", exc_info=True)
+            logger.warning("interoception.shutdown.failed", exc_info=True)
 
 
 def _ensure_initialized() -> None:
@@ -100,6 +100,10 @@ def _ensure_initialized() -> None:
     if _backend is not None:
         return
 
+    # Initialize observability (env-var driven, zero-config by default)
+    from qortex.observability import configure
+    configure()
+
     # --- Embedding model ---
     try:
         from qortex.vec.embeddings import SentenceTransformerEmbedding
@@ -108,7 +112,7 @@ def _ensure_initialized() -> None:
         # Eagerly verify the underlying model is loadable
         _ = _embedding_model.dimensions
     except (ImportError, Exception) as e:
-        logger.warning("qortex[vec] not installed (%s). Vector search unavailable.", e)
+        logger.warning("vec.unavailable", error=str(e))
         _embedding_model = None
 
     # --- Vec layer (independent of graph) ---
@@ -123,10 +127,7 @@ def _ensure_initialized() -> None:
                     db_path=str(vec_path), dimensions=_embedding_model.dimensions
                 )
             except ImportError:
-                logger.warning(
-                    "sqlite-vec not installed, using in-memory vector index. "
-                    "Install qortex[vec-sqlite] for persistence."
-                )
+                logger.warning("sqlite-vec.unavailable", fallback="NumpyVectorIndex")
                 from qortex.vec.index import NumpyVectorIndex
 
                 _vector_index = NumpyVectorIndex(dimensions=_embedding_model.dimensions)
@@ -146,7 +147,7 @@ def _ensure_initialized() -> None:
             _backend = MemgraphBackend(host=host, port=port)
             _backend.connect()
         except (ImportError, Exception) as e:
-            logger.warning("Memgraph unavailable (%s), falling back to InMemoryBackend.", e)
+            logger.warning("memgraph.unavailable", error=str(e), fallback="InMemoryBackend")
             _backend = InMemoryBackend(vector_index=_vector_index)
             _backend.connect()
     else:  # "memory"
@@ -1899,7 +1900,7 @@ def _get_llm_backend():
     except ImportError:
         pass
     except Exception as e:
-        logger.warning("Failed to initialize AnthropicBackend: %s", e)
+        logger.warning("anthropic.init.failed", error=str(e))
 
     # Fallback to stub
     from qortex_ingest.base import StubLLMBackend

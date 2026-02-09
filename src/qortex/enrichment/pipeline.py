@@ -2,15 +2,18 @@
 
 from __future__ import annotations
 
-import logging
+import time
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
 
 from qortex.core.models import Rule
 from qortex.enrichment.base import EnrichmentBackend
+from qortex.observability import emit
+from qortex.observability.events import EnrichmentCompleted, EnrichmentFallback
+from qortex.observability.logging import get_logger
 from qortex.projectors.models import EnrichedRule, RuleEnrichment
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 @dataclass
@@ -88,12 +91,14 @@ class EnrichmentPipeline:
         domain: str,
     ) -> list[EnrichedRule]:
         """Enrich rules via backend, falling back to template on failure."""
+        t0 = time.perf_counter()
         self.stats = EnrichmentStats(total=len(rules))
 
         if not rules:
             return []
 
         enrichments: list[RuleEnrichment] = []
+        backend_type = type(self.backend).__name__ if self.backend else "template"
 
         if self.backend:
             try:
@@ -104,8 +109,10 @@ class EnrichmentPipeline:
                     "Enrichment backend failed, falling back to template",
                     exc_info=True,
                 )
+                emit(EnrichmentFallback(reason="backend_exception", rule_count=len(rules)))
                 enrichments = self.fallback.enrich_batch(rules, domain)
                 self.stats.failed = len(rules)
+                backend_type = "template"
         else:
             enrichments = self.fallback.enrich_batch(rules, domain)
             self.stats.succeeded = len(enrichments)
@@ -124,5 +131,14 @@ class EnrichmentPipeline:
             if enrichment is None:
                 self.stats.skipped += 1
             result.append(EnrichedRule(rule=rule, enrichment=enrichment))
+
+        elapsed = (time.perf_counter() - t0) * 1000
+        emit(EnrichmentCompleted(
+            rule_count=self.stats.total,
+            succeeded=self.stats.succeeded,
+            failed=self.stats.failed,
+            backend_type=backend_type,
+            latency_ms=elapsed,
+        ))
 
         return result
