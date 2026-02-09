@@ -8,6 +8,12 @@ Jaeger, etc.). The OTEL Collector's Prometheus exporter converts these to
 Prometheus-format metrics, so the same Grafana dashboard works whether
 qortex runs locally or in a remote sandbox.
 
+Protocol selection (OTEL_EXPORTER_OTLP_PROTOCOL):
+    "grpc"          -> gRPC exporters (default, requires grpcio)
+    "http/protobuf" -> HTTP/protobuf exporters (works through firewalls/VMs)
+
+If gRPC import fails, automatically falls back to HTTP/protobuf.
+
 Metric naming convention:
     Counter  "qortex_foo"         -> Prometheus "qortex_foo_total"
     Histogram "qortex_bar_seconds" -> Prometheus "qortex_bar_seconds_bucket"
@@ -22,15 +28,57 @@ if TYPE_CHECKING:
     from qortex.observability.config import ObservabilityConfig
 
 
+def _get_exporters(protocol: str, endpoint: str):
+    """Return (SpanExporter, MetricExporter) for the selected protocol.
+
+    Falls back from gRPC to HTTP/protobuf if grpcio is unavailable.
+    """
+    if protocol == "http/protobuf":
+        from opentelemetry.exporter.otlp.proto.http.metric_exporter import (
+            OTLPMetricExporter,
+        )
+        from opentelemetry.exporter.otlp.proto.http.trace_exporter import (
+            OTLPSpanExporter,
+        )
+
+        return OTLPSpanExporter(endpoint=endpoint + "/v1/traces"), OTLPMetricExporter(
+            endpoint=endpoint + "/v1/metrics"
+        )
+
+    # Default: gRPC — fall back to HTTP if grpcio unavailable
+    try:
+        from opentelemetry.exporter.otlp.proto.grpc.metric_exporter import (
+            OTLPMetricExporter,
+        )
+        from opentelemetry.exporter.otlp.proto.grpc.trace_exporter import (
+            OTLPSpanExporter,
+        )
+
+        return OTLPSpanExporter(endpoint=endpoint), OTLPMetricExporter(
+            endpoint=endpoint
+        )
+    except ImportError:
+        from qortex.observability.logging import get_logger
+
+        get_logger().warning(
+            "otel.grpc.unavailable",
+            hint="grpcio not installed, falling back to http/protobuf",
+        )
+        from opentelemetry.exporter.otlp.proto.http.metric_exporter import (
+            OTLPMetricExporter,
+        )
+        from opentelemetry.exporter.otlp.proto.http.trace_exporter import (
+            OTLPSpanExporter,
+        )
+
+        return OTLPSpanExporter(
+            endpoint=endpoint + "/v1/traces"
+        ), OTLPMetricExporter(endpoint=endpoint + "/v1/metrics")
+
+
 def register_otel_subscriber(config: ObservabilityConfig) -> None:
     """Register OTel trace + metric subscribers."""
     from opentelemetry import metrics, trace
-    from opentelemetry.exporter.otlp.proto.grpc.metric_exporter import (
-        OTLPMetricExporter,
-    )
-    from opentelemetry.exporter.otlp.proto.grpc.trace_exporter import (
-        OTLPSpanExporter,
-    )
     from opentelemetry.sdk.metrics import MeterProvider
     from opentelemetry.sdk.metrics.export import PeriodicExportingMetricReader
     from opentelemetry.sdk.resources import Resource
@@ -59,18 +107,19 @@ def register_otel_subscriber(config: ObservabilityConfig) -> None:
     # ── Resource ──────────────────────────────────────────────────────
     resource = Resource.create({"service.name": config.otel_service_name})
 
+    # ── Exporters (gRPC with HTTP fallback) ───────────────────────────
+    span_exporter, metric_exporter = _get_exporters(
+        config.otel_protocol, config.otel_endpoint
+    )
+
     # ── Tracer ────────────────────────────────────────────────────────
     provider = TracerProvider(resource=resource)
-    provider.add_span_processor(
-        BatchSpanProcessor(OTLPSpanExporter(endpoint=config.otel_endpoint))
-    )
+    provider.add_span_processor(BatchSpanProcessor(span_exporter))
     trace.set_tracer_provider(provider)
     tracer = trace.get_tracer("qortex")
 
     # ── Meter ─────────────────────────────────────────────────────────
-    metric_reader = PeriodicExportingMetricReader(
-        OTLPMetricExporter(endpoint=config.otel_endpoint)
-    )
+    metric_reader = PeriodicExportingMetricReader(metric_exporter)
     meter_provider = MeterProvider(resource=resource, metric_readers=[metric_reader])
     metrics.set_meter_provider(meter_provider)
     meter = metrics.get_meter("qortex")

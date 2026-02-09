@@ -74,6 +74,11 @@ class ObservabilityConfig:
     otel_service_name: str = field(
         default_factory=lambda: os.environ.get("OTEL_SERVICE_NAME", "qortex")
     )
+    otel_protocol: str = field(
+        default_factory=lambda: os.environ.get(
+            "OTEL_EXPORTER_OTLP_PROTOCOL", "grpc"
+        )
+    )  # "grpc" | "http/protobuf"
 
     # --- Prometheus ---
     prometheus_enabled: bool = field(
