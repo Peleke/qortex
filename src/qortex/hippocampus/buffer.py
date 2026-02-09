@@ -17,13 +17,16 @@ matures, fewer new edges qualify → system is converging.
 from __future__ import annotations
 
 import json
-import logging
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
-logger = logging.getLogger(__name__)
+from qortex.observability import emit
+from qortex.observability.events import BufferFlushed, EdgePromoted, OnlineEdgeRecorded
+from qortex.observability.logging import get_logger
+
+logger = get_logger(__name__)
 
 
 @dataclass
@@ -80,11 +83,19 @@ class EdgePromotionBuffer:
         stats.scores.append(score)
         stats.last_seen = datetime.now(UTC).isoformat()
 
+        emit(OnlineEdgeRecorded(
+            source_id=source_id,
+            target_id=target_id,
+            score=score,
+            hit_count=stats.hit_count,
+            buffer_size=len(self._buffer),
+        ))
+
         for hook in self._hooks.get("on_record", []):
             try:
                 hook(source_id, target_id, score, stats.hit_count)
             except Exception:
-                logger.debug("Buffer on_record hook failed", exc_info=True)
+                logger.debug("buffer.hook.failed", hook_event="on_record")
 
     def flush(
         self,
@@ -135,14 +146,21 @@ class EdgePromotionBuffer:
                     }
                     details.append(detail)
 
+                    emit(EdgePromoted(
+                        source_id=src,
+                        target_id=tgt,
+                        hit_count=stats.hit_count,
+                        avg_score=round(stats.avg_score, 4),
+                    ))
+
                     for hook in self._hooks.get("on_promote", []):
                         try:
                             hook(src, tgt, stats)
                         except Exception:
-                            logger.debug("Buffer on_promote hook failed", exc_info=True)
+                            logger.debug("buffer.hook.failed", hook_event="on_promote")
 
                 except Exception:
-                    logger.warning("Failed to promote edge %s→%s", src, tgt, exc_info=True)
+                    logger.warning("edge.promote.failed", source=src, target=tgt)
 
         for key in to_remove:
             del self._buffer[key]
@@ -153,11 +171,19 @@ class EdgePromotionBuffer:
             details=details,
         )
 
+        emit(BufferFlushed(
+            promoted=promoted,
+            remaining=len(self._buffer),
+            total_promoted_lifetime=self._total_promoted,
+            kg_coverage=None,
+            timestamp=datetime.now(UTC).isoformat(),
+        ))
+
         for hook in self._hooks.get("on_flush", []):
             try:
                 hook(result)
             except Exception:
-                logger.debug("Buffer on_flush hook failed", exc_info=True)
+                logger.debug("buffer.hook.failed", hook_event="on_flush")
 
         return result
 
@@ -210,7 +236,7 @@ class EdgePromotionBuffer:
                     last_seen=stats_dict.get("last_seen", ""),
                 )
         except (json.JSONDecodeError, TypeError):
-            logger.warning("Failed to load edge buffer from %s, starting fresh", path)
+            logger.warning("buffer.load.failed", path=str(path))
 
         return buf
 

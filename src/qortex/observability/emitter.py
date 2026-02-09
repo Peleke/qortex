@@ -1,0 +1,114 @@
+"""Singleton emitter: configure once, emit everywhere.
+
+The global emit() function is the only API modules need.
+It's a no-op when not configured (zero overhead in tests).
+"""
+
+from __future__ import annotations
+
+from typing import Any
+
+from pyventus.events import EventEmitter
+
+_emitter: EventEmitter | None = None
+_configured: bool = False
+
+
+def emit(event: Any) -> None:
+    """Fire-and-forget event emission. No-op if not configured."""
+    if _emitter is not None:
+        _emitter.emit(event)
+
+
+def configure(config: "ObservabilityConfig | None" = None) -> EventEmitter:
+    """Initialize the global emitter and register subscribers.
+
+    Called once at startup (MCP server init, CLI entry, test setup).
+    Idempotent -- second call returns existing emitter.
+    """
+    global _emitter, _configured
+
+    if _configured and _emitter is not None:
+        return _emitter
+
+    from qortex.observability.config import ObservabilityConfig
+
+    cfg = config or ObservabilityConfig()
+
+    # Setup structured logging first (formatter x destination from config)
+    from qortex.observability.logging import setup_logging
+
+    setup_logging(cfg)
+
+    # Create emitter bound to our isolated linker
+    from pyventus.core.processing.asyncio import AsyncIOProcessingService
+
+    from qortex.observability.linker import QortexEventLinker
+
+    _emitter = EventEmitter(
+        event_linker=QortexEventLinker,
+        event_processor=AsyncIOProcessingService(),
+    )
+
+    # Always register structured log subscriber (uses configured LogFormatter)
+    from qortex.observability.subscribers import structlog_sub  # noqa: F401
+
+    # Always register JSONL event sink if path configured
+    if cfg.jsonl_path:
+        from qortex.observability.subscribers.jsonl import register_jsonl_subscriber
+
+        register_jsonl_subscriber(cfg.jsonl_path)
+
+    # Optional: OTel traces + metrics (requires qortex[observability])
+    if cfg.otel_enabled:
+        try:
+            from qortex.observability.subscribers.otel import register_otel_subscriber
+
+            register_otel_subscriber(cfg)
+        except ImportError:
+            from qortex.observability.logging import get_logger
+
+            get_logger().warning(
+                "otel_enabled but opentelemetry not installed",
+                hint="pip install qortex[observability]",
+            )
+
+    # Optional: Prometheus metrics (requires qortex[observability])
+    if cfg.prometheus_enabled:
+        try:
+            from qortex.observability.subscribers.prometheus import (
+                register_prometheus_subscriber,
+            )
+
+            register_prometheus_subscriber(cfg)
+        except ImportError:
+            from qortex.observability.logging import get_logger
+
+            get_logger().warning(
+                "prometheus_enabled but prometheus-client not installed",
+                hint="pip install qortex[observability]",
+            )
+
+    # Always register alert subscriber (no-op sink by default)
+    from qortex.observability.subscribers.alert import register_alert_subscriber
+
+    register_alert_subscriber(cfg)
+
+    _configured = True
+    return _emitter
+
+
+def is_configured() -> bool:
+    return _configured
+
+
+def reset() -> None:
+    """Reset for testing."""
+    global _emitter, _configured
+
+    from qortex.observability.logging import shutdown_logging
+
+    shutdown_logging()
+
+    _emitter = None
+    _configured = False

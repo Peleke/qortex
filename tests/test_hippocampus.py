@@ -979,7 +979,7 @@ class TestLocalInteroceptionProvider:
             provider.record_online_edge("a", "b", 0.8)
             provider.record_online_edge("c", "d", 0.9)
 
-        assert any("auto-flush threshold" in r.message for r in caplog.records)
+        assert any("threshold_reached" in r.message for r in caplog.records)
 
     def test_shutdown_persists_both(self, tmp_path):
         factors_path = tmp_path / "factors.json"

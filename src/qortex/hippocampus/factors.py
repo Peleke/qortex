@@ -15,12 +15,22 @@ This is qortex's unique advantage — no other framework does this.
 from __future__ import annotations
 
 import json
-import logging
+import math
 from dataclasses import dataclass, field
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
-logger = logging.getLogger(__name__)
+from qortex.observability import emit
+from qortex.observability.events import (
+    FactorDriftSnapshot,
+    FactorsLoaded,
+    FactorsPersisted,
+    FactorUpdated,
+)
+from qortex.observability.logging import get_logger
+
+logger = get_logger(__name__)
 
 # Outcome weights: how much each outcome shifts the factor
 _OUTCOME_WEIGHTS: dict[str, float] = {
@@ -119,12 +129,43 @@ class TeleportationFactors:
             )
             updates.append(update)
 
-            # Fire hooks
+            # Emit observability event
+            emit(FactorUpdated(
+                node_id=node_id,
+                query_id=query_id,
+                outcome=outcome,
+                old_factor=old,
+                new_factor=new,
+                delta=delta,
+                clamped=(new == _MIN_FACTOR or new == _MAX_FACTOR),
+            ))
+
+            # Fire legacy hooks (backward compat)
             for hook in self._hooks.get("on_update", []):
                 try:
                     hook(update)
                 except Exception:
-                    logger.debug("Factor on_update hook failed", exc_info=True)
+                    logger.debug("factor.hook.failed", hook_event="on_update")
+
+        # Emit drift snapshot after batch update
+        if self.factors:
+            vals = list(self.factors.values())
+            n = len(vals)
+            total = sum(vals)
+            if total > 0:
+                probs = [v / total for v in vals]
+                entropy = -sum(p * math.log2(p) for p in probs if p > 0)
+            else:
+                entropy = 0.0
+            emit(FactorDriftSnapshot(
+                count=n,
+                mean=sum(vals) / n,
+                min_val=min(vals),
+                max_val=max(vals),
+                boosted=sum(1 for v in vals if v > _DEFAULT_FACTOR),
+                penalized=sum(1 for v in vals if v < _DEFAULT_FACTOR),
+                entropy=entropy,
+            ))
 
         return updates
 
@@ -150,11 +191,17 @@ class TeleportationFactors:
         target.parent.mkdir(parents=True, exist_ok=True)
         target.write_text(json.dumps(self.factors, indent=2))
 
+        emit(FactorsPersisted(
+            path=str(target),
+            count=len(self.factors),
+            timestamp=datetime.now(UTC).isoformat(),
+        ))
+
         for hook in self._hooks.get("on_persist", []):
             try:
                 hook(target)
             except Exception:
-                logger.debug("Factor on_persist hook failed", exc_info=True)
+                logger.debug("factor.hook.failed", hook_event="on_persist")
 
         return target
 
@@ -168,14 +215,21 @@ class TeleportationFactors:
         try:
             data = json.loads(path.read_text())
             instance = cls(factors=data, _persistence_path=path)
+
+            emit(FactorsLoaded(
+                path=str(path),
+                count=len(data),
+                timestamp=datetime.now(UTC).isoformat(),
+            ))
+
             for hook in instance._hooks.get("on_load", []):
                 try:
                     hook(len(data))
                 except Exception:
-                    logger.debug("Factor on_load hook failed", exc_info=True)
+                    logger.debug("factor.hook.failed", hook_event="on_load")
             return instance
         except (json.JSONDecodeError, TypeError):
-            logger.warning("Failed to load factors from %s, starting fresh", path)
+            logger.warning("factors.load.failed", path=str(path))
             return cls(_persistence_path=path)
 
     def summary(self) -> dict[str, Any]:
