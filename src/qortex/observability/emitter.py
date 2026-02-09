@@ -65,12 +65,27 @@ def configure(config: "ObservabilityConfig | None" = None) -> EventEmitter:
             from qortex.observability.subscribers.otel import register_otel_subscriber
 
             register_otel_subscriber(cfg)
+            from qortex.observability.logging import get_logger
+
+            get_logger().info(
+                "otel.subscriber.registered",
+                endpoint=cfg.otel_endpoint,
+                service=cfg.otel_service_name,
+            )
         except ImportError:
             from qortex.observability.logging import get_logger
 
             get_logger().warning(
                 "otel_enabled but opentelemetry not installed",
                 hint="pip install qortex[observability]",
+            )
+        except Exception:
+            from qortex.observability.logging import get_logger
+
+            get_logger().error(
+                "otel.subscriber.failed",
+                exc_info=True,
+                hint="OTEL subscriber crashed during registration",
             )
 
     # Optional: Prometheus metrics (requires qortex[observability])
@@ -81,12 +96,26 @@ def configure(config: "ObservabilityConfig | None" = None) -> EventEmitter:
             )
 
             register_prometheus_subscriber(cfg)
+            from qortex.observability.logging import get_logger
+
+            get_logger().info(
+                "prometheus.subscriber.registered",
+                port=cfg.prometheus_port,
+            )
         except ImportError:
             from qortex.observability.logging import get_logger
 
             get_logger().warning(
                 "prometheus_enabled but prometheus-client not installed",
                 hint="pip install qortex[observability]",
+            )
+        except Exception:
+            from qortex.observability.logging import get_logger
+
+            get_logger().error(
+                "prometheus.subscriber.failed",
+                exc_info=True,
+                hint="Prometheus subscriber crashed during registration",
             )
 
     # Always register alert subscriber (no-op sink by default)

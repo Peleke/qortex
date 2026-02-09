@@ -1,6 +1,6 @@
 [project]
 name = "qortex"
-version = "0.3.0"
+version = "0.3.1"
 description = "Knowledge graph ingestion engine for automated rule generation"
 readme = "README.md"
 requires-python = ">=3.11"
@@ -81,9 +81,9 @@ memgraph = [
     "neo4j>=5.0",
 ]
 observability = [
-    "opentelemetry-api>=1.20",
-    "opentelemetry-sdk>=1.20",
-    "opentelemetry-exporter-otlp>=1.20",
+    "opentelemetry-api>=1.22",
+    "opentelemetry-sdk>=1.22",
+    "opentelemetry-exporter-otlp>=1.22",
     "prometheus-client>=0.20",
 ]
 all = [

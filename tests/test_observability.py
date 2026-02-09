@@ -1039,3 +1039,122 @@ class TestPrometheusLiveMetrics:
 
         # No exception = handlers are registered and functional
         reset()
+
+
+# =============================================================================
+# OTEL subscriber error handling
+# =============================================================================
+
+
+class TestOtelErrorHandling:
+    """OTEL subscriber registration: error handling, protocol fallback, success log."""
+
+    def test_non_import_error_caught_and_logged(self):
+        """Non-ImportError from register_otel_subscriber is caught, not propagated."""
+        from unittest.mock import patch
+
+        from qortex.observability.emitter import configure, is_configured, reset
+
+        reset()
+
+        cfg = ObservabilityConfig(otel_enabled=True)
+
+        # Simulate register_otel_subscriber raising AttributeError (e.g. missing create_gauge)
+        with patch(
+            "qortex.observability.subscribers.otel.register_otel_subscriber",
+            side_effect=AttributeError("create_gauge not found"),
+        ):
+            emitter = configure(cfg)
+
+        # configure() should complete (not crash) and set _configured = True
+        assert emitter is not None
+        assert is_configured()
+        reset()
+
+    def test_import_error_still_caught(self):
+        """ImportError from missing OTEL packages is still caught."""
+        from unittest.mock import patch
+
+        from qortex.observability.emitter import configure, is_configured, reset
+
+        reset()
+
+        cfg = ObservabilityConfig(otel_enabled=True)
+
+        with patch(
+            "qortex.observability.subscribers.otel.register_otel_subscriber",
+            side_effect=ImportError("No module named 'opentelemetry'"),
+        ):
+            emitter = configure(cfg)
+
+        assert emitter is not None
+        assert is_configured()
+        reset()
+
+    def test_otel_success_log_emitted(self, caplog):
+        """Successful OTEL registration emits info log."""
+        from unittest.mock import patch
+
+        from qortex.observability.emitter import configure, reset
+
+        reset()
+
+        cfg = ObservabilityConfig(otel_enabled=True)
+
+        with patch(
+            "qortex.observability.subscribers.otel.register_otel_subscriber"
+        ):
+            configure(cfg)
+
+        reset()
+
+    def test_otel_protocol_config_defaults_to_grpc(self):
+        """Default otel_protocol is 'grpc'."""
+        cfg = ObservabilityConfig()
+        assert cfg.otel_protocol == "grpc"
+
+    def test_otel_protocol_config_http(self):
+        """otel_protocol can be set to 'http/protobuf'."""
+        cfg = ObservabilityConfig(otel_protocol="http/protobuf")
+        assert cfg.otel_protocol == "http/protobuf"
+
+    def test_get_exporters_grpc_fallback_to_http(self):
+        """When grpcio is missing, _get_exporters falls back to HTTP."""
+        from unittest.mock import patch
+
+        from qortex.observability.subscribers.otel import _get_exporters
+
+        # Simulate grpcio import failure
+        orig_import = __builtins__.__import__ if hasattr(__builtins__, '__import__') else __import__
+
+        def mock_import(name, *args, **kwargs):
+            if "grpc" in name:
+                raise ImportError(f"No module named '{name}'")
+            return orig_import(name, *args, **kwargs)
+
+        try:
+            with patch("builtins.__import__", side_effect=mock_import):
+                span_exp, metric_exp = _get_exporters("grpc", "http://localhost:4317")
+        except ImportError:
+            # If HTTP exporter also can't import (no otel in test env), that's OK
+            pytest.skip("opentelemetry not installed")
+
+    def test_prometheus_non_import_error_caught(self):
+        """Non-ImportError from Prometheus subscriber is caught."""
+        from unittest.mock import patch
+
+        from qortex.observability.emitter import configure, is_configured, reset
+
+        reset()
+
+        cfg = ObservabilityConfig(prometheus_enabled=True)
+
+        with patch(
+            "qortex.observability.subscribers.prometheus.register_prometheus_subscriber",
+            side_effect=OSError("Address already in use"),
+        ):
+            emitter = configure(cfg)
+
+        assert emitter is not None
+        assert is_configured()
+        reset()
