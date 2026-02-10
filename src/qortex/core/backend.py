@@ -187,6 +187,7 @@ class GraphBackend(Protocol):
         domain: str | None = None,
         seed_weights: dict[str, float] | None = None,
         extra_edges: list[tuple[str, str, float]] | None = None,
+        query_id: str | None = None,
     ) -> dict[str, float]:
         """Personalized PageRank from source nodes.
 
@@ -307,7 +308,7 @@ class MemgraphBackend:
     Cypher schema:
         (:Domain {name, description, created_at, updated_at})
         (:Concept {id, name, description, domain, source_id, source_location, confidence, properties})
-        (s:Concept)-[:REL {type, confidence, bidirectional, properties}]->(t:Concept)
+        (s:Concept)-[:REQUIRES|SUPPORTS|... {confidence, bidirectional, properties}]->(t:Concept)
         (:Rule {id, text, domain, source_id, source_location, category, confidence, concept_ids})
     """
 
@@ -427,7 +428,7 @@ class MemgraphBackend:
             "MATCH (c:Concept {domain: $name}) RETURN count(c) AS cnt", name
         )
         edge_count = self._count(
-            "MATCH (c:Concept {domain: $name})-[r:REL]-() RETURN count(r) AS cnt", name
+            "MATCH (c:Concept {domain: $name})-[r]-() RETURN count(r) AS cnt", name
         )
         rule_count = self._count("MATCH (r:Rule {domain: $name}) RETURN count(r) AS cnt", name)
 
@@ -688,6 +689,7 @@ class MemgraphBackend:
         domain: str | None = None,
         seed_weights: dict[str, float] | None = None,
         extra_edges: list[tuple[str, str, float]] | None = None,
+        query_id: str | None = None,
     ) -> dict[str, float]:
         """Personalized PageRank via Memgraph MAGE.
 
@@ -699,15 +701,26 @@ class MemgraphBackend:
         edges are injected as temporary relationships before PPR and
         cleaned up after.
         """
+        from qortex.observability.events import PPRConverged, PPRDiverged, PPRStarted
+
+        t0 = time.perf_counter()
+        emit(PPRStarted(
+            query_id=query_id,
+            node_count=0,  # Not known until MAGE returns
+            seed_count=len(source_nodes),
+            damping_factor=damping_factor,
+            extra_edge_count=len(extra_edges) if extra_edges else 0,
+        ))
+
         # Build subgraph filter for domain if specified
         if domain:
             subgraph = (
-                "MATCH (n:Concept {domain: $domain})-[r:REL]-(m:Concept {domain: $domain}) "
+                "MATCH (n:Concept {domain: $domain})-[r]-(m:Concept {domain: $domain}) "
                 "WITH COLLECT(n) + COLLECT(m) AS nodes, COLLECT(r) AS rels "
             )
         else:
             subgraph = (
-                "MATCH (n:Concept)-[r:REL]-(m:Concept) "
+                "MATCH (n:Concept)-[r]-(m:Concept) "
                 "WITH COLLECT(n) + COLLECT(m) AS nodes, COLLECT(r) AS rels "
             )
 
@@ -728,9 +741,28 @@ class MemgraphBackend:
 
         try:
             records = self._run(cypher, params)
-            return {r["id"]: r["rank"] for r in records if r.get("id")}
+            result = {r["id"]: r["rank"] for r in records if r.get("id")}
+            elapsed = (time.perf_counter() - t0) * 1000
+
+            # MAGE converges internally; report as converged with iteration count unknown
+            emit(PPRConverged(
+                query_id=query_id,
+                iterations=max_iterations,  # MAGE doesn't report actual iterations
+                final_diff=0.0,
+                node_count=len(result),
+                nonzero_scores=sum(1 for v in result.values() if v > 1e-8),
+                latency_ms=elapsed,
+            ))
+            return result
         except Exception as e:
+            elapsed = (time.perf_counter() - t0) * 1000
             logger.warning("MAGE pagerank failed, returning empty scores: %s", e)
+            emit(PPRDiverged(
+                query_id=query_id,
+                iterations=0,
+                final_diff=0.0,
+                node_count=0,
+            ))
             return {}
 
     # -------------------------------------------------------------------------
@@ -952,6 +984,7 @@ class SQLiteBackend:
         domain: str | None = None,
         seed_weights: dict[str, float] | None = None,
         extra_edges: list[tuple[str, str, float]] | None = None,
+        query_id: str | None = None,
     ) -> dict[str, float]:
         """Simple BFS-based approximation (not true PPR)."""
         raise NotImplementedError("M3: Implement simple traversal fallback")
