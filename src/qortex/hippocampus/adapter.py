@@ -233,6 +233,10 @@ class GraphRAGAdapter:
         else:
             self._interoception = LocalInteroceptionProvider()
 
+        # Give interoception a backend reference for auto-flush
+        if hasattr(self._interoception, "set_backend"):
+            self._interoception.set_backend(self.backend)
+
         # Cache: query_id → list of item_ids (for feedback routing)
         self._query_cache: dict[str, list[str]] = {}
 
@@ -327,6 +331,7 @@ class GraphRAGAdapter:
             domain=domains[0] if domains and len(domains) == 1 else None,
             seed_weights=seed_weights,
             extra_edges=online_edges,
+            query_id=query_id,
         )
 
         # 6. Combined scoring: vec_sim × PPR_activation
