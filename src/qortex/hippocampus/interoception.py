@@ -169,6 +169,11 @@ class LocalInteroceptionProvider:
         self._factors = TeleportationFactors()
         self._buffer = EdgePromotionBuffer()
         self._started = False
+        self._backend: Any = None  # Set by adapter for auto-flush
+
+    def set_backend(self, backend: Any) -> None:
+        """Attach a graph backend for edge promotion auto-flush."""
+        self._backend = backend
 
     def startup(self) -> None:
         """Load persisted state from disk (if paths configured)."""
@@ -253,6 +258,15 @@ class LocalInteroceptionProvider:
                 buffered_edges=buffered,
                 threshold=self._config.auto_flush_threshold,
             )
+            # Auto-flush: promote qualifying edges to persistent KG
+            if self._backend is not None:
+                result = self.flush_buffer(self._backend)
+                logger.info(
+                    "interoception.buffer.auto_flushed",
+                    promoted=result.get("promoted", 0) if isinstance(result, dict) else 0,
+                )
+            else:
+                logger.debug("interoception.buffer.auto_flush_skipped", reason="no_backend")
 
     def flush_buffer(self, backend: Any, **kwargs: Any) -> Any:
         """Flush the edge buffer, promoting qualifying edges to persistent KG.
