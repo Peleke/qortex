@@ -93,10 +93,13 @@ def register_otel_subscriber(config: ObservabilityConfig) -> None:
         FactorDriftSnapshot,
         FactorUpdated,
         FeedbackReceived,
+        KGCoverageComputed,
         ManifestIngested,
         OnlineEdgeRecorded,
+        OnlineEdgesGenerated,
         PPRConverged,
         PPRDiverged,
+        PPRStarted,
         QueryCompleted,
         QueryFailed,
         QueryStarted,
@@ -173,6 +176,13 @@ def register_otel_subscriber(config: ObservabilityConfig) -> None:
         "qortex_ingest_duration_seconds", description="Ingest latency"
     )
 
+    ppr_started_total = meter.create_counter(
+        "qortex_ppr_started", description="PPR executions started"
+    )
+    online_edges_total = meter.create_counter(
+        "qortex_online_edges_generated", description="Online edge generation events"
+    )
+
     # Gauges (synchronous — set() on event)
     factor_mean = meter.create_gauge(
         "qortex_factor_mean", description="Mean teleportation factor"
@@ -188,6 +198,9 @@ def register_otel_subscriber(config: ObservabilityConfig) -> None:
     )
     kg_coverage = meter.create_gauge(
         "qortex_kg_coverage", description="KG coverage ratio"
+    )
+    online_edge_count = meter.create_gauge(
+        "qortex_online_edge_count", description="Online edges generated in last query"
     )
 
     # ── Trace state ───────────────────────────────────────────────────
@@ -238,7 +251,11 @@ def register_otel_subscriber(config: ObservabilityConfig) -> None:
             span.end()
         query_errors.add(1, {"stage": event.stage})
 
-    # ── PPR convergence ───────────────────────────────────────────────
+    # ── PPR lifecycle ─────────────────────────────────────────────────
+
+    @QortexEventLinker.on(PPRStarted)
+    def _on_ppr_started(event: PPRStarted) -> None:
+        ppr_started_total.add(1)
 
     @QortexEventLinker.on(PPRConverged)
     def _on_ppr_converged(event: PPRConverged) -> None:
@@ -280,6 +297,15 @@ def register_otel_subscriber(config: ObservabilityConfig) -> None:
     @QortexEventLinker.on(VecSearchCompleted)
     def _on_vec_search(event: VecSearchCompleted) -> None:
         vec_search_latency.record(event.latency_ms / 1000)
+
+    @QortexEventLinker.on(OnlineEdgesGenerated)
+    def _on_online_edges(event: OnlineEdgesGenerated) -> None:
+        online_edges_total.add(1)
+        online_edge_count.set(event.edge_count)
+
+    @QortexEventLinker.on(KGCoverageComputed)
+    def _on_kg_coverage(event: KGCoverageComputed) -> None:
+        kg_coverage.set(event.coverage)
 
     @QortexEventLinker.on(FeedbackReceived)
     def _on_feedback(event: FeedbackReceived) -> None:
