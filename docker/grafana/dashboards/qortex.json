@@ -227,10 +227,27 @@
       "collapsed": false
     },
     {
+      "title": "PPR Executions / sec",
+      "type": "timeseries",
+      "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+      "gridPos": { "h": 8, "w": 8, "x": 0, "y": 44 },
+      "targets": [
+        {
+          "expr": "rate(qortex_ppr_started_total[5m])",
+          "legendFormat": "PPR runs/sec"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "cps"
+        }
+      }
+    },
+    {
       "title": "PPR Iterations to Convergence",
       "type": "histogram",
       "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
-      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 44 },
+      "gridPos": { "h": 8, "w": 8, "x": 8, "y": 44 },
       "targets": [
         {
           "expr": "rate(qortex_ppr_iterations_bucket[5m])",
@@ -242,7 +259,7 @@
       "title": "Active Factors & Node Count",
       "type": "timeseries",
       "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
-      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 44 },
+      "gridPos": { "h": 8, "w": 8, "x": 16, "y": 44 },
       "targets": [
         {
           "expr": "qortex_factors_active",
@@ -251,16 +268,51 @@
       ]
     },
     {
+      "title": "Online Edge Generation",
+      "type": "timeseries",
+      "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 52 },
+      "targets": [
+        {
+          "expr": "qortex_online_edge_count",
+          "legendFormat": "edges / query"
+        },
+        {
+          "expr": "rate(qortex_online_edges_generated_total[5m])",
+          "legendFormat": "generation events / sec"
+        }
+      ]
+    },
+    {
+      "title": "KG Coverage Over Time",
+      "type": "timeseries",
+      "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 52 },
+      "targets": [
+        {
+          "expr": "qortex_kg_coverage",
+          "legendFormat": "coverage"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "min": 0,
+          "max": 1,
+          "unit": "percentunit"
+        }
+      }
+    },
+    {
       "title": "Enrichment & Ingestion",
       "type": "row",
-      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 52 },
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 60 },
       "collapsed": false
     },
     {
       "title": "Enrichment Rate",
       "type": "timeseries",
       "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
-      "gridPos": { "h": 8, "w": 8, "x": 0, "y": 53 },
+      "gridPos": { "h": 8, "w": 8, "x": 0, "y": 61 },
       "targets": [
         {
           "expr": "rate(qortex_enrichment_total[5m])",
@@ -277,7 +329,7 @@
       "title": "Enrichment Latency (p50/p95)",
       "type": "timeseries",
       "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
-      "gridPos": { "h": 8, "w": 8, "x": 8, "y": 53 },
+      "gridPos": { "h": 8, "w": 8, "x": 8, "y": 61 },
       "targets": [
         {
           "expr": "histogram_quantile(0.50, rate(qortex_enrichment_duration_seconds_bucket[5m]))",
@@ -298,7 +350,7 @@
       "title": "Enrichment Fallbacks",
       "type": "timeseries",
       "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
-      "gridPos": { "h": 8, "w": 8, "x": 16, "y": 53 },
+      "gridPos": { "h": 8, "w": 8, "x": 16, "y": 61 },
       "targets": [
         {
           "expr": "rate(qortex_enrichment_fallbacks_total[5m])",
@@ -315,7 +367,7 @@
       "title": "Ingestion Rate",
       "type": "timeseries",
       "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
-      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 61 },
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 69 },
       "targets": [
         {
           "expr": "rate(qortex_manifests_ingested_total[5m])",
@@ -332,7 +384,7 @@
       "title": "Ingest Latency (p50/p95)",
       "type": "timeseries",
       "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
-      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 61 },
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 69 },
       "targets": [
         {
           "expr": "histogram_quantile(0.50, rate(qortex_ingest_duration_seconds_bucket[5m]))",
