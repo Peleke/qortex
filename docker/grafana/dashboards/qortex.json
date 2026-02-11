@@ -400,6 +400,142 @@
           "unit": "s"
         }
       }
+    },
+    {
+      "title": "Vector Index",
+      "type": "row",
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 77 },
+      "collapsed": false
+    },
+    {
+      "title": "Vec Index Size",
+      "type": "stat",
+      "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+      "gridPos": { "h": 8, "w": 6, "x": 0, "y": 78 },
+      "targets": [
+        {
+          "expr": "qortex_vec_index_size",
+          "legendFormat": "vectors"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short"
+        }
+      }
+    },
+    {
+      "title": "Vec Add Rate",
+      "type": "timeseries",
+      "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+      "gridPos": { "h": 8, "w": 9, "x": 6, "y": 78 },
+      "targets": [
+        {
+          "expr": "rate(qortex_vec_add_total[5m])",
+          "legendFormat": "{{index_type}}"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "ops"
+        }
+      }
+    },
+    {
+      "title": "Vec Add Latency (p50/p95)",
+      "type": "timeseries",
+      "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+      "gridPos": { "h": 8, "w": 9, "x": 15, "y": 78 },
+      "targets": [
+        {
+          "expr": "histogram_quantile(0.50, rate(qortex_vec_add_duration_seconds_bucket[5m]))",
+          "legendFormat": "p50"
+        },
+        {
+          "expr": "histogram_quantile(0.95, rate(qortex_vec_add_duration_seconds_bucket[5m]))",
+          "legendFormat": "p95"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s"
+        }
+      }
+    },
+    {
+      "title": "Vec Search Top Score",
+      "type": "timeseries",
+      "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+      "gridPos": { "h": 8, "w": 8, "x": 0, "y": 86 },
+      "targets": [
+        {
+          "expr": "qortex_vec_search_top_score",
+          "legendFormat": "top score"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "min": 0,
+          "max": 1,
+          "unit": "short"
+        }
+      }
+    },
+    {
+      "title": "Vec Search Score Spread",
+      "type": "timeseries",
+      "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+      "gridPos": { "h": 8, "w": 8, "x": 8, "y": 86 },
+      "targets": [
+        {
+          "expr": "qortex_vec_search_score_spread",
+          "legendFormat": "spread"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "min": 0,
+          "unit": "short"
+        }
+      }
+    },
+    {
+      "title": "Vec Seed Yield",
+      "type": "gauge",
+      "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+      "gridPos": { "h": 8, "w": 8, "x": 16, "y": 86 },
+      "targets": [
+        {
+          "expr": "qortex_vec_seed_yield",
+          "legendFormat": "yield"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "min": 0,
+          "max": 1,
+          "unit": "percentunit",
+          "thresholds": {
+            "steps": [
+              { "color": "red", "value": null },
+              { "color": "yellow", "value": 0.5 },
+              { "color": "green", "value": 0.8 }
+            ]
+          }
+        }
+      }
+    },
+    {
+      "title": "Vec Search Candidates Distribution",
+      "type": "timeseries",
+      "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 94 },
+      "targets": [
+        {
+          "expr": "rate(qortex_vec_search_candidates_sum[5m]) / rate(qortex_vec_search_candidates_count[5m])",
+          "legendFormat": "avg candidates"
+        }
+      ]
     }
   ],
   "schemaVersion": 39,

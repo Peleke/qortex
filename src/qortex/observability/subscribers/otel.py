@@ -103,7 +103,10 @@ def register_otel_subscriber(config: ObservabilityConfig) -> None:
         QueryCompleted,
         QueryFailed,
         QueryStarted,
+        VecIndexUpdated,
         VecSearchCompleted,
+        VecSearchResults,
+        VecSeedYield,
     )
     from qortex.observability.linker import QortexEventLinker
 
@@ -201,6 +204,29 @@ def register_otel_subscriber(config: ObservabilityConfig) -> None:
     )
     online_edge_count = meter.create_gauge(
         "qortex_online_edge_count", description="Online edges generated in last query"
+    )
+
+    # Vec index instruments
+    vec_add_total = meter.create_counter(
+        "qortex_vec_add", description="Vec index add operations"
+    )
+    vec_add_latency = meter.create_histogram(
+        "qortex_vec_add_duration_seconds", description="Vec add latency"
+    )
+    vec_index_size = meter.create_gauge(
+        "qortex_vec_index_size", description="Number of vectors in index"
+    )
+    vec_search_candidates = meter.create_histogram(
+        "qortex_vec_search_candidates", description="Candidates returned per search"
+    )
+    vec_search_top_score = meter.create_gauge(
+        "qortex_vec_search_top_score", description="Top cosine sim score of last search"
+    )
+    vec_search_score_spread = meter.create_gauge(
+        "qortex_vec_search_score_spread", description="Top - bottom score spread"
+    )
+    vec_seed_yield = meter.create_gauge(
+        "qortex_vec_seed_yield", description="Seed yield ratio after domain filtering"
     )
 
     # ── Trace state ───────────────────────────────────────────────────
@@ -326,6 +352,24 @@ def register_otel_subscriber(config: ObservabilityConfig) -> None:
     @QortexEventLinker.on(EnrichmentFallback)
     def _on_enrichment_fallback(event: EnrichmentFallback) -> None:
         enrichment_fallbacks.add(1)
+
+    # ── Vec Index ─────────────────────────────────────────────────────
+
+    @QortexEventLinker.on(VecIndexUpdated)
+    def _on_vec_index_updated(event: VecIndexUpdated) -> None:
+        vec_add_total.add(1, {"index_type": event.index_type})
+        vec_add_latency.record(event.latency_ms / 1000)
+        vec_index_size.set(event.total_size)
+
+    @QortexEventLinker.on(VecSearchResults)
+    def _on_vec_search_results(event: VecSearchResults) -> None:
+        vec_search_candidates.record(event.candidates)
+        vec_search_top_score.set(event.top_score)
+        vec_search_score_spread.set(event.score_spread)
+
+    @QortexEventLinker.on(VecSeedYield)
+    def _on_vec_seed_yield(event: VecSeedYield) -> None:
+        vec_seed_yield.set(event.yield_ratio)
 
     # ── Ingestion ─────────────────────────────────────────────────────
 

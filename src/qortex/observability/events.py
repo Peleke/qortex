@@ -231,6 +231,42 @@ class EnrichmentFallback:
 
 
 # ---------------------------------------------------------------------------
+# Vector Index
+# ---------------------------------------------------------------------------
+
+
+@dataclass(frozen=True)
+class VecIndexUpdated:
+    """Emitted after vectors are added to an index."""
+
+    count_added: int
+    total_size: int
+    latency_ms: float
+    index_type: str  # "numpy" | "sqlite"
+
+
+@dataclass(frozen=True)
+class VecSearchResults:
+    """Emitted after a vector similarity search completes (from the index layer)."""
+
+    candidates: int  # results returned
+    top_score: float  # highest cosine sim (0.0 if empty)
+    score_spread: float  # top - bottom score (signal clarity)
+    latency_ms: float
+    index_type: str  # "numpy" | "sqlite"
+
+
+@dataclass(frozen=True)
+class VecSeedYield:
+    """Emitted from the adapter after domain-filtering vec search results."""
+
+    query_id: str
+    vec_candidates: int  # raw vec results
+    seeds_after_filter: int  # after domain filtering
+    yield_ratio: float  # seeds / candidates (0.0 if no candidates)
+
+
+# ---------------------------------------------------------------------------
 # Ingestion
 # ---------------------------------------------------------------------------
 

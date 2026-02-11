@@ -25,6 +25,7 @@ from qortex.observability.events import (
     QueryCompleted,
     QueryStarted,
     VecSearchCompleted,
+    VecSeedYield,
 )
 from qortex.observability.logging import get_logger
 
@@ -280,6 +281,14 @@ class GraphRAGAdapter:
             if domains and node.domain not in domains:
                 continue
             seed_nodes.append((node_id, score))
+
+        # Seed yield: how many vec results survived domain filtering
+        emit(VecSeedYield(
+            query_id=query_id,
+            vec_candidates=len(vec_results),
+            seeds_after_filter=len(seed_nodes),
+            yield_ratio=len(seed_nodes) / max(len(vec_results), 1),
+        ))
 
         if not seed_nodes:
             return RetrievalResult(items=[], query_id=query_id)

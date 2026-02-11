@@ -33,7 +33,10 @@ def register_prometheus_subscriber(config: ObservabilityConfig) -> None:
         PPRStarted,
         QueryCompleted,
         QueryFailed,
+        VecIndexUpdated,
         VecSearchCompleted,
+        VecSearchResults,
+        VecSeedYield,
     )
     from qortex.observability.linker import QortexEventLinker
 
@@ -103,6 +106,33 @@ def register_prometheus_subscriber(config: ObservabilityConfig) -> None:
         "qortex_ingest_duration_seconds",
         "Ingest latency",
         buckets=[0.01, 0.05, 0.1, 0.5, 1.0, 5.0],
+    )
+
+    # Vec index instruments
+    vec_add_total = Counter(
+        "qortex_vec_add_total", "Vec index add operations", ["index_type"]
+    )
+    vec_add_latency = Histogram(
+        "qortex_vec_add_duration_seconds",
+        "Vec add latency",
+        buckets=[0.001, 0.005, 0.01, 0.025, 0.05, 0.1, 0.5],
+    )
+    vec_index_size_gauge = Gauge(
+        "qortex_vec_index_size", "Number of vectors in index"
+    )
+    vec_search_candidates_hist = Histogram(
+        "qortex_vec_search_candidates",
+        "Candidates returned per vec search",
+        buckets=[1, 5, 10, 20, 50, 100],
+    )
+    vec_search_top_score_gauge = Gauge(
+        "qortex_vec_search_top_score", "Top cosine sim score of last search"
+    )
+    vec_search_score_spread_gauge = Gauge(
+        "qortex_vec_search_score_spread", "Top - bottom score spread"
+    )
+    vec_seed_yield_gauge = Gauge(
+        "qortex_vec_seed_yield", "Seed yield ratio after domain filtering"
     )
 
     @QortexEventLinker.on(QueryCompleted)
@@ -179,6 +209,22 @@ def register_prometheus_subscriber(config: ObservabilityConfig) -> None:
     @QortexEventLinker.on(EnrichmentFallback)
     def _prom_enrichment_fallback(event: EnrichmentFallback) -> None:
         enrichment_fallbacks.inc()
+
+    @QortexEventLinker.on(VecIndexUpdated)
+    def _prom_vec_index_updated(event: VecIndexUpdated) -> None:
+        vec_add_total.labels(index_type=event.index_type).inc()
+        vec_add_latency.observe(event.latency_ms / 1000)
+        vec_index_size_gauge.set(event.total_size)
+
+    @QortexEventLinker.on(VecSearchResults)
+    def _prom_vec_search_results(event: VecSearchResults) -> None:
+        vec_search_candidates_hist.observe(event.candidates)
+        vec_search_top_score_gauge.set(event.top_score)
+        vec_search_score_spread_gauge.set(event.score_spread)
+
+    @QortexEventLinker.on(VecSeedYield)
+    def _prom_vec_seed_yield(event: VecSeedYield) -> None:
+        vec_seed_yield_gauge.set(event.yield_ratio)
 
     @QortexEventLinker.on(ManifestIngested)
     def _prom_manifest(event: ManifestIngested) -> None:
