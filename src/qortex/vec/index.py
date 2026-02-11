@@ -3,9 +3,19 @@
 from __future__ import annotations
 
 import logging
+import time
 from typing import Protocol, runtime_checkable
 
 logger = logging.getLogger(__name__)
+
+
+def _try_emit(event) -> None:
+    """Emit an observability event if the emitter is configured."""
+    try:
+        from qortex.observability import emit
+        emit(event)
+    except Exception:
+        pass  # observability is optional
 
 
 @runtime_checkable
@@ -82,6 +92,7 @@ class NumpyVectorIndex:
 
     def add(self, ids: list[str], embeddings: list[list[float]]) -> None:
         """Add vectors. Overwrites if ID already exists."""
+        t0 = time.perf_counter()
         if len(ids) != len(embeddings):
             raise ValueError(f"ids ({len(ids)}) and embeddings ({len(embeddings)}) must match")
 
@@ -112,6 +123,14 @@ class NumpyVectorIndex:
         else:
             self._matrix = np.vstack([self._matrix, new_vecs])
 
+        from qortex.observability.events import VecIndexUpdated
+        _try_emit(VecIndexUpdated(
+            count_added=len(ids),
+            total_size=len(self._ids),
+            latency_ms=(time.perf_counter() - t0) * 1000,
+            index_type="numpy",
+        ))
+
     def search(
         self,
         query_embedding: list[float],
@@ -119,6 +138,7 @@ class NumpyVectorIndex:
         threshold: float = 0.0,
     ) -> list[tuple[str, float]]:
         """Brute-force cosine similarity search."""
+        t0 = time.perf_counter()
         if len(self._ids) == 0:
             return []
 
@@ -143,7 +163,22 @@ class NumpyVectorIndex:
         top_indices = valid_indices[np.argsort(-valid_scores)[:top_k]]
         top_scores = scores[top_indices]
 
-        return [(self._ids[idx], float(top_scores[i])) for i, idx in enumerate(top_indices)]
+        results = [(self._ids[idx], float(top_scores[i])) for i, idx in enumerate(top_indices)]
+
+        # Vec observability: search quality signal
+        elapsed = (time.perf_counter() - t0) * 1000
+        top_score = float(top_scores[0]) if len(top_scores) > 0 else 0.0
+        bottom_score = float(top_scores[-1]) if len(top_scores) > 0 else 0.0
+        from qortex.observability.events import VecSearchResults
+        _try_emit(VecSearchResults(
+            candidates=len(results),
+            top_score=top_score,
+            score_spread=top_score - bottom_score,
+            latency_ms=elapsed,
+            index_type="numpy",
+        ))
+
+        return results
 
     def remove(self, ids: list[str]) -> None:
         """Remove vectors by ID."""
@@ -226,6 +261,7 @@ class SqliteVecIndex:
         """Add vectors with upsert semantics."""
         import struct
 
+        t0 = time.perf_counter()
         self._ensure_connection()
         assert self._conn is not None
 
@@ -250,6 +286,14 @@ class SqliteVecIndex:
 
         self._conn.commit()
 
+        from qortex.observability.events import VecIndexUpdated
+        _try_emit(VecIndexUpdated(
+            count_added=len(ids),
+            total_size=self.size(),
+            latency_ms=(time.perf_counter() - t0) * 1000,
+            index_type="sqlite",
+        ))
+
     def search(
         self,
         query_embedding: list[float],
@@ -259,6 +303,7 @@ class SqliteVecIndex:
         """Search using sqlite-vec's built-in distance functions."""
         import struct
 
+        t0 = time.perf_counter()
         self._ensure_connection()
         assert self._conn is not None
 
@@ -282,6 +327,19 @@ class SqliteVecIndex:
             similarity = 1.0 - distance
             if similarity >= threshold:
                 results.append((id_, similarity))
+
+        # Vec observability: search quality signal
+        elapsed = (time.perf_counter() - t0) * 1000
+        top_score = results[0][1] if results else 0.0
+        bottom_score = results[-1][1] if results else 0.0
+        from qortex.observability.events import VecSearchResults
+        _try_emit(VecSearchResults(
+            candidates=len(results),
+            top_score=top_score,
+            score_spread=top_score - bottom_score,
+            latency_ms=elapsed,
+            index_type="sqlite",
+        ))
 
         return results
 

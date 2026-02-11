@@ -37,7 +37,10 @@ from qortex.observability.events import (
     QueryCompleted,
     QueryFailed,
     QueryStarted,
+    VecIndexUpdated,
     VecSearchCompleted,
+    VecSearchResults,
+    VecSeedYield,
 )
 from qortex.observability.logging import (
     LogDestination,
@@ -87,6 +90,10 @@ __all__ = [
     # Enrichment
     "EnrichmentCompleted",
     "EnrichmentFallback",
+    # Vector index
+    "VecIndexUpdated",
+    "VecSearchResults",
+    "VecSeedYield",
     # Ingestion
     "ManifestIngested",
 ]

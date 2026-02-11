@@ -311,3 +311,113 @@ class TestPersonalizedPageRank:
         # Should return some scores (may be empty if MAGE not loaded)
         # At minimum, should not raise
         assert isinstance(scores, dict)
+
+    def test_ppr_finds_typed_edges(self, backend, sample_manifest):
+        """PPR must traverse typed-label edges (REQUIRES, SUPPORTS, etc.).
+
+        This is the regression test for the :REL vs typed-label bug.
+        After ingestion, edges are stored as :REQUIRES and :SUPPORTS.
+        PPR must find them and return nonzero scores for connected nodes.
+        """
+        backend.ingest_manifest(sample_manifest)
+        scores = backend.personalized_pagerank(
+            source_nodes=["c1"],
+            domain="test_domain",
+        )
+        # c1 -> c2 (REQUIRES) -> c3 (SUPPORTS)
+        # PPR seeded at c1 should assign scores to c2 and c3
+        if scores:  # MAGE may not be loaded; skip assertion if empty
+            assert "c1" in scores, f"Seed node c1 missing from PPR scores: {scores}"
+            assert len(scores) > 1, f"PPR returned only seed node, edges not traversed: {scores}"
+
+    def test_ppr_scores_decrease_with_distance(self, backend, sample_manifest):
+        """Nodes closer to the seed should have higher PPR scores."""
+        backend.ingest_manifest(sample_manifest)
+        scores = backend.personalized_pagerank(
+            source_nodes=["c1"],
+            domain="test_domain",
+        )
+        if len(scores) >= 3:
+            # c1 (seed) should have highest score, c2 next, c3 lowest
+            assert scores.get("c1", 0) >= scores.get("c2", 0), (
+                f"c1 should score >= c2: {scores}"
+            )
+            assert scores.get("c2", 0) >= scores.get("c3", 0), (
+                f"c2 should score >= c3: {scores}"
+            )
+
+    def test_ppr_without_domain_filter(self, backend, sample_manifest):
+        """PPR without domain filter should also work with typed edges."""
+        backend.ingest_manifest(sample_manifest)
+        scores = backend.personalized_pagerank(
+            source_nodes=["c1"],
+            domain=None,
+        )
+        assert isinstance(scores, dict)
+        # Should include nodes from the ingested manifest
+        if scores:
+            assert any(nid.startswith("c") for nid in scores)
+
+    def test_ppr_with_mixed_edge_types(self, backend):
+        """PPR must traverse edges of different types (REQUIRES + SIMILAR_TO)."""
+        backend.create_domain("mixed")
+        for nid, name in [("a", "A"), ("b", "B"), ("c", "C"), ("d", "D")]:
+            backend.add_node(
+                ConceptNode(
+                    id=nid, name=name, description="", domain="mixed", source_id="s"
+                )
+            )
+        # Mix of edge types
+        backend.add_edge(
+            ConceptEdge(source_id="a", target_id="b", relation_type=RelationType.REQUIRES)
+        )
+        backend.add_edge(
+            ConceptEdge(source_id="b", target_id="c", relation_type=RelationType.SIMILAR_TO)
+        )
+        backend.add_edge(
+            ConceptEdge(source_id="c", target_id="d", relation_type=RelationType.SUPPORTS)
+        )
+
+        scores = backend.personalized_pagerank(
+            source_nodes=["a"],
+            domain="mixed",
+        )
+        assert isinstance(scores, dict)
+        if scores:
+            # PPR should reach all nodes through the chain
+            assert len(scores) >= 2, f"PPR didn't traverse mixed edges: {scores}"
+
+
+class TestEdgeCountWithTypedLabels:
+    """Verify that domain.edge_count correctly counts typed-label edges."""
+
+    def test_edge_count_after_ingestion(self, backend, sample_manifest):
+        """edge_count must reflect typed-label edges, not just :REL edges."""
+        backend.ingest_manifest(sample_manifest)
+        domain = backend.get_domain("test_domain")
+        assert domain is not None
+        assert domain.edge_count == 2, (
+            f"Expected 2 edges (REQUIRES + SUPPORTS), got {domain.edge_count}"
+        )
+
+    def test_edge_count_with_multiple_types(self, backend):
+        """edge_count must count ALL relationship types."""
+        backend.create_domain("multi")
+        for nid in ["a", "b", "c"]:
+            backend.add_node(
+                ConceptNode(
+                    id=nid, name=nid, description="", domain="multi", source_id="s"
+                )
+            )
+        backend.add_edge(
+            ConceptEdge(source_id="a", target_id="b", relation_type=RelationType.REQUIRES)
+        )
+        backend.add_edge(
+            ConceptEdge(source_id="b", target_id="c", relation_type=RelationType.SIMILAR_TO)
+        )
+
+        domain = backend.get_domain("multi")
+        assert domain is not None
+        assert domain.edge_count == 2, (
+            f"Expected 2 edges across types, got {domain.edge_count}"
+        )

@@ -187,6 +187,7 @@ class GraphBackend(Protocol):
         domain: str | None = None,
         seed_weights: dict[str, float] | None = None,
         extra_edges: list[tuple[str, str, float]] | None = None,
+        query_id: str | None = None,
     ) -> dict[str, float]:
         """Personalized PageRank from source nodes.
 
@@ -307,7 +308,7 @@ class MemgraphBackend:
     Cypher schema:
         (:Domain {name, description, created_at, updated_at})
         (:Concept {id, name, description, domain, source_id, source_location, confidence, properties})
-        (s:Concept)-[:REL {type, confidence, bidirectional, properties}]->(t:Concept)
+        (s:Concept)-[:REQUIRES|SUPPORTS|... {confidence, bidirectional, properties}]->(t:Concept)
         (:Rule {id, text, domain, source_id, source_location, category, confidence, concept_ids})
     """
 
@@ -427,7 +428,7 @@ class MemgraphBackend:
             "MATCH (c:Concept {domain: $name}) RETURN count(c) AS cnt", name
         )
         edge_count = self._count(
-            "MATCH (c:Concept {domain: $name})-[r:REL]-() RETURN count(r) AS cnt", name
+            "MATCH (c:Concept {domain: $name})-[r]-() RETURN count(r) AS cnt", name
         )
         rule_count = self._count("MATCH (r:Rule {domain: $name}) RETURN count(r) AS cnt", name)
 
@@ -688,50 +689,131 @@ class MemgraphBackend:
         domain: str | None = None,
         seed_weights: dict[str, float] | None = None,
         extra_edges: list[tuple[str, str, float]] | None = None,
+        query_id: str | None = None,
     ) -> dict[str, float]:
-        """Personalized PageRank via Memgraph MAGE.
+        """Personalized PageRank via power iteration over Memgraph graph data.
 
-        Uses CALL pagerank.get() with source nodes as personalization.
-        Falls back to uniform if no source nodes match.
-
-        Note: seed_weights and extra_edges are accepted for interface
-        compatibility but MAGE handles personalization natively. Extra
-        edges are injected as temporary relationships before PPR and
-        cleaned up after.
+        Fetches the adjacency structure from Memgraph and runs the same
+        power iteration algorithm as InMemoryBackend. MAGE's pagerank.get()
+        only supports standard PageRank (no personalization), so we run
+        PPR in Python for correctness.
         """
-        # Build subgraph filter for domain if specified
+        from qortex.observability.events import PPRConverged, PPRDiverged, PPRStarted
+
+        # 1. Fetch nodes in scope
         if domain:
-            subgraph = (
-                "MATCH (n:Concept {domain: $domain})-[r:REL]-(m:Concept {domain: $domain}) "
-                "WITH COLLECT(n) + COLLECT(m) AS nodes, COLLECT(r) AS rels "
+            node_records = self._run(
+                "MATCH (n:Concept {domain: $d}) RETURN n.id AS id",
+                {"d": domain},
             )
         else:
-            subgraph = (
-                "MATCH (n:Concept)-[r:REL]-(m:Concept) "
-                "WITH COLLECT(n) + COLLECT(m) AS nodes, COLLECT(r) AS rels "
+            node_records = self._run("MATCH (n:Concept) RETURN n.id AS id")
+
+        node_ids = [r["id"] for r in node_records if r.get("id")]
+        node_set = set(node_ids)
+
+        # Filter seeds to nodes that actually exist in scope
+        valid_seeds = [nid for nid in source_nodes if nid in node_set]
+        if not valid_seeds or not node_ids:
+            return {}
+
+        t0 = time.perf_counter()
+        emit(PPRStarted(
+            query_id=query_id,
+            node_count=len(node_ids),
+            seed_count=len(valid_seeds),
+            damping_factor=damping_factor,
+            extra_edge_count=len(extra_edges) if extra_edges else 0,
+        ))
+
+        # 2. Fetch edges and build adjacency: node_id → [(neighbor_id, weight)]
+        if domain:
+            edge_records = self._run(
+                "MATCH (a:Concept {domain: $d})-[r]->(b:Concept {domain: $d}) "
+                "RETURN a.id AS src, b.id AS tgt, "
+                "COALESCE(r.confidence, 1.0) AS weight",
+                {"d": domain},
+            )
+        else:
+            edge_records = self._run(
+                "MATCH (a:Concept)-[r]->(b:Concept) "
+                "RETURN a.id AS src, b.id AS tgt, "
+                "COALESCE(r.confidence, 1.0) AS weight",
             )
 
-        cypher = (
-            f"{subgraph}"
-            "CALL pagerank.get(nodes, rels, {{"
-            f"damping_factor: {damping_factor}, "
-            f"max_iterations: {max_iterations}, "
-            "personalization_nodes: $source_ids"
-            "}}) "
-            "YIELD node, rank "
-            "RETURN node.id AS id, rank"
-        )
+        adjacency: dict[str, list[tuple[str, float]]] = {nid: [] for nid in node_ids}
+        for rec in edge_records:
+            src, tgt = rec["src"], rec["tgt"]
+            w = float(rec.get("weight", 1.0))
+            if src in node_set and tgt in node_set:
+                adjacency[src].append((tgt, w))
+                # Undirected: add reverse too
+                adjacency[tgt].append((src, w))
 
-        params: dict[str, Any] = {"source_ids": source_nodes}
-        if domain:
-            params["domain"] = domain
+        # Extra edges (from online edge generation)
+        if extra_edges:
+            for src, tgt, weight in extra_edges:
+                if src in node_set and tgt in node_set:
+                    adjacency[src].append((tgt, weight))
+                    adjacency[tgt].append((src, weight))
 
-        try:
-            records = self._run(cypher, params)
-            return {r["id"]: r["rank"] for r in records if r.get("id")}
-        except Exception as e:
-            logger.warning("MAGE pagerank failed, returning empty scores: %s", e)
-            return {}
+        # 3. Build personalization vector
+        personalization: dict[str, float] = {}
+        if seed_weights:
+            for nid in valid_seeds:
+                personalization[nid] = seed_weights.get(nid, 0.0)
+        else:
+            for nid in valid_seeds:
+                personalization[nid] = 1.0
+
+        p_total = sum(personalization.values())
+        if p_total > 0:
+            personalization = {k: v / p_total for k, v in personalization.items()}
+
+        # 4. Power iteration: π(t+1) = d * (A @ π(t)) + (1 - d) * personalization
+        n = len(node_ids)
+        scores: dict[str, float] = {nid: 1.0 / n for nid in node_ids}
+        convergence_threshold = 1e-6
+        diff = 0.0
+
+        for _iteration in range(max_iterations):
+            new_scores: dict[str, float] = {}
+            for nid in node_ids:
+                teleport = (1.0 - damping_factor) * personalization.get(nid, 0.0)
+                walk = 0.0
+                for neighbor_id, weight in adjacency.get(nid, []):
+                    neighbor_out = adjacency.get(neighbor_id, [])
+                    out_weight = sum(w for _, w in neighbor_out)
+                    if out_weight > 0:
+                        walk += scores.get(neighbor_id, 0.0) * weight / out_weight
+                new_scores[nid] = teleport + damping_factor * walk
+
+            diff = sum(abs(new_scores.get(k, 0) - scores.get(k, 0)) for k in node_ids)
+            scores = new_scores
+            if diff < convergence_threshold:
+                break
+
+        elapsed = (time.perf_counter() - t0) * 1000
+        result = {nid: score for nid, score in scores.items() if score > 1e-8}
+
+        if diff < convergence_threshold:
+            emit(PPRConverged(
+                query_id=query_id,
+                iterations=_iteration + 1,
+                final_diff=diff,
+                node_count=len(node_ids),
+                nonzero_scores=len(result),
+                latency_ms=elapsed,
+            ))
+        else:
+            emit(PPRDiverged(
+                query_id=query_id,
+                iterations=max_iterations,
+                final_diff=diff,
+                node_count=len(node_ids),
+            ))
+
+        return result
 
     # -------------------------------------------------------------------------
     # Vector Operations
@@ -952,6 +1034,7 @@ class SQLiteBackend:
         domain: str | None = None,
         seed_weights: dict[str, float] | None = None,
         extra_edges: list[tuple[str, str, float]] | None = None,
+        query_id: str | None = None,
     ) -> dict[str, float]:
         """Simple BFS-based approximation (not true PPR)."""
         raise NotImplementedError("M3: Implement simple traversal fallback")

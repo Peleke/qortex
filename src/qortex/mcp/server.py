@@ -140,11 +140,14 @@ def _ensure_initialized() -> None:
     graph_backend = os.environ.get("QORTEX_GRAPH", "memory")
     if graph_backend == "memgraph":
         try:
-            from qortex.core.backend import MemgraphBackend
+            from qortex.core.backend import MemgraphBackend, MemgraphCredentials
 
             host = os.environ.get("MEMGRAPH_HOST", "localhost")
             port = int(os.environ.get("MEMGRAPH_PORT", "7687"))
-            _backend = MemgraphBackend(host=host, port=port)
+            user = os.environ.get("MEMGRAPH_USER", "")
+            password = os.environ.get("MEMGRAPH_PASSWORD", "")
+            creds = MemgraphCredentials(user=user, password=password) if user else None
+            _backend = MemgraphBackend(host=host, port=port, credentials=creds)
             _backend.connect()
         except (ImportError, Exception) as e:
             logger.warning("memgraph.unavailable", error=str(e), fallback="InMemoryBackend")

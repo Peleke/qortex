@@ -234,6 +234,7 @@ class InMemoryBackend:
         domain: str | None = None,
         seed_weights: dict[str, float] | None = None,
         extra_edges: list[tuple[str, str, float]] | None = None,
+        query_id: str | None = None,
     ) -> dict[str, float]:
         """Personalized PageRank via power iteration.
 
@@ -270,7 +271,7 @@ class InMemoryBackend:
 
         t0 = time.perf_counter()
         emit(PPRStarted(
-            query_id=None,
+            query_id=query_id,
             node_count=len(node_ids),
             seed_count=len(valid_seeds),
             damping_factor=damping_factor,
@@ -344,7 +345,7 @@ class InMemoryBackend:
 
         if diff < convergence_threshold:
             emit(PPRConverged(
-                query_id=None,
+                query_id=query_id,
                 iterations=_iteration + 1,
                 final_diff=diff,
                 node_count=len(node_ids),
@@ -353,7 +354,7 @@ class InMemoryBackend:
             ))
         else:
             emit(PPRDiverged(
-                query_id=None,
+                query_id=query_id,
                 iterations=max_iterations,
                 final_diff=diff,
                 node_count=len(node_ids),

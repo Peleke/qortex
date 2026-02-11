@@ -25,6 +25,7 @@ from qortex.observability.events import (
     QueryCompleted,
     QueryStarted,
     VecSearchCompleted,
+    VecSeedYield,
 )
 from qortex.observability.logging import get_logger
 
@@ -233,6 +234,10 @@ class GraphRAGAdapter:
         else:
             self._interoception = LocalInteroceptionProvider()
 
+        # Give interoception a backend reference for auto-flush
+        if hasattr(self._interoception, "set_backend"):
+            self._interoception.set_backend(self.backend)
+
         # Cache: query_id → list of item_ids (for feedback routing)
         self._query_cache: dict[str, list[str]] = {}
 
@@ -276,6 +281,14 @@ class GraphRAGAdapter:
             if domains and node.domain not in domains:
                 continue
             seed_nodes.append((node_id, score))
+
+        # Seed yield: how many vec results survived domain filtering
+        emit(VecSeedYield(
+            query_id=query_id,
+            vec_candidates=len(vec_results),
+            seeds_after_filter=len(seed_nodes),
+            yield_ratio=len(seed_nodes) / max(len(vec_results), 1),
+        ))
 
         if not seed_nodes:
             return RetrievalResult(items=[], query_id=query_id)
@@ -327,6 +340,7 @@ class GraphRAGAdapter:
             domain=domains[0] if domains and len(domains) == 1 else None,
             seed_weights=seed_weights,
             extra_edges=online_edges,
+            query_id=query_id,
         )
 
         # 6. Combined scoring: vec_sim × PPR_activation
