@@ -38,11 +38,15 @@ def _make_backend():
 def _capture_cypher(backend, method_name, *args, **kwargs):
     """Call a backend method and return all Cypher strings passed to _run."""
     captured: list[str] = []
-    original_run = backend._run
 
     def spy(cypher, params=None):
         captured.append(cypher)
-        # Return empty results for most queries
+        # PPR needs nodes from the first query so the method reaches the edge fetch.
+        if "RETURN n.id AS id" in cypher:
+            return [{"id": "c1"}, {"id": "c2"}, {"id": "c3"}]
+        # Edge fetch for PPR power iteration
+        if "RETURN a.id AS src" in cypher:
+            return [{"src": "c1", "tgt": "c2", "weight": 1.0}]
         return []
 
     with patch.object(backend, "_run", side_effect=spy):
@@ -63,10 +67,15 @@ def _capture_cypher(backend, method_name, *args, **kwargs):
 
 
 class TestPPRCypherConstruction:
-    """Verify that personalized_pagerank generates correct Cypher patterns."""
+    """Verify that personalized_pagerank generates correct Cypher patterns.
+
+    The implementation uses power iteration in Python, issuing two queries:
+      1. Node fetch: MATCH (n:Concept) RETURN n.id AS id
+      2. Edge fetch: MATCH (a:Concept)-[r]->(b:Concept) RETURN a.id AS src, ...
+    """
 
     def test_ppr_no_domain_uses_wildcard_relationship(self):
-        """PPR without domain filter must match ANY relationship type, not :REL."""
+        """PPR without domain filter must use wildcard relationship in edge fetch."""
         b = _make_backend()
         cyphers = _capture_cypher(
             b,
@@ -74,20 +83,18 @@ class TestPPRCypherConstruction:
             source_nodes=["c1"],
             domain=None,
         )
-        assert len(cyphers) == 1
-        cypher = cyphers[0]
+        assert len(cyphers) == 2, f"Expected 2 queries (nodes + edges), got {len(cyphers)}"
 
-        # Must NOT contain :REL
-        assert ":REL" not in cypher, f"PPR Cypher still contains :REL: {cypher}"
+        for cypher in cyphers:
+            assert ":REL" not in cypher, f"PPR Cypher still contains :REL: {cypher}"
+            assert ":Concept" in cypher
 
-        # Must use -[r]- (wildcard relationship)
-        assert "-[r]-" in cypher, f"PPR Cypher does not use wildcard -[r]-: {cypher}"
-
-        # Must reference Concept nodes
-        assert ":Concept" in cypher
+        # Edge fetch must use wildcard -[r]->
+        edge_cypher = cyphers[1]
+        assert "-[r]->" in edge_cypher, f"Edge fetch does not use wildcard -[r]->: {edge_cypher}"
 
     def test_ppr_with_domain_uses_wildcard_relationship(self):
-        """PPR with domain filter must also use wildcard relationships."""
+        """PPR with domain filter must use wildcard relationships + domain param."""
         b = _make_backend()
         cyphers = _capture_cypher(
             b,
@@ -95,50 +102,62 @@ class TestPPRCypherConstruction:
             source_nodes=["c1"],
             domain="test_domain",
         )
-        assert len(cyphers) == 1
-        cypher = cyphers[0]
+        assert len(cyphers) == 2
 
-        # Must NOT contain :REL
-        assert ":REL" not in cypher, f"PPR Cypher still contains :REL: {cypher}"
+        for cypher in cyphers:
+            assert ":REL" not in cypher, f"PPR Cypher still contains :REL: {cypher}"
+            assert "$d" in cypher, f"Domain param missing: {cypher}"
 
-        # Must use -[r]- with domain filter
-        assert "-[r]-" in cypher
-        assert "$domain" in cypher
+        edge_cypher = cyphers[1]
+        assert "-[r]->" in edge_cypher
 
-    def test_ppr_cypher_includes_pagerank_call(self):
-        """PPR must call MAGE pagerank.get()."""
+    def test_ppr_uses_power_iteration_not_mage(self):
+        """PPR must NOT call MAGE pagerank.get(); it uses Python power iteration."""
         b = _make_backend()
         cyphers = _capture_cypher(
             b,
             "personalized_pagerank",
             source_nodes=["c1"],
         )
-        cypher = cyphers[0]
-        assert "pagerank.get" in cypher
+        for cypher in cyphers:
+            assert "pagerank" not in cypher.lower(), (
+                f"PPR should use power iteration, not MAGE: {cypher}"
+            )
 
-    def test_ppr_cypher_includes_damping_factor(self):
-        """PPR must pass the damping factor to MAGE."""
+    def test_ppr_returns_scores_for_valid_seeds(self):
+        """PPR with valid seeds must return non-empty scores."""
         b = _make_backend()
-        cyphers = _capture_cypher(
-            b,
-            "personalized_pagerank",
-            source_nodes=["c1"],
-            damping_factor=0.9,
-        )
-        cypher = cyphers[0]
-        assert "0.9" in cypher
+        scores = {}
+        with patch.object(b, "_run") as mock_run:
+            mock_run.side_effect = [
+                [{"id": "c1"}, {"id": "c2"}, {"id": "c3"}],  # node fetch
+                [{"src": "c1", "tgt": "c2", "weight": 1.0}],  # edge fetch
+            ]
+            scores = b.personalized_pagerank(source_nodes=["c1"], damping_factor=0.85)
+        assert len(scores) > 0, "PPR should return scores for valid seeds"
+        assert "c1" in scores
 
-    def test_ppr_cypher_includes_max_iterations(self):
-        """PPR must pass max_iterations to MAGE."""
+    def test_ppr_respects_damping_factor(self):
+        """Different damping factors must produce different score distributions."""
         b = _make_backend()
-        cyphers = _capture_cypher(
-            b,
-            "personalized_pagerank",
-            source_nodes=["c1"],
-            max_iterations=50,
+        node_data = [{"id": "c1"}, {"id": "c2"}, {"id": "c3"}]
+        edge_data = [
+            {"src": "c1", "tgt": "c2", "weight": 1.0},
+            {"src": "c2", "tgt": "c3", "weight": 1.0},
+        ]
+
+        with patch.object(b, "_run") as mock_run:
+            mock_run.side_effect = [node_data, edge_data]
+            scores_low = b.personalized_pagerank(source_nodes=["c1"], damping_factor=0.5)
+
+        with patch.object(b, "_run") as mock_run:
+            mock_run.side_effect = [node_data, edge_data]
+            scores_high = b.personalized_pagerank(source_nodes=["c1"], damping_factor=0.99)
+
+        # With low damping, seed node keeps more weight (more teleportation)
+        assert scores_low["c1"] > scores_high["c1"], (
+            "Lower damping should give seed node higher relative score"
         )
-        cypher = cyphers[0]
-        assert "50" in cypher
 
 
 # ---------------------------------------------------------------------------
