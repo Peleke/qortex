@@ -9,7 +9,7 @@
 [![CI](https://img.shields.io/github/actions/workflow/status/Peleke/qortex/ci.yml?branch=main&style=for-the-badge&logo=github&label=CI)](https://github.com/Peleke/qortex/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg?style=for-the-badge)](https://opensource.org/licenses/MIT)
 
-Transforms unstructured content into a knowledge graph with typed edges, then uses Personalized PageRank for structurally-aware search with feedback-driven learning.
+Transforms unstructured content into a knowledge graph. Typed edges encode semantic relationships (REQUIRES, REFINES, USES). Personalized PageRank scores results by graph structure, and feedback from consumers adjusts rankings over time.
 
 [Install](#install) · [Quick Start](#quick-start) · [Framework Adapters](#framework-adapters) · [Docs](https://peleke.github.io/qortex/)
 
@@ -19,7 +19,7 @@ Transforms unstructured content into a knowledge graph with typed edges, then us
 
 - **Graph-enhanced retrieval**: Vector similarity + PPR over typed edges (REQUIRES, REFINES, USES...)
 - **Explore and navigate**: Traverse typed edges, discover neighbors and linked rules from any search result
-- **Rules auto-surfaced**: Query results include linked rules with relevance scores, zero consumer effort
+- **Rules auto-surfaced**: Query results include linked rules with relevance scores; no separate rules request needed
 - **Feedback-driven learning**: Consumer outcomes adjust PPR teleportation factors; results improve over time
 - **Framework adapters**: Drop-in for [LangChain](https://github.com/Peleke/langchain-qortex), [Mastra](https://github.com/Peleke/mastra-qortex), and any MCP client
 - **Flexible ingestion**: PDF, Markdown, and text sources into a unified knowledge graph

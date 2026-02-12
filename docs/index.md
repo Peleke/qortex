@@ -10,9 +10,9 @@ qortex transforms unstructured content (books, docs, PDFs) into a knowledge grap
 
 - **Graph-Enhanced Retrieval**: Vector similarity + Personalized PageRank over typed edges
 - **Explore & Navigate**: Traverse typed edges, discover neighbors and linked rules from any search result
-- **Rules Auto-Surfaced**: Query results include linked rules with relevance scores, zero consumer effort
+- **Rules Auto-Surfaced**: Query results include linked rules with relevance scores; no separate rules request needed
 - **Feedback-Driven Learning**: Consumer outcomes adjust PPR teleportation factors; results improve over time
-- **Framework Adapters**: Drop-in for LangChain VectorStore, Mastra MCP, CrewAI, Agno. Same API, graph extras for free
+- **Framework Adapters**: Drop-in for LangChain VectorStore, Mastra MCP, CrewAI, Agno. Adapters expose explore(), rules(), and feedback() alongside standard search
 - **Flexible Ingestion**: PDF, Markdown, and text sources into a unified knowledge graph
 - **Rich Type System**: 10 semantic relation types with 30 edge rule templates
 - **Projection Pipeline**: Source → Enricher → Target architecture for rule generation
