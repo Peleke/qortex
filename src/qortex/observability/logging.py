@@ -421,9 +421,14 @@ def setup_logging(config: ObservabilityConfig) -> None:
     log_formatter = formatter.setup(config)
     handler = destination.create_handler(log_formatter)
 
-    # Wire to root logger
+    # Wire to root logger — only replace our own handler, preserve external ones
+    # (monitoring agents, pytest caplog, log aggregation, etc.)
+    handler._qortex_managed = True  # type: ignore[attr-defined]
     root_logger = logging.getLogger()
-    root_logger.handlers.clear()
+    root_logger.handlers = [
+        h for h in root_logger.handlers
+        if not getattr(h, "_qortex_managed", False)
+    ]
     root_logger.addHandler(handler)
     root_logger.setLevel(getattr(logging, config.log_level.upper(), logging.INFO))
 
