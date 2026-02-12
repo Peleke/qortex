@@ -344,7 +344,7 @@ _ALLOWED_OUTCOMES = {"accepted", "rejected", "partial"}
 _OUTCOME_REWARD = {"accepted": 1.0, "rejected": -1.0, "partial": 0.3}
 
 
-def _maybe_propagate_credit(
+async def _maybe_propagate_credit(
     query_id: str,
     outcomes: dict[str, str],
 ) -> dict | None:
@@ -398,8 +398,8 @@ def _maybe_propagate_credit(
 
     # Convert to posterior updates and apply
     updates = CreditAssigner.to_posterior_updates(all_assignments)
-    learner = _get_or_create_learner("credit")
-    learner.apply_credit_deltas(updates)
+    learner = await _get_or_create_learner("credit")
+    await learner.apply_credit_deltas(updates)
 
     # Emit event
     from qortex.observability import emit
@@ -427,7 +427,7 @@ def _maybe_propagate_credit(
     }
 
 
-def _feedback_impl(
+async def _feedback_impl(
     query_id: str,
     outcomes: dict[str, str],
     source: str = "unknown",
@@ -449,7 +449,7 @@ def _feedback_impl(
         _adapter.feedback(query_id, outcomes)
 
     # Credit propagation (if enabled)
-    credit_summary = _maybe_propagate_credit(query_id, outcomes)
+    credit_summary = await _maybe_propagate_credit(query_id, outcomes)
 
     result: dict = {
         "status": "recorded",
@@ -1579,7 +1579,7 @@ def qortex_query(
 
 
 @mcp.tool
-def qortex_feedback(
+async def qortex_feedback(
     query_id: str,
     outcomes: dict[str, str],
     source: str = "unknown",
@@ -1594,7 +1594,7 @@ def qortex_feedback(
         outcomes: Mapping of item_id to "accepted", "rejected", or "partial".
         source: Identifier for the consumer reporting feedback.
     """
-    return _feedback_impl(query_id, outcomes, source)
+    return await _feedback_impl(query_id, outcomes, source)
 
 
 @mcp.tool
@@ -1991,17 +1991,17 @@ def qortex_vector_delete_many(
 # ---------------------------------------------------------------------------
 
 
-def _get_or_create_learner(name: str, **kwargs) -> Any:
+async def _get_or_create_learner(name: str, **kwargs) -> Any:
     """Lazy-create a Learner on first use."""
     if name not in _learners:
         from qortex.learning import Learner, LearnerConfig
 
         config = LearnerConfig(name=name, state_dir=_learning_state_dir, **kwargs)
-        _learners[name] = Learner(config)
+        _learners[name] = await Learner.create(config)
     return _learners[name]
 
 
-def _learning_select_impl(
+async def _learning_select_impl(
     learner: str,
     candidates: list[dict],
     context: dict | None = None,
@@ -2020,8 +2020,8 @@ def _learning_select_impl(
         for c in candidates
     ]
 
-    lrn = _get_or_create_learner(learner)
-    result = lrn.select(arms, context=context, k=k, token_budget=token_budget)
+    lrn = await _get_or_create_learner(learner)
+    result = await lrn.select(arms, context=context, k=k, token_budget=token_budget)
 
     return {
         "selected_arms": [
@@ -2039,7 +2039,7 @@ def _learning_select_impl(
     }
 
 
-def _learning_observe_impl(
+async def _learning_observe_impl(
     learner: str,
     arm_id: str,
     outcome: str = "",
@@ -2049,14 +2049,14 @@ def _learning_observe_impl(
     """Record an observation and update posterior."""
     from qortex.learning import ArmOutcome
 
-    lrn = _get_or_create_learner(learner)
+    lrn = await _get_or_create_learner(learner)
     obs = ArmOutcome(
         arm_id=arm_id,
         reward=reward,
         outcome=outcome,
         context=context or {},
     )
-    state = lrn.observe(obs, context=context)
+    state = await lrn.observe(obs, context=context)
 
     return {
         "arm_id": arm_id,
@@ -2067,14 +2067,14 @@ def _learning_observe_impl(
     }
 
 
-def _learning_posteriors_impl(
+async def _learning_posteriors_impl(
     learner: str,
     context: dict | None = None,
     arm_ids: list[str] | None = None,
 ) -> dict:
     """Get current posteriors for arms."""
-    lrn = _get_or_create_learner(learner)
-    posteriors = lrn.posteriors(context=context, arm_ids=arm_ids)
+    lrn = await _get_or_create_learner(learner)
+    posteriors = await lrn.posteriors(context=context, arm_ids=arm_ids)
 
     return {
         "learner": learner,
@@ -2085,26 +2085,26 @@ def _learning_posteriors_impl(
     }
 
 
-def _learning_metrics_impl(
+async def _learning_metrics_impl(
     learner: str,
     window: int | None = None,
 ) -> dict:
     """Get learning metrics."""
-    lrn = _get_or_create_learner(learner)
-    return lrn.metrics(window=window)
+    lrn = await _get_or_create_learner(learner)
+    return await lrn.metrics(window=window)
 
 
-def _learning_session_start_impl(
+async def _learning_session_start_impl(
     learner: str,
     session_name: str,
 ) -> dict:
     """Start a named learning session."""
-    lrn = _get_or_create_learner(learner)
+    lrn = await _get_or_create_learner(learner)
     session_id = lrn.session_start(session_name)
     return {"session_id": session_id, "learner": learner}
 
 
-def _learning_session_end_impl(session_id: str) -> dict:
+async def _learning_session_end_impl(session_id: str) -> dict:
     """End a learning session and return summary."""
     for lrn in _learners.values():
         if session_id in lrn._sessions:
@@ -2118,7 +2118,7 @@ def _learning_session_end_impl(session_id: str) -> dict:
 
 
 @mcp.tool
-def qortex_learning_select(
+async def qortex_learning_select(
     learner: str,
     candidates: list[dict],
     context: dict | None = None,
@@ -2139,11 +2139,11 @@ def qortex_learning_select(
         k: Number of arms to select.
         token_budget: If > 0, respect total token budget across selected arms.
     """
-    return _learning_select_impl(learner, candidates, context, k, token_budget)
+    return await _learning_select_impl(learner, candidates, context, k, token_budget)
 
 
 @mcp.tool
-def qortex_learning_observe(
+async def qortex_learning_observe(
     learner: str,
     arm_id: str,
     outcome: str = "",
@@ -2162,11 +2162,11 @@ def qortex_learning_observe(
         reward: Direct reward value (0.0 to 1.0). Overrides outcome if both provided.
         context: Context dict matching the select call.
     """
-    return _learning_observe_impl(learner, arm_id, outcome, reward, context)
+    return await _learning_observe_impl(learner, arm_id, outcome, reward, context)
 
 
 @mcp.tool
-def qortex_learning_posteriors(
+async def qortex_learning_posteriors(
     learner: str,
     context: dict | None = None,
     arm_ids: list[str] | None = None,
@@ -2180,11 +2180,11 @@ def qortex_learning_posteriors(
         context: Optional context filter.
         arm_ids: Optional list of arm IDs to filter. None = all.
     """
-    return _learning_posteriors_impl(learner, context, arm_ids)
+    return await _learning_posteriors_impl(learner, context, arm_ids)
 
 
 @mcp.tool
-def qortex_learning_metrics(
+async def qortex_learning_metrics(
     learner: str,
     window: int | None = None,
 ) -> dict:
@@ -2196,11 +2196,11 @@ def qortex_learning_metrics(
         learner: Learner name.
         window: Optional window size (not yet implemented, reserved).
     """
-    return _learning_metrics_impl(learner, window)
+    return await _learning_metrics_impl(learner, window)
 
 
 @mcp.tool
-def qortex_learning_session_start(
+async def qortex_learning_session_start(
     learner: str,
     session_name: str,
 ) -> dict:
@@ -2210,17 +2210,17 @@ def qortex_learning_session_start(
         learner: Learner name.
         session_name: Human-readable session name.
     """
-    return _learning_session_start_impl(learner, session_name)
+    return await _learning_session_start_impl(learner, session_name)
 
 
 @mcp.tool
-def qortex_learning_session_end(session_id: str) -> dict:
+async def qortex_learning_session_end(session_id: str) -> dict:
     """End a learning session and return summary.
 
     Args:
         session_id: The session_id from qortex_learning_session_start.
     """
-    return _learning_session_end_impl(session_id)
+    return await _learning_session_end_impl(session_id)
 
 
 # ---------------------------------------------------------------------------

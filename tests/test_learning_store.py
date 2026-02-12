@@ -45,51 +45,51 @@ class TestProtocolCompliance:
 
 
 class TestStoreCRUD:
-    def test_get_missing_returns_default(self, store):
-        state = store.get("nonexistent")
+    async def test_get_missing_returns_default(self, store):
+        state = await store.get("nonexistent")
         assert state.alpha == 1.0
         assert state.beta == 1.0
         assert state.pulls == 0
 
-    def test_put_then_get(self, store):
+    async def test_put_then_get(self, store):
         s = ArmState(alpha=3.0, beta=2.0, pulls=5, total_reward=3.0, last_updated="t1")
-        store.put("arm:a", s)
-        got = store.get("arm:a")
+        await store.put("arm:a", s)
+        got = await store.get("arm:a")
         assert got.alpha == 3.0
         assert got.beta == 2.0
         assert got.pulls == 5
         assert got.total_reward == 3.0
         assert got.last_updated == "t1"
 
-    def test_put_overwrites(self, store):
-        store.put("arm:a", ArmState(alpha=2.0))
-        store.put("arm:a", ArmState(alpha=9.0))
-        assert store.get("arm:a").alpha == 9.0
+    async def test_put_overwrites(self, store):
+        await store.put("arm:a", ArmState(alpha=2.0))
+        await store.put("arm:a", ArmState(alpha=9.0))
+        assert (await store.get("arm:a")).alpha == 9.0
 
-    def test_get_all_empty(self, store):
-        assert store.get_all() == {}
+    async def test_get_all_empty(self, store):
+        assert await store.get_all() == {}
 
-    def test_get_all_returns_context_arms(self, store):
-        store.put("arm:a", ArmState(alpha=2.0))
-        store.put("arm:b", ArmState(alpha=3.0))
-        all_arms = store.get_all()
+    async def test_get_all_returns_context_arms(self, store):
+        await store.put("arm:a", ArmState(alpha=2.0))
+        await store.put("arm:b", ArmState(alpha=3.0))
+        all_arms = await store.get_all()
         assert set(all_arms.keys()) == {"arm:a", "arm:b"}
         assert all_arms["arm:a"].alpha == 2.0
 
-    def test_get_all_contexts_empty(self, store):
-        assert store.get_all_contexts() == []
+    async def test_get_all_contexts_empty(self, store):
+        assert await store.get_all_contexts() == []
 
-    def test_get_all_contexts(self, store):
-        store.put("arm:a", ArmState(), context={"task": "x"})
-        store.put("arm:b", ArmState(), context={"task": "y"})
-        contexts = store.get_all_contexts()
+    async def test_get_all_contexts(self, store):
+        await store.put("arm:a", ArmState(), context={"task": "x"})
+        await store.put("arm:b", ArmState(), context={"task": "y"})
+        contexts = await store.get_all_contexts()
         assert len(contexts) == 2
 
-    def test_save_persists_data(self, store):
-        store.put("arm:a", ArmState(alpha=5.0))
-        store.save()
+    async def test_save_persists_data(self, store):
+        await store.put("arm:a", ArmState(alpha=5.0))
+        await store.save()
         # Verify data is still readable after explicit save
-        assert store.get("arm:a").alpha == 5.0
+        assert (await store.get("arm:a")).alpha == 5.0
 
 
 # ---------------------------------------------------------------------------
@@ -98,33 +98,33 @@ class TestStoreCRUD:
 
 
 class TestContextPartitioning:
-    def test_same_arm_different_contexts_independent(self, store):
+    async def test_same_arm_different_contexts_independent(self, store):
         ctx_a = {"task": "typing"}
         ctx_b = {"task": "linting"}
 
-        store.put("arm:x", ArmState(alpha=10.0), context=ctx_a)
-        store.put("arm:x", ArmState(alpha=1.0), context=ctx_b)
+        await store.put("arm:x", ArmState(alpha=10.0), context=ctx_a)
+        await store.put("arm:x", ArmState(alpha=1.0), context=ctx_b)
 
-        assert store.get("arm:x", context=ctx_a).alpha == 10.0
-        assert store.get("arm:x", context=ctx_b).alpha == 1.0
+        assert (await store.get("arm:x", context=ctx_a)).alpha == 10.0
+        assert (await store.get("arm:x", context=ctx_b)).alpha == 1.0
 
-    def test_get_all_scoped_to_context(self, store):
+    async def test_get_all_scoped_to_context(self, store):
         ctx_a = {"task": "typing"}
         ctx_b = {"task": "linting"}
 
-        store.put("arm:a", ArmState(alpha=2.0), context=ctx_a)
-        store.put("arm:b", ArmState(alpha=3.0), context=ctx_b)
+        await store.put("arm:a", ArmState(alpha=2.0), context=ctx_a)
+        await store.put("arm:b", ArmState(alpha=3.0), context=ctx_b)
 
-        a_arms = store.get_all(context=ctx_a)
+        a_arms = await store.get_all(context=ctx_a)
         assert "arm:a" in a_arms
         assert "arm:b" not in a_arms
 
-    def test_default_context_is_none(self, store):
-        store.put("arm:a", ArmState(alpha=5.0))
-        store.put("arm:a", ArmState(alpha=9.0), context={"task": "x"})
+    async def test_default_context_is_none(self, store):
+        await store.put("arm:a", ArmState(alpha=5.0))
+        await store.put("arm:a", ArmState(alpha=9.0), context={"task": "x"})
 
-        assert store.get("arm:a").alpha == 5.0
-        assert store.get("arm:a", context={"task": "x"}).alpha == 9.0
+        assert (await store.get("arm:a")).alpha == 5.0
+        assert (await store.get("arm:a", context={"task": "x"})).alpha == 9.0
 
 
 # ---------------------------------------------------------------------------
@@ -133,14 +133,14 @@ class TestContextPartitioning:
 
 
 class TestGetAllStates:
-    def test_empty(self, store):
-        assert store.get_all_states() == {}
+    async def test_empty(self, store):
+        assert await store.get_all_states() == {}
 
-    def test_returns_nested_dict(self, store):
-        store.put("arm:a", ArmState(alpha=2.0))
-        store.put("arm:b", ArmState(alpha=3.0), context={"task": "x"})
+    async def test_returns_nested_dict(self, store):
+        await store.put("arm:a", ArmState(alpha=2.0))
+        await store.put("arm:b", ArmState(alpha=3.0), context={"task": "x"})
 
-        all_states = store.get_all_states()
+        all_states = await store.get_all_states()
         assert len(all_states) == 2
 
         # Find keys (context hashes)
@@ -149,11 +149,11 @@ class TestGetAllStates:
             for arm_id, state in arms.items():
                 assert isinstance(state, ArmState)
 
-    def test_all_states_has_correct_values(self, store):
-        store.put("arm:a", ArmState(alpha=2.0, pulls=3, total_reward=2.0))
-        store.put("arm:b", ArmState(alpha=4.0, pulls=5, total_reward=4.0))
+    async def test_all_states_has_correct_values(self, store):
+        await store.put("arm:a", ArmState(alpha=2.0, pulls=3, total_reward=2.0))
+        await store.put("arm:b", ArmState(alpha=4.0, pulls=5, total_reward=4.0))
 
-        all_states = store.get_all_states()
+        all_states = await store.get_all_states()
         # Both arms in default context
         default_ctx = list(all_states.values())[0]
         assert default_ctx["arm:a"].alpha == 2.0
@@ -166,38 +166,38 @@ class TestGetAllStates:
 
 
 class TestSqlitePersistence:
-    def test_data_survives_new_instance(self, state_dir):
+    async def test_data_survives_new_instance(self, state_dir):
         store1 = SqliteLearningStore("persist-test", state_dir)
-        store1.put("arm:a", ArmState(alpha=7.0, beta=2.0, pulls=10, total_reward=7.0))
-        store1.save()
+        await store1.put("arm:a", ArmState(alpha=7.0, beta=2.0, pulls=10, total_reward=7.0))
+        await store1.save()
         del store1
 
         # New instance, same path
         store2 = SqliteLearningStore("persist-test", state_dir)
-        got = store2.get("arm:a")
+        got = await store2.get("arm:a")
         assert got.alpha == 7.0
         assert got.beta == 2.0
         assert got.pulls == 10
         assert got.total_reward == 7.0
 
-    def test_context_partitioning_persists(self, state_dir):
+    async def test_context_partitioning_persists(self, state_dir):
         store1 = SqliteLearningStore("ctx-persist", state_dir)
-        store1.put("arm:a", ArmState(alpha=5.0), context={"task": "x"})
-        store1.put("arm:a", ArmState(alpha=9.0), context={"task": "y"})
-        store1.save()
+        await store1.put("arm:a", ArmState(alpha=5.0), context={"task": "x"})
+        await store1.put("arm:a", ArmState(alpha=9.0), context={"task": "y"})
+        await store1.save()
         del store1
 
         store2 = SqliteLearningStore("ctx-persist", state_dir)
-        assert store2.get("arm:a", context={"task": "x"}).alpha == 5.0
-        assert store2.get("arm:a", context={"task": "y"}).alpha == 9.0
+        assert (await store2.get("arm:a", context={"task": "x"})).alpha == 5.0
+        assert (await store2.get("arm:a", context={"task": "y"})).alpha == 9.0
 
-    def test_lazy_connection(self, state_dir):
+    async def test_lazy_connection(self, state_dir):
         store = SqliteLearningStore("lazy-test", state_dir)
         # First call triggers connection; verify by checking DB file exists after
         import os
         db_path = os.path.join(state_dir, "lazy-test.db")
         assert not os.path.exists(db_path)
-        store.get("arm:a")
+        await store.get("arm:a")
         assert os.path.exists(db_path)
 
 

@@ -1,17 +1,19 @@
 """Learning state persistence: protocol + JSON and SQLite backends.
 
 LearningStore is the protocol. Code against it.
-Primary: SqliteLearningStore (ACID, concurrent-safe)
+Primary: SqliteLearningStore (ACID, concurrent-safe, async via aiosqlite)
 Fallback: JsonLearningStore (simple, no locking)
 """
 
 from __future__ import annotations
 
+import asyncio
 import json
 import re
-import sqlite3
 from pathlib import Path
 from typing import Protocol, runtime_checkable
+
+import aiosqlite
 
 from qortex.learning.types import ArmState, context_hash
 
@@ -32,12 +34,12 @@ def _sanitize_name(learner_name: str) -> str:
 class LearningStore(Protocol):
     """Protocol for learning state persistence."""
 
-    def get(self, arm_id: str, context: dict | None = None) -> ArmState: ...
-    def get_all(self, context: dict | None = None) -> dict[str, ArmState]: ...
-    def put(self, arm_id: str, state: ArmState, context: dict | None = None) -> None: ...
-    def get_all_contexts(self) -> list[str]: ...
-    def get_all_states(self) -> dict[str, dict[str, ArmState]]: ...
-    def save(self) -> None: ...
+    async def get(self, arm_id: str, context: dict | None = None) -> ArmState: ...
+    async def get_all(self, context: dict | None = None) -> dict[str, ArmState]: ...
+    async def put(self, arm_id: str, state: ArmState, context: dict | None = None) -> None: ...
+    async def get_all_contexts(self) -> list[str]: ...
+    async def get_all_states(self) -> dict[str, dict[str, ArmState]]: ...
+    async def save(self) -> None: ...
 
 
 # ---------------------------------------------------------------------------
@@ -72,30 +74,34 @@ class JsonLearningStore:
                     for arm_id, state in arms.items()
                 }
 
-    def save(self) -> None:
+    async def save(self) -> None:
         out: dict[str, dict[str, dict]] = {}
         for ctx, arms in self._data.items():
             out[ctx] = {arm_id: state.to_dict() for arm_id, state in arms.items()}
-        self._path.write_text(json.dumps(out, indent=2))
 
-    def get(self, arm_id: str, context: dict | None = None) -> ArmState:
+        def _write() -> None:
+            self._path.write_text(json.dumps(out, indent=2))
+
+        await asyncio.to_thread(_write)
+
+    async def get(self, arm_id: str, context: dict | None = None) -> ArmState:
         ctx = context_hash(context or {})
         return self._data.get(ctx, {}).get(arm_id, ArmState())
 
-    def get_all(self, context: dict | None = None) -> dict[str, ArmState]:
+    async def get_all(self, context: dict | None = None) -> dict[str, ArmState]:
         ctx = context_hash(context or {})
         return dict(self._data.get(ctx, {}))
 
-    def put(self, arm_id: str, state: ArmState, context: dict | None = None) -> None:
+    async def put(self, arm_id: str, state: ArmState, context: dict | None = None) -> None:
         ctx = context_hash(context or {})
         if ctx not in self._data:
             self._data[ctx] = {}
         self._data[ctx][arm_id] = state
 
-    def get_all_contexts(self) -> list[str]:
+    async def get_all_contexts(self) -> list[str]:
         return list(self._data.keys())
 
-    def get_all_states(self) -> dict[str, dict[str, ArmState]]:
+    async def get_all_states(self) -> dict[str, dict[str, ArmState]]:
         return {ctx: dict(arms) for ctx, arms in self._data.items()}
 
 
@@ -119,15 +125,15 @@ class SqliteLearningStore:
             self._dir = Path("~/.qortex/learning").expanduser()
         self._dir.mkdir(parents=True, exist_ok=True)
         self._db_path = self._dir / f"{self._name}.db"
-        self._conn: sqlite3.Connection | None = None
+        self._conn: aiosqlite.Connection | None = None
 
-    def _ensure_connection(self) -> sqlite3.Connection:
+    async def _ensure_connection(self) -> aiosqlite.Connection:
         if self._conn is not None:
             return self._conn
-        self._conn = sqlite3.connect(str(self._db_path))
-        self._conn.execute("PRAGMA journal_mode = WAL")
-        self._conn.execute("PRAGMA busy_timeout = 3000")
-        self._conn.execute("""
+        self._conn = await aiosqlite.connect(str(self._db_path))
+        await self._conn.execute("PRAGMA journal_mode = WAL")
+        await self._conn.execute("PRAGMA busy_timeout = 3000")
+        await self._conn.execute("""
             CREATE TABLE IF NOT EXISTS arm_states (
                 context_hash TEXT NOT NULL,
                 arm_id TEXT NOT NULL,
@@ -139,21 +145,22 @@ class SqliteLearningStore:
                 PRIMARY KEY (context_hash, arm_id)
             )
         """)
-        self._conn.execute(
+        await self._conn.execute(
             "CREATE INDEX IF NOT EXISTS idx_arm_states_context "
             "ON arm_states(context_hash)"
         )
-        self._conn.commit()
+        await self._conn.commit()
         return self._conn
 
-    def get(self, arm_id: str, context: dict | None = None) -> ArmState:
-        conn = self._ensure_connection()
+    async def get(self, arm_id: str, context: dict | None = None) -> ArmState:
+        conn = await self._ensure_connection()
         ctx = context_hash(context or {})
-        row = conn.execute(
+        cursor = await conn.execute(
             "SELECT alpha, beta, pulls, total_reward, last_updated "
             "FROM arm_states WHERE context_hash = ? AND arm_id = ?",
             (ctx, arm_id),
-        ).fetchone()
+        )
+        row = await cursor.fetchone()
         if row is None:
             return ArmState()
         return ArmState(
@@ -164,14 +171,15 @@ class SqliteLearningStore:
             last_updated=row[4],
         )
 
-    def get_all(self, context: dict | None = None) -> dict[str, ArmState]:
-        conn = self._ensure_connection()
+    async def get_all(self, context: dict | None = None) -> dict[str, ArmState]:
+        conn = await self._ensure_connection()
         ctx = context_hash(context or {})
-        rows = conn.execute(
+        cursor = await conn.execute(
             "SELECT arm_id, alpha, beta, pulls, total_reward, last_updated "
             "FROM arm_states WHERE context_hash = ?",
             (ctx,),
-        ).fetchall()
+        )
+        rows = await cursor.fetchall()
         return {
             row[0]: ArmState(
                 alpha=row[1], beta=row[2], pulls=row[3],
@@ -180,31 +188,33 @@ class SqliteLearningStore:
             for row in rows
         }
 
-    def put(self, arm_id: str, state: ArmState, context: dict | None = None) -> None:
-        conn = self._ensure_connection()
+    async def put(self, arm_id: str, state: ArmState, context: dict | None = None) -> None:
+        conn = await self._ensure_connection()
         ctx = context_hash(context or {})
-        conn.execute(
+        await conn.execute(
             "INSERT OR REPLACE INTO arm_states "
             "(context_hash, arm_id, alpha, beta, pulls, total_reward, last_updated) "
             "VALUES (?, ?, ?, ?, ?, ?, ?)",
             (ctx, arm_id, state.alpha, state.beta, state.pulls,
              state.total_reward, state.last_updated),
         )
-        conn.commit()
+        await conn.commit()
 
-    def get_all_contexts(self) -> list[str]:
-        conn = self._ensure_connection()
-        rows = conn.execute(
+    async def get_all_contexts(self) -> list[str]:
+        conn = await self._ensure_connection()
+        cursor = await conn.execute(
             "SELECT DISTINCT context_hash FROM arm_states"
-        ).fetchall()
+        )
+        rows = await cursor.fetchall()
         return [row[0] for row in rows]
 
-    def get_all_states(self) -> dict[str, dict[str, ArmState]]:
-        conn = self._ensure_connection()
-        rows = conn.execute(
+    async def get_all_states(self) -> dict[str, dict[str, ArmState]]:
+        conn = await self._ensure_connection()
+        cursor = await conn.execute(
             "SELECT context_hash, arm_id, alpha, beta, pulls, total_reward, last_updated "
             "FROM arm_states"
-        ).fetchall()
+        )
+        rows = await cursor.fetchall()
         result: dict[str, dict[str, ArmState]] = {}
         for row in rows:
             ctx = row[0]
@@ -216,6 +226,12 @@ class SqliteLearningStore:
             )
         return result
 
-    def save(self) -> None:
+    async def save(self) -> None:
         if self._conn is not None:
-            self._conn.commit()
+            await self._conn.commit()
+
+    async def close(self) -> None:
+        """Close the underlying aiosqlite connection."""
+        if self._conn is not None:
+            await self._conn.close()
+            self._conn = None

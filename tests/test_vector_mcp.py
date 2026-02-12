@@ -523,21 +523,21 @@ class TestDimensionValidation:
 class TestFeedbackValidation:
     """Validates that feedback rejects invalid outcome values."""
 
-    def test_valid_outcomes(self):
-        result = _feedback_impl(
+    async def test_valid_outcomes(self):
+        result = await _feedback_impl(
             "q1",
             {"item1": "accepted", "item2": "rejected", "item3": "partial"},
         )
         assert result["status"] == "recorded"
 
-    def test_invalid_outcome(self):
-        result = _feedback_impl(
+    async def test_invalid_outcome(self):
+        result = await _feedback_impl(
             "q1",
             {"item1": "accepted", "item2": "invalid_value"},
         )
         assert "error" in result
         assert "invalid_value" in result["error"]
 
-    def test_empty_outcomes(self):
-        result = _feedback_impl("q1", {})
+    async def test_empty_outcomes(self):
+        result = await _feedback_impl("q1", {})
         assert result["status"] == "recorded"
