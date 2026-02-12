@@ -23,6 +23,7 @@ from qortex.observability.events import (
     KGCoverageComputed,
     OnlineEdgesGenerated,
     QueryCompleted,
+    QueryFailed,
     QueryStarted,
     VecSearchCompleted,
     VecSeedYield,
@@ -122,14 +123,32 @@ class VecOnlyAdapter:
         ))
 
         # 1. Embed query
-        query_embedding = self.embedding_model.embed([query])[0]
+        try:
+            query_embedding = self.embedding_model.embed([query])[0]
+        except Exception as exc:
+            emit(QueryFailed(
+                query_id=query_id,
+                error=str(exc),
+                stage="embedding",
+                timestamp=datetime.now(UTC).isoformat(),
+            ))
+            raise
 
         # 2. Search VectorIndex directly (not backend.vector_search)
         # Over-fetch to allow for domain filtering
         fetch_k = top_k * 2 if domains else top_k
-        vec_results = self.vector_index.search(
-            query_embedding, top_k=fetch_k, threshold=min_confidence
-        )
+        try:
+            vec_results = self.vector_index.search(
+                query_embedding, top_k=fetch_k, threshold=min_confidence
+            )
+        except Exception as exc:
+            emit(QueryFailed(
+                query_id=query_id,
+                error=str(exc),
+                stage="vec_search",
+                timestamp=datetime.now(UTC).isoformat(),
+            ))
+            raise
 
         # 3. Resolve node metadata from backend and filter by domain
         items: list[RetrievalItem] = []
@@ -261,13 +280,32 @@ class GraphRAGAdapter:
         ))
 
         # 1. Vec layer: embed query → vector search → seed candidates
-        query_embedding = self.embedding_model.embed([query])[0]
+        try:
+            query_embedding = self.embedding_model.embed([query])[0]
+        except Exception as exc:
+            emit(QueryFailed(
+                query_id=query_id,
+                error=str(exc),
+                stage="embedding",
+                timestamp=datetime.now(UTC).isoformat(),
+            ))
+            raise
+
         fetch_k = max(top_k * 3, 30)  # Over-fetch for graph expansion
-        vec_results = self.vector_index.search(
-            query_embedding,
-            top_k=fetch_k,
-            threshold=min_confidence,
-        )
+        try:
+            vec_results = self.vector_index.search(
+                query_embedding,
+                top_k=fetch_k,
+                threshold=min_confidence,
+            )
+        except Exception as exc:
+            emit(QueryFailed(
+                query_id=query_id,
+                error=str(exc),
+                stage="vec_search",
+                timestamp=datetime.now(UTC).isoformat(),
+            ))
+            raise
 
         if not vec_results:
             return RetrievalResult(items=[], query_id=query_id)
@@ -333,15 +371,24 @@ class GraphRAGAdapter:
         # 5. PPR over merged graph (persistent edges in backend + online extras)
         seed_weights = self._interoception.get_seed_weights(seed_ids)
 
-        ppr_scores = self.backend.personalized_pagerank(
-            source_nodes=seed_ids,
-            damping_factor=0.85,
-            max_iterations=100,
-            domain=domains[0] if domains and len(domains) == 1 else None,
-            seed_weights=seed_weights,
-            extra_edges=online_edges,
-            query_id=query_id,
-        )
+        try:
+            ppr_scores = self.backend.personalized_pagerank(
+                source_nodes=seed_ids,
+                damping_factor=0.85,
+                max_iterations=100,
+                domain=domains[0] if domains and len(domains) == 1 else None,
+                seed_weights=seed_weights,
+                extra_edges=online_edges,
+                query_id=query_id,
+            )
+        except Exception as exc:
+            emit(QueryFailed(
+                query_id=query_id,
+                error=str(exc),
+                stage="ppr",
+                timestamp=datetime.now(UTC).isoformat(),
+            ))
+            raise
 
         # 6. Combined scoring: vec_sim × PPR_activation
         combined: dict[str, float] = {}

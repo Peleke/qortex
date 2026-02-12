@@ -24,6 +24,12 @@ Tools exposed:
 - qortex_vector_update: Update vector/metadata
 - qortex_vector_delete: Delete a single vector
 - qortex_vector_delete_many: Delete vectors by IDs or filter
+- qortex_learning_select: Select arms using Thompson Sampling
+- qortex_learning_observe: Record outcome for a selected arm
+- qortex_learning_posteriors: Get posterior distributions
+- qortex_learning_metrics: Get aggregate learning metrics
+- qortex_learning_session_start: Start a learning session
+- qortex_learning_session_end: End a learning session
 
 Architecture:
     Each tool has a plain `_<name>_impl()` function with the core logic,
@@ -71,6 +77,13 @@ _interoception: Any = None  # InteroceptionProvider: feedback lifecycle
 # ---------------------------------------------------------------------------
 
 _source_registry = SourceRegistry()
+
+# ---------------------------------------------------------------------------
+# Learning layer (bandit-based learning)
+# ---------------------------------------------------------------------------
+
+_learners: dict[str, Any] = {}  # name -> Learner instance
+_learning_state_dir: str = ""  # override for tests (empty = default ~/.qortex/learning)
 
 # ---------------------------------------------------------------------------
 # Vector-level index registry (for MastraVector / raw vector operations)
@@ -222,7 +235,7 @@ def create_server(
     """
     global _backend, _vector_index, _adapter, _graph_adapter, _embedding_model, _interoception
     global _vector_indexes, _index_configs, _vector_metadata, _vector_documents
-    global _source_registry
+    global _source_registry, _learners
 
     _backend = backend
     _embedding_model = embedding_model
@@ -233,6 +246,7 @@ def create_server(
     _vector_metadata = {}
     _vector_documents = {}
     _source_registry = SourceRegistry()
+    _learners = {}
 
     # Auto-create in-memory vector index if not provided
     if vector_index is not None:
@@ -1878,6 +1892,243 @@ def qortex_vector_delete_many(
         filter: Metadata filter for bulk delete.
     """
     return _vector_delete_many_impl(index_name, ids, filter)
+
+
+# ---------------------------------------------------------------------------
+# Learning tool implementations
+# ---------------------------------------------------------------------------
+
+
+def _get_or_create_learner(name: str, **kwargs) -> Any:
+    """Lazy-create a Learner on first use."""
+    if name not in _learners:
+        from qortex.learning import Learner, LearnerConfig
+
+        config = LearnerConfig(name=name, state_dir=_learning_state_dir, **kwargs)
+        _learners[name] = Learner(config)
+    return _learners[name]
+
+
+def _learning_select_impl(
+    learner: str,
+    candidates: list[dict],
+    context: dict | None = None,
+    k: int = 1,
+    token_budget: int = 0,
+) -> dict:
+    """Select arms from candidates using the learner's strategy."""
+    from qortex.learning import Arm
+
+    arms = [
+        Arm(
+            id=c["id"],
+            metadata=c.get("metadata", {}),
+            token_cost=c.get("token_cost", 0),
+        )
+        for c in candidates
+    ]
+
+    lrn = _get_or_create_learner(learner)
+    result = lrn.select(arms, context=context, k=k, token_budget=token_budget)
+
+    return {
+        "selected_arms": [
+            {"id": a.id, "metadata": a.metadata, "token_cost": a.token_cost}
+            for a in result.selected
+        ],
+        "excluded_arms": [
+            {"id": a.id, "metadata": a.metadata, "token_cost": a.token_cost}
+            for a in result.excluded
+        ],
+        "is_baseline": result.is_baseline,
+        "scores": {k: round(v, 4) for k, v in result.scores.items()},
+        "token_budget": result.token_budget,
+        "used_tokens": result.used_tokens,
+    }
+
+
+def _learning_observe_impl(
+    learner: str,
+    arm_id: str,
+    outcome: str = "",
+    reward: float = 0.0,
+    context: dict | None = None,
+) -> dict:
+    """Record an observation and update posterior."""
+    from qortex.learning import ArmOutcome
+
+    lrn = _get_or_create_learner(learner)
+    obs = ArmOutcome(
+        arm_id=arm_id,
+        reward=reward,
+        outcome=outcome,
+        context=context or {},
+    )
+    state = lrn.observe(obs, context=context)
+
+    return {
+        "arm_id": arm_id,
+        "alpha": round(state.alpha, 4),
+        "beta": round(state.beta, 4),
+        "mean": round(state.mean, 4),
+        "pulls": state.pulls,
+    }
+
+
+def _learning_posteriors_impl(
+    learner: str,
+    context: dict | None = None,
+    arm_ids: list[str] | None = None,
+) -> dict:
+    """Get current posteriors for arms."""
+    lrn = _get_or_create_learner(learner)
+    posteriors = lrn.posteriors(context=context, arm_ids=arm_ids)
+
+    return {
+        "learner": learner,
+        "posteriors": {
+            arm_id: {k: round(v, 4) if isinstance(v, float) else v for k, v in p.items()}
+            for arm_id, p in posteriors.items()
+        },
+    }
+
+
+def _learning_metrics_impl(
+    learner: str,
+    window: int | None = None,
+) -> dict:
+    """Get learning metrics."""
+    lrn = _get_or_create_learner(learner)
+    return lrn.metrics(window=window)
+
+
+def _learning_session_start_impl(
+    learner: str,
+    session_name: str,
+) -> dict:
+    """Start a named learning session."""
+    lrn = _get_or_create_learner(learner)
+    session_id = lrn.session_start(session_name)
+    return {"session_id": session_id, "learner": learner}
+
+
+def _learning_session_end_impl(session_id: str) -> dict:
+    """End a learning session and return summary."""
+    for lrn in _learners.values():
+        if session_id in lrn._sessions:
+            return lrn.session_end(session_id)
+    return {"error": f"Session {session_id} not found in any learner"}
+
+
+# ---------------------------------------------------------------------------
+# Learning MCP tool wrappers
+# ---------------------------------------------------------------------------
+
+
+@mcp.tool
+def qortex_learning_select(
+    learner: str,
+    candidates: list[dict],
+    context: dict | None = None,
+    k: int = 1,
+    token_budget: int = 0,
+) -> dict:
+    """Select arms from candidates using Thompson Sampling.
+
+    The bandit selects the top-k candidates likely to produce the best
+    outcomes, based on accumulated feedback. Use qortex_learning_observe
+    to report results after using the selected arms.
+
+    Args:
+        learner: Learner name (e.g. "prompts", "strategies"). Auto-created on first use.
+        candidates: List of candidate arms. Each dict must have "id" (str).
+            Optional: "metadata" (dict), "token_cost" (int).
+        context: Optional context dict for partitioned learning (e.g. {"error_class": "type-errors"}).
+        k: Number of arms to select.
+        token_budget: If > 0, respect total token budget across selected arms.
+    """
+    return _learning_select_impl(learner, candidates, context, k, token_budget)
+
+
+@mcp.tool
+def qortex_learning_observe(
+    learner: str,
+    arm_id: str,
+    outcome: str = "",
+    reward: float = 0.0,
+    context: dict | None = None,
+) -> dict:
+    """Record an outcome for a selected arm.
+
+    Updates the arm's posterior distribution. Provide either outcome
+    (mapped to reward via reward model) or reward directly.
+
+    Args:
+        learner: Learner name.
+        arm_id: The arm ID that was used.
+        outcome: Outcome string: "accepted", "rejected", or "partial".
+        reward: Direct reward value (0.0 to 1.0). Overrides outcome if both provided.
+        context: Context dict matching the select call.
+    """
+    return _learning_observe_impl(learner, arm_id, outcome, reward, context)
+
+
+@mcp.tool
+def qortex_learning_posteriors(
+    learner: str,
+    context: dict | None = None,
+    arm_ids: list[str] | None = None,
+) -> dict:
+    """Get current posterior distributions for arms.
+
+    Returns alpha, beta, mean, and pull count for each tracked arm.
+
+    Args:
+        learner: Learner name.
+        context: Optional context filter.
+        arm_ids: Optional list of arm IDs to filter. None = all.
+    """
+    return _learning_posteriors_impl(learner, context, arm_ids)
+
+
+@mcp.tool
+def qortex_learning_metrics(
+    learner: str,
+    window: int | None = None,
+) -> dict:
+    """Get aggregate learning metrics.
+
+    Returns accuracy, total pulls, reward totals, and exploration ratio.
+
+    Args:
+        learner: Learner name.
+        window: Optional window size (not yet implemented, reserved).
+    """
+    return _learning_metrics_impl(learner, window)
+
+
+@mcp.tool
+def qortex_learning_session_start(
+    learner: str,
+    session_name: str,
+) -> dict:
+    """Start a named learning session for tracking arm selections.
+
+    Args:
+        learner: Learner name.
+        session_name: Human-readable session name.
+    """
+    return _learning_session_start_impl(learner, session_name)
+
+
+@mcp.tool
+def qortex_learning_session_end(session_id: str) -> dict:
+    """End a learning session and return summary.
+
+    Args:
+        session_id: The session_id from qortex_learning_session_start.
+    """
+    return _learning_session_end_impl(session_id)
 
 
 # ---------------------------------------------------------------------------

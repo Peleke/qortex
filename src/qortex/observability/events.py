@@ -279,3 +279,37 @@ class ManifestIngested:
     rule_count: int
     source_id: str
     latency_ms: float
+
+
+# ---------------------------------------------------------------------------
+# Learning
+# ---------------------------------------------------------------------------
+
+
+@dataclass(frozen=True)
+class LearningSelectionMade:
+    learner: str
+    selected_count: int
+    excluded_count: int
+    is_baseline: bool
+    token_budget: int
+    used_tokens: int
+
+
+@dataclass(frozen=True)
+class LearningObservationRecorded:
+    learner: str
+    arm_id: str
+    reward: float
+    outcome: str
+    context_hash: str
+
+
+@dataclass(frozen=True)
+class LearningPosteriorUpdated:
+    learner: str
+    arm_id: str
+    alpha: float
+    beta: float
+    pulls: int
+    mean: float

@@ -14,6 +14,7 @@
     },
     {
       "title": "Query Rate (queries/sec)",
+      "description": "How many retrieval queries qortex is handling per second, broken down by mode (vec = vector-only, graph = GraphRAG with PPR). A healthy system shows steady throughput. Spikes indicate burst traffic; drops may indicate upstream issues or backpressure.",
       "type": "timeseries",
       "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
       "gridPos": { "h": 8, "w": 12, "x": 0, "y": 1 },
@@ -31,6 +32,7 @@
     },
     {
       "title": "Query Latency (p50/p95/p99)",
+      "description": "End-to-end query latency percentiles. Includes embedding generation, vector search, PPR (if graph mode), and result assembly. p50 is the typical user experience; p95/p99 capture tail latency. If p99 spikes while p50 stays flat, a subset of queries is hitting slow paths (large PPR graphs, cold embeddings).",
       "type": "timeseries",
       "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
       "gridPos": { "h": 8, "w": 12, "x": 12, "y": 1 },
@@ -56,6 +58,7 @@
     },
     {
       "title": "Vec Search Latency (p50/p95)",
+      "description": "Latency of the vector similarity search step alone (cosine similarity over the embedding index). This is typically the fastest part of the pipeline. If this spikes, the vector index may need rebuilding or the index has grown too large for in-memory search.",
       "type": "timeseries",
       "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
       "gridPos": { "h": 8, "w": 12, "x": 0, "y": 9 },
@@ -77,6 +80,7 @@
     },
     {
       "title": "Query Errors",
+      "description": "Rate of query failures by pipeline stage: 'embedding' (text-to-vector failed), 'vec_search' (index lookup failed), 'ppr' (PageRank computation failed). Each error emits a QueryFailed event. Non-zero values here mean queries are being dropped — investigate the specific stage.",
       "type": "timeseries",
       "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
       "gridPos": { "h": 8, "w": 12, "x": 12, "y": 9 },
@@ -100,6 +104,7 @@
     },
     {
       "title": "Factor Mean Over Time",
+      "description": "Average teleportation factor across all nodes in the knowledge graph. Teleportation factors control how strongly PPR biases toward specific nodes during random walks. A rising mean indicates the system is learning stronger preferences from feedback; a falling mean suggests uncertainty or conflicting signals.",
       "type": "timeseries",
       "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
       "gridPos": { "h": 8, "w": 8, "x": 0, "y": 18 },
@@ -112,6 +117,7 @@
     },
     {
       "title": "Factor Entropy",
+      "description": "Shannon entropy of the teleportation factor distribution. High entropy = factors are spread evenly (the system hasn't formed strong opinions yet). Low entropy = factors are concentrated on a few nodes (the system has learned clear preferences). Entropy should decrease over time as the system accumulates feedback.",
       "type": "timeseries",
       "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
       "gridPos": { "h": 8, "w": 8, "x": 8, "y": 18 },
@@ -129,6 +135,7 @@
     },
     {
       "title": "Factor Update Rate",
+      "description": "How frequently teleportation factors are being updated, by feedback outcome (accepted/rejected/partial). Each update adjusts how PPR weights specific nodes. High update rates indicate active learning; the balance of accepted vs rejected shows whether the system's suggestions are landing.",
       "type": "timeseries",
       "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
       "gridPos": { "h": 8, "w": 8, "x": 16, "y": 18 },
@@ -146,6 +153,7 @@
     },
     {
       "title": "Feedback Accept/Reject Ratio",
+      "description": "Rate of user/system feedback events classified as accepted vs rejected. This is the raw signal that drives all learning in qortex — both teleportation factor updates and bandit posterior updates. A healthy system trends toward more accepts over time as learning kicks in. A sustained high rejection rate may indicate poor initial candidates or a domain mismatch.",
       "type": "timeseries",
       "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
       "gridPos": { "h": 8, "w": 12, "x": 0, "y": 26 },
@@ -168,6 +176,7 @@
     },
     {
       "title": "KG Coverage Ratio",
+      "description": "Fraction of the knowledge graph that has been 'covered' by online edges (runtime-discovered relationships). 0% = no runtime edges, purely static graph. 100% = every node has at least one online edge. Coverage above 70% (green) indicates the system has explored most of the graph through real usage.",
       "type": "gauge",
       "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
       "gridPos": { "h": 8, "w": 8, "x": 0, "y": 35 },
@@ -194,6 +203,7 @@
     },
     {
       "title": "Buffer Size & Promotions",
+      "description": "Online edges live in a buffer before being promoted to the persistent knowledge graph. 'Buffered' shows how many edges are waiting; 'promotions/hr' shows how fast they're graduating. A growing buffer with no promotions means edges aren't meeting the confidence threshold for persistence.",
       "type": "timeseries",
       "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
       "gridPos": { "h": 8, "w": 8, "x": 8, "y": 35 },
@@ -210,6 +220,7 @@
     },
     {
       "title": "Total Promoted (lifetime)",
+      "description": "Cumulative count of online edges that have been promoted from the buffer into the persistent knowledge graph. This is the system's 'crystallized learning' — relationships it discovered at runtime and deemed confident enough to keep permanently.",
       "type": "stat",
       "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
       "gridPos": { "h": 8, "w": 8, "x": 16, "y": 35 },
@@ -228,6 +239,7 @@
     },
     {
       "title": "PPR Executions / sec",
+      "description": "Rate of Personalized PageRank computations. Each graph-mode query triggers one PPR run, which performs power iteration over the knowledge graph to rank nodes by relevance. More PPR runs = more graph-mode queries being served.",
       "type": "timeseries",
       "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
       "gridPos": { "h": 8, "w": 8, "x": 0, "y": 44 },
@@ -245,6 +257,7 @@
     },
     {
       "title": "PPR Iterations to Convergence",
+      "description": "Distribution of how many power-iteration steps PPR needs before the score vector stabilizes (within tolerance). Fewer iterations = faster convergence = simpler graph structure. If many runs cluster at the maximum (100), the graph may have pathological structure or the tolerance is too tight.",
       "type": "histogram",
       "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
       "gridPos": { "h": 8, "w": 8, "x": 8, "y": 44 },
@@ -257,6 +270,7 @@
     },
     {
       "title": "Active Factors & Node Count",
+      "description": "Number of nodes in the knowledge graph that have non-default teleportation factors. These are nodes the system has formed an opinion about based on feedback. Growing = the system is learning about more of the graph. Flat = no new feedback is reaching new nodes.",
       "type": "timeseries",
       "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
       "gridPos": { "h": 8, "w": 8, "x": 16, "y": 44 },
@@ -269,6 +283,7 @@
     },
     {
       "title": "Online Edge Generation",
+      "description": "How many online edges are being generated per query (edges/query) and the overall event rate (events/sec). Online edges are runtime-discovered relationships between concepts, inferred from co-occurrence in query results. More edges per query = richer associative structure being captured.",
       "type": "timeseries",
       "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
       "gridPos": { "h": 8, "w": 12, "x": 0, "y": 52 },
@@ -285,6 +300,7 @@
     },
     {
       "title": "KG Coverage Over Time",
+      "description": "Time series of knowledge graph coverage. Shows how the graph's explored territory grows as the system processes queries. Monotonically increasing in a healthy system. Plateaus indicate the system has explored most reachable nodes; jumps indicate new domains or concept batches being ingested.",
       "type": "timeseries",
       "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
       "gridPos": { "h": 8, "w": 12, "x": 12, "y": 52 },
@@ -310,6 +326,7 @@
     },
     {
       "title": "Enrichment Rate",
+      "description": "Rate of LLM enrichment calls by backend type. Enrichment uses an LLM to extract structured relationships from raw text when ingesting new concepts. Higher rates mean more content is being processed. The backend_type label distinguishes different LLM providers (openai, anthropic, local).",
       "type": "timeseries",
       "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
       "gridPos": { "h": 8, "w": 8, "x": 0, "y": 61 },
@@ -327,6 +344,7 @@
     },
     {
       "title": "Enrichment Latency (p50/p95)",
+      "description": "How long LLM enrichment calls take. This is dominated by the LLM's response time. p50 is the typical call; p95 captures retries and long-context extractions. If p95 is significantly higher than p50, some documents are much harder to enrich than others.",
       "type": "timeseries",
       "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
       "gridPos": { "h": 8, "w": 8, "x": 8, "y": 61 },
@@ -348,6 +366,7 @@
     },
     {
       "title": "Enrichment Fallbacks",
+      "description": "Rate of enrichment fallbacks — when the primary LLM backend fails and the system falls back to a simpler extraction method. Non-zero rates here mean the LLM is unreliable; consistently high rates may warrant switching providers or increasing timeouts.",
       "type": "timeseries",
       "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
       "gridPos": { "h": 8, "w": 8, "x": 16, "y": 61 },
@@ -365,6 +384,7 @@
     },
     {
       "title": "Ingestion Rate",
+      "description": "Rate of manifest ingestion events by domain. A manifest is a batch of concepts being added to the knowledge graph. Each domain (e.g. 'prompts', 'code', 'docs') tracks independently. Spikes indicate bulk imports; steady rates indicate continuous ingestion pipelines.",
       "type": "timeseries",
       "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
       "gridPos": { "h": 8, "w": 12, "x": 0, "y": 69 },
@@ -382,6 +402,7 @@
     },
     {
       "title": "Ingest Latency (p50/p95)",
+      "description": "Time taken to ingest a manifest (create nodes, generate embeddings, add to vector index, insert edges). Includes all backend writes. Latency depends on manifest size and backend type (InMemory is fast, Memgraph adds network round-trips).",
       "type": "timeseries",
       "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
       "gridPos": { "h": 8, "w": 12, "x": 12, "y": 69 },
@@ -409,6 +430,7 @@
     },
     {
       "title": "Vec Index Size",
+      "description": "Total number of embedding vectors stored in the index. Each concept in the knowledge graph has one vector. This is the system's 'memory size' — how many concepts it can search over. Growth indicates new concepts being ingested.",
       "type": "stat",
       "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
       "gridPos": { "h": 8, "w": 6, "x": 0, "y": 78 },
@@ -426,6 +448,7 @@
     },
     {
       "title": "Vec Add Rate",
+      "description": "Rate of vectors being added to the index, by index type (numpy = in-memory, or external). Each add operation embeds a concept and inserts it into the searchable index. Correlates with ingestion rate but can differ if concepts are updated (re-embedded).",
       "type": "timeseries",
       "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
       "gridPos": { "h": 8, "w": 9, "x": 6, "y": 78 },
@@ -443,6 +466,7 @@
     },
     {
       "title": "Vec Add Latency (p50/p95)",
+      "description": "Time to insert a vector into the index. For NumpyVectorIndex this is a fast array append. For external indices (future: FAISS, pgvector), this includes network overhead. Sub-millisecond is healthy for in-memory.",
       "type": "timeseries",
       "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
       "gridPos": { "h": 8, "w": 9, "x": 15, "y": 78 },
@@ -464,6 +488,7 @@
     },
     {
       "title": "Vec Search Top Score",
+      "description": "Cosine similarity of the best-matching vector in the most recent search. Range 0-1, where 1.0 = exact match. Scores above 0.8 indicate strong semantic matches. Consistently low scores (< 0.5) suggest the query domain isn't well-represented in the index — more relevant concepts may need to be ingested.",
       "type": "timeseries",
       "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
       "gridPos": { "h": 8, "w": 8, "x": 0, "y": 86 },
@@ -483,6 +508,7 @@
     },
     {
       "title": "Vec Search Score Spread",
+      "description": "Difference between the highest and lowest cosine similarity scores in the most recent search results. A large spread means the top result is much more relevant than the bottom result (good discrimination). A narrow spread means all candidates scored similarly (the query is either too generic or too specific).",
       "type": "timeseries",
       "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
       "gridPos": { "h": 8, "w": 8, "x": 8, "y": 86 },
@@ -501,6 +527,7 @@
     },
     {
       "title": "Vec Seed Yield",
+      "description": "Ratio of vector search results that survive domain filtering. Yield of 1.0 = all results were in the requested domain. Yield of 0.3 = 70% of results were filtered out because they belonged to other domains. Low yield means the index is dominated by other domains; consider domain-specific indices.",
       "type": "gauge",
       "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
       "gridPos": { "h": 8, "w": 8, "x": 16, "y": 86 },
@@ -527,6 +554,7 @@
     },
     {
       "title": "Vec Search Candidates Distribution",
+      "description": "Average number of candidate vectors returned per search query. This is the 'recall width' — how many concepts the system considers before ranking. More candidates = broader search but slower; fewer = faster but may miss relevant results. Configured via top_k parameter.",
       "type": "timeseries",
       "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
       "gridPos": { "h": 8, "w": 12, "x": 0, "y": 94 },
@@ -536,6 +564,90 @@
           "legendFormat": "avg candidates"
         }
       ]
+    },
+    {
+      "title": "Learning & Bandits",
+      "type": "row",
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 102 },
+      "collapsed": false
+    },
+    {
+      "title": "Selection Rate",
+      "description": "Rate of bandit arm selections per second, by learner name and whether it was a baseline (forced exploration) or Thompson Sampling selection. The baseline_rate is configurable (default 10%) and acts as an epsilon-greedy safety net on top of Thompson Sampling's natural exploration. Set baseline_rate=0 for pure TS. High baseline=True rates relative to False indicate the system is still exploring; as posteriors converge, nearly all selections should be baseline=False (exploitation).",
+      "type": "timeseries",
+      "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 103 },
+      "targets": [
+        {
+          "expr": "rate(qortex_learning_selections_total[5m])",
+          "legendFormat": "{{learner}} (baseline={{baseline}})"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "cps"
+        }
+      }
+    },
+    {
+      "title": "Observation Rate",
+      "description": "Rate of reward observations by learner and outcome (accepted/rejected/partial). Each observation updates the arm's Beta posterior: accepted adds alpha+1 (reward=1.0), rejected adds beta+1 (reward=0.0), partial adds alpha+0.5/beta+0.5. The reward mapping is pluggable via RewardModel (default: TernaryReward). The caller decides the outcome — qortex doesn't judge, it learns from the signal it's given. A healthy learning system trends toward more 'accepted' over time as the bandit converges on better arms.",
+      "type": "timeseries",
+      "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 103 },
+      "targets": [
+        {
+          "expr": "rate(qortex_learning_observations_total[5m])",
+          "legendFormat": "{{learner}} {{outcome}}"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "cps"
+        }
+      }
+    },
+    {
+      "title": "Posterior Mean (top 10 arms)",
+      "description": "Current posterior mean (alpha / (alpha + beta)) for the top 10 arms by mean value. This IS the learning — each arm has a Beta distribution representing the system's belief about its reward probability. Mean near 1.0 = the system is confident this arm succeeds. Mean near 0.5 = uncertain (not enough data). Mean near 0.0 = confident it fails. Watch the winning arm's line climb toward 1.0 as observations accumulate. Separation between lines shows the bandit is discriminating between good and bad arms.",
+      "type": "timeseries",
+      "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 111 },
+      "targets": [
+        {
+          "expr": "topk(10, qortex_learning_posterior_mean)",
+          "legendFormat": "{{learner}}/{{arm_id}}"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "min": 0,
+          "max": 1,
+          "unit": "short"
+        }
+      }
+    },
+    {
+      "title": "Token Budget Usage",
+      "description": "Distribution of token budget consumed per selection, when a token_budget constraint is set. Each arm has a token_cost (estimated tokens to execute that strategy). The bandit respects the budget: it selects top-ranked arms in order until adding the next one would exceed the budget. p50/p95 show typical vs worst-case budget consumption. Empty if no token_budget is used (the constraint is optional).",
+      "type": "timeseries",
+      "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 111 },
+      "targets": [
+        {
+          "expr": "histogram_quantile(0.50, rate(qortex_learning_token_budget_used_bucket[5m]))",
+          "legendFormat": "p50"
+        },
+        {
+          "expr": "histogram_quantile(0.95, rate(qortex_learning_token_budget_used_bucket[5m]))",
+          "legendFormat": "p95"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short"
+        }
+      }
     }
   ],
   "schemaVersion": 39,

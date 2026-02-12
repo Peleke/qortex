@@ -94,6 +94,9 @@ def register_otel_subscriber(config: ObservabilityConfig) -> None:
         FactorUpdated,
         FeedbackReceived,
         KGCoverageComputed,
+        LearningObservationRecorded,
+        LearningPosteriorUpdated,
+        LearningSelectionMade,
         ManifestIngested,
         OnlineEdgeRecorded,
         OnlineEdgesGenerated,
@@ -377,3 +380,48 @@ def register_otel_subscriber(config: ObservabilityConfig) -> None:
     def _on_manifest(event: ManifestIngested) -> None:
         manifests_ingested.add(1, {"domain": event.domain})
         ingest_latency.record(event.latency_ms / 1000)
+
+    # ── Learning ─────────────────────────────────────────────────────
+
+    learning_selections = meter.create_counter(
+        "qortex_learning_selections", description="Learning selection events"
+    )
+    learning_observations = meter.create_counter(
+        "qortex_learning_observations", description="Learning observation events"
+    )
+    learning_posterior_mean = meter.create_gauge(
+        "qortex_learning_posterior_mean", description="Posterior mean by arm"
+    )
+    learning_arm_pulls = meter.create_counter(
+        "qortex_learning_arm_pulls", description="Total arm pulls"
+    )
+    learning_token_budget = meter.create_histogram(
+        "qortex_learning_token_budget_used", description="Token budget utilization"
+    )
+
+    @QortexEventLinker.on(LearningSelectionMade)
+    def _on_learning_selection(event: LearningSelectionMade) -> None:
+        learning_selections.add(1, {
+            "learner": event.learner,
+            "baseline": str(event.is_baseline),
+        })
+        if event.token_budget > 0:
+            learning_token_budget.record(event.used_tokens)
+
+    @QortexEventLinker.on(LearningObservationRecorded)
+    def _on_learning_observation(event: LearningObservationRecorded) -> None:
+        learning_observations.add(1, {
+            "learner": event.learner,
+            "outcome": event.outcome,
+        })
+
+    @QortexEventLinker.on(LearningPosteriorUpdated)
+    def _on_learning_posterior(event: LearningPosteriorUpdated) -> None:
+        learning_posterior_mean.set(event.mean, {
+            "learner": event.learner,
+            "arm_id": event.arm_id,
+        })
+        learning_arm_pulls.add(1, {
+            "learner": event.learner,
+            "arm_id": event.arm_id,
+        })

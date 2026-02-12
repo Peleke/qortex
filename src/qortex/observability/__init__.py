@@ -28,6 +28,9 @@ from qortex.observability.events import (
     InteroceptionShutdown,
     InteroceptionStarted,
     KGCoverageComputed,
+    LearningObservationRecorded,
+    LearningPosteriorUpdated,
+    LearningSelectionMade,
     ManifestIngested,
     OnlineEdgeRecorded,
     OnlineEdgesGenerated,
@@ -96,4 +99,8 @@ __all__ = [
     "VecSeedYield",
     # Ingestion
     "ManifestIngested",
+    # Learning
+    "LearningSelectionMade",
+    "LearningObservationRecorded",
+    "LearningPosteriorUpdated",
 ]

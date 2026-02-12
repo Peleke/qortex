@@ -25,6 +25,9 @@ def register_prometheus_subscriber(config: ObservabilityConfig) -> None:
         FactorUpdated,
         FeedbackReceived,
         KGCoverageComputed,
+        LearningObservationRecorded,
+        LearningPosteriorUpdated,
+        LearningSelectionMade,
         ManifestIngested,
         OnlineEdgeRecorded,
         OnlineEdgesGenerated,
@@ -230,3 +233,53 @@ def register_prometheus_subscriber(config: ObservabilityConfig) -> None:
     def _prom_manifest(event: ManifestIngested) -> None:
         manifests_ingested.labels(domain=event.domain).inc()
         ingest_latency.observe(event.latency_ms / 1000)
+
+    # Learning instruments
+    learning_selections_total = Counter(
+        "qortex_learning_selections_total",
+        "Learning selection events",
+        ["learner", "baseline"],
+    )
+    learning_observations_total = Counter(
+        "qortex_learning_observations_total",
+        "Learning observation events",
+        ["learner", "outcome"],
+    )
+    learning_posterior_mean_gauge = Gauge(
+        "qortex_learning_posterior_mean",
+        "Posterior mean by arm",
+        ["learner", "arm_id"],
+    )
+    learning_arm_pulls_total = Counter(
+        "qortex_learning_arm_pulls_total",
+        "Total arm pulls",
+        ["learner", "arm_id"],
+    )
+    learning_token_budget_hist = Histogram(
+        "qortex_learning_token_budget_used",
+        "Token budget utilization",
+        buckets=[100, 500, 1000, 2000, 4000, 8000, 16000],
+    )
+
+    @QortexEventLinker.on(LearningSelectionMade)
+    def _prom_learning_selection(event: LearningSelectionMade) -> None:
+        learning_selections_total.labels(
+            learner=event.learner, baseline=str(event.is_baseline)
+        ).inc()
+        if event.token_budget > 0:
+            learning_token_budget_hist.observe(event.used_tokens)
+
+    @QortexEventLinker.on(LearningObservationRecorded)
+    def _prom_learning_observation(event: LearningObservationRecorded) -> None:
+        learning_observations_total.labels(
+            learner=event.learner, outcome=event.outcome
+        ).inc()
+
+    @QortexEventLinker.on(LearningPosteriorUpdated)
+    def _prom_learning_posterior(event: LearningPosteriorUpdated) -> None:
+        learning_posterior_mean_gauge.labels(
+            learner=event.learner, arm_id=event.arm_id
+        ).set(event.mean)
+        learning_arm_pulls_total.labels(
+            learner=event.learner, arm_id=event.arm_id
+        ).inc()
