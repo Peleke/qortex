@@ -124,7 +124,15 @@ class SqliteLearningStore:
     def _ensure_connection(self) -> sqlite3.Connection:
         if self._conn is not None:
             return self._conn
-        self._conn = sqlite3.connect(str(self._db_path))
+        # check_same_thread=False: FastMCP dispatches tool handlers on a
+        # thread pool, so consecutive calls (select → observe) may land on
+        # different threads. This is safe because:
+        #   1. sqlite3.threadsafety == 3 (serialized) on CPython — the
+        #      underlying C library mutex-protects connections and cursors.
+        #      See https://docs.python.org/3/library/sqlite3.html#sqlite3.threadsafety
+        #   2. MCP stdio transport serializes requests, so no concurrent writes.
+        #   3. WAL mode (set below) allows concurrent readers without blocking.
+        self._conn = sqlite3.connect(str(self._db_path), check_same_thread=False)
         self._conn.execute("PRAGMA journal_mode = WAL")
         self._conn.execute("PRAGMA busy_timeout = 3000")
         self._conn.execute("""
