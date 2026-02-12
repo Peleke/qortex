@@ -241,3 +241,65 @@ class TestNameSanitization:
     def test_accepts_safe_names(self, tmp_path, good_name):
         SqliteLearningStore(good_name, str(tmp_path))
         JsonLearningStore(good_name, str(tmp_path))
+
+
+# ---------------------------------------------------------------------------
+# Concurrent access (regression for #93)
+# ---------------------------------------------------------------------------
+
+
+class TestSqliteConcurrency:
+    def test_concurrent_observe_no_crash(self, tmp_path):
+        """Multiple threads hitting get/put simultaneously must not raise."""
+        import concurrent.futures
+
+        store = SqliteLearningStore("concurrent-test", str(tmp_path))
+
+        def observe_arm(arm_idx: int) -> str:
+            arm_id = f"tool:cat:{arm_idx}"
+            state = store.get(arm_id)
+            new_state = ArmState(
+                alpha=state.alpha + 1.0,
+                beta=state.beta,
+                pulls=state.pulls + 1,
+                total_reward=state.total_reward + 1.0,
+                last_updated="t",
+            )
+            store.put(arm_id, new_state)
+            store.save()
+            return arm_id
+
+        with concurrent.futures.ThreadPoolExecutor(max_workers=8) as pool:
+            futures = [pool.submit(observe_arm, i) for i in range(50)]
+            results = [f.result() for f in futures]
+
+        assert len(results) == 50
+        # All 50 arms persisted
+        all_states = store.get_all()
+        assert len(all_states) == 50
+
+    def test_concurrent_same_arm_no_crash(self, tmp_path):
+        """Multiple threads updating the same arm must not raise."""
+        import concurrent.futures
+
+        store = SqliteLearningStore("same-arm-test", str(tmp_path))
+
+        def observe(_: int) -> None:
+            state = store.get("arm:shared")
+            new_state = ArmState(
+                alpha=state.alpha + 0.5,
+                beta=state.beta,
+                pulls=state.pulls + 1,
+                total_reward=state.total_reward + 0.5,
+                last_updated="t",
+            )
+            store.put("arm:shared", new_state)
+            store.save()
+
+        with concurrent.futures.ThreadPoolExecutor(max_workers=8) as pool:
+            futures = [pool.submit(observe, i) for i in range(30)]
+            for f in futures:
+                f.result()  # must not raise InterfaceError
+
+        final = store.get("arm:shared")
+        assert final.pulls >= 1  # at least some updates landed
