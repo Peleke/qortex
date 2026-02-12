@@ -23,6 +23,9 @@ from qortex.observability.events import (
     InteroceptionShutdown,
     InteroceptionStarted,
     KGCoverageComputed,
+    LearningObservationRecorded,
+    LearningPosteriorUpdated,
+    LearningSelectionMade,
     ManifestIngested,
     OnlineEdgeRecorded,
     OnlineEdgesGenerated,
@@ -192,3 +195,23 @@ def _log_enrichment_fallback(event: EnrichmentFallback) -> None:
 @QortexEventLinker.on(ManifestIngested)
 def _log_manifest_ingested(event: ManifestIngested) -> None:
     logger.info("manifest.ingested", **_to_dict(event))
+
+
+# ---------------------------------------------------------------------------
+# Learning
+# ---------------------------------------------------------------------------
+
+
+@QortexEventLinker.on(LearningSelectionMade)
+def _log_learning_selection(event: LearningSelectionMade) -> None:
+    logger.info("learning.selection", **_to_dict(event))
+
+
+@QortexEventLinker.on(LearningObservationRecorded)
+def _log_learning_observation(event: LearningObservationRecorded) -> None:
+    logger.info("learning.observation", **_to_dict(event))
+
+
+@QortexEventLinker.on(LearningPosteriorUpdated)
+def _log_learning_posterior(event: LearningPosteriorUpdated) -> None:
+    logger.debug("learning.posterior", **_to_dict(event))

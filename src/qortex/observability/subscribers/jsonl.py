@@ -22,6 +22,9 @@ from qortex.observability.events import (
     InteroceptionShutdown,
     InteroceptionStarted,
     KGCoverageComputed,
+    LearningObservationRecorded,
+    LearningPosteriorUpdated,
+    LearningSelectionMade,
     ManifestIngested,
     OnlineEdgeRecorded,
     OnlineEdgesGenerated,
@@ -60,6 +63,9 @@ _ALL_EVENTS = (
     EnrichmentCompleted,
     EnrichmentFallback,
     ManifestIngested,
+    LearningSelectionMade,
+    LearningObservationRecorded,
+    LearningPosteriorUpdated,
 )
 
 
