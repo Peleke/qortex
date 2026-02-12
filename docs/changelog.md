@@ -15,6 +15,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **LearningStore Protocol**: `SqliteLearningStore` (ACID, default) and `JsonLearningStore` backends with context partitioning (#75)
 - **Learning Module**: Thompson Sampling bandit with 6 MCP tools and full observability (#64)
 - **Credit Propagation Dashboard**: Grafana panels, Mermaid diagrams, observability guide (#85)
+- **Dashboard Mermaid Explainers**: Every dashboard section now opens with a Mermaid flowchart and signal table (Healthy/Investigate thresholds); observability guide updated with Learning & Bandits and Credit Propagation sections (#95)
 
 ### Fixed
 
