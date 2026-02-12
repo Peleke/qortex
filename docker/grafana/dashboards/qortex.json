@@ -666,12 +666,22 @@
       "collapsed": false
     },
     {
+      "title": "Credit Flow",
+      "type": "jdbranham-diagram-panel",
+      "gridPos": { "h": 8, "w": 8, "x": 0, "y": 128 },
+      "options": {
+        "content": "flowchart BT\n    F(\"foundations\\nalpha += 0.202\") -->|0.95| A(\"algebra\\nalpha += 0.425\")\n    A -->|0.85| LA(\"linear-algebra\\nalpha += 1.0\")\n    style LA fill:#2d6a4f,stroke:#40916c,color:#d8f3dc,stroke-width:2px\n    style A fill:#1b4332,stroke:#40916c,color:#b7e4c7,stroke-width:2px\n    style F fill:#081c15,stroke:#2d6a4f,color:#95d5b2,stroke-width:2px",
+        "mermaidThemeVariables": "{\"fontSize\":\"14px\",\"primaryColor\":\"#2d6a4f\",\"lineColor\":\"#40916c\",\"textColor\":\"#d8f3dc\"}"
+      },
+      "transparent": true
+    },
+    {
       "title": "",
       "type": "text",
-      "gridPos": { "h": 8, "w": 24, "x": 0, "y": 128 },
+      "gridPos": { "h": 8, "w": 16, "x": 8, "y": 128 },
       "options": {
         "mode": "markdown",
-        "content": "## Causal Credit Assignment\n\nWhen a user gives feedback (`accepted` / `rejected` / `partial`), credit propagates **backward** through the causal DAG to upstream concepts.\n\n```mermaid\nflowchart BT\n    F[\"foundations\"] -->|strength: 0.95| A[\"algebra\"]\n    A -->|strength: 0.85| LA[\"linear-algebra\"]\n    style LA fill:#2d6a4f,stroke:#40916c,color:#d8f3dc\n    style A fill:#1b4332,stroke:#40916c,color:#b7e4c7\n    style F fill:#081c15,stroke:#2d6a4f,color:#95d5b2\n```\n\n| Concept | Method | Credit Math | Posterior Update |\n|---------|--------|-------------|------------------|\n| **linear-algebra** | direct | `1.0` | `alpha += 1.0` |\n| **algebra** | ancestor (1 hop) | `1.0 x 0.5 x 0.85` = 0.425 | `alpha += 0.425` |\n| **foundations** | ancestor (2 hops) | `0.425 x 0.5 x 0.95` = 0.202 | `alpha += 0.202` |\n\nDecays `0.5x` per hop, weighted by edge strength. Negative outcomes push `beta` instead of `alpha`.\n\n| Signal | Healthy | Investigate |\n|--------|---------|-------------|\n| **Propagation Rate** | Matches feedback rate | Zero while feedback flows = flag off or empty DAG |\n| **Concepts/Propagation** | p50 of 3-5 | p50=1 = no ancestor credit (disconnected DAG) |\n| **Total Propagations** | Monotonically increasing | Stuck at 0 = feature not active |\n| **Alpha vs Beta** | Alpha ahead = net positive signal | Beta dominating = users rejecting results |\n\nRequires `QORTEX_CREDIT_PROPAGATION=on` or `credit_propagation: true` in `~/.qortex/flags.yaml`.\nDogfood: `uv run python scripts/demo_credit_propagation_live.py`"
+        "content": "## Causal Credit Assignment\n\nFeedback (`accepted` / `rejected` / `partial`) propagates **backward** through the causal DAG.\nDirect concepts get full credit. Ancestors get decayed credit: `0.5x` per hop, weighted by edge strength.\nNegative outcomes push `beta` instead of `alpha`.\n\n| Concept | Method | Credit Math | Update |\n|---------|--------|-------------|--------|\n| **linear-algebra** | direct | `1.0` | `alpha += 1.0` |\n| **algebra** | ancestor (1 hop) | `1.0 x 0.5 x 0.85` | `alpha += 0.425` |\n| **foundations** | ancestor (2 hops) | `0.425 x 0.5 x 0.95` | `alpha += 0.202` |\n\n| Signal | Healthy | Investigate |\n|--------|---------|-------------|\n| **Propagation Rate** | Matches feedback rate | Zero while feedback flows = flag off or empty DAG |\n| **Concepts/Propagation** | p50 of 3-5 | p50=1 = no ancestor credit (disconnected DAG) |\n| **Total Propagations** | Monotonically increasing | Stuck at 0 = feature not active |\n| **Alpha vs Beta** | Alpha ahead = net positive signal | Beta dominating = users rejecting results |\n\n`QORTEX_CREDIT_PROPAGATION=on` / Dogfood: `uv run python scripts/demo_credit_propagation_live.py`"
       },
       "transparent": true
     },
