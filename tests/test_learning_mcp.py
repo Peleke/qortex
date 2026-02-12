@@ -41,8 +41,8 @@ def server():
 
 
 class TestLearningSelectMCP:
-    def test_select_basic(self, server):
-        result = server._learning_select_impl(
+    async def test_select_basic(self, server):
+        result = await server._learning_select_impl(
             learner="test",
             candidates=[
                 {"id": "arm:a"},
@@ -56,8 +56,8 @@ class TestLearningSelectMCP:
         assert len(result["excluded_arms"]) == 1
         assert "is_baseline" in result
 
-    def test_select_with_context(self, server):
-        result = server._learning_select_impl(
+    async def test_select_with_context(self, server):
+        result = await server._learning_select_impl(
             learner="test",
             candidates=[{"id": "arm:a"}, {"id": "arm:b"}],
             context={"task": "typing"},
@@ -66,8 +66,8 @@ class TestLearningSelectMCP:
 
         assert len(result["selected_arms"]) == 1
 
-    def test_select_with_token_budget(self, server):
-        result = server._learning_select_impl(
+    async def test_select_with_token_budget(self, server):
+        result = await server._learning_select_impl(
             learner="test",
             candidates=[
                 {"id": "arm:a", "token_cost": 100},
@@ -83,8 +83,8 @@ class TestLearningSelectMCP:
 
 
 class TestLearningObserveMCP:
-    def test_observe_basic(self, server):
-        result = server._learning_observe_impl(
+    async def test_observe_basic(self, server):
+        result = await server._learning_observe_impl(
             learner="test",
             arm_id="arm:a",
             outcome="accepted",
@@ -94,8 +94,8 @@ class TestLearningObserveMCP:
         assert result["alpha"] == 2.0
         assert result["pulls"] == 1
 
-    def test_observe_with_reward(self, server):
-        result = server._learning_observe_impl(
+    async def test_observe_with_reward(self, server):
+        result = await server._learning_observe_impl(
             learner="test",
             arm_id="arm:b",
             reward=0.7,
@@ -104,14 +104,14 @@ class TestLearningObserveMCP:
         assert result["alpha"] == 1.7
         assert result["pulls"] == 1
 
-    def test_observe_multiple(self, server):
-        server._learning_observe_impl(
+    async def test_observe_multiple(self, server):
+        await server._learning_observe_impl(
             learner="test", arm_id="arm:a", outcome="accepted"
         )
-        server._learning_observe_impl(
+        await server._learning_observe_impl(
             learner="test", arm_id="arm:a", outcome="accepted"
         )
-        result = server._learning_observe_impl(
+        result = await server._learning_observe_impl(
             learner="test", arm_id="arm:a", outcome="rejected"
         )
 
@@ -120,28 +120,28 @@ class TestLearningObserveMCP:
 
 
 class TestLearningPosteriorsMCP:
-    def test_posteriors_empty(self, server):
-        result = server._learning_posteriors_impl(learner="test")
+    async def test_posteriors_empty(self, server):
+        result = await server._learning_posteriors_impl(learner="test")
         assert result["posteriors"] == {}
 
-    def test_posteriors_after_observe(self, server):
-        server._learning_observe_impl(
+    async def test_posteriors_after_observe(self, server):
+        await server._learning_observe_impl(
             learner="test", arm_id="arm:a", outcome="accepted"
         )
-        result = server._learning_posteriors_impl(learner="test")
+        result = await server._learning_posteriors_impl(learner="test")
 
         assert "arm:a" in result["posteriors"]
         assert result["posteriors"]["arm:a"]["mean"] > 0.5
 
-    def test_posteriors_filter(self, server):
-        server._learning_observe_impl(
+    async def test_posteriors_filter(self, server):
+        await server._learning_observe_impl(
             learner="test", arm_id="arm:a", outcome="accepted"
         )
-        server._learning_observe_impl(
+        await server._learning_observe_impl(
             learner="test", arm_id="arm:b", outcome="rejected"
         )
 
-        result = server._learning_posteriors_impl(
+        result = await server._learning_posteriors_impl(
             learner="test", arm_ids=["arm:a"]
         )
         assert "arm:a" in result["posteriors"]
@@ -149,8 +149,8 @@ class TestLearningPosteriorsMCP:
 
 
 class TestLearningMetricsMCP:
-    def test_metrics_basic(self, server):
-        result = server._learning_metrics_impl(learner="test")
+    async def test_metrics_basic(self, server):
+        result = await server._learning_metrics_impl(learner="test")
 
         assert "total_pulls" in result
         assert "accuracy" in result
@@ -158,33 +158,33 @@ class TestLearningMetricsMCP:
 
 
 class TestLearningSessionMCP:
-    def test_session_lifecycle(self, server):
-        start = server._learning_session_start_impl(
+    async def test_session_lifecycle(self, server):
+        start = await server._learning_session_start_impl(
             learner="test", session_name="s1"
         )
         assert "session_id" in start
 
-        end = server._learning_session_end_impl(start["session_id"])
+        end = await server._learning_session_end_impl(start["session_id"])
         assert end["session_id"] == start["session_id"]
         assert end["started_at"]
         assert end["ended_at"]
 
-    def test_session_not_found(self, server):
-        result = server._learning_session_end_impl("nonexistent")
+    async def test_session_not_found(self, server):
+        result = await server._learning_session_end_impl("nonexistent")
         assert "error" in result
 
 
 class TestLearnerAutoCreation:
-    def test_different_learners_independent(self, server):
-        server._learning_observe_impl(
+    async def test_different_learners_independent(self, server):
+        await server._learning_observe_impl(
             learner="alpha", arm_id="arm:a", outcome="accepted"
         )
-        server._learning_observe_impl(
+        await server._learning_observe_impl(
             learner="beta", arm_id="arm:a", outcome="rejected"
         )
 
-        alpha_p = server._learning_posteriors_impl(learner="alpha")
-        beta_p = server._learning_posteriors_impl(learner="beta")
+        alpha_p = await server._learning_posteriors_impl(learner="alpha")
+        beta_p = await server._learning_posteriors_impl(learner="beta")
 
         assert alpha_p["posteriors"]["arm:a"]["alpha"] == 2.0
         assert beta_p["posteriors"]["arm:a"]["alpha"] == 1.0

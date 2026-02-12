@@ -411,7 +411,7 @@ class TestGraphEnhancedExtras:
         r = _rules_impl(categories=["operational"])
         assert all(rule["category"] == "operational" for rule in r["rules"])
 
-    def test_feedback_loop(self):
+    async def test_feedback_loop(self):
         """Feedback adjusts future retrieval (the learning loop)."""
         q1 = _query_impl("OAuth2", domains=["security"], top_k=4)
         assert len(q1["items"]) > 0
@@ -421,7 +421,7 @@ class TestGraphEnhancedExtras:
         for item in q1["items"]:
             outcomes[item["id"]] = "accepted" if "OAuth" in item["content"] else "rejected"
 
-        r = _feedback_impl(q1["query_id"], outcomes)
+        r = await _feedback_impl(q1["query_id"], outcomes)
         assert r["status"] == "recorded"
         assert r["outcome_count"] == len(outcomes)
 
@@ -486,7 +486,7 @@ class TestFullDropInSimulation:
     would perform when using @peleke/mastra-qortex.
     """
 
-    def test_mastra_app_workflow(self):
+    async def test_mastra_app_workflow(self):
         # === Phase 1: Standard MastraVector operations ===
 
         # Create index (Mastra calls createIndex)
@@ -552,7 +552,7 @@ class TestFullDropInSimulation:
         assert len(rules["rules"]) >= 1
 
         # Submit feedback (the learning loop)
-        fb = _feedback_impl(
+        fb = await _feedback_impl(
             tq["query_id"],
             {tq["items"][0]["id"]: "accepted"},
             source="mastra",

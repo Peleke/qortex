@@ -351,7 +351,7 @@ class TestMCPFullMastraLoop:
     6. Re-query
     """
 
-    def test_complete_mcp_workflow(self):
+    async def test_complete_mcp_workflow(self):
         setup_graph_server()
 
         # 1. Status (health check)
@@ -381,7 +381,7 @@ class TestMCPFullMastraLoop:
         assert isinstance(rules_result["rules"], list)
 
         # 5. Feedback (the thing Mastra can't do natively)
-        feedback_result = mcp_server._feedback_impl(
+        feedback_result = await mcp_server._feedback_impl(
             query_id=query_id,
             outcomes={query_result["items"][0]["id"]: "accepted"},
             source="mastra-mcp-dogfood",
@@ -434,7 +434,7 @@ class TestMCPFullMastraLoop:
             assert "id" in rule
             assert "text" in rule
 
-    def test_all_mcp_responses_json_serializable(self):
+    async def test_all_mcp_responses_json_serializable(self):
         """Every MCP response must survive JSON roundtrip (stdio transport)."""
         setup_graph_server()
 
@@ -461,7 +461,7 @@ class TestMCPFullMastraLoop:
 
         # Feedback
         if query["items"]:
-            fb = mcp_server._feedback_impl(
+            fb = await mcp_server._feedback_impl(
                 query["query_id"],
                 {query["items"][0]["id"]: "accepted"},
             )

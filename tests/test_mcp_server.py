@@ -277,8 +277,8 @@ class TestQortexQuery:
 
 
 class TestQortexFeedback:
-    def test_feedback_returns_recorded(self, configured_server):
-        result = mcp_server._feedback_impl(
+    async def test_feedback_returns_recorded(self, configured_server):
+        result = await mcp_server._feedback_impl(
             query_id="test-qid",
             outcomes={"item1": "accepted", "item2": "rejected"},
             source="test",
@@ -287,15 +287,15 @@ class TestQortexFeedback:
         assert result["outcome_count"] == 2
         assert result["source"] == "test"
 
-    def test_feedback_with_default_source(self, configured_server):
-        result = mcp_server._feedback_impl(
+    async def test_feedback_with_default_source(self, configured_server):
+        result = await mcp_server._feedback_impl(
             query_id="test-qid",
             outcomes={"item1": "accepted"},
         )
         assert result["source"] == "unknown"
 
-    def test_feedback_empty_outcomes(self, configured_server):
-        result = mcp_server._feedback_impl(
+    async def test_feedback_empty_outcomes(self, configured_server):
+        result = await mcp_server._feedback_impl(
             query_id="test-qid",
             outcomes={},
         )
@@ -463,7 +463,7 @@ class TestIngestQueryRoundtrip:
 
         Path(path).unlink()
 
-    def test_ingest_then_query_with_feedback(self, configured_server, backend, embedding):
+    async def test_ingest_then_query_with_feedback(self, configured_server, backend, embedding):
         """Full loop: ingest → query → feedback."""
         from qortex_ingest.base import StubLLMBackend
 
@@ -481,7 +481,7 @@ class TestIngestQueryRoundtrip:
         query_result = mcp_server._query_impl(context="Test description")
         query_id = query_result["query_id"]
 
-        feedback_result = mcp_server._feedback_impl(
+        feedback_result = await mcp_server._feedback_impl(
             query_id=query_id,
             outcomes={"test:TestNode": "accepted"},
             source="test-harness",

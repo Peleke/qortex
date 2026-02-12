@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import asyncio
+
 import pytest
 
 from qortex.learning.learner import Learner
@@ -45,8 +47,8 @@ def captured_events():
 
 
 @pytest.fixture
-def learner(tmp_path):
-    return Learner(LearnerConfig(
+async def learner(tmp_path):
+    return await Learner.create(LearnerConfig(
         name="event-test",
         baseline_rate=0.0,
         state_dir=str(tmp_path),
@@ -54,9 +56,10 @@ def learner(tmp_path):
 
 
 class TestSelectionEvents:
-    def test_selection_emits_event(self, learner, captured_events):
+    async def test_selection_emits_event(self, learner, captured_events):
         candidates = [Arm(id="a"), Arm(id="b"), Arm(id="c")]
-        learner.select(candidates, k=2)
+        await learner.select(candidates, k=2)
+        await asyncio.sleep(0.05)  # let pyventus async processor fire callbacks
 
         selection_events = [e for t, e in captured_events if t == "selection"]
         assert len(selection_events) == 1
@@ -67,19 +70,21 @@ class TestSelectionEvents:
         assert ev.excluded_count == 1
         assert ev.is_baseline is False
 
-    def test_selection_with_token_budget(self, learner, captured_events):
+    async def test_selection_with_token_budget(self, learner, captured_events):
         candidates = [Arm(id="a", token_cost=100), Arm(id="b", token_cost=200)]
-        learner.select(candidates, k=2, token_budget=500)
+        await learner.select(candidates, k=2, token_budget=500)
+        await asyncio.sleep(0.05)
 
         ev = [e for t, e in captured_events if t == "selection"][0]
         assert ev.token_budget == 500
 
 
 class TestObservationEvents:
-    def test_observe_emits_events(self, learner, captured_events):
-        learner.observe(ArmOutcome(
+    async def test_observe_emits_events(self, learner, captured_events):
+        await learner.observe(ArmOutcome(
             arm_id="arm:a", reward=1.0, outcome="accepted"
         ))
+        await asyncio.sleep(0.05)
 
         obs_events = [e for t, e in captured_events if t == "observation"]
         assert len(obs_events) == 1
@@ -90,10 +95,11 @@ class TestObservationEvents:
         assert ev.reward == 1.0
         assert ev.outcome == "accepted"
 
-    def test_observe_emits_posterior_update(self, learner, captured_events):
-        learner.observe(ArmOutcome(
+    async def test_observe_emits_posterior_update(self, learner, captured_events):
+        await learner.observe(ArmOutcome(
             arm_id="arm:b", reward=0.0, outcome="rejected"
         ))
+        await asyncio.sleep(0.05)
 
         posterior_events = [e for t, e in captured_events if t == "posterior"]
         assert len(posterior_events) == 1

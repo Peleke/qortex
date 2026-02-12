@@ -311,7 +311,7 @@ class TestMastraFeedbackUpgrade:
     A Mastra TS client using qortex gets this for free via MCP.
     """
 
-    def test_full_query_feedback_cycle(self, mcp_server, ingested_domain):
+    async def test_full_query_feedback_cycle(self, mcp_server, ingested_domain):
         from qortex.mcp.server import _feedback_impl, _query_impl
 
         # 1. Query (same as Mastra would)
@@ -324,7 +324,7 @@ class TestMastraFeedbackUpgrade:
         query_id = query_result["query_id"]
 
         # 2. Feedback (Mastra can't do this)
-        feedback_result = _feedback_impl(
+        feedback_result = await _feedback_impl(
             query_id=query_id,
             outcomes={
                 query_result["items"][0]["id"]: "accepted",
@@ -357,7 +357,7 @@ class TestMastraE2ESimulation:
     code paths that JSON-RPC tool calls hit.
     """
 
-    def test_full_consumer_workflow(self, mcp_server, ingested_domain):
+    async def test_full_consumer_workflow(self, mcp_server, ingested_domain):
         from qortex.mcp.server import (
             _domains_impl,
             _embedding_model,
@@ -422,7 +422,7 @@ class TestMastraE2ESimulation:
         )
 
         # --- Step 5: feedback() (the upgrade Mastra doesn't have) ---
-        fb = _feedback_impl(
+        fb = await _feedback_impl(
             query_id=raw["query_id"],
             outcomes={mastra_results[0]["id"]: "accepted"},
             source="mastra-e2e",
@@ -438,7 +438,7 @@ class TestMastraE2ESimulation:
         assert len(raw2["items"]) > 0
         assert raw2["query_id"] != raw["query_id"]  # different query IDs
 
-    def test_json_serializable(self, mcp_server, ingested_domain):
+    async def test_json_serializable(self, mcp_server, ingested_domain):
         """Every MCP response must be JSON-serializable (goes over stdio)."""
         from qortex.mcp.server import (
             _domains_impl,
@@ -458,7 +458,7 @@ class TestMastraE2ESimulation:
         assert json.loads(json.dumps(query)) == query
 
         if query["items"]:
-            fb = _feedback_impl(query["query_id"], {query["items"][0]["id"]: "accepted"})
+            fb = await _feedback_impl(query["query_id"], {query["items"][0]["id"]: "accepted"})
             assert json.loads(json.dumps(fb)) == fb
 
 

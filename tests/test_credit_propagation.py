@@ -22,25 +22,25 @@ def _clean():
 class TestMaybePropagateCredit:
     """Unit tests for _maybe_propagate_credit in server.py."""
 
-    def test_returns_none_when_flag_off(self, monkeypatch):
+    async def test_returns_none_when_flag_off(self, monkeypatch):
         from qortex.mcp.server import _maybe_propagate_credit
 
         monkeypatch.setenv("QORTEX_CREDIT_PROPAGATION", "off")
         reset_flags()
 
-        result = _maybe_propagate_credit("q1", {"c:a": "accepted"})
+        result = await _maybe_propagate_credit("q1", {"c:a": "accepted"})
         assert result is None
 
-    def test_returns_none_when_no_outcomes(self, monkeypatch):
+    async def test_returns_none_when_no_outcomes(self, monkeypatch):
         from qortex.mcp.server import _maybe_propagate_credit
 
         monkeypatch.setenv("QORTEX_CREDIT_PROPAGATION", "on")
         reset_flags()
 
-        result = _maybe_propagate_credit("q1", {})
+        result = await _maybe_propagate_credit("q1", {})
         assert result is None
 
-    def test_returns_none_when_backend_is_none(self, monkeypatch):
+    async def test_returns_none_when_backend_is_none(self, monkeypatch):
         from qortex.mcp import server
         from qortex.mcp.server import _maybe_propagate_credit
 
@@ -48,10 +48,10 @@ class TestMaybePropagateCredit:
         reset_flags()
         monkeypatch.setattr(server, "_backend", None)
 
-        result = _maybe_propagate_credit("q1", {"c:a": "accepted"})
+        result = await _maybe_propagate_credit("q1", {"c:a": "accepted"})
         assert result is None
 
-    def test_returns_none_when_networkx_unavailable(self, monkeypatch):
+    async def test_returns_none_when_networkx_unavailable(self, monkeypatch):
         from qortex.mcp.server import _maybe_propagate_credit
 
         monkeypatch.setenv("QORTEX_CREDIT_PROPAGATION", "on")
@@ -74,10 +74,10 @@ class TestMaybePropagateCredit:
             return real_import(name, *args, **kwargs)
 
         monkeypatch.setattr(builtins, "__import__", mock_import)
-        result = _maybe_propagate_credit("q1", {"c:a": "accepted"})
+        result = await _maybe_propagate_credit("q1", {"c:a": "accepted"})
         assert result is None
 
-    def test_returns_none_when_no_nodes_in_backend(self, monkeypatch):
+    async def test_returns_none_when_no_nodes_in_backend(self, monkeypatch):
         from qortex.mcp.server import _maybe_propagate_credit
 
         monkeypatch.setenv("QORTEX_CREDIT_PROPAGATION", "on")
@@ -89,14 +89,14 @@ class TestMaybePropagateCredit:
         import qortex.mcp.server as srv
         monkeypatch.setattr(srv, "_backend", mock_backend)
 
-        result = _maybe_propagate_credit("q1", {"unknown:x": "accepted"})
+        result = await _maybe_propagate_credit("q1", {"unknown:x": "accepted"})
         assert result is None
 
 
 class TestCreditPropagationEndToEnd:
     """Full end-to-end: backend with DAG → credit → learner update."""
 
-    def test_credit_flows_through_dag(self, monkeypatch, tmp_path):
+    async def test_credit_flows_through_dag(self, monkeypatch, tmp_path):
         from qortex.causal.dag import CausalDAG
         from qortex.causal.types import CausalDirection, CausalEdge
         from qortex.core.models import ConceptNode
@@ -130,7 +130,7 @@ class TestCreditPropagationEndToEnd:
 
         # Patch CausalDAG.from_backend to return our test DAG
         with patch("qortex.causal.dag.CausalDAG.from_backend", return_value=dag):
-            result = _maybe_propagate_credit("q1", {"test:c": "accepted"})
+            result = await _maybe_propagate_credit("q1", {"test:c": "accepted"})
 
         assert result is not None
         assert result["direct_count"] >= 1
@@ -141,11 +141,11 @@ class TestCreditPropagationEndToEnd:
         assert credit_learner is not None
 
         # "test:c" got direct credit, "test:b" is parent, "test:a" is grandparent
-        state_c = credit_learner.store.get("test:c")
+        state_c = await credit_learner.store.get("test:c")
         assert state_c.pulls >= 1
         assert state_c.alpha > 1.0  # positive credit applied
 
-    def test_rejected_outcome_increases_beta(self, monkeypatch, tmp_path):
+    async def test_rejected_outcome_increases_beta(self, monkeypatch, tmp_path):
         from qortex.causal.dag import CausalDAG
         from qortex.causal.types import CausalDirection, CausalEdge, CausalNode
         from qortex.core.models import ConceptNode
@@ -173,15 +173,15 @@ class TestCreditPropagationEndToEnd:
         monkeypatch.setattr(srv, "_learners", {})
 
         with patch("qortex.causal.dag.CausalDAG.from_backend", return_value=dag):
-            result = _maybe_propagate_credit("q1", {"test:x": "rejected"})
+            result = await _maybe_propagate_credit("q1", {"test:x": "rejected"})
 
         assert result is not None
         credit_learner = srv._learners["credit"]
-        state = credit_learner.store.get("test:x")
+        state = await credit_learner.store.get("test:x")
         # Rejected → negative reward → beta_delta > 0
         assert state.beta > 1.0
 
-    def test_partial_outcome_gives_moderate_credit(self, monkeypatch, tmp_path):
+    async def test_partial_outcome_gives_moderate_credit(self, monkeypatch, tmp_path):
         from qortex.causal.dag import CausalDAG
         from qortex.causal.types import CausalDirection, CausalEdge
         from qortex.core.models import ConceptNode
@@ -208,16 +208,16 @@ class TestCreditPropagationEndToEnd:
         monkeypatch.setattr(srv, "_learners", {})
 
         with patch("qortex.causal.dag.CausalDAG.from_backend", return_value=dag):
-            result = _maybe_propagate_credit("q1", {"test:p": "partial"})
+            result = await _maybe_propagate_credit("q1", {"test:p": "partial"})
 
         assert result is not None
         credit_learner = srv._learners["credit"]
-        state = credit_learner.store.get("test:p")
+        state = await credit_learner.store.get("test:p")
         # Partial → 0.3 reward → moderate alpha boost
         assert state.alpha > 1.0
         assert state.alpha < 2.0  # not full credit
 
-    def test_ancestor_credit_decays(self, monkeypatch, tmp_path):
+    async def test_ancestor_credit_decays(self, monkeypatch, tmp_path):
         from qortex.causal.dag import CausalDAG
         from qortex.causal.types import CausalDirection, CausalEdge
         from qortex.core.models import ConceptNode
@@ -247,15 +247,15 @@ class TestCreditPropagationEndToEnd:
         monkeypatch.setattr(srv, "_learners", {})
 
         with patch("qortex.causal.dag.CausalDAG.from_backend", return_value=dag):
-            result = _maybe_propagate_credit("q1", {"test:leaf": "accepted"})
+            result = await _maybe_propagate_credit("q1", {"test:leaf": "accepted"})
 
         assert result is not None
         assert result["ancestor_count"] >= 1
 
         credit_learner = srv._learners["credit"]
-        leaf_state = credit_learner.store.get("test:leaf")
-        mid_state = credit_learner.store.get("test:mid")
-        root_state = credit_learner.store.get("test:root")
+        leaf_state = await credit_learner.store.get("test:leaf")
+        mid_state = await credit_learner.store.get("test:mid")
+        root_state = await credit_learner.store.get("test:root")
 
         # Direct > parent > grandparent (decay)
         leaf_delta = leaf_state.alpha - 1.0
@@ -264,7 +264,7 @@ class TestCreditPropagationEndToEnd:
 
         assert leaf_delta > mid_delta > root_delta > 0
 
-    def test_dag_build_failure_handled_gracefully(self, monkeypatch, tmp_path):
+    async def test_dag_build_failure_handled_gracefully(self, monkeypatch, tmp_path):
         from qortex.core.models import ConceptNode
         from qortex.mcp.server import _maybe_propagate_credit
 
@@ -287,7 +287,7 @@ class TestCreditPropagationEndToEnd:
             "qortex.causal.dag.CausalDAG.from_backend",
             side_effect=RuntimeError("boom"),
         ):
-            result = _maybe_propagate_credit("q1", {"test:x": "accepted"})
+            result = await _maybe_propagate_credit("q1", {"test:x": "accepted"})
 
         # Should return None (graceful degradation), not crash
         assert result is None

@@ -179,7 +179,7 @@ def seeded_server():
 class TestLearningE2EDogfood:
     """Full pipeline: query → select → observe → learn → re-select."""
 
-    def test_full_learning_lifecycle(self, seeded_server, event_log):
+    async def test_full_learning_lifecycle(self, seeded_server, event_log):
         srv = seeded_server
 
         # ── Step 1: Query the knowledge graph ──────────────────────
@@ -198,7 +198,7 @@ class TestLearningE2EDogfood:
             {"id": "prompt:v2", "metadata": {"type": "cot"}, "token_cost": 200},
             {"id": "prompt:v3", "metadata": {"type": "few-shot"}, "token_cost": 300},
         ]
-        select_result = srv._learning_select_impl(
+        select_result = await srv._learning_select_impl(
             learner="prompt-optimizer",
             candidates=candidates,
             context={"task": "type-checking"},
@@ -210,7 +210,7 @@ class TestLearningE2EDogfood:
         # ── Step 3: Simulate outcomes ──────────────────────────────
         # v2 (chain-of-thought) works great; always observe it as accepted
         # regardless of whether it was selected (initial selection is random)
-        srv._learning_observe_impl(
+        await srv._learning_observe_impl(
             learner="prompt-optimizer",
             arm_id="prompt:v2",
             outcome="accepted",
@@ -218,7 +218,7 @@ class TestLearningE2EDogfood:
         )
         for arm in select_result["selected_arms"]:
             if arm["id"] != "prompt:v2":
-                srv._learning_observe_impl(
+                await srv._learning_observe_impl(
                     learner="prompt-optimizer",
                     arm_id=arm["id"],
                     outcome="rejected",
@@ -226,7 +226,7 @@ class TestLearningE2EDogfood:
                 )
 
         # ── Step 4: Check posteriors reflect learning ──────────────
-        posteriors = srv._learning_posteriors_impl(
+        posteriors = await srv._learning_posteriors_impl(
             learner="prompt-optimizer",
             context={"task": "type-checking"},
         )
@@ -241,7 +241,7 @@ class TestLearningE2EDogfood:
         # ── Step 5: Repeat selection — v2 should be strongly preferred ──
         # Train more: 20 rounds of v2=accepted to build strong posterior
         for _ in range(20):
-            srv._learning_observe_impl(
+            await srv._learning_observe_impl(
                 learner="prompt-optimizer",
                 arm_id="prompt:v2",
                 outcome="accepted",
@@ -251,7 +251,7 @@ class TestLearningE2EDogfood:
         # Also penalize the others so v2 clearly dominates
         for other_id in ["prompt:v1", "prompt:v3"]:
             for _ in range(5):
-                srv._learning_observe_impl(
+                await srv._learning_observe_impl(
                     learner="prompt-optimizer",
                     arm_id=other_id,
                     outcome="rejected",
@@ -261,7 +261,7 @@ class TestLearningE2EDogfood:
         # Now select — v2 should dominate (alpha~22 vs beta~1)
         v2_selected = 0
         for _ in range(50):
-            result = srv._learning_select_impl(
+            result = await srv._learning_select_impl(
                 learner="prompt-optimizer",
                 candidates=candidates,
                 context={"task": "type-checking"},
@@ -274,7 +274,7 @@ class TestLearningE2EDogfood:
         assert v2_selected > 35, f"v2 selected {v2_selected}/50 times (expected >35)"
 
         # ── Step 6: Metrics reflect reality ────────────────────────
-        metrics = srv._learning_metrics_impl(learner="prompt-optimizer")
+        metrics = await srv._learning_metrics_impl(learner="prompt-optimizer")
         # 2 initial + 20 v2 accepted + 10 others rejected = 32 pulls
         assert metrics["total_pulls"] > 20
         assert metrics["total_reward"] > 10
@@ -301,7 +301,7 @@ class TestLearningE2EDogfood:
         assert observation_count >= 12  # 2 initial + 10 training
         assert posterior_count == observation_count  # 1:1
 
-    def test_token_budget_constrains_selection(self, seeded_server, event_log):
+    async def test_token_budget_constrains_selection(self, seeded_server, event_log):
         srv = seeded_server
 
         candidates = [
@@ -309,7 +309,7 @@ class TestLearningE2EDogfood:
             {"id": "b", "token_cost": 500},
             {"id": "c", "token_cost": 500},
         ]
-        result = srv._learning_select_impl(
+        result = await srv._learning_select_impl(
             learner="budget-test",
             candidates=candidates,
             k=3,
@@ -320,11 +320,11 @@ class TestLearningE2EDogfood:
         assert result["used_tokens"] <= 800
         assert len(result["selected_arms"]) <= 1
 
-    def test_session_tracking_across_rounds(self, seeded_server, event_log):
+    async def test_session_tracking_across_rounds(self, seeded_server, event_log):
         srv = seeded_server
 
         # Start session
-        start = srv._learning_session_start_impl(
+        start = await srv._learning_session_start_impl(
             learner="session-test",
             session_name="investor-demo",
         )
@@ -332,29 +332,29 @@ class TestLearningE2EDogfood:
         assert session_id
 
         # Select and observe within session
-        srv._learning_select_impl(
+        await srv._learning_select_impl(
             learner="session-test",
             candidates=[{"id": "arm:x"}, {"id": "arm:y"}],
             k=1,
         )
-        srv._learning_observe_impl(
+        await srv._learning_observe_impl(
             learner="session-test",
             arm_id="arm:x",
             outcome="accepted",
         )
 
         # End session
-        summary = srv._learning_session_end_impl(session_id)
+        summary = await srv._learning_session_end_impl(session_id)
         assert summary["session_id"] == session_id
         assert summary["started_at"]
         assert summary["ended_at"]
 
-    def test_multiple_learners_independent(self, seeded_server, event_log):
+    async def test_multiple_learners_independent(self, seeded_server, event_log):
         srv = seeded_server
 
         # Learner A learns arm:x is good
         for _ in range(5):
-            srv._learning_observe_impl(
+            await srv._learning_observe_impl(
                 learner="learner-A",
                 arm_id="arm:x",
                 outcome="accepted",
@@ -362,14 +362,14 @@ class TestLearningE2EDogfood:
 
         # Learner B learns arm:x is bad
         for _ in range(5):
-            srv._learning_observe_impl(
+            await srv._learning_observe_impl(
                 learner="learner-B",
                 arm_id="arm:x",
                 outcome="rejected",
             )
 
-        a_posteriors = srv._learning_posteriors_impl(learner="learner-A")
-        b_posteriors = srv._learning_posteriors_impl(learner="learner-B")
+        a_posteriors = await srv._learning_posteriors_impl(learner="learner-A")
+        b_posteriors = await srv._learning_posteriors_impl(learner="learner-B")
 
         assert a_posteriors["posteriors"]["arm:x"]["mean"] > 0.7
         assert b_posteriors["posteriors"]["arm:x"]["mean"] < 0.3
@@ -409,13 +409,13 @@ class TestLearningE2EDogfood:
         assert failed_events[0].stage == "embedding"
         assert "GPU exploded" in failed_events[0].error
 
-    def test_context_partitioned_learning(self, seeded_server, event_log):
+    async def test_context_partitioned_learning(self, seeded_server, event_log):
         """Different contexts learn independently — essential for multi-task optimization."""
         srv = seeded_server
 
         # Context A: arm:alpha works well
         for _ in range(10):
-            srv._learning_observe_impl(
+            await srv._learning_observe_impl(
                 learner="multi-task",
                 arm_id="arm:alpha",
                 outcome="accepted",
@@ -424,7 +424,7 @@ class TestLearningE2EDogfood:
 
         # Context B: arm:alpha doesn't work
         for _ in range(10):
-            srv._learning_observe_impl(
+            await srv._learning_observe_impl(
                 learner="multi-task",
                 arm_id="arm:alpha",
                 outcome="rejected",
@@ -432,11 +432,11 @@ class TestLearningE2EDogfood:
             )
 
         # Posteriors should diverge by context
-        typing_p = srv._learning_posteriors_impl(
+        typing_p = await srv._learning_posteriors_impl(
             learner="multi-task",
             context={"task": "typing"},
         )
-        linting_p = srv._learning_posteriors_impl(
+        linting_p = await srv._learning_posteriors_impl(
             learner="multi-task",
             context={"task": "linting"},
         )
