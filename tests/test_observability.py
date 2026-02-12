@@ -31,6 +31,9 @@ from qortex.observability.events import (
     InteroceptionShutdown,
     InteroceptionStarted,
     KGCoverageComputed,
+    LearningObservationRecorded,
+    LearningPosteriorUpdated,
+    LearningSelectionMade,
     ManifestIngested,
     OnlineEdgeRecorded,
     OnlineEdgesGenerated,
@@ -1111,8 +1114,9 @@ class TestOtelErrorHandling:
 
         reset()
 
-    def test_otel_protocol_config_defaults_to_grpc(self):
+    def test_otel_protocol_config_defaults_to_grpc(self, monkeypatch):
         """Default otel_protocol is 'grpc'."""
+        monkeypatch.delenv("OTEL_EXPORTER_OTLP_PROTOCOL", raising=False)
         cfg = ObservabilityConfig()
         assert cfg.otel_protocol == "grpc"
 
@@ -1160,4 +1164,90 @@ class TestOtelErrorHandling:
 
         assert emitter is not None
         assert is_configured()
+        reset()
+
+
+# =============================================================================
+# Integration: learning events in structlog subscriber
+# =============================================================================
+
+
+class TestStructlogLearningEvents:
+    """Structlog subscriber handles learning events and logs them."""
+
+    def test_learning_selection_logged(self, configured, caplog):
+        from qortex.observability.emitter import emit
+
+        with caplog.at_level(logging.DEBUG, logger="qortex.events"):
+            emit(LearningSelectionMade(
+                learner="test", selected_count=3, excluded_count=2,
+                is_baseline=False, token_budget=1000, used_tokens=750,
+            ))
+        assert any("learning.selection" in r.message for r in caplog.records)
+
+    def test_learning_observation_logged(self, configured, caplog):
+        from qortex.observability.emitter import emit
+
+        with caplog.at_level(logging.DEBUG, logger="qortex.events"):
+            emit(LearningObservationRecorded(
+                learner="test", arm_id="arm:a", reward=1.0,
+                outcome="accepted", context_hash="default",
+            ))
+        assert any("learning.observation" in r.message for r in caplog.records)
+
+    def test_learning_posterior_logged(self, configured, caplog):
+        from qortex.observability.emitter import emit
+
+        with caplog.at_level(logging.DEBUG, logger="qortex.events"):
+            emit(LearningPosteriorUpdated(
+                learner="test", arm_id="arm:a",
+                alpha=2.0, beta=1.0, pulls=1, mean=0.667,
+            ))
+        assert any("learning.posterior" in r.message for r in caplog.records)
+
+
+# =============================================================================
+# Integration: learning events in JSONL subscriber
+# =============================================================================
+
+
+class TestJsonlLearningEvents:
+    """JSONL subscriber captures learning events."""
+
+    def test_learning_events_in_all_events_tuple(self):
+        from qortex.observability.subscribers.jsonl import _ALL_EVENTS
+
+        assert LearningSelectionMade in _ALL_EVENTS
+        assert LearningObservationRecorded in _ALL_EVENTS
+        assert LearningPosteriorUpdated in _ALL_EVENTS
+
+    def test_learning_events_written_to_jsonl(self, tmp_path):
+        from qortex.observability.emitter import configure, emit, reset
+
+        reset()
+        cfg = ObservabilityConfig(
+            log_destination="stderr",
+            jsonl_path=str(tmp_path / "events.jsonl"),
+        )
+        configure(cfg)
+
+        emit(LearningSelectionMade(
+            learner="test", selected_count=2, excluded_count=1,
+            is_baseline=False, token_budget=500, used_tokens=400,
+        ))
+        emit(LearningObservationRecorded(
+            learner="test", arm_id="arm:x", reward=1.0,
+            outcome="accepted", context_hash="abc123",
+        ))
+        emit(LearningPosteriorUpdated(
+            learner="test", arm_id="arm:x",
+            alpha=2.0, beta=1.0, pulls=1, mean=0.667,
+        ))
+
+        lines = (tmp_path / "events.jsonl").read_text().strip().split("\n")
+        events = [json.loads(line) for line in lines]
+        event_names = [e["event"] for e in events]
+        assert "LearningSelectionMade" in event_names
+        assert "LearningObservationRecorded" in event_names
+        assert "LearningPosteriorUpdated" in event_names
         reset()
