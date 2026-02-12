@@ -51,7 +51,7 @@ open http://localhost:3010/d/qortex-main/qortex-observability
 
 ## Dashboard Panels
 
-The Grafana dashboard (`qortex-main`) is organized into seven sections. Each section corresponds to a stage of the pipeline.
+The Grafana dashboard (`qortex-main`) is organized into eight sections. Each section corresponds to a stage of the pipeline and opens with a **Mermaid flowchart** (showing data flow) and a **signal table** (Healthy vs Investigate thresholds) before the metric panels.
 
 ### Retrieval Health
 
@@ -262,6 +262,66 @@ These panels provide visibility into the vec layer: the index that stores embedd
 - **Source event:** `VecSearchResults`
 - **What it tells you:** Average number of candidates returned per vec search. Should be close to `fetch_k` (typically `top_k * 3`). If consistently lower, the index is small or the threshold is filtering aggressively.
 
+### Learning & Bandits
+
+These panels track the Thompson Sampling bandit that learns which retrieval strategies work. Each candidate action (arm) is modeled as a Beta distribution, updated by feedback outcomes.
+
+#### Selection Rate
+
+- **Metric:** `rate(qortex_learning_selections_total[5m])`
+- **Labels:** `learner`, `baseline` (`true` = forced exploration, `false` = Thompson Sampling pick)
+- **Source event:** `LearningSelectionMade`
+- **What it tells you:** How often the bandit selects arms. The `baseline=true` line represents forced random exploration (default 10%). As posteriors separate, the `baseline=false` line should dominate. If baseline stays flat, the system hasn't learned enough to exploit.
+
+#### Observation Rate
+
+- **Metric:** `rate(qortex_learning_observations_total[5m])`
+- **Labels:** `learner`, `outcome` (`accepted`, `rejected`, `partial`)
+- **Source event:** `LearningObservationRecorded`
+- **What it tells you:** Rate of reward observations by outcome. In a converging system, `accepted` should trend upward. Persistent `rejected` majority means the arm pool is bad or the signal is noisy.
+
+#### Posterior Mean (top 10 arms)
+
+- **Metric:** `topk(10, qortex_learning_posterior_mean)`
+- **Labels:** `learner`, `arm_id`
+- **Source event:** `LearningPosteriorUpdated`
+- **What it tells you:** The posterior mean `α / (α + β)` for each arm. This IS the learning. Mean near 1.0 = confident success. 0.5 = uncertain. 0.0 = confident failure. A clear winner pulling away from the pack indicates convergence. All arms clustered at 0.5 means insufficient data.
+
+#### Token Budget Usage
+
+- **Metric:** `histogram_quantile(0.50|0.95, rate(qortex_learning_token_budget_used_bucket[5m]))`
+- **Source event:** `LearningSelectionMade`
+- **What it tells you:** How much of the token budget each selection consumes. Empty if no `token_budget` constraint is configured. If p95 consistently hits the budget cap, arms are too expensive.
+
+### Credit Propagation
+
+These panels track causal credit assignment: feedback propagating backward through the causal DAG to update ancestor concept posteriors. Requires `QORTEX_CREDIT_PROPAGATION=on`.
+
+#### Credit Propagation Rate
+
+- **Metric:** `rate(qortex_credit_propagations_total[5m])`
+- **Labels:** `learner`
+- **Source event:** `CreditPropagated`
+- **What it tells you:** Propagations per second through the causal DAG. Should match feedback rate. Zero while feedback flows means the feature flag is off or the DAG is empty.
+
+#### Concepts per Propagation (p50/p95)
+
+- **Metric:** `histogram_quantile(0.50|0.95, rate(qortex_credit_concepts_per_propagation_bucket[5m]))`
+- **Source event:** `CreditPropagated`
+- **What it tells you:** How many concepts receive credit per event (direct + ancestors). p50 of 3-5 is typical for a well-connected DAG. p50 of 1 means no ancestor credit is flowing (disconnected DAG).
+
+#### Total Credit Propagations
+
+- **Metric:** `qortex_credit_propagations_total`
+- **Display:** Stat panel (single number)
+- **What it tells you:** Lifetime propagation count since restart. Should be monotonically increasing. Stuck at 0 means the feature is not active.
+
+#### Credit Alpha vs Beta Deltas
+
+- **Metric:** `qortex_credit_alpha_delta_total`, `qortex_credit_beta_delta_total`
+- **Source event:** `CreditPropagated`
+- **What it tells you:** Cumulative success (alpha) vs failure (beta) signal from credit propagation. Alpha ahead = net positive signal from users. Beta dominating = users are rejecting results and that negative signal is propagating to ancestor concepts.
+
 ## Complete Metric Reference
 
 | Metric | Type | Event | Labels |
@@ -294,6 +354,14 @@ These panels provide visibility into the vec layer: the index that stores embedd
 | `qortex_vec_search_top_score` | Gauge | `VecSearchResults` | — |
 | `qortex_vec_search_score_spread` | Gauge | `VecSearchResults` | — |
 | `qortex_vec_seed_yield` | Gauge | `VecSeedYield` | — |
+| `qortex_learning_selections_total` | Counter | `LearningSelectionMade` | `learner`, `baseline` |
+| `qortex_learning_observations_total` | Counter | `LearningObservationRecorded` | `learner`, `outcome` |
+| `qortex_learning_posterior_mean` | Gauge | `LearningPosteriorUpdated` | `learner`, `arm_id` |
+| `qortex_learning_token_budget_used` | Histogram | `LearningSelectionMade` | — |
+| `qortex_credit_propagations_total` | Counter | `CreditPropagated` | `learner` |
+| `qortex_credit_concepts_per_propagation` | Histogram | `CreditPropagated` | — |
+| `qortex_credit_alpha_delta_total` | Counter | `CreditPropagated` | — |
+| `qortex_credit_beta_delta_total` | Counter | `CreditPropagated` | — |
 
 ## Testing the Dashboard
 
