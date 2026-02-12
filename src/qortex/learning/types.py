@@ -102,6 +102,7 @@ class LearnerConfig:
     seed_arms: list[str] = field(default_factory=list)  # arms with boosted priors
     state_dir: str = ""  # override for state persistence path
     max_arms: int = 1000  # cap on tracked arms
+    min_pulls: int = 0  # force-include arms with fewer than N observations
 
 
 def context_hash(context: dict) -> str:
