@@ -436,8 +436,20 @@ def register_otel_subscriber(config: ObservabilityConfig) -> None:
         "qortex_credit_concepts_per_propagation",
         description="Concepts receiving credit per propagation",
     )
+    credit_alpha_delta = meter.create_counter(
+        "qortex_credit_alpha_delta",
+        description="Cumulative alpha (success) delta from credit propagation",
+    )
+    credit_beta_delta = meter.create_counter(
+        "qortex_credit_beta_delta",
+        description="Cumulative beta (failure) delta from credit propagation",
+    )
 
     @QortexEventLinker.on(CreditPropagated)
     def _on_credit_propagated(event: CreditPropagated) -> None:
         credit_propagations.add(1, {"learner": event.learner})
         credit_concepts.record(event.concept_count)
+        if event.total_alpha_delta > 0:
+            credit_alpha_delta.add(event.total_alpha_delta)
+        if event.total_beta_delta > 0:
+            credit_beta_delta.add(event.total_beta_delta)
