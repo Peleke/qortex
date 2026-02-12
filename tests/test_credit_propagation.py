@@ -302,13 +302,38 @@ class TestCreditPropagatedEvent:
 
         assert CreditPropagated in _ALL_EVENTS
 
-    def test_structlog_handler_exists(self):
-        """Verify the structlog handler for CreditPropagated is defined."""
-        from qortex.observability.subscribers.structlog_sub import (
-            _log_credit_propagated,
-        )
+    def test_structlog_handler_logs_credit_propagated(self, caplog):
+        """Verify structlog handler actually logs credit.propagated with fields."""
+        import logging
+        import time
 
-        assert callable(_log_credit_propagated)
+        from qortex.observability.config import ObservabilityConfig
+        from qortex.observability.emitter import configure, emit, reset
+        from qortex.observability.events import CreditPropagated
+
+        reset()
+        configure(ObservabilityConfig(
+            log_formatter="stdlib",
+            log_destination="stderr",
+            log_level="DEBUG",
+            log_format="json",
+        ))
+
+        with caplog.at_level(logging.DEBUG, logger="qortex.events"):
+            emit(CreditPropagated(
+                query_id="q1",
+                concept_count=5,
+                direct_count=2,
+                ancestor_count=3,
+                total_alpha_delta=1.5,
+                total_beta_delta=0.3,
+                learner="credit",
+            ))
+            # pyventus dispatches async — give handler time to fire
+            time.sleep(0.2)
+
+        assert any("credit.propagated" in r.message for r in caplog.records)
+        reset()
 
     def test_event_written_to_jsonl(self, tmp_path):
         import json

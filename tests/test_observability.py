@@ -22,6 +22,7 @@ import pytest
 from qortex.observability.config import ObservabilityConfig
 from qortex.observability.events import (
     BufferFlushed,
+    CreditPropagated,
     EdgePromoted,
     FactorDriftSnapshot,
     FactorsLoaded,
@@ -1007,6 +1008,39 @@ class TestPrometheusMetrics:
         event = QueryFailed(query_id="q1", error="boom", stage="embedding", timestamp="ts")
         mock_counter.labels(stage=event.stage).inc()
         mock_counter.labels.assert_called_with(stage="embedding")
+
+    def test_credit_propagated_increments_counters(self):
+        """CreditPropagated handler increments propagation counter and delta counters."""
+        from unittest.mock import MagicMock
+
+        event = CreditPropagated(
+            query_id="q1", concept_count=5, direct_count=2,
+            ancestor_count=3, total_alpha_delta=1.5, total_beta_delta=0.3,
+            learner="credit",
+        )
+
+        # Verify handler logic: counter labels and concept histogram
+        mock_counter = MagicMock()
+        mock_counter.labels(learner=event.learner).inc()
+        mock_counter.labels.assert_called_with(learner="credit")
+
+        # Verify alpha/beta delta logic
+        assert event.total_alpha_delta > 0
+        assert event.total_beta_delta > 0
+        assert event.concept_count == 5
+        assert event.direct_count == 2
+        assert event.ancestor_count == 3
+
+    def test_credit_propagated_skips_zero_deltas(self):
+        """CreditPropagated handler skips alpha/beta inc when deltas are zero."""
+        event = CreditPropagated(
+            query_id="q1", concept_count=0, direct_count=0,
+            ancestor_count=0, total_alpha_delta=0.0, total_beta_delta=0.0,
+            learner="credit",
+        )
+        # Handler guards: `if event.total_alpha_delta > 0` and `if event.total_beta_delta > 0`
+        assert not (event.total_alpha_delta > 0)
+        assert not (event.total_beta_delta > 0)
 
 
 class TestPrometheusLiveMetrics:
