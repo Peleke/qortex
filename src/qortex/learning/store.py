@@ -10,6 +10,7 @@ from __future__ import annotations
 import json
 import re
 import sqlite3
+import threading
 from pathlib import Path
 from typing import Protocol, runtime_checkable
 
@@ -120,18 +121,20 @@ class SqliteLearningStore:
         self._dir.mkdir(parents=True, exist_ok=True)
         self._db_path = self._dir / f"{self._name}.db"
         self._conn: sqlite3.Connection | None = None
+        # Serialize all connection access. check_same_thread=False allows
+        # cross-thread usage but does NOT serialize it; concurrent
+        # conn.execute() calls from FastMCP's thread pool cause
+        # InterfaceError ("bad parameter or other API misuse").
+        self._lock = threading.Lock()
 
     def _ensure_connection(self) -> sqlite3.Connection:
         if self._conn is not None:
             return self._conn
         # check_same_thread=False: FastMCP dispatches tool handlers on a
-        # thread pool, so consecutive calls (select → observe) may land on
-        # different threads. This is safe because:
-        #   1. sqlite3.threadsafety == 3 (serialized) on CPython — the
-        #      underlying C library mutex-protects connections and cursors.
-        #      See https://docs.python.org/3/library/sqlite3.html#sqlite3.threadsafety
-        #   2. MCP stdio transport serializes requests, so no concurrent writes.
-        #   3. WAL mode (set below) allows concurrent readers without blocking.
+        # thread pool, so consecutive calls (select, observe) may land on
+        # different threads AND run concurrently. All public methods acquire
+        # self._lock before touching the connection. WAL mode allows
+        # concurrent readers at the SQLite level if needed in the future.
         self._conn = sqlite3.connect(str(self._db_path), check_same_thread=False)
         self._conn.execute("PRAGMA journal_mode = WAL")
         self._conn.execute("PRAGMA busy_timeout = 3000")
@@ -155,75 +158,81 @@ class SqliteLearningStore:
         return self._conn
 
     def get(self, arm_id: str, context: dict | None = None) -> ArmState:
-        conn = self._ensure_connection()
-        ctx = context_hash(context or {})
-        row = conn.execute(
-            "SELECT alpha, beta, pulls, total_reward, last_updated "
-            "FROM arm_states WHERE context_hash = ? AND arm_id = ?",
-            (ctx, arm_id),
-        ).fetchone()
-        if row is None:
-            return ArmState()
-        return ArmState(
-            alpha=row[0],
-            beta=row[1],
-            pulls=row[2],
-            total_reward=row[3],
-            last_updated=row[4],
-        )
+        with self._lock:
+            conn = self._ensure_connection()
+            ctx = context_hash(context or {})
+            row = conn.execute(
+                "SELECT alpha, beta, pulls, total_reward, last_updated "
+                "FROM arm_states WHERE context_hash = ? AND arm_id = ?",
+                (ctx, arm_id),
+            ).fetchone()
+            if row is None:
+                return ArmState()
+            return ArmState(
+                alpha=row[0],
+                beta=row[1],
+                pulls=row[2],
+                total_reward=row[3],
+                last_updated=row[4],
+            )
 
     def get_all(self, context: dict | None = None) -> dict[str, ArmState]:
-        conn = self._ensure_connection()
-        ctx = context_hash(context or {})
-        rows = conn.execute(
-            "SELECT arm_id, alpha, beta, pulls, total_reward, last_updated "
-            "FROM arm_states WHERE context_hash = ?",
-            (ctx,),
-        ).fetchall()
-        return {
-            row[0]: ArmState(
-                alpha=row[1], beta=row[2], pulls=row[3],
-                total_reward=row[4], last_updated=row[5],
-            )
-            for row in rows
-        }
+        with self._lock:
+            conn = self._ensure_connection()
+            ctx = context_hash(context or {})
+            rows = conn.execute(
+                "SELECT arm_id, alpha, beta, pulls, total_reward, last_updated "
+                "FROM arm_states WHERE context_hash = ?",
+                (ctx,),
+            ).fetchall()
+            return {
+                row[0]: ArmState(
+                    alpha=row[1], beta=row[2], pulls=row[3],
+                    total_reward=row[4], last_updated=row[5],
+                )
+                for row in rows
+            }
 
     def put(self, arm_id: str, state: ArmState, context: dict | None = None) -> None:
-        conn = self._ensure_connection()
-        ctx = context_hash(context or {})
-        conn.execute(
-            "INSERT OR REPLACE INTO arm_states "
-            "(context_hash, arm_id, alpha, beta, pulls, total_reward, last_updated) "
-            "VALUES (?, ?, ?, ?, ?, ?, ?)",
-            (ctx, arm_id, state.alpha, state.beta, state.pulls,
-             state.total_reward, state.last_updated),
-        )
-        conn.commit()
+        with self._lock:
+            conn = self._ensure_connection()
+            ctx = context_hash(context or {})
+            conn.execute(
+                "INSERT OR REPLACE INTO arm_states "
+                "(context_hash, arm_id, alpha, beta, pulls, total_reward, last_updated) "
+                "VALUES (?, ?, ?, ?, ?, ?, ?)",
+                (ctx, arm_id, state.alpha, state.beta, state.pulls,
+                 state.total_reward, state.last_updated),
+            )
+            conn.commit()
 
     def get_all_contexts(self) -> list[str]:
-        conn = self._ensure_connection()
-        rows = conn.execute(
-            "SELECT DISTINCT context_hash FROM arm_states"
-        ).fetchall()
-        return [row[0] for row in rows]
+        with self._lock:
+            conn = self._ensure_connection()
+            rows = conn.execute(
+                "SELECT DISTINCT context_hash FROM arm_states"
+            ).fetchall()
+            return [row[0] for row in rows]
 
     def get_all_states(self) -> dict[str, dict[str, ArmState]]:
-        conn = self._ensure_connection()
-        rows = conn.execute(
-            "SELECT context_hash, arm_id, alpha, beta, pulls, total_reward, last_updated "
-            "FROM arm_states"
-        ).fetchall()
-        result: dict[str, dict[str, ArmState]] = {}
-        for row in rows:
-            ctx = row[0]
-            if ctx not in result:
-                result[ctx] = {}
-            result[ctx][row[1]] = ArmState(
-                alpha=row[2], beta=row[3], pulls=row[4],
-                total_reward=row[5], last_updated=row[6],
-            )
-        return result
+        with self._lock:
+            conn = self._ensure_connection()
+            rows = conn.execute(
+                "SELECT context_hash, arm_id, alpha, beta, pulls, total_reward, last_updated "
+                "FROM arm_states"
+            ).fetchall()
+            result: dict[str, dict[str, ArmState]] = {}
+            for row in rows:
+                ctx = row[0]
+                if ctx not in result:
+                    result[ctx] = {}
+                result[ctx][row[1]] = ArmState(
+                    alpha=row[2], beta=row[3], pulls=row[4],
+                    total_reward=row[5], last_updated=row[6],
+                )
+            return result
 
     def save(self) -> None:
-        if self._conn is not None:
-            self._conn.commit()
+        with self._lock:
+            if self._conn is not None:
+                self._conn.commit()
