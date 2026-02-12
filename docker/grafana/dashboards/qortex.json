@@ -572,11 +572,21 @@
       "collapsed": false
     },
     {
+      "title": "",
+      "type": "text",
+      "gridPos": { "h": 7, "w": 24, "x": 0, "y": 103 },
+      "options": {
+        "mode": "markdown",
+        "content": "## Thompson Sampling Bandit\n\nqortex learns which strategies work by modeling each **arm** (candidate action) as a Beta distribution.\nEvery outcome updates the posterior: `accepted` reinforces, `rejected` penalizes, `partial` hedges.\n\n| Signal | What to watch | Healthy | Investigate |\n|--------|--------------|---------|-------------|\n| **Selection Rate** | Selections/sec by learner | Steady flow, baseline rate decreasing over time | Flat baseline=True means posteriors aren't separating |\n| **Observation Rate** | Outcomes by type | `accepted` trending up as bandit converges | Persistent `rejected` majority means bad arm pool or noisy signal |\n| **Posterior Mean** | Top 10 arms ranked by confidence | Clear winner pulling away from the pack | All arms clustered at 0.5 = insufficient data or no real signal |\n| **Token Budget** | Budget consumed per selection | p50 well under limit, p95 occasional spikes | p95 consistently at budget cap = arms are too expensive |\n\n`baseline_rate` (default 10%) forces random exploration on top of Thompson Sampling's natural explore/exploit.\nSet to 0 for pure TS. Watch the baseline=True line shrink as the system gets confident.\n\n```\nDogfood: uv run python scripts/demo_learning_live.py\n```"
+      },
+      "transparent": true
+    },
+    {
       "title": "Selection Rate",
-      "description": "Rate of bandit arm selections per second, by learner name and whether it was a baseline (forced exploration) or Thompson Sampling selection. The baseline_rate is configurable (default 10%) and acts as an epsilon-greedy safety net on top of Thompson Sampling's natural exploration. Set baseline_rate=0 for pure TS. High baseline=True rates relative to False indicate the system is still exploring; as posteriors converge, nearly all selections should be baseline=False (exploitation).",
+      "description": "Rate of bandit arm selections per second, by learner name and whether it was a baseline (forced exploration) or Thompson Sampling selection.",
       "type": "timeseries",
       "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
-      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 103 },
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 110 },
       "targets": [
         {
           "expr": "rate(qortex_learning_selections_total[5m])",
@@ -591,10 +601,10 @@
     },
     {
       "title": "Observation Rate",
-      "description": "Rate of reward observations by learner and outcome (accepted/rejected/partial). Each observation updates the arm's Beta posterior: accepted adds alpha+1 (reward=1.0), rejected adds beta+1 (reward=0.0), partial adds alpha+0.5/beta+0.5. The reward mapping is pluggable via RewardModel (default: TernaryReward). The caller decides the outcome — qortex doesn't judge, it learns from the signal it's given. A healthy learning system trends toward more 'accepted' over time as the bandit converges on better arms.",
+      "description": "Rate of reward observations by learner and outcome (accepted/rejected/partial).",
       "type": "timeseries",
       "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
-      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 103 },
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 110 },
       "targets": [
         {
           "expr": "rate(qortex_learning_observations_total[5m])",
@@ -609,10 +619,10 @@
     },
     {
       "title": "Posterior Mean (top 10 arms)",
-      "description": "Current posterior mean (alpha / (alpha + beta)) for the top 10 arms by mean value. This IS the learning — each arm has a Beta distribution representing the system's belief about its reward probability. Mean near 1.0 = the system is confident this arm succeeds. Mean near 0.5 = uncertain (not enough data). Mean near 0.0 = confident it fails. Watch the winning arm's line climb toward 1.0 as observations accumulate. Separation between lines shows the bandit is discriminating between good and bad arms.",
+      "description": "Current posterior mean (alpha / (alpha + beta)) for the top 10 arms. This IS the learning. Mean near 1.0 = confident success. 0.5 = uncertain. 0.0 = confident failure.",
       "type": "timeseries",
       "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
-      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 111 },
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 118 },
       "targets": [
         {
           "expr": "topk(10, qortex_learning_posterior_mean)",
@@ -629,10 +639,10 @@
     },
     {
       "title": "Token Budget Usage",
-      "description": "Distribution of token budget consumed per selection, when a token_budget constraint is set. Each arm has a token_cost (estimated tokens to execute that strategy). The bandit respects the budget: it selects top-ranked arms in order until adding the next one would exceed the budget. p50/p95 show typical vs worst-case budget consumption. Empty if no token_budget is used (the constraint is optional).",
+      "description": "Token budget consumed per selection (p50/p95). Empty if no token_budget constraint is set.",
       "type": "timeseries",
       "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
-      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 111 },
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 118 },
       "targets": [
         {
           "expr": "histogram_quantile(0.50, rate(qortex_learning_token_budget_used_bucket[5m]))",
@@ -641,6 +651,112 @@
         {
           "expr": "histogram_quantile(0.95, rate(qortex_learning_token_budget_used_bucket[5m]))",
           "legendFormat": "p95"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short"
+        }
+      }
+    },
+    {
+      "title": "Credit Propagation",
+      "type": "row",
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 127 },
+      "collapsed": false
+    },
+    {
+      "title": "Credit Flow",
+      "type": "jdbranham-diagram-panel",
+      "gridPos": { "h": 8, "w": 8, "x": 0, "y": 128 },
+      "options": {
+        "content": "flowchart BT\n    F(\"foundations\\nalpha += 0.202\") -->|0.95| A(\"algebra\\nalpha += 0.425\")\n    A -->|0.85| LA(\"linear-algebra\\nalpha += 1.0\")\n    style LA fill:#2d6a4f,stroke:#40916c,color:#d8f3dc,stroke-width:2px\n    style A fill:#1b4332,stroke:#40916c,color:#b7e4c7,stroke-width:2px\n    style F fill:#081c15,stroke:#2d6a4f,color:#95d5b2,stroke-width:2px",
+        "mermaidThemeVariables": "{\"fontSize\":\"14px\",\"primaryColor\":\"#2d6a4f\",\"lineColor\":\"#40916c\",\"textColor\":\"#d8f3dc\"}"
+      },
+      "transparent": true
+    },
+    {
+      "title": "",
+      "type": "text",
+      "gridPos": { "h": 8, "w": 16, "x": 8, "y": 128 },
+      "options": {
+        "mode": "markdown",
+        "content": "## Causal Credit Assignment\n\nFeedback (`accepted` / `rejected` / `partial`) propagates **backward** through the causal DAG.\nDirect concepts get full credit. Ancestors get decayed credit: `0.5x` per hop, weighted by edge strength.\nNegative outcomes push `beta` instead of `alpha`.\n\n| Concept | Method | Credit Math | Update |\n|---------|--------|-------------|--------|\n| **linear-algebra** | direct | `1.0` | `alpha += 1.0` |\n| **algebra** | ancestor (1 hop) | `1.0 x 0.5 x 0.85` | `alpha += 0.425` |\n| **foundations** | ancestor (2 hops) | `0.425 x 0.5 x 0.95` | `alpha += 0.202` |\n\n| Signal | Healthy | Investigate |\n|--------|---------|-------------|\n| **Propagation Rate** | Matches feedback rate | Zero while feedback flows = flag off or empty DAG |\n| **Concepts/Propagation** | p50 of 3-5 | p50=1 = no ancestor credit (disconnected DAG) |\n| **Total Propagations** | Monotonically increasing | Stuck at 0 = feature not active |\n| **Alpha vs Beta** | Alpha ahead = net positive signal | Beta dominating = users rejecting results |\n\n`QORTEX_CREDIT_PROPAGATION=on` / Dogfood: `uv run python scripts/demo_credit_propagation_live.py`"
+      },
+      "transparent": true
+    },
+    {
+      "title": "Credit Propagation Rate",
+      "description": "Propagations/sec through the causal DAG, by learner.",
+      "type": "timeseries",
+      "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 136 },
+      "targets": [
+        {
+          "expr": "rate(qortex_credit_propagations_total[5m])",
+          "legendFormat": "{{learner}}"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "ops"
+        }
+      }
+    },
+    {
+      "title": "Concepts per Propagation (p50 / p95)",
+      "description": "How many concepts receive credit per event. Direct + ancestors. Higher = deeper DAG activation.",
+      "type": "timeseries",
+      "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 136 },
+      "targets": [
+        {
+          "expr": "histogram_quantile(0.50, rate(qortex_credit_concepts_per_propagation_bucket[5m]))",
+          "legendFormat": "p50"
+        },
+        {
+          "expr": "histogram_quantile(0.95, rate(qortex_credit_concepts_per_propagation_bucket[5m]))",
+          "legendFormat": "p95"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short"
+        }
+      }
+    },
+    {
+      "title": "Total Credit Propagations",
+      "description": "Lifetime propagation count since restart.",
+      "type": "stat",
+      "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+      "gridPos": { "h": 4, "w": 8, "x": 0, "y": 144 },
+      "targets": [
+        {
+          "expr": "qortex_credit_propagations_total",
+          "legendFormat": "{{learner}}"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short"
+        }
+      }
+    },
+    {
+      "title": "Credit Alpha vs Beta Deltas",
+      "description": "Cumulative success (alpha) vs failure (beta) signal from credit propagation.",
+      "type": "timeseries",
+      "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+      "gridPos": { "h": 8, "w": 16, "x": 8, "y": 144 },
+      "targets": [
+        {
+          "expr": "qortex_credit_alpha_delta_total",
+          "legendFormat": "alpha (success)"
+        },
+        {
+          "expr": "qortex_credit_beta_delta_total",
+          "legendFormat": "beta (failure)"
         }
       ],
       "fieldConfig": {
