@@ -116,6 +116,14 @@ class TestThompsonSamplingBaseline:
         assert 60 < baseline_count < 140
 
 
+    def test_select_empty_candidates(self, strategy, config):
+        result = strategy.select([], {}, k=1, config=config)
+
+        assert len(result.selected) == 0
+        assert len(result.excluded) == 0
+        assert result.used_tokens == 0
+
+
 class TestThompsonSamplingMinPulls:
     """min_pulls forces under-explored arms into the selection set."""
 
@@ -174,6 +182,18 @@ class TestThompsonSamplingMinPulls:
         # Even in baseline mode, all under-explored arms force-included
         assert len(result.selected) == 4
         assert result.is_baseline
+
+    def test_min_pulls_forced_arms_exceed_token_budget(self, strategy):
+        """Forced arms bypass token budget; min_pulls takes precedence."""
+        arms = [Arm(id="arm:x", token_cost=5000), Arm(id="arm:y", token_cost=4000)]
+        config = LearnerConfig(name="test", baseline_rate=0.0, min_pulls=3)
+        states = {a.id: ArmState(pulls=0) for a in arms}
+
+        result = strategy.select(arms, states, k=2, config=config, token_budget=6000)
+
+        # Both arms forced despite combined cost (9000) > budget (6000)
+        assert len(result.selected) == 2
+        assert result.used_tokens == 9000
 
     def test_min_pulls_satisfied_arms_not_forced(self, strategy, candidates):
         config = LearnerConfig(name="test", baseline_rate=0.0, min_pulls=5)

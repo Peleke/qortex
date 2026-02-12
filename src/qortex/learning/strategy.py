@@ -72,7 +72,7 @@ class ThompsonSampling:
         is_baseline = random.random() < config.baseline_rate
 
         if is_baseline:
-            # Uniform random selection (exploration) — only for eligible arms
+            # Uniform random selection (exploration), only for eligible arms
             shuffled = list(eligible)
             random.shuffle(shuffled)
 
