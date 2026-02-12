@@ -12,6 +12,7 @@ from dataclasses import asdict
 from qortex.observability.logging import get_logger
 from qortex.observability.events import (
     BufferFlushed,
+    CreditPropagated,
     EdgePromoted,
     EnrichmentCompleted,
     EnrichmentFallback,
@@ -215,3 +216,13 @@ def _log_learning_observation(event: LearningObservationRecorded) -> None:
 @QortexEventLinker.on(LearningPosteriorUpdated)
 def _log_learning_posterior(event: LearningPosteriorUpdated) -> None:
     logger.debug("learning.posterior", **_to_dict(event))
+
+
+# ---------------------------------------------------------------------------
+# Credit Propagation
+# ---------------------------------------------------------------------------
+
+
+@QortexEventLinker.on(CreditPropagated)
+def _log_credit_propagated(event: CreditPropagated) -> None:
+    logger.info("credit.propagated", **_to_dict(event))
