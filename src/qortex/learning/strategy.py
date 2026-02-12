@@ -53,26 +53,41 @@ class ThompsonSampling:
         config: LearnerConfig,
         token_budget: int = 0,
     ) -> SelectionResult:
+        # Partition: arms below min_pulls are force-included (cold-start protection)
+        min_pulls = config.min_pulls
+        if min_pulls > 0:
+            forced = [
+                a for a in candidates
+                if states.get(a.id, ArmState()).pulls < min_pulls
+            ]
+            eligible = [a for a in candidates if a not in forced]
+        else:
+            forced = []
+            eligible = candidates
+
+        # Remaining slots after forced inclusions
+        remaining_k = max(k - len(forced), 0)
+
         # Baseline exploration: uniform random with probability baseline_rate
         is_baseline = random.random() < config.baseline_rate
 
         if is_baseline:
-            # Uniform random selection (exploration)
-            shuffled = list(candidates)
+            # Uniform random selection (exploration), only for eligible arms
+            shuffled = list(eligible)
             random.shuffle(shuffled)
 
             if token_budget > 0:
-                selected: list[Arm] = []
-                used = 0
+                selected: list[Arm] = list(forced)
+                used = sum(a.token_cost for a in forced)
                 for arm in shuffled:
-                    if len(selected) >= k:
+                    if len(selected) - len(forced) >= remaining_k:
                         break
                     if used + arm.token_cost <= token_budget:
                         selected.append(arm)
                         used += arm.token_cost
                 excluded = [a for a in candidates if a not in selected]
             else:
-                selected = shuffled[:k]
+                selected = forced + shuffled[:remaining_k]
                 excluded = [a for a in candidates if a not in selected]
                 used = sum(a.token_cost for a in selected)
 
@@ -91,15 +106,15 @@ class ThompsonSampling:
             state = states.get(arm.id, ArmState())
             scores[arm.id] = random.betavariate(state.alpha, state.beta)
 
-        # Sort by sampled score (descending)
-        ranked = sorted(candidates, key=lambda a: scores[a.id], reverse=True)
+        # Sort eligible arms by sampled score (descending)
+        ranked = sorted(eligible, key=lambda a: scores[a.id], reverse=True)
 
         # If token_budget > 0, respect it
         if token_budget > 0:
-            selected: list[Arm] = []
-            used = 0
+            selected: list[Arm] = list(forced)
+            used = sum(a.token_cost for a in forced)
             for arm in ranked:
-                if len(selected) >= k:
+                if len(selected) - len(forced) >= remaining_k:
                     break
                 if used + arm.token_cost <= token_budget:
                     selected.append(arm)
@@ -114,8 +129,8 @@ class ThompsonSampling:
                 used_tokens=used,
             )
 
-        selected = ranked[:k]
-        excluded = ranked[k:]
+        selected = forced + ranked[:remaining_k]
+        excluded = [a for a in candidates if a not in selected]
         used_tokens = sum(a.token_cost for a in selected)
 
         return SelectionResult(

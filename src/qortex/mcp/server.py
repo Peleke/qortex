@@ -2007,6 +2007,7 @@ def _learning_select_impl(
     context: dict | None = None,
     k: int = 1,
     token_budget: int = 0,
+    min_pulls: int = 0,
 ) -> dict:
     """Select arms from candidates using the learner's strategy."""
     from qortex.learning import Arm
@@ -2021,6 +2022,8 @@ def _learning_select_impl(
     ]
 
     lrn = _get_or_create_learner(learner)
+    if min_pulls > 0:
+        lrn.config.min_pulls = min_pulls
     result = lrn.select(arms, context=context, k=k, token_budget=token_budget)
 
     return {
@@ -2124,6 +2127,7 @@ def qortex_learning_select(
     context: dict | None = None,
     k: int = 1,
     token_budget: int = 0,
+    min_pulls: int = 0,
 ) -> dict:
     """Select arms from candidates using Thompson Sampling.
 
@@ -2138,8 +2142,9 @@ def qortex_learning_select(
         context: Optional context dict for partitioned learning (e.g. {"error_class": "type-errors"}).
         k: Number of arms to select.
         token_budget: If > 0, respect total token budget across selected arms.
+        min_pulls: Force-include arms with fewer than N observations (cold-start protection).
     """
-    return _learning_select_impl(learner, candidates, context, k, token_budget)
+    return _learning_select_impl(learner, candidates, context, k, token_budget, min_pulls)
 
 
 @mcp.tool
