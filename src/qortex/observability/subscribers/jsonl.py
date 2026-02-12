@@ -11,6 +11,7 @@ from pathlib import Path
 
 from qortex.observability.events import (
     BufferFlushed,
+    CreditPropagated,
     EdgePromoted,
     EnrichmentCompleted,
     EnrichmentFallback,
@@ -66,6 +67,7 @@ _ALL_EVENTS = (
     LearningSelectionMade,
     LearningObservationRecorded,
     LearningPosteriorUpdated,
+    CreditPropagated,
 )
 
 
