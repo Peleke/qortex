@@ -1091,19 +1091,24 @@ class TestLocalInteroceptionProvider:
         assert weights["a"] > weights["b"]
 
     def test_teleportation_env_var(self, monkeypatch):
-        """QORTEX_TELEPORTATION env var controls the default."""
+        """QORTEX_TELEPORTATION env var controls the default via FeatureFlags."""
+        from qortex.flags import reset_flags
         from qortex.hippocampus.interoception import _teleportation_enabled_default
 
         monkeypatch.setenv("QORTEX_TELEPORTATION", "on")
+        reset_flags()
         assert _teleportation_enabled_default() is True
 
         monkeypatch.setenv("QORTEX_TELEPORTATION", "off")
+        reset_flags()
         assert _teleportation_enabled_default() is False
 
         monkeypatch.setenv("QORTEX_TELEPORTATION", "1")
+        reset_flags()
         assert _teleportation_enabled_default() is True
 
         monkeypatch.delenv("QORTEX_TELEPORTATION", raising=False)
+        reset_flags()
         assert _teleportation_enabled_default() is False
 
 

@@ -87,6 +87,7 @@ def register_otel_subscriber(config: ObservabilityConfig) -> None:
 
     from qortex.observability.events import (
         BufferFlushed,
+        CreditPropagated,
         EdgePromoted,
         EnrichmentCompleted,
         EnrichmentFallback,
@@ -425,3 +426,18 @@ def register_otel_subscriber(config: ObservabilityConfig) -> None:
             "learner": event.learner,
             "arm_id": event.arm_id,
         })
+
+    # ── Credit Propagation ────────────────────────────────────────────
+
+    credit_propagations = meter.create_counter(
+        "qortex_credit_propagations", description="Credit propagation events"
+    )
+    credit_concepts = meter.create_histogram(
+        "qortex_credit_concepts_per_propagation",
+        description="Concepts receiving credit per propagation",
+    )
+
+    @QortexEventLinker.on(CreditPropagated)
+    def _on_credit_propagated(event: CreditPropagated) -> None:
+        credit_propagations.add(1, {"learner": event.learner})
+        credit_concepts.record(event.concept_count)
