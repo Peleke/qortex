@@ -365,7 +365,10 @@ class TestLogging:
 class TestConfig:
     """ObservabilityConfig env-var driven defaults."""
 
-    def test_default_values(self):
+    def test_default_values(self, monkeypatch):
+        monkeypatch.delenv("QORTEX_OTEL_ENABLED", raising=False)
+        monkeypatch.delenv("QORTEX_PROMETHEUS_ENABLED", raising=False)
+        monkeypatch.delenv("QORTEX_ALERTS_ENABLED", raising=False)
         cfg = ObservabilityConfig()
         assert cfg.log_formatter == "structlog"
         assert cfg.log_destination == "stderr"

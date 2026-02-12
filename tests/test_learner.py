@@ -2,13 +2,10 @@
 
 from __future__ import annotations
 
-import json
-import tempfile
-from pathlib import Path
-
 import pytest
 
 from qortex.learning.learner import Learner
+from qortex.learning.store import JsonLearningStore, SqliteLearningStore
 from qortex.learning.types import Arm, ArmOutcome, LearnerConfig
 from qortex.observability import reset as obs_reset
 
@@ -25,6 +22,14 @@ def state_dir(tmp_path):
     return str(tmp_path)
 
 
+@pytest.fixture(params=["sqlite", "json"], ids=["sqlite", "json"])
+def store_backend(request, state_dir):
+    """Return a store factory so each test gets a fresh store."""
+    if request.param == "sqlite":
+        return lambda name: SqliteLearningStore(name, state_dir)
+    return lambda name: JsonLearningStore(name, state_dir)
+
+
 @pytest.fixture
 def config(state_dir):
     return LearnerConfig(
@@ -35,8 +40,8 @@ def config(state_dir):
 
 
 @pytest.fixture
-def learner(config):
-    return Learner(config)
+def learner(config, store_backend):
+    return Learner(config, store=store_backend(config.name))
 
 
 class TestLearnerSelect:
@@ -96,25 +101,20 @@ class TestLearnerObserve:
 
 
 class TestLearnerPersistence:
-    def test_state_persists_to_file(self, config, state_dir):
-        learner = Learner(config)
+    def test_state_persists_to_file(self, config, state_dir, store_backend):
+        learner = Learner(config, store=store_backend(config.name))
         learner.observe(ArmOutcome(arm_id="arm:x", reward=1.0, outcome="accepted"))
 
-        # Check file exists
-        state_file = Path(state_dir) / "test-learner.json"
-        assert state_file.exists()
+        # Verify state is readable via store
+        state = learner.store.get("arm:x")
+        assert state.alpha == 2.0
 
-        data = json.loads(state_file.read_text())
-        assert "default" in data
-        assert "arm:x" in data["default"]
-        assert data["default"]["arm:x"]["alpha"] == 2.0
-
-    def test_state_reloaded_on_new_learner(self, config, state_dir):
-        learner1 = Learner(config)
+    def test_state_reloaded_on_new_learner(self, config, state_dir, store_backend):
+        learner1 = Learner(config, store=store_backend(config.name))
         learner1.observe(ArmOutcome(arm_id="arm:y", reward=1.0, outcome="accepted"))
 
-        # Create new learner with same config — should reload state
-        learner2 = Learner(config)
+        # Create new learner with same backend — should reload state
+        learner2 = Learner(config, store=store_backend(config.name))
         posteriors = learner2.posteriors()
 
         assert "arm:y" in posteriors
@@ -161,14 +161,14 @@ class TestLearnerMetrics:
 
 
 class TestLearnerSeedBoost:
-    def test_seed_arms_get_boosted_prior(self, state_dir):
+    def test_seed_arms_get_boosted_prior(self, state_dir, store_backend):
         config = LearnerConfig(
             name="seed-test",
             seed_arms=["arm:seed"],
             seed_boost=5.0,
             state_dir=state_dir,
         )
-        learner = Learner(config)
+        learner = Learner(config, store=store_backend("seed-test"))
 
         p = learner.posteriors()
         assert "arm:seed" in p

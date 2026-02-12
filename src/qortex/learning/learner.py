@@ -11,7 +11,7 @@ from datetime import UTC, datetime
 from typing import Any
 
 from qortex.learning.reward import RewardModel, TernaryReward
-from qortex.learning.state import ArmStateStore
+from qortex.learning.store import LearningStore, SqliteLearningStore
 from qortex.learning.strategy import LearningStrategy, ThompsonSampling
 from qortex.learning.types import (
     Arm,
@@ -45,11 +45,12 @@ class Learner:
         config: LearnerConfig,
         strategy: LearningStrategy | None = None,
         reward_model: RewardModel | None = None,
+        store: LearningStore | None = None,
     ) -> None:
         self.config = config
         self.strategy = strategy or ThompsonSampling()
         self.reward_model = reward_model or TernaryReward()
-        self.store = ArmStateStore(config.name, config.state_dir)
+        self.store = store or SqliteLearningStore(config.name, config.state_dir)
 
         # Apply seed boosts
         for arm_id in config.seed_arms:
@@ -172,8 +173,8 @@ class Learner:
         total_reward = 0.0
         arm_count = 0
 
-        for ctx_hash in self.store.get_all_contexts():
-            states = self.store._data.get(ctx_hash, {})
+        all_states = self.store.get_all_states()
+        for states in all_states.values():
             for state in states.values():
                 total_pulls += state.pulls
                 total_reward += state.total_reward
