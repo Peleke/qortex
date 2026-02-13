@@ -1,3 +1,3 @@
-"""qortex: Knowledge graph ingestion engine for automated rule generation."""
+"""qortex: Knowledge that learns."""
 
-__version__ = "0.1.0"
+__version__ = "0.4.0"

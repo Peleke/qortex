@@ -5,6 +5,28 @@ All notable changes to qortex are documented here.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.4.0] - 2026-02-13
+
+### Added
+
+- **`qortex_compare` tool**: Side-by-side comparison of graph-enhanced vs cosine-only retrieval with diff, rank changes, and rule surfacing (#99)
+- **`qortex_stats` tool**: Knowledge coverage, learning progress, activity counters, and persistence info (#99)
+- **`Learner.batch_observe()`**: Bulk observation wrapper for direct Python consumers (#98)
+- **`Learner.top_arms()`**: Top-k arms by posterior mean, sorted descending (#98)
+- **`Learner.decay_arm()`**: Shrink learned signal toward prior with configurable decay factor (#98)
+- **Activity counters**: Server-level query/feedback tracking for stats tool (#99)
+
+### Changed
+
+- 9 MCP tool docstrings rewritten to remove internal jargon (PPR, teleportation, FlatRuleSource, Phase refs) (#99)
+- README overhauled with product-focused structure: install, what happens next, comparison table, framework adapters (#99)
+- Module docstring updated to list all 33 tools by category (#99)
+- pyproject.toml description updated to "Knowledge graph that learns from every interaction" (#99)
+- docs/index.md aligned with README tone (#100)
+- docs/installation.md updated from 4 to 12 dependency groups (#100)
+- docs/api.md expanded with learning tools, Learner API, compare, stats, type tables (#100)
+- docs/quickstart.md added compare and stats examples (#100)
+
 ## [0.3.4] - 2026-02-12
 
 ### Added
