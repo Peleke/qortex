@@ -341,6 +341,91 @@ def _query_impl(
 
 _ALLOWED_OUTCOMES = {"accepted", "rejected", "partial"}
 
+_OUTCOME_REWARD = {"accepted": 1.0, "rejected": -1.0, "partial": 0.3}
+
+
+def _maybe_propagate_credit(
+    query_id: str,
+    outcomes: dict[str, str],
+) -> dict | None:
+    """Propagate credit through causal DAG if flag is enabled.
+
+    Returns summary dict or None if disabled/unavailable.
+    """
+    from qortex.flags import get_flags
+
+    if not get_flags().credit_propagation:
+        return None
+
+    try:
+        from qortex.causal.credit import CreditAssigner
+        from qortex.causal.dag import CausalDAG
+    except ImportError:
+        return None
+
+    if not outcomes or _backend is None:
+        return None
+
+    # Group concept IDs by domain
+    domains: dict[str, list[str]] = {}
+    for item_id in outcomes:
+        node = _backend.get_node(item_id)
+        if node is not None:
+            domains.setdefault(node.domain, []).append(item_id)
+
+    if not domains:
+        return None
+
+    all_assignments = []
+    for domain, concept_ids in domains.items():
+        try:
+            dag = CausalDAG.from_backend(_backend, domain)
+        except Exception:
+            continue
+
+        # Compute average reward for this domain's outcomes
+        rewards = [
+            _OUTCOME_REWARD.get(outcomes[cid], 0.0) for cid in concept_ids
+        ]
+        avg_reward = sum(rewards) / len(rewards)
+
+        assigner = CreditAssigner(dag)
+        assignments = assigner.assign_credit(concept_ids, avg_reward)
+        all_assignments.extend(assignments)
+
+    if not all_assignments:
+        return None
+
+    # Convert to posterior updates and apply
+    updates = CreditAssigner.to_posterior_updates(all_assignments)
+    learner = _get_or_create_learner("credit")
+    learner.apply_credit_deltas(updates)
+
+    # Emit event
+    from qortex.observability import emit
+    from qortex.observability.events import CreditPropagated
+
+    direct = sum(1 for a in all_assignments if a.method == "direct")
+    ancestor = sum(1 for a in all_assignments if a.method == "ancestor")
+    total_alpha = sum(u.get("alpha_delta", 0.0) for u in updates.values())
+    total_beta = sum(u.get("beta_delta", 0.0) for u in updates.values())
+
+    emit(CreditPropagated(
+        query_id=query_id,
+        concept_count=len(updates),
+        direct_count=direct,
+        ancestor_count=ancestor,
+        total_alpha_delta=total_alpha,
+        total_beta_delta=total_beta,
+        learner="credit",
+    ))
+
+    return {
+        "concept_count": len(updates),
+        "direct_count": direct,
+        "ancestor_count": ancestor,
+    }
+
 
 def _feedback_impl(
     query_id: str,
@@ -363,12 +448,19 @@ def _feedback_impl(
     elif _adapter is not None:
         _adapter.feedback(query_id, outcomes)
 
-    return {
+    # Credit propagation (if enabled)
+    credit_summary = _maybe_propagate_credit(query_id, outcomes)
+
+    result: dict = {
         "status": "recorded",
         "query_id": query_id,
         "outcome_count": len(outcomes),
         "source": source,
     }
+    if credit_summary is not None:
+        result["credit"] = credit_summary
+
+    return result
 
 
 _ALLOWED_SOURCE_TYPES = {"text", "markdown", "pdf"}
@@ -1915,6 +2007,7 @@ def _learning_select_impl(
     context: dict | None = None,
     k: int = 1,
     token_budget: int = 0,
+    min_pulls: int = 0,
 ) -> dict:
     """Select arms from candidates using the learner's strategy."""
     from qortex.learning import Arm
@@ -1929,6 +2022,8 @@ def _learning_select_impl(
     ]
 
     lrn = _get_or_create_learner(learner)
+    if min_pulls > 0:
+        lrn.config.min_pulls = min_pulls
     result = lrn.select(arms, context=context, k=k, token_budget=token_budget)
 
     return {
@@ -2032,6 +2127,7 @@ def qortex_learning_select(
     context: dict | None = None,
     k: int = 1,
     token_budget: int = 0,
+    min_pulls: int = 0,
 ) -> dict:
     """Select arms from candidates using Thompson Sampling.
 
@@ -2046,8 +2142,9 @@ def qortex_learning_select(
         context: Optional context dict for partitioned learning (e.g. {"error_class": "type-errors"}).
         k: Number of arms to select.
         token_budget: If > 0, respect total token budget across selected arms.
+        min_pulls: Force-include arms with fewer than N observations (cold-start protection).
     """
-    return _learning_select_impl(learner, candidates, context, k, token_budget)
+    return _learning_select_impl(learner, candidates, context, k, token_budget, min_pulls)
 
 
 @mcp.tool

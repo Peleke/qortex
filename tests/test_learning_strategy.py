@@ -116,6 +116,95 @@ class TestThompsonSamplingBaseline:
         assert 60 < baseline_count < 140
 
 
+    def test_select_empty_candidates(self, strategy, config):
+        result = strategy.select([], {}, k=1, config=config)
+
+        assert len(result.selected) == 0
+        assert len(result.excluded) == 0
+        assert result.used_tokens == 0
+
+
+class TestThompsonSamplingMinPulls:
+    """min_pulls forces under-explored arms into the selection set."""
+
+    def test_min_pulls_forces_zero_obs_arms(self, strategy, candidates):
+        config = LearnerConfig(name="test", baseline_rate=0.0, min_pulls=5)
+        states = {a.id: ArmState(pulls=0) for a in candidates}
+        result = strategy.select(candidates, states, k=1, config=config)
+
+        # All 4 arms have 0 pulls (< 5), so all must be force-included
+        assert len(result.selected) == 4
+        assert len(result.excluded) == 0
+
+    def test_min_pulls_mixed_experience(self, strategy, candidates):
+        config = LearnerConfig(name="test", baseline_rate=0.0, min_pulls=3)
+        states = {
+            "arm:a": ArmState(pulls=0),
+            "arm:b": ArmState(pulls=10, alpha=10.0, beta=1.0),
+            "arm:c": ArmState(pulls=2),
+            "arm:d": ArmState(pulls=5, alpha=5.0, beta=1.0),
+        }
+        # k=3: 2 forced + 1 TS pick from eligible
+        result = strategy.select(candidates, states, k=3, config=config)
+
+        selected_ids = {a.id for a in result.selected}
+        # arm:a (0 pulls) and arm:c (2 pulls) must be force-included
+        assert "arm:a" in selected_ids
+        assert "arm:c" in selected_ids
+        assert len(result.selected) == 3  # 2 forced + 1 TS pick
+        assert len(result.excluded) == 1
+
+    def test_min_pulls_zero_disables(self, strategy, candidates):
+        config = LearnerConfig(name="test", baseline_rate=0.0, min_pulls=0)
+        states = {a.id: ArmState(pulls=0) for a in candidates}
+        result = strategy.select(candidates, states, k=1, config=config)
+
+        # min_pulls=0 means no forcing
+        assert len(result.selected) == 1
+
+    def test_min_pulls_with_token_budget(self, strategy, candidates):
+        config = LearnerConfig(name="test", baseline_rate=0.0, min_pulls=5)
+        states = {a.id: ArmState(pulls=0) for a in candidates}
+        # Forced arms still consume token budget
+        result = strategy.select(
+            candidates, states, k=4, config=config, token_budget=8000
+        )
+
+        # All arms forced (token_cost 100+200+150+50=500 < 8000)
+        assert len(result.selected) == 4
+        assert result.used_tokens == 500
+
+    def test_min_pulls_with_baseline(self, strategy, candidates):
+        config = LearnerConfig(name="test", baseline_rate=1.0, min_pulls=5)
+        states = {a.id: ArmState(pulls=0) for a in candidates}
+        result = strategy.select(candidates, states, k=1, config=config)
+
+        # Even in baseline mode, all under-explored arms force-included
+        assert len(result.selected) == 4
+        assert result.is_baseline
+
+    def test_min_pulls_forced_arms_exceed_token_budget(self, strategy):
+        """Forced arms bypass token budget; min_pulls takes precedence."""
+        arms = [Arm(id="arm:x", token_cost=5000), Arm(id="arm:y", token_cost=4000)]
+        config = LearnerConfig(name="test", baseline_rate=0.0, min_pulls=3)
+        states = {a.id: ArmState(pulls=0) for a in arms}
+
+        result = strategy.select(arms, states, k=2, config=config, token_budget=6000)
+
+        # Both arms forced despite combined cost (9000) > budget (6000)
+        assert len(result.selected) == 2
+        assert result.used_tokens == 9000
+
+    def test_min_pulls_satisfied_arms_not_forced(self, strategy, candidates):
+        config = LearnerConfig(name="test", baseline_rate=0.0, min_pulls=5)
+        states = {a.id: ArmState(pulls=10, alpha=5.0, beta=5.0) for a in candidates}
+        result = strategy.select(candidates, states, k=1, config=config)
+
+        # All arms have 10 pulls (>= 5), normal TS behavior
+        assert len(result.selected) == 1
+        assert len(result.excluded) == 3
+
+
 class TestThompsonSamplingUpdate:
     def test_update_success(self, strategy):
         state = ArmState(alpha=1.0, beta=1.0)

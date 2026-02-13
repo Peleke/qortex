@@ -148,6 +148,44 @@ class Learner:
 
         return new_state
 
+    def apply_credit_deltas(
+        self,
+        deltas: dict[str, dict[str, float]],
+        context: dict | None = None,
+    ) -> dict[str, ArmState]:
+        """Apply causal credit deltas directly to arm posteriors.
+
+        Unlike observe() which computes alpha/beta from a binary reward,
+        this applies arbitrary deltas from CreditAssigner output.
+        """
+        ctx = context or {}
+        now = datetime.now(UTC).isoformat()
+        results: dict[str, ArmState] = {}
+
+        for arm_id, delta in deltas.items():
+            state = self.store.get(arm_id, ctx)
+            new_state = ArmState(
+                alpha=max(state.alpha + delta.get("alpha_delta", 0.0), 0.01),
+                beta=max(state.beta + delta.get("beta_delta", 0.0), 0.01),
+                pulls=state.pulls + 1,
+                total_reward=state.total_reward + delta.get("alpha_delta", 0.0),
+                last_updated=now,
+            )
+            self.store.put(arm_id, new_state, ctx)
+            results[arm_id] = new_state
+
+            emit(LearningPosteriorUpdated(
+                learner=self.config.name,
+                arm_id=arm_id,
+                alpha=new_state.alpha,
+                beta=new_state.beta,
+                pulls=new_state.pulls,
+                mean=new_state.mean,
+            ))
+
+        self.store.save()
+        return results
+
     def posteriors(
         self,
         context: dict | None = None,

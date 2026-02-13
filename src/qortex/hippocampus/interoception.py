@@ -129,11 +129,10 @@ class InteroceptionProvider(Protocol):
 
 
 def _teleportation_enabled_default() -> bool:
-    """Read QORTEX_TELEPORTATION env var. Default: off (uniform weights)."""
-    import os
+    """Read teleportation flag from centralized FeatureFlags."""
+    from qortex.flags import get_flags
 
-    val = os.environ.get("QORTEX_TELEPORTATION", "off").lower()
-    return val in ("1", "true", "on", "yes")
+    return get_flags().teleportation
 
 
 @dataclass

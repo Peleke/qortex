@@ -313,3 +313,19 @@ class LearningPosteriorUpdated:
     beta: float
     pulls: int
     mean: float
+
+
+# ---------------------------------------------------------------------------
+# Credit Propagation
+# ---------------------------------------------------------------------------
+
+
+@dataclass(frozen=True)
+class CreditPropagated:
+    query_id: str
+    concept_count: int  # concepts that received credit
+    direct_count: int  # method="direct"
+    ancestor_count: int  # method="ancestor"
+    total_alpha_delta: float
+    total_beta_delta: float
+    learner: str

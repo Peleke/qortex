@@ -13,11 +13,31 @@
       "collapsed": false
     },
     {
+      "title": "Query Pipeline",
+      "type": "jdbranham-diagram-panel",
+      "gridPos": { "h": 8, "w": 8, "x": 0, "y": 1 },
+      "options": {
+        "content": "flowchart LR\n    Q(\"Query\") --> E(\"Embed\")\n    E --> V(\"Vec Search\")\n    V --> PPR(\"PPR\\n(graph mode)\")\n    V --> R(\"Results\")\n    PPR --> R\n    style Q fill:#1a1a2e,stroke:#16213e,color:#e94560,stroke-width:2px\n    style E fill:#16213e,stroke:#0f3460,color:#e94560,stroke-width:2px\n    style V fill:#0f3460,stroke:#533483,color:#e94560,stroke-width:2px\n    style PPR fill:#533483,stroke:#e94560,color:#e94560,stroke-width:2px\n    style R fill:#e94560,stroke:#e94560,color:#1a1a2e,stroke-width:2px",
+        "mermaidThemeVariables": "{\"fontSize\":\"14px\",\"primaryColor\":\"#0f3460\",\"lineColor\":\"#e94560\",\"textColor\":\"#e94560\"}"
+      },
+      "transparent": true
+    },
+    {
+      "title": "",
+      "type": "text",
+      "gridPos": { "h": 8, "w": 16, "x": 8, "y": 1 },
+      "options": {
+        "mode": "markdown",
+        "content": "## Retrieval Pipeline\n\nEvery query follows: **embed → vector search → (optional) PPR re-rank → assemble results**.\n`mode=vec` skips PPR entirely. `mode=graph` adds Personalized PageRank for KG-aware re-ranking.\n\n| Signal | What to watch | Healthy | Investigate |\n|--------|--------------|---------|-------------|\n| **Query Rate** | Queries/sec by mode | Steady throughput, proportional to traffic | Drops = upstream issues or backpressure |\n| **Query Latency** | p50/p95/p99 end-to-end | p50 < 100ms, p99 < 500ms | p99 spikes while p50 flat = subset hitting slow paths |\n| **Vec Search Latency** | Vector-only search time | Sub-millisecond for in-memory | Spikes = index too large or needs rebuild |\n| **Query Errors** | Failures by stage | Zero | Non-zero = queries being dropped |"
+      },
+      "transparent": true
+    },
+    {
       "title": "Query Rate (queries/sec)",
       "description": "How many retrieval queries qortex is handling per second, broken down by mode (vec = vector-only, graph = GraphRAG with PPR). A healthy system shows steady throughput. Spikes indicate burst traffic; drops may indicate upstream issues or backpressure.",
       "type": "timeseries",
       "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
-      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 1 },
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 9 },
       "targets": [
         {
           "expr": "rate(qortex_queries_total[5m])",
@@ -35,7 +55,7 @@
       "description": "End-to-end query latency percentiles. Includes embedding generation, vector search, PPR (if graph mode), and result assembly. p50 is the typical user experience; p95/p99 capture tail latency. If p99 spikes while p50 stays flat, a subset of queries is hitting slow paths (large PPR graphs, cold embeddings).",
       "type": "timeseries",
       "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
-      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 1 },
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 9 },
       "targets": [
         {
           "expr": "histogram_quantile(0.50, rate(qortex_query_duration_seconds_bucket[5m]))",
@@ -61,7 +81,7 @@
       "description": "Latency of the vector similarity search step alone (cosine similarity over the embedding index). This is typically the fastest part of the pipeline. If this spikes, the vector index may need rebuilding or the index has grown too large for in-memory search.",
       "type": "timeseries",
       "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
-      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 9 },
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 17 },
       "targets": [
         {
           "expr": "histogram_quantile(0.50, rate(qortex_vec_search_duration_seconds_bucket[5m]))",
@@ -83,7 +103,7 @@
       "description": "Rate of query failures by pipeline stage: 'embedding' (text-to-vector failed), 'vec_search' (index lookup failed), 'ppr' (PageRank computation failed). Each error emits a QueryFailed event. Non-zero values here mean queries are being dropped — investigate the specific stage.",
       "type": "timeseries",
       "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
-      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 9 },
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 17 },
       "targets": [
         {
           "expr": "rate(qortex_query_errors_total[5m])",
@@ -99,15 +119,35 @@
     {
       "title": "Learning Dynamics",
       "type": "row",
-      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 17 },
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 25 },
       "collapsed": false
+    },
+    {
+      "title": "Learning Loop",
+      "type": "jdbranham-diagram-panel",
+      "gridPos": { "h": 8, "w": 8, "x": 0, "y": 26 },
+      "options": {
+        "content": "flowchart LR\n    FB(\"Feedback\\naccepted/rejected\") --> TF(\"Teleportation\\nFactors\")\n    TF --> PPR(\"PPR Bias\")\n    PPR --> BQ(\"Better\\nResults\")\n    BQ -.->|\"next cycle\"| FB\n    style FB fill:#3d0066,stroke:#7b2d8e,color:#e0b0ff,stroke-width:2px\n    style TF fill:#7b2d8e,stroke:#9b59b6,color:#e0b0ff,stroke-width:2px\n    style PPR fill:#9b59b6,stroke:#c39bd3,color:#e0b0ff,stroke-width:2px\n    style BQ fill:#c39bd3,stroke:#e0b0ff,color:#3d0066,stroke-width:2px",
+        "mermaidThemeVariables": "{\"fontSize\":\"14px\",\"primaryColor\":\"#7b2d8e\",\"lineColor\":\"#9b59b6\",\"textColor\":\"#e0b0ff\"}"
+      },
+      "transparent": true
+    },
+    {
+      "title": "",
+      "type": "text",
+      "gridPos": { "h": 8, "w": 16, "x": 8, "y": 26 },
+      "options": {
+        "mode": "markdown",
+        "content": "## Learning Dynamics\n\nFeedback drives a **virtuous loop**: accepted results reinforce teleportation factors → PPR biases toward good nodes → better results → more accepts.\nFactor **entropy** measures how much the system has learned. High = uniform (no opinion). Low = concentrated (strong preferences).\n\n| Signal | What to watch | Healthy | Investigate |\n|--------|--------------|---------|-------------|\n| **Factor Mean** | Avg teleportation factor | Rising = learning stronger preferences | Falling = conflicting signals |\n| **Factor Entropy** | Distribution spread | Decreasing over time | Flat = no learning happening |\n| **Update Rate** | Factor changes by outcome | Active flow, accepts > rejects over time | Zero = no feedback reaching factors |\n| **Accept/Reject Ratio** | Raw feedback signal | Trending toward more accepts | Sustained high rejection = domain mismatch |"
+      },
+      "transparent": true
     },
     {
       "title": "Factor Mean Over Time",
       "description": "Average teleportation factor across all nodes in the knowledge graph. Teleportation factors control how strongly PPR biases toward specific nodes during random walks. A rising mean indicates the system is learning stronger preferences from feedback; a falling mean suggests uncertainty or conflicting signals.",
       "type": "timeseries",
       "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
-      "gridPos": { "h": 8, "w": 8, "x": 0, "y": 18 },
+      "gridPos": { "h": 8, "w": 8, "x": 0, "y": 34 },
       "targets": [
         {
           "expr": "qortex_factor_mean",
@@ -120,7 +160,7 @@
       "description": "Shannon entropy of the teleportation factor distribution. High entropy = factors are spread evenly (the system hasn't formed strong opinions yet). Low entropy = factors are concentrated on a few nodes (the system has learned clear preferences). Entropy should decrease over time as the system accumulates feedback.",
       "type": "timeseries",
       "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
-      "gridPos": { "h": 8, "w": 8, "x": 8, "y": 18 },
+      "gridPos": { "h": 8, "w": 8, "x": 8, "y": 34 },
       "targets": [
         {
           "expr": "qortex_factor_entropy",
@@ -138,7 +178,7 @@
       "description": "How frequently teleportation factors are being updated, by feedback outcome (accepted/rejected/partial). Each update adjusts how PPR weights specific nodes. High update rates indicate active learning; the balance of accepted vs rejected shows whether the system's suggestions are landing.",
       "type": "timeseries",
       "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
-      "gridPos": { "h": 8, "w": 8, "x": 16, "y": 18 },
+      "gridPos": { "h": 8, "w": 8, "x": 16, "y": 34 },
       "targets": [
         {
           "expr": "rate(qortex_factor_updates_total[5m])",
@@ -156,7 +196,7 @@
       "description": "Rate of user/system feedback events classified as accepted vs rejected. This is the raw signal that drives all learning in qortex — both teleportation factor updates and bandit posterior updates. A healthy system trends toward more accepts over time as learning kicks in. A sustained high rejection rate may indicate poor initial candidates or a domain mismatch.",
       "type": "timeseries",
       "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
-      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 26 },
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 42 },
       "targets": [
         {
           "expr": "rate(qortex_feedback_total{outcome=\"accepted\"}[5m])",
@@ -171,15 +211,35 @@
     {
       "title": "KG Crystallization",
       "type": "row",
-      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 34 },
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 50 },
       "collapsed": false
+    },
+    {
+      "title": "Edge Lifecycle",
+      "type": "jdbranham-diagram-panel",
+      "gridPos": { "h": 8, "w": 8, "x": 0, "y": 51 },
+      "options": {
+        "content": "flowchart LR\n    QR(\"Query\\nResults\") --> OE(\"Online\\nEdges\")\n    OE --> BUF(\"Buffer\")\n    BUF -->|\"confidence\\nthreshold\"| KG(\"Persistent\\nKG\")\n    BUF -.->|\"evict\"| X(\"Discard\")\n    style QR fill:#1b2838,stroke:#2a475e,color:#66c0f4,stroke-width:2px\n    style OE fill:#2a475e,stroke:#3d6b8e,color:#66c0f4,stroke-width:2px\n    style BUF fill:#3d6b8e,stroke:#66c0f4,color:#1b2838,stroke-width:2px\n    style KG fill:#66c0f4,stroke:#66c0f4,color:#1b2838,stroke-width:2px\n    style X fill:#4a4a4a,stroke:#666,color:#999,stroke-width:2px",
+        "mermaidThemeVariables": "{\"fontSize\":\"14px\",\"primaryColor\":\"#2a475e\",\"lineColor\":\"#66c0f4\",\"textColor\":\"#66c0f4\"}"
+      },
+      "transparent": true
+    },
+    {
+      "title": "",
+      "type": "text",
+      "gridPos": { "h": 8, "w": 16, "x": 8, "y": 51 },
+      "options": {
+        "mode": "markdown",
+        "content": "## KG Crystallization\n\nRuntime queries discover relationships (**online edges**) between co-occurring concepts. Edges enter a **buffer**\nand graduate to the persistent KG once confidence exceeds the promotion threshold. This is how the graph grows organically from usage.\n\n| Signal | What to watch | Healthy | Investigate |\n|--------|--------------|---------|-------------|\n| **Coverage Ratio** | % of nodes with online edges | > 70% (green) | < 30% = graph barely explored |\n| **Buffer Size** | Edges waiting for promotion | Growing with usage, draining via promotions | Growing with zero promotions = threshold too high |\n| **Promotions** | Edges graduating/hr | Steady flow | Zero = edges never meet confidence threshold |\n| **Total Promoted** | Lifetime crystallized edges | Monotonically increasing | Stuck at 0 = feature not active |"
+      },
+      "transparent": true
     },
     {
       "title": "KG Coverage Ratio",
       "description": "Fraction of the knowledge graph that has been 'covered' by online edges (runtime-discovered relationships). 0% = no runtime edges, purely static graph. 100% = every node has at least one online edge. Coverage above 70% (green) indicates the system has explored most of the graph through real usage.",
       "type": "gauge",
       "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
-      "gridPos": { "h": 8, "w": 8, "x": 0, "y": 35 },
+      "gridPos": { "h": 8, "w": 8, "x": 0, "y": 59 },
       "targets": [
         {
           "expr": "qortex_kg_coverage",
@@ -206,7 +266,7 @@
       "description": "Online edges live in a buffer before being promoted to the persistent knowledge graph. 'Buffered' shows how many edges are waiting; 'promotions/hr' shows how fast they're graduating. A growing buffer with no promotions means edges aren't meeting the confidence threshold for persistence.",
       "type": "timeseries",
       "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
-      "gridPos": { "h": 8, "w": 8, "x": 8, "y": 35 },
+      "gridPos": { "h": 8, "w": 8, "x": 8, "y": 59 },
       "targets": [
         {
           "expr": "qortex_buffer_edges",
@@ -223,7 +283,7 @@
       "description": "Cumulative count of online edges that have been promoted from the buffer into the persistent knowledge graph. This is the system's 'crystallized learning' — relationships it discovered at runtime and deemed confident enough to keep permanently.",
       "type": "stat",
       "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
-      "gridPos": { "h": 8, "w": 8, "x": 16, "y": 35 },
+      "gridPos": { "h": 8, "w": 8, "x": 16, "y": 59 },
       "targets": [
         {
           "expr": "qortex_edges_promoted_total",
@@ -234,15 +294,35 @@
     {
       "title": "PPR Performance",
       "type": "row",
-      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 43 },
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 67 },
       "collapsed": false
+    },
+    {
+      "title": "PPR Convergence",
+      "type": "jdbranham-diagram-panel",
+      "gridPos": { "h": 8, "w": 8, "x": 0, "y": 68 },
+      "options": {
+        "content": "flowchart BT\n    TV(\"Teleportation\\nVector\") --> PI(\"Power\\nIteration\")\n    PI -->|\"converge?\"| PI\n    PI --> S(\"Score\\nVector\")\n    S --> R(\"Ranked\\nNodes\")\n    style TV fill:#0d1b2a,stroke:#1b263b,color:#e0e1dd,stroke-width:2px\n    style PI fill:#1b263b,stroke:#415a77,color:#e0e1dd,stroke-width:2px\n    style S fill:#415a77,stroke:#778da9,color:#e0e1dd,stroke-width:2px\n    style R fill:#778da9,stroke:#e0e1dd,color:#0d1b2a,stroke-width:2px",
+        "mermaidThemeVariables": "{\"fontSize\":\"14px\",\"primaryColor\":\"#415a77\",\"lineColor\":\"#778da9\",\"textColor\":\"#e0e1dd\"}"
+      },
+      "transparent": true
+    },
+    {
+      "title": "",
+      "type": "text",
+      "gridPos": { "h": 8, "w": 16, "x": 8, "y": 68 },
+      "options": {
+        "mode": "markdown",
+        "content": "## Personalized PageRank\n\nPPR performs **power iteration** over the knowledge graph, biased by teleportation factors, to rank nodes by relevance.\nEach graph-mode query triggers one PPR run. Convergence speed depends on graph structure and factor distribution.\n\n| Signal | What to watch | Healthy | Investigate |\n|--------|--------------|---------|-------------|\n| **PPR Executions** | Runs/sec | Tracks graph-mode query rate | Zero while graph queries active = PPR disabled |\n| **Iterations to Converge** | Power iteration steps | Most runs < 20 iterations | Clustering at max (100) = pathological graph |\n| **Active Factors** | Nodes with learned factors | Growing = learning reaches more nodes | Flat = no new feedback reaching new nodes |\n| **Online Edges** | Runtime-discovered relationships | More edges/query = richer associations | 0 edges = co-occurrence detection broken |"
+      },
+      "transparent": true
     },
     {
       "title": "PPR Executions / sec",
       "description": "Rate of Personalized PageRank computations. Each graph-mode query triggers one PPR run, which performs power iteration over the knowledge graph to rank nodes by relevance. More PPR runs = more graph-mode queries being served.",
       "type": "timeseries",
       "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
-      "gridPos": { "h": 8, "w": 8, "x": 0, "y": 44 },
+      "gridPos": { "h": 8, "w": 8, "x": 0, "y": 76 },
       "targets": [
         {
           "expr": "rate(qortex_ppr_started_total[5m])",
@@ -260,7 +340,7 @@
       "description": "Distribution of how many power-iteration steps PPR needs before the score vector stabilizes (within tolerance). Fewer iterations = faster convergence = simpler graph structure. If many runs cluster at the maximum (100), the graph may have pathological structure or the tolerance is too tight.",
       "type": "histogram",
       "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
-      "gridPos": { "h": 8, "w": 8, "x": 8, "y": 44 },
+      "gridPos": { "h": 8, "w": 8, "x": 8, "y": 76 },
       "targets": [
         {
           "expr": "rate(qortex_ppr_iterations_bucket[5m])",
@@ -273,7 +353,7 @@
       "description": "Number of nodes in the knowledge graph that have non-default teleportation factors. These are nodes the system has formed an opinion about based on feedback. Growing = the system is learning about more of the graph. Flat = no new feedback is reaching new nodes.",
       "type": "timeseries",
       "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
-      "gridPos": { "h": 8, "w": 8, "x": 16, "y": 44 },
+      "gridPos": { "h": 8, "w": 8, "x": 16, "y": 76 },
       "targets": [
         {
           "expr": "qortex_factors_active",
@@ -286,7 +366,7 @@
       "description": "How many online edges are being generated per query (edges/query) and the overall event rate (events/sec). Online edges are runtime-discovered relationships between concepts, inferred from co-occurrence in query results. More edges per query = richer associative structure being captured.",
       "type": "timeseries",
       "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
-      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 52 },
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 84 },
       "targets": [
         {
           "expr": "qortex_online_edge_count",
@@ -303,7 +383,7 @@
       "description": "Time series of knowledge graph coverage. Shows how the graph's explored territory grows as the system processes queries. Monotonically increasing in a healthy system. Plateaus indicate the system has explored most reachable nodes; jumps indicate new domains or concept batches being ingested.",
       "type": "timeseries",
       "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
-      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 52 },
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 84 },
       "targets": [
         {
           "expr": "qortex_kg_coverage",
@@ -321,15 +401,35 @@
     {
       "title": "Enrichment & Ingestion",
       "type": "row",
-      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 60 },
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 92 },
       "collapsed": false
+    },
+    {
+      "title": "Ingestion Flow",
+      "type": "jdbranham-diagram-panel",
+      "gridPos": { "h": 8, "w": 8, "x": 0, "y": 93 },
+      "options": {
+        "content": "flowchart LR\n    TXT(\"Raw Text\") --> LLM(\"LLM\\nEnrichment\")\n    LLM --> TR(\"Structured\\nTriples\")\n    TR --> KG(\"KG Insert\")\n    LLM -.->|\"fail\"| FB(\"Fallback\\nExtraction\")\n    FB --> TR\n    style TXT fill:#3c1518,stroke:#69140e,color:#f2f4f3,stroke-width:2px\n    style LLM fill:#69140e,stroke:#a44200,color:#f2f4f3,stroke-width:2px\n    style TR fill:#a44200,stroke:#d58936,color:#f2f4f3,stroke-width:2px\n    style KG fill:#d58936,stroke:#f2f3ae,color:#3c1518,stroke-width:2px\n    style FB fill:#4a4a4a,stroke:#666,color:#f2f4f3,stroke-width:2px",
+        "mermaidThemeVariables": "{\"fontSize\":\"14px\",\"primaryColor\":\"#a44200\",\"lineColor\":\"#d58936\",\"textColor\":\"#f2f4f3\"}"
+      },
+      "transparent": true
+    },
+    {
+      "title": "",
+      "type": "text",
+      "gridPos": { "h": 8, "w": 16, "x": 8, "y": 93 },
+      "options": {
+        "mode": "markdown",
+        "content": "## Enrichment & Ingestion Pipeline\n\nNew concepts flow: **raw text → LLM enrichment → structured triples → KG insertion**. The LLM extracts entity-relationship triples.\nIf the primary LLM fails, a simpler fallback extractor kicks in. Manifests are batches of concepts grouped by domain.\n\n| Signal | What to watch | Healthy | Investigate |\n|--------|--------------|---------|-------------|\n| **Enrichment Rate** | LLM calls/sec by backend | Steady during ingestion | Zero during active ingestion = LLM down |\n| **Enrichment Latency** | LLM response time | p50 < 2s, p95 < 5s | p95 >> p50 = some docs very hard to enrich |\n| **Fallbacks** | Fallback extraction rate | Zero (primary LLM works) | Non-zero = LLM unreliable, consider switching |\n| **Ingestion Rate** | Manifests/sec by domain | Spikes on bulk import, steady otherwise | Zero = no new content entering the system |"
+      },
+      "transparent": true
     },
     {
       "title": "Enrichment Rate",
       "description": "Rate of LLM enrichment calls by backend type. Enrichment uses an LLM to extract structured relationships from raw text when ingesting new concepts. Higher rates mean more content is being processed. The backend_type label distinguishes different LLM providers (openai, anthropic, local).",
       "type": "timeseries",
       "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
-      "gridPos": { "h": 8, "w": 8, "x": 0, "y": 61 },
+      "gridPos": { "h": 8, "w": 8, "x": 0, "y": 101 },
       "targets": [
         {
           "expr": "rate(qortex_enrichment_total[5m])",
@@ -347,7 +447,7 @@
       "description": "How long LLM enrichment calls take. This is dominated by the LLM's response time. p50 is the typical call; p95 captures retries and long-context extractions. If p95 is significantly higher than p50, some documents are much harder to enrich than others.",
       "type": "timeseries",
       "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
-      "gridPos": { "h": 8, "w": 8, "x": 8, "y": 61 },
+      "gridPos": { "h": 8, "w": 8, "x": 8, "y": 101 },
       "targets": [
         {
           "expr": "histogram_quantile(0.50, rate(qortex_enrichment_duration_seconds_bucket[5m]))",
@@ -369,7 +469,7 @@
       "description": "Rate of enrichment fallbacks — when the primary LLM backend fails and the system falls back to a simpler extraction method. Non-zero rates here mean the LLM is unreliable; consistently high rates may warrant switching providers or increasing timeouts.",
       "type": "timeseries",
       "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
-      "gridPos": { "h": 8, "w": 8, "x": 16, "y": 61 },
+      "gridPos": { "h": 8, "w": 8, "x": 16, "y": 101 },
       "targets": [
         {
           "expr": "rate(qortex_enrichment_fallbacks_total[5m])",
@@ -387,7 +487,7 @@
       "description": "Rate of manifest ingestion events by domain. A manifest is a batch of concepts being added to the knowledge graph. Each domain (e.g. 'prompts', 'code', 'docs') tracks independently. Spikes indicate bulk imports; steady rates indicate continuous ingestion pipelines.",
       "type": "timeseries",
       "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
-      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 69 },
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 109 },
       "targets": [
         {
           "expr": "rate(qortex_manifests_ingested_total[5m])",
@@ -405,7 +505,7 @@
       "description": "Time taken to ingest a manifest (create nodes, generate embeddings, add to vector index, insert edges). Includes all backend writes. Latency depends on manifest size and backend type (InMemory is fast, Memgraph adds network round-trips).",
       "type": "timeseries",
       "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
-      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 69 },
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 109 },
       "targets": [
         {
           "expr": "histogram_quantile(0.50, rate(qortex_ingest_duration_seconds_bucket[5m]))",
@@ -425,15 +525,35 @@
     {
       "title": "Vector Index",
       "type": "row",
-      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 77 },
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 117 },
       "collapsed": false
+    },
+    {
+      "title": "Search Pipeline",
+      "type": "jdbranham-diagram-panel",
+      "gridPos": { "h": 8, "w": 8, "x": 0, "y": 118 },
+      "options": {
+        "content": "flowchart LR\n    C(\"Concept\") --> EMB(\"Embed\")\n    EMB --> IDX(\"Vector\\nIndex\")\n    IDX -->|\"cosine sim\"| TOP(\"Top-K\\nCandidates\")\n    TOP -->|\"domain filter\"| RES(\"Filtered\\nResults\")\n    style C fill:#003049,stroke:#d62828,color:#fcbf49,stroke-width:2px\n    style EMB fill:#d62828,stroke:#f77f00,color:#fcbf49,stroke-width:2px\n    style IDX fill:#f77f00,stroke:#fcbf49,color:#003049,stroke-width:2px\n    style TOP fill:#fcbf49,stroke:#eae2b7,color:#003049,stroke-width:2px\n    style RES fill:#eae2b7,stroke:#eae2b7,color:#003049,stroke-width:2px",
+        "mermaidThemeVariables": "{\"fontSize\":\"14px\",\"primaryColor\":\"#f77f00\",\"lineColor\":\"#fcbf49\",\"textColor\":\"#fcbf49\"}"
+      },
+      "transparent": true
+    },
+    {
+      "title": "",
+      "type": "text",
+      "gridPos": { "h": 8, "w": 16, "x": 8, "y": 118 },
+      "options": {
+        "mode": "markdown",
+        "content": "## Vector Index\n\nEvery concept is embedded into a vector and stored in the index. Queries are embedded the same way, then matched via **cosine similarity**.\nTop-K candidates are retrieved, then filtered by domain. The **seed yield** measures how many survive domain filtering.\n\n| Signal | What to watch | Healthy | Investigate |\n|--------|--------------|---------|-------------|\n| **Index Size** | Total vectors stored | Growing with ingestion | Flat = no new concepts being added |\n| **Add Rate/Latency** | Insert perf by index type | Sub-ms for numpy (in-memory) | Spikes = index rebuild or backend lag |\n| **Top Score** | Best cosine similarity | > 0.8 for strong matches | Consistently < 0.5 = domain not represented |\n| **Score Spread** | Max − min score gap | Large = good discrimination | Narrow = query too generic or too specific |\n| **Seed Yield** | Survive domain filter | > 80% (green) | < 50% = index dominated by other domains |"
+      },
+      "transparent": true
     },
     {
       "title": "Vec Index Size",
       "description": "Total number of embedding vectors stored in the index. Each concept in the knowledge graph has one vector. This is the system's 'memory size' — how many concepts it can search over. Growth indicates new concepts being ingested.",
       "type": "stat",
       "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
-      "gridPos": { "h": 8, "w": 6, "x": 0, "y": 78 },
+      "gridPos": { "h": 8, "w": 6, "x": 0, "y": 126 },
       "targets": [
         {
           "expr": "qortex_vec_index_size",
@@ -451,7 +571,7 @@
       "description": "Rate of vectors being added to the index, by index type (numpy = in-memory, or external). Each add operation embeds a concept and inserts it into the searchable index. Correlates with ingestion rate but can differ if concepts are updated (re-embedded).",
       "type": "timeseries",
       "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
-      "gridPos": { "h": 8, "w": 9, "x": 6, "y": 78 },
+      "gridPos": { "h": 8, "w": 9, "x": 6, "y": 126 },
       "targets": [
         {
           "expr": "rate(qortex_vec_add_total[5m])",
@@ -469,7 +589,7 @@
       "description": "Time to insert a vector into the index. For NumpyVectorIndex this is a fast array append. For external indices (future: FAISS, pgvector), this includes network overhead. Sub-millisecond is healthy for in-memory.",
       "type": "timeseries",
       "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
-      "gridPos": { "h": 8, "w": 9, "x": 15, "y": 78 },
+      "gridPos": { "h": 8, "w": 9, "x": 15, "y": 126 },
       "targets": [
         {
           "expr": "histogram_quantile(0.50, rate(qortex_vec_add_duration_seconds_bucket[5m]))",
@@ -491,7 +611,7 @@
       "description": "Cosine similarity of the best-matching vector in the most recent search. Range 0-1, where 1.0 = exact match. Scores above 0.8 indicate strong semantic matches. Consistently low scores (< 0.5) suggest the query domain isn't well-represented in the index — more relevant concepts may need to be ingested.",
       "type": "timeseries",
       "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
-      "gridPos": { "h": 8, "w": 8, "x": 0, "y": 86 },
+      "gridPos": { "h": 8, "w": 8, "x": 0, "y": 134 },
       "targets": [
         {
           "expr": "qortex_vec_search_top_score",
@@ -511,7 +631,7 @@
       "description": "Difference between the highest and lowest cosine similarity scores in the most recent search results. A large spread means the top result is much more relevant than the bottom result (good discrimination). A narrow spread means all candidates scored similarly (the query is either too generic or too specific).",
       "type": "timeseries",
       "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
-      "gridPos": { "h": 8, "w": 8, "x": 8, "y": 86 },
+      "gridPos": { "h": 8, "w": 8, "x": 8, "y": 134 },
       "targets": [
         {
           "expr": "qortex_vec_search_score_spread",
@@ -530,7 +650,7 @@
       "description": "Ratio of vector search results that survive domain filtering. Yield of 1.0 = all results were in the requested domain. Yield of 0.3 = 70% of results were filtered out because they belonged to other domains. Low yield means the index is dominated by other domains; consider domain-specific indices.",
       "type": "gauge",
       "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
-      "gridPos": { "h": 8, "w": 8, "x": 16, "y": 86 },
+      "gridPos": { "h": 8, "w": 8, "x": 16, "y": 134 },
       "targets": [
         {
           "expr": "qortex_vec_seed_yield",
@@ -557,7 +677,7 @@
       "description": "Average number of candidate vectors returned per search query. This is the 'recall width' — how many concepts the system considers before ranking. More candidates = broader search but slower; fewer = faster but may miss relevant results. Configured via top_k parameter.",
       "type": "timeseries",
       "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
-      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 94 },
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 142 },
       "targets": [
         {
           "expr": "rate(qortex_vec_search_candidates_sum[5m]) / rate(qortex_vec_search_candidates_count[5m])",
@@ -568,15 +688,35 @@
     {
       "title": "Learning & Bandits",
       "type": "row",
-      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 102 },
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 150 },
       "collapsed": false
     },
     {
+      "title": "Bandit Loop",
+      "type": "jdbranham-diagram-panel",
+      "gridPos": { "h": 7, "w": 8, "x": 0, "y": 151 },
+      "options": {
+        "content": "flowchart LR\n    POOL(\"Arm Pool\\nBeta(α,β)\") -->|\"Thompson\\nSample\"| SEL(\"Select\\nArm\")\n    SEL --> ACT(\"Execute\")\n    ACT --> OUT(\"Observe\\nOutcome\")\n    OUT -->|\"α++ or β++\"| POOL\n    style POOL fill:#1b4332,stroke:#40916c,color:#d8f3dc,stroke-width:2px\n    style SEL fill:#2d6a4f,stroke:#52b788,color:#d8f3dc,stroke-width:2px\n    style ACT fill:#40916c,stroke:#95d5b2,color:#d8f3dc,stroke-width:2px\n    style OUT fill:#52b788,stroke:#d8f3dc,color:#1b4332,stroke-width:2px",
+        "mermaidThemeVariables": "{\"fontSize\":\"14px\",\"primaryColor\":\"#2d6a4f\",\"lineColor\":\"#40916c\",\"textColor\":\"#d8f3dc\"}"
+      },
+      "transparent": true
+    },
+    {
+      "title": "",
+      "type": "text",
+      "gridPos": { "h": 7, "w": 16, "x": 8, "y": 151 },
+      "options": {
+        "mode": "markdown",
+        "content": "## Thompson Sampling Bandit\n\nqortex learns which strategies work by modeling each **arm** (candidate action) as a Beta distribution.\nEvery outcome updates the posterior: `accepted` reinforces, `rejected` penalizes, `partial` hedges.\n\n| Signal | What to watch | Healthy | Investigate |\n|--------|--------------|---------|-------------|\n| **Selection Rate** | Selections/sec by learner | Steady flow, baseline rate decreasing over time | Flat baseline=True means posteriors aren't separating |\n| **Observation Rate** | Outcomes by type | `accepted` trending up as bandit converges | Persistent `rejected` majority means bad arm pool or noisy signal |\n| **Posterior Mean** | Top 10 arms ranked by confidence | Clear winner pulling away from the pack | All arms clustered at 0.5 = insufficient data or no real signal |\n| **Token Budget** | Budget consumed per selection | p50 well under limit, p95 occasional spikes | p95 consistently at budget cap = arms are too expensive |\n\n`baseline_rate` (default 10%) forces random exploration on top of Thompson Sampling's natural explore/exploit.\nSet to 0 for pure TS. Watch the baseline=True line shrink as the system gets confident.\n\n```\nDogfood: uv run python scripts/demo_learning_live.py\n```"
+      },
+      "transparent": true
+    },
+    {
       "title": "Selection Rate",
-      "description": "Rate of bandit arm selections per second, by learner name and whether it was a baseline (forced exploration) or Thompson Sampling selection. The baseline_rate is configurable (default 10%) and acts as an epsilon-greedy safety net on top of Thompson Sampling's natural exploration. Set baseline_rate=0 for pure TS. High baseline=True rates relative to False indicate the system is still exploring; as posteriors converge, nearly all selections should be baseline=False (exploitation).",
+      "description": "Rate of bandit arm selections per second, by learner name and whether it was a baseline (forced exploration) or Thompson Sampling selection.",
       "type": "timeseries",
       "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
-      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 103 },
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 158 },
       "targets": [
         {
           "expr": "rate(qortex_learning_selections_total[5m])",
@@ -591,10 +731,10 @@
     },
     {
       "title": "Observation Rate",
-      "description": "Rate of reward observations by learner and outcome (accepted/rejected/partial). Each observation updates the arm's Beta posterior: accepted adds alpha+1 (reward=1.0), rejected adds beta+1 (reward=0.0), partial adds alpha+0.5/beta+0.5. The reward mapping is pluggable via RewardModel (default: TernaryReward). The caller decides the outcome — qortex doesn't judge, it learns from the signal it's given. A healthy learning system trends toward more 'accepted' over time as the bandit converges on better arms.",
+      "description": "Rate of reward observations by learner and outcome (accepted/rejected/partial).",
       "type": "timeseries",
       "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
-      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 103 },
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 158 },
       "targets": [
         {
           "expr": "rate(qortex_learning_observations_total[5m])",
@@ -609,10 +749,10 @@
     },
     {
       "title": "Posterior Mean (top 10 arms)",
-      "description": "Current posterior mean (alpha / (alpha + beta)) for the top 10 arms by mean value. This IS the learning — each arm has a Beta distribution representing the system's belief about its reward probability. Mean near 1.0 = the system is confident this arm succeeds. Mean near 0.5 = uncertain (not enough data). Mean near 0.0 = confident it fails. Watch the winning arm's line climb toward 1.0 as observations accumulate. Separation between lines shows the bandit is discriminating between good and bad arms.",
+      "description": "Current posterior mean (alpha / (alpha + beta)) for the top 10 arms. This IS the learning. Mean near 1.0 = confident success. 0.5 = uncertain. 0.0 = confident failure.",
       "type": "timeseries",
       "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
-      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 111 },
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 166 },
       "targets": [
         {
           "expr": "topk(10, qortex_learning_posterior_mean)",
@@ -629,10 +769,10 @@
     },
     {
       "title": "Token Budget Usage",
-      "description": "Distribution of token budget consumed per selection, when a token_budget constraint is set. Each arm has a token_cost (estimated tokens to execute that strategy). The bandit respects the budget: it selects top-ranked arms in order until adding the next one would exceed the budget. p50/p95 show typical vs worst-case budget consumption. Empty if no token_budget is used (the constraint is optional).",
+      "description": "Token budget consumed per selection (p50/p95). Empty if no token_budget constraint is set.",
       "type": "timeseries",
       "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
-      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 111 },
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 166 },
       "targets": [
         {
           "expr": "histogram_quantile(0.50, rate(qortex_learning_token_budget_used_bucket[5m]))",
@@ -641,6 +781,112 @@
         {
           "expr": "histogram_quantile(0.95, rate(qortex_learning_token_budget_used_bucket[5m]))",
           "legendFormat": "p95"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short"
+        }
+      }
+    },
+    {
+      "title": "Credit Propagation",
+      "type": "row",
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 175 },
+      "collapsed": false
+    },
+    {
+      "title": "Credit Flow",
+      "type": "jdbranham-diagram-panel",
+      "gridPos": { "h": 8, "w": 8, "x": 0, "y": 176 },
+      "options": {
+        "content": "flowchart BT\n    F(\"foundations\\nalpha += 0.202\") -->|0.95| A(\"algebra\\nalpha += 0.425\")\n    A -->|0.85| LA(\"linear-algebra\\nalpha += 1.0\")\n    style LA fill:#2d6a4f,stroke:#40916c,color:#d8f3dc,stroke-width:2px\n    style A fill:#1b4332,stroke:#40916c,color:#b7e4c7,stroke-width:2px\n    style F fill:#081c15,stroke:#2d6a4f,color:#95d5b2,stroke-width:2px",
+        "mermaidThemeVariables": "{\"fontSize\":\"14px\",\"primaryColor\":\"#2d6a4f\",\"lineColor\":\"#40916c\",\"textColor\":\"#d8f3dc\"}"
+      },
+      "transparent": true
+    },
+    {
+      "title": "",
+      "type": "text",
+      "gridPos": { "h": 8, "w": 16, "x": 8, "y": 176 },
+      "options": {
+        "mode": "markdown",
+        "content": "## Causal Credit Assignment\n\nFeedback (`accepted` / `rejected` / `partial`) propagates **backward** through the causal DAG.\nDirect concepts get full credit. Ancestors get decayed credit: `0.5x` per hop, weighted by edge strength.\nNegative outcomes push `beta` instead of `alpha`.\n\n| Concept | Method | Credit Math | Update |\n|---------|--------|-------------|--------|\n| **linear-algebra** | direct | `1.0` | `alpha += 1.0` |\n| **algebra** | ancestor (1 hop) | `1.0 x 0.5 x 0.85` | `alpha += 0.425` |\n| **foundations** | ancestor (2 hops) | `0.425 x 0.5 x 0.95` | `alpha += 0.202` |\n\n| Signal | Healthy | Investigate |\n|--------|---------|-------------|\n| **Propagation Rate** | Matches feedback rate | Zero while feedback flows = flag off or empty DAG |\n| **Concepts/Propagation** | p50 of 3-5 | p50=1 = no ancestor credit (disconnected DAG) |\n| **Total Propagations** | Monotonically increasing | Stuck at 0 = feature not active |\n| **Alpha vs Beta** | Alpha ahead = net positive signal | Beta dominating = users rejecting results |\n\n`QORTEX_CREDIT_PROPAGATION=on` / Dogfood: `uv run python scripts/demo_credit_propagation_live.py`"
+      },
+      "transparent": true
+    },
+    {
+      "title": "Credit Propagation Rate",
+      "description": "Propagations/sec through the causal DAG, by learner.",
+      "type": "timeseries",
+      "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 184 },
+      "targets": [
+        {
+          "expr": "rate(qortex_credit_propagations_total[5m])",
+          "legendFormat": "{{learner}}"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "ops"
+        }
+      }
+    },
+    {
+      "title": "Concepts per Propagation (p50 / p95)",
+      "description": "How many concepts receive credit per event. Direct + ancestors. Higher = deeper DAG activation.",
+      "type": "timeseries",
+      "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 184 },
+      "targets": [
+        {
+          "expr": "histogram_quantile(0.50, rate(qortex_credit_concepts_per_propagation_bucket[5m]))",
+          "legendFormat": "p50"
+        },
+        {
+          "expr": "histogram_quantile(0.95, rate(qortex_credit_concepts_per_propagation_bucket[5m]))",
+          "legendFormat": "p95"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short"
+        }
+      }
+    },
+    {
+      "title": "Total Credit Propagations",
+      "description": "Lifetime propagation count since restart.",
+      "type": "stat",
+      "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+      "gridPos": { "h": 4, "w": 8, "x": 0, "y": 192 },
+      "targets": [
+        {
+          "expr": "qortex_credit_propagations_total",
+          "legendFormat": "{{learner}}"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short"
+        }
+      }
+    },
+    {
+      "title": "Credit Alpha vs Beta Deltas",
+      "description": "Cumulative success (alpha) vs failure (beta) signal from credit propagation.",
+      "type": "timeseries",
+      "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+      "gridPos": { "h": 8, "w": 16, "x": 8, "y": 192 },
+      "targets": [
+        {
+          "expr": "qortex_credit_alpha_delta_total",
+          "legendFormat": "alpha (success)"
+        },
+        {
+          "expr": "qortex_credit_beta_delta_total",
+          "legendFormat": "beta (failure)"
         }
       ],
       "fieldConfig": {

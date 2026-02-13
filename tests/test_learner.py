@@ -209,3 +209,79 @@ class TestContextPartitioning:
 
         assert p_a["arm:x"]["alpha"] == 2.0  # 1 + 1.0 reward
         assert p_b["arm:x"]["alpha"] == 1.0  # 1 + 0.0 reward
+
+
+class TestApplyCreditDeltas:
+    """Tests for Learner.apply_credit_deltas() — causal credit integration."""
+
+    def test_basic_delta_application(self, learner):
+        deltas = {
+            "concept:a": {"alpha_delta": 0.5, "beta_delta": 0.0},
+            "concept:b": {"alpha_delta": 0.0, "beta_delta": 0.3},
+        }
+        results = learner.apply_credit_deltas(deltas)
+
+        assert results["concept:a"].alpha == pytest.approx(1.5)  # 1.0 + 0.5
+        assert results["concept:a"].beta == pytest.approx(1.0)
+        assert results["concept:b"].alpha == pytest.approx(1.0)
+        assert results["concept:b"].beta == pytest.approx(1.3)  # 1.0 + 0.3
+
+    def test_pulls_incremented(self, learner):
+        deltas = {"arm:x": {"alpha_delta": 0.5, "beta_delta": 0.0}}
+        results = learner.apply_credit_deltas(deltas)
+        assert results["arm:x"].pulls == 1
+
+        # Apply again
+        results = learner.apply_credit_deltas(deltas)
+        assert results["arm:x"].pulls == 2
+
+    def test_total_reward_tracks_alpha_delta(self, learner):
+        deltas = {"arm:x": {"alpha_delta": 0.7, "beta_delta": 0.1}}
+        results = learner.apply_credit_deltas(deltas)
+        assert results["arm:x"].total_reward == pytest.approx(0.7)
+
+    def test_alpha_beta_floored_at_001(self, learner):
+        """Negative deltas can't take alpha/beta below 0.01."""
+        deltas = {"arm:x": {"alpha_delta": -5.0, "beta_delta": -5.0}}
+        results = learner.apply_credit_deltas(deltas)
+        assert results["arm:x"].alpha == pytest.approx(0.01)
+        assert results["arm:x"].beta == pytest.approx(0.01)
+
+    def test_empty_deltas(self, learner):
+        results = learner.apply_credit_deltas({})
+        assert results == {}
+
+    def test_persisted_to_store(self, learner):
+        deltas = {"arm:x": {"alpha_delta": 0.5, "beta_delta": 0.0}}
+        learner.apply_credit_deltas(deltas)
+
+        # Read back from store
+        state = learner.store.get("arm:x")
+        assert state.alpha == pytest.approx(1.5)
+        assert state.pulls == 1
+
+    def test_with_context(self, learner):
+        ctx = {"task": "test"}
+        deltas = {"arm:x": {"alpha_delta": 1.0, "beta_delta": 0.0}}
+        learner.apply_credit_deltas(deltas, context=ctx)
+
+        # Different context should be unaffected
+        state_default = learner.store.get("arm:x")
+        state_ctx = learner.store.get("arm:x", ctx)
+        assert state_default.alpha == pytest.approx(1.0)  # untouched
+        assert state_ctx.alpha == pytest.approx(2.0)
+
+    def test_multiple_concepts(self, learner):
+        deltas = {
+            f"concept:{i}": {"alpha_delta": 0.1 * i, "beta_delta": 0.0}
+            for i in range(1, 6)
+        }
+        results = learner.apply_credit_deltas(deltas)
+        assert len(results) == 5
+        assert results["concept:3"].alpha == pytest.approx(1.3)
+
+    def test_missing_delta_keys_default_to_zero(self, learner):
+        deltas = {"arm:x": {"alpha_delta": 0.5}}  # no beta_delta
+        results = learner.apply_credit_deltas(deltas)
+        assert results["arm:x"].alpha == pytest.approx(1.5)
+        assert results["arm:x"].beta == pytest.approx(1.0)  # unchanged

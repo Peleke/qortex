@@ -5,6 +5,27 @@ All notable changes to qortex are documented here.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.3.4] - 2026-02-12
+
+### Added
+
+- **Credit Propagation**: CreditAssigner wired into feedback loop; causal DAG propagates rewards to upstream concepts behind `QORTEX_CREDIT_PROPAGATION` flag (#81)
+- **Centralized Feature Flags**: `FeatureFlags` dataclass in `flags.py` with YAML config + env var overrides (#81)
+- **Learning Event Subscribers**: structlog and JSONL subscribers now handle `LearningSelectionMade`, `LearningObservationRecorded`, `LearningPosteriorUpdated` events (#79)
+- **LearningStore Protocol**: `SqliteLearningStore` (ACID, default) and `JsonLearningStore` backends with context partitioning (#75)
+- **Learning Module**: Thompson Sampling bandit with 6 MCP tools and full observability (#64)
+- **Credit Propagation Dashboard**: Grafana panels, Mermaid diagrams, observability guide (#85)
+- **Dashboard Mermaid Explainers**: Every dashboard section now opens with a Mermaid flowchart and signal table (Healthy/Investigate thresholds); observability guide updated with Learning & Bandits and Credit Propagation sections (#95)
+
+### Fixed
+
+- structlog logger no longer nukes external log handlers (#84)
+- Observability guide prose cleanup (bragi gauntlet: removed marketing fragments, em-dash substitutes, dismissive framing)
+
+### Changed
+
+- README and docs/index.md feature descriptions rewritten for precision over marketing
+
 ## [Unreleased]
 
 ### Added

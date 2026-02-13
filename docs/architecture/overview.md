@@ -24,8 +24,8 @@ Each layer has a single responsibility:
 Core abstractions are Python protocols, enabling:
 
 - Multiple backend implementations (InMemory, Memgraph, future: Neo4j)
-- Pluggable enrichment backends (Template, Anthropic, future: custom)
-- Extensible projection targets (Buildlog, flat, JSON)
+- Enrichment backends are pluggable: Template for deterministic output, Anthropic for LLM-powered context
+- Projection targets (Buildlog, flat, JSON) are defined by the `ProjectionTarget` protocol
 
 ```python
 class GraphBackend(Protocol):

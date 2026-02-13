@@ -18,6 +18,7 @@ def register_prometheus_subscriber(config: ObservabilityConfig) -> None:
 
     from qortex.observability.events import (
         BufferFlushed,
+        CreditPropagated,
         EdgePromoted,
         EnrichmentCompleted,
         EnrichmentFallback,
@@ -283,3 +284,32 @@ def register_prometheus_subscriber(config: ObservabilityConfig) -> None:
         learning_arm_pulls_total.labels(
             learner=event.learner, arm_id=event.arm_id
         ).inc()
+
+    # Credit propagation instruments
+    credit_propagation_total = Counter(
+        "qortex_credit_propagations_total",
+        "Credit propagation events",
+        ["learner"],
+    )
+    credit_concepts_hist = Histogram(
+        "qortex_credit_concepts_per_propagation",
+        "Concepts receiving credit per propagation",
+        buckets=[1, 5, 10, 25, 50, 100],
+    )
+    credit_alpha_delta = Counter(
+        "qortex_credit_alpha_delta_total",
+        "Cumulative alpha (success) delta from credit propagation",
+    )
+    credit_beta_delta = Counter(
+        "qortex_credit_beta_delta_total",
+        "Cumulative beta (failure) delta from credit propagation",
+    )
+
+    @QortexEventLinker.on(CreditPropagated)
+    def _prom_credit_propagated(event: CreditPropagated) -> None:
+        credit_propagation_total.labels(learner=event.learner).inc()
+        credit_concepts_hist.observe(event.concept_count)
+        if event.total_alpha_delta > 0:
+            credit_alpha_delta.inc(event.total_alpha_delta)
+        if event.total_beta_delta > 0:
+            credit_beta_delta.inc(event.total_beta_delta)
