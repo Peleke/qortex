@@ -1,23 +1,22 @@
 # qortex
 
-**Knowledge graph ingestion engine for automated rule generation.**
+**Knowledge that learns.**
 
-qortex transforms unstructured content (books, docs, PDFs) into a knowledge graph, then projects actionable rules for AI agents, buildlog, and other consumers.
+Your AI assistant forgets everything between conversations. qortex adds a knowledge graph that learns from every interaction. One command to install. Zero config.
 
 ![qortex pipeline](images/diagrams/pipeline.svg)
 
 ## Features
 
-- **Graph-Enhanced Retrieval**: Vector similarity + Personalized PageRank over typed edges
-- **Explore & Navigate**: Traverse typed edges, discover neighbors and linked rules from any search result
-- **Rules Auto-Surfaced**: Query results include linked rules with relevance scores; no separate rules request needed
-- **Feedback-Driven Learning**: Consumer outcomes adjust PPR teleportation factors; results improve over time
-- **Framework Adapters**: Drop-in for LangChain VectorStore, Mastra MCP, CrewAI, Agno. Adapters expose explore(), rules(), and feedback() alongside standard search
-- **Flexible Ingestion**: PDF, Markdown, and text sources into a unified knowledge graph
-- **Rich Type System**: 10 semantic relation types with 30 edge rule templates
-- **Projection Pipeline**: Source → Enricher → Target architecture for rule generation
-- **Universal Schema**: JSON Schema artifacts for any-language validation
-- **Multiple Backends**: InMemory (testing), Memgraph (production with MAGE algorithms)
+- **Graph-Enhanced Retrieval**: Combines vector similarity with structural graph traversal. Related concepts get promoted even if they don't share keywords.
+- **Adaptive Learning**: Every feedback call updates retrieval weights. The system gets smarter the more you use it.
+- **Compare and Prove**: `qortex_compare` runs the same query through cosine-only and graph-enhanced retrieval so you can see the difference on your own data.
+- **Activity Tracking**: `qortex_stats` shows knowledge coverage, learning progress, and query activity at a glance.
+- **Auto-Ingest**: Feed it docs, specs, or code. LLM extraction builds concepts, typed edges, and rules automatically.
+- **Persistent by Default**: SQLite stores the knowledge graph, vector index, and learning state across restarts.
+- **Framework Adapters**: Drop-in for LangChain VectorStore, Mastra MastraVector, and agno KnowledgeProtocol.
+- **Projection Pipeline**: Source, Enricher, Target architecture for rule generation.
+- **Multiple Backends**: InMemory (testing), Memgraph (production), SQLite (default persistent).
 
 ## Quick Example
 

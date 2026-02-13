@@ -239,6 +239,202 @@ Ingest content.
 
 Returns: `{status, domain, concepts, edges, rules}`
 
+### qortex_ingest_text
+
+Ingest raw text directly (no file needed).
+
+| Parameter | Type | Required | Default |
+|-----------|------|----------|---------|
+| `text` | `str` | Yes | -- |
+| `domain` | `str` | Yes | -- |
+| `title` | `str` | No | `""` |
+
+Returns: `{status, domain, concepts, edges, rules}`
+
+### qortex_ingest_structured
+
+Ingest structured JSON data.
+
+| Parameter | Type | Required | Default |
+|-----------|------|----------|---------|
+| `data` | `dict` | Yes | -- |
+| `domain` | `str` | Yes | -- |
+
+Returns: `{status, domain, concepts, edges, rules}`
+
+### qortex_compare
+
+Compare graph-enhanced retrieval against cosine-only retrieval on the same query. Use this to see what the graph adds.
+
+| Parameter | Type | Required | Default |
+|-----------|------|----------|---------|
+| `context` | `str` | Yes | -- |
+| `domains` | `list[str]` | No | all |
+| `top_k` | `int` | No | `5` |
+
+Returns:
+```json
+{
+  "query": "...",
+  "vec_only": {"method": "Cosine similarity", "items": [...]},
+  "graph_enhanced": {"method": "Graph-enhanced", "items": [...], "rules_surfaced": N, "rules": [...]},
+  "diff": {
+    "graph_found_that_cosine_missed": [...],
+    "cosine_found_that_graph_dropped": [...],
+    "rank_changes": [{"id": "...", "vec_rank": 3, "graph_rank": 1, "delta": 2}],
+    "overlap": N
+  },
+  "summary": "Graph-enhanced retrieval found 2 item(s) that cosine missed, surfaced 1 rule(s)."
+}
+```
+
+### qortex_stats
+
+Knowledge coverage, learning progress, query activity, and persistence info.
+
+Returns:
+```json
+{
+  "knowledge": {"domains": N, "concepts": N, "edges": N, "rules": N, "domain_breakdown": {...}},
+  "learning": {"learners": N, "total_observations": N, "learner_breakdown": {...}},
+  "activity": {"queries_served": N, "feedback_given": N, "feedback_rate": 0.5, "outcomes": {...}},
+  "health": {"backend": "InMemoryBackend", "vector_index": "NumpyVectorIndex", "persistence": {...}}
+}
+```
+
+### Learning Tools
+
+#### qortex_learning_select
+
+Select items using adaptive learning (Thompson Sampling).
+
+| Parameter | Type | Required | Default |
+|-----------|------|----------|---------|
+| `learner` | `str` | Yes | -- |
+| `candidates` | `list[dict]` | Yes | -- |
+| `context` | `dict` | No | `{}` |
+| `k` | `int` | No | `1` |
+
+Returns: `{selected_arms: [...], excluded_arms: [...], is_baseline: bool}`
+
+#### qortex_learning_observe
+
+Record whether a selected item worked well.
+
+| Parameter | Type | Required | Default |
+|-----------|------|----------|---------|
+| `learner` | `str` | Yes | -- |
+| `arm_id` | `str` | Yes | -- |
+| `outcome` | `str` | No | -- |
+| `reward` | `float` | No | -- |
+| `context` | `dict` | No | `{}` |
+
+Returns: `{alpha, beta, pulls, total_reward, mean}`
+
+#### qortex_learning_posteriors
+
+Get posterior distributions for arms.
+
+| Parameter | Type | Required | Default |
+|-----------|------|----------|---------|
+| `learner` | `str` | Yes | -- |
+| `context` | `dict` | No | `{}` |
+| `arm_ids` | `list[str]` | No | all |
+
+Returns: `{posteriors: {arm_id: {alpha, beta, pulls, mean, ...}}}`
+
+#### qortex_learning_metrics
+
+Get aggregate learning metrics.
+
+| Parameter | Type | Required | Default |
+|-----------|------|----------|---------|
+| `learner` | `str` | Yes | -- |
+
+Returns: `{learner, total_pulls, total_reward, accuracy, arm_count, explore_ratio}`
+
+#### qortex_learning_session_start
+
+Start a learning session for tracking.
+
+| Parameter | Type | Required | Default |
+|-----------|------|----------|---------|
+| `learner` | `str` | Yes | -- |
+| `session_name` | `str` | Yes | -- |
+
+Returns: `{session_id: "..."}`
+
+#### qortex_learning_session_end
+
+End a learning session.
+
+| Parameter | Type | Required | Default |
+|-----------|------|----------|---------|
+| `learner` | `str` | Yes | -- |
+| `session_id` | `str` | Yes | -- |
+
+Returns: `{session_id, learner, selected_arms, outcomes, started_at, ended_at}`
+
+## Learner (Python API)
+
+Direct Python API for adaptive learning. Used by framework adapters (buildlog `QortexLearner`, etc.).
+
+```python
+from qortex.learning.learner import Learner
+from qortex.learning.types import Arm, ArmOutcome, LearnerConfig
+
+learner = Learner(LearnerConfig(name="my-learner", state_dir="/tmp/state"))
+```
+
+### Methods
+
+| Method | Description |
+|--------|-------------|
+| `select(candidates, context, k)` | Select k arms from candidates using Thompson Sampling |
+| `observe(outcome, context)` | Record a single observation and update posterior |
+| `batch_observe(outcomes, context)` | Record multiple observations in one call |
+| `top_arms(context, k)` | Return top-k arms by posterior mean, descending |
+| `decay_arm(arm_id, decay_factor, context)` | Shrink an arm's learned signal toward the prior |
+| `posteriors(context, arm_ids)` | Get current posteriors for arms |
+| `metrics()` | Compute aggregate learning metrics |
+| `apply_credit_deltas(deltas, context)` | Apply causal credit deltas to posteriors |
+| `session_start(name)` | Start a named learning session |
+| `session_end(session_id)` | End a session and return summary |
+
+### Types
+
+#### ArmState
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `alpha` | `float` | Beta distribution alpha (successes + prior) |
+| `beta` | `float` | Beta distribution beta (failures + prior) |
+| `pulls` | `int` | Total observations |
+| `total_reward` | `float` | Cumulative reward |
+| `last_updated` | `str` | ISO timestamp |
+| `mean` | `float` | Posterior mean: alpha / (alpha + beta) |
+
+#### ArmOutcome
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `arm_id` | `str` | Which arm was observed |
+| `reward` | `float` | 0.0 to 1.0 (optional if outcome provided) |
+| `outcome` | `str` | "accepted", "rejected", "partial", or custom |
+| `context` | `dict` | Context for partitioned state |
+
+#### LearnerConfig
+
+| Field | Type | Default | Description |
+|-------|------|---------|-------------|
+| `name` | `str` | -- | Learner identifier |
+| `baseline_rate` | `float` | `0.1` | Probability of uniform random exploration |
+| `seed_boost` | `float` | `2.0` | Alpha prior for seed arms |
+| `seed_arms` | `list[str]` | `[]` | Arms with boosted priors |
+| `state_dir` | `str` | `""` | Override for state persistence path |
+| `max_arms` | `int` | `1000` | Cap on tracked arms |
+| `min_pulls` | `int` | `0` | Force-include arms with fewer than N observations |
+
 ## Backends
 
 ### GraphBackend Protocol

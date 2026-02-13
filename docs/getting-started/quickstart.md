@@ -181,6 +181,36 @@ retriever = vs.as_retriever()
 
 See [Querying Guide](../guides/querying.md) for the full query pipeline.
 
+## 6. Compare Graph vs Cosine
+
+Use `qortex_compare` (or `client.compare()` in Python) to see what graph-enhanced retrieval adds over plain cosine similarity:
+
+```python
+# Via MCP: call qortex_compare with the same query
+# Via Python:
+compare_result = client.compare("circuit breaker patterns", domains=["error_handling"])
+print(compare_result["summary"])
+# "Graph-enhanced retrieval found 1 item(s) that cosine missed, surfaced 1 rule(s)."
+
+# See what the graph found that cosine missed
+for item in compare_result["diff"]["graph_found_that_cosine_missed"]:
+    print(f"  {item['id']}: {item['content'][:80]}")
+```
+
+This is the fastest way to prove the graph is adding value on your own data.
+
+## 7. Check Stats
+
+Call `qortex_stats` to see knowledge coverage, learning progress, and activity:
+
+```python
+stats = client.stats()
+print(f"Domains: {stats['knowledge']['domains']}")
+print(f"Concepts: {stats['knowledge']['concepts']}")
+print(f"Queries served: {stats['activity']['queries_served']}")
+print(f"Feedback rate: {stats['activity']['feedback_rate']}")
+```
+
 ## Next Steps
 
 - [Core Concepts](concepts.md) - Deep dive into domains, concepts, edges, and rules
