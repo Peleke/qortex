@@ -33,7 +33,7 @@ class MetricDef:
     buckets: tuple[float, ...] | None = None  # histograms only
 
 
-# All 36 metrics in one registry.
+# All 38 metrics in one registry.
 # Names follow Prometheus conventions:
 #   Counter:   "qortex_foo"          → exported as "qortex_foo_total"
 #   Histogram: "qortex_bar_seconds"  → exported as "qortex_bar_seconds_bucket" etc.
@@ -52,6 +52,11 @@ METRICS: tuple[MetricDef, ...] = (
     MetricDef(
         "qortex_query_errors", MetricType.COUNTER,
         "Query errors", ("stage",),
+    ),
+    MetricDef(
+        "qortex_query_overhead_seconds", MetricType.HISTOGRAM,
+        "Query overhead (our code, excluding external calls)",
+        buckets=(0.001, 0.005, 0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1.0),
     ),
     # ── PPR ──────────────────────────────────────────────────────────
     MetricDef(

@@ -36,6 +36,7 @@ class QueryCompleted:
     activated_nodes: int
     mode: str
     timestamp: str
+    overhead_seconds: float | None = None  # set by @traced decorator
 
 
 @dataclass(frozen=True)

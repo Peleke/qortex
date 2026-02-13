@@ -53,6 +53,7 @@ from qortex.observability.logging import (
     register_formatter,
 )
 from qortex.observability.metrics_schema import METRICS, MetricDef, MetricType
+from qortex.observability.tracing import OverheadTimer, traced
 
 __all__ = [
     # Core API
@@ -108,4 +109,7 @@ __all__ = [
     "MetricDef",
     "MetricType",
     "METRICS",
+    # Tracing
+    "traced",
+    "OverheadTimer",
 ]

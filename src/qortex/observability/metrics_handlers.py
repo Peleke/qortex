@@ -53,6 +53,8 @@ def register_metric_handlers(instruments: dict[str, Any]) -> None:
     def _on_query_complete(event: QueryCompleted) -> None:
         instruments["qortex_queries"].add(1, {"mode": event.mode})
         instruments["qortex_query_duration_seconds"].record(event.latency_ms / 1000)
+        if event.overhead_seconds is not None:
+            instruments["qortex_query_overhead_seconds"].record(event.overhead_seconds)
 
     @QortexEventLinker.on(QueryFailed)
     def _on_query_failed(event: QueryFailed) -> None:

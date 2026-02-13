@@ -20,6 +20,7 @@ from typing import TYPE_CHECKING, Protocol, runtime_checkable
 
 from qortex.core.backend import GraphBackend
 from qortex.observability import emit
+from qortex.observability.tracing import get_overhead_timer, traced
 from qortex.observability.events import (
     FeedbackReceived,
     KGCoverageComputed,
@@ -262,6 +263,7 @@ class GraphRAGAdapter:
         # Cache: query_id → list of item_ids (for feedback routing)
         self._query_cache: dict[str, list[str]] = {}
 
+    @traced("retrieval.query")
     def retrieve(
         self,
         query: str,
@@ -282,67 +284,12 @@ class GraphRAGAdapter:
         ))
 
         # 1. Vec layer: embed query → vector search → seed candidates
-        try:
-            query_embedding = self.embedding_model.embed([query])[0]
-        except Exception as exc:
-            emit(QueryFailed(
-                query_id=query_id,
-                error=str(exc),
-                stage="embedding",
-                timestamp=datetime.now(UTC).isoformat(),
-            ))
-            raise
+        seed_ids, vec_scores, vec_results_count = self._vec_search(
+            query, top_k, min_confidence, domains, query_id, t0,
+        )
 
-        fetch_k = max(top_k * 3, 30)  # Over-fetch for graph expansion
-        try:
-            vec_results = self.vector_index.search(
-                query_embedding,
-                top_k=fetch_k,
-                threshold=min_confidence,
-            )
-        except Exception as exc:
-            emit(QueryFailed(
-                query_id=query_id,
-                error=str(exc),
-                stage="vec_search",
-                timestamp=datetime.now(UTC).isoformat(),
-            ))
-            raise
-
-        if not vec_results:
+        if seed_ids is None:
             return RetrievalResult(items=[], query_id=query_id)
-
-        # Resolve nodes and filter by domain
-        seed_nodes: list[tuple[str, float]] = []  # (node_id, vec_score)
-        for node_id, score in vec_results:
-            node = self.backend.get_node(node_id)
-            if node is None:
-                continue
-            if domains and node.domain not in domains:
-                continue
-            seed_nodes.append((node_id, score))
-
-        # Seed yield: how many vec results survived domain filtering
-        emit(VecSeedYield(
-            query_id=query_id,
-            vec_candidates=len(vec_results),
-            seeds_after_filter=len(seed_nodes),
-            yield_ratio=len(seed_nodes) / max(len(vec_results), 1),
-        ))
-
-        if not seed_nodes:
-            return RetrievalResult(items=[], query_id=query_id)
-
-        seed_ids = [nid for nid, _ in seed_nodes]
-        vec_scores = dict(seed_nodes)
-
-        vec_elapsed = (time.perf_counter() - t0) * 1000
-        emit(VecSearchCompleted(
-            query_id=query_id,
-            candidates=len(vec_results),
-            fetch_k=fetch_k,
-            latency_ms=vec_elapsed,
-        ))
 
         # 2. Online edge generation: cosine sim between candidate pairs
         online_edges = self._build_online_edges(seed_ids)
@@ -371,10 +318,129 @@ class GraphRAGAdapter:
         ))
 
         # 5. PPR over merged graph (persistent edges in backend + online extras)
+        ppr_scores = self._run_ppr(seed_ids, online_edges, domains, query_id)
+
+        # 6. Combined scoring + result assembly
+        items = self._score_and_build(
+            vec_scores, ppr_scores, top_k, kg_coverage,
+        )
+
+        # Cache query for feedback routing
+        self._query_cache[query_id] = [item.id for item in items]
+
+        elapsed = (time.perf_counter() - t0) * 1000
+        timer = get_overhead_timer()
+        overhead = timer.overhead_seconds() if timer else None
+
+        emit(QueryCompleted(
+            query_id=query_id,
+            latency_ms=elapsed,
+            seed_count=len(seed_ids),
+            result_count=len(items),
+            activated_nodes=len(ppr_scores),
+            mode="graph",
+            timestamp=datetime.now(UTC).isoformat(),
+            overhead_seconds=overhead,
+        ))
+
+        return RetrievalResult(
+            items=items,
+            query_id=query_id,
+            activated_nodes=list(ppr_scores.keys()),
+        )
+
+    @traced("retrieval.vec_search")
+    def _vec_search(
+        self,
+        query: str,
+        top_k: int,
+        min_confidence: float,
+        domains: list[str] | None,
+        query_id: str,
+        t0: float,
+    ) -> tuple[list[str] | None, dict[str, float], int]:
+        """Embed query, search vectors, filter by domain.
+
+        Returns (seed_ids, vec_scores, vec_results_count).
+        Returns (None, {}, 0) if no results survive filtering.
+        """
+        try:
+            query_embedding = self.embedding_model.embed([query])[0]
+        except Exception as exc:
+            emit(QueryFailed(
+                query_id=query_id,
+                error=str(exc),
+                stage="embedding",
+                timestamp=datetime.now(UTC).isoformat(),
+            ))
+            raise
+
+        fetch_k = max(top_k * 3, 30)  # Over-fetch for graph expansion
+        try:
+            vec_results = self.vector_index.search(
+                query_embedding,
+                top_k=fetch_k,
+                threshold=min_confidence,
+            )
+        except Exception as exc:
+            emit(QueryFailed(
+                query_id=query_id,
+                error=str(exc),
+                stage="vec_search",
+                timestamp=datetime.now(UTC).isoformat(),
+            ))
+            raise
+
+        if not vec_results:
+            return None, {}, 0
+
+        # Resolve nodes and filter by domain
+        seed_nodes: list[tuple[str, float]] = []  # (node_id, vec_score)
+        for node_id, score in vec_results:
+            node = self.backend.get_node(node_id)
+            if node is None:
+                continue
+            if domains and node.domain not in domains:
+                continue
+            seed_nodes.append((node_id, score))
+
+        # Seed yield: how many vec results survived domain filtering
+        emit(VecSeedYield(
+            query_id=query_id,
+            vec_candidates=len(vec_results),
+            seeds_after_filter=len(seed_nodes),
+            yield_ratio=len(seed_nodes) / max(len(vec_results), 1),
+        ))
+
+        if not seed_nodes:
+            return None, {}, len(vec_results)
+
+        seed_ids = [nid for nid, _ in seed_nodes]
+        vec_scores = dict(seed_nodes)
+
+        vec_elapsed = (time.perf_counter() - t0) * 1000
+        emit(VecSearchCompleted(
+            query_id=query_id,
+            candidates=len(vec_results),
+            fetch_k=fetch_k,
+            latency_ms=vec_elapsed,
+        ))
+
+        return seed_ids, vec_scores, len(vec_results)
+
+    @traced("retrieval.ppr", external=True)
+    def _run_ppr(
+        self,
+        seed_ids: list[str],
+        online_edges: list[tuple[str, str, float]],
+        domains: list[str] | None,
+        query_id: str,
+    ) -> dict[str, float]:
+        """Run Personalized PageRank over the merged graph."""
         seed_weights = self._interoception.get_seed_weights(seed_ids)
 
         try:
-            ppr_scores = self.backend.personalized_pagerank(
+            return self.backend.personalized_pagerank(
                 source_nodes=seed_ids,
                 damping_factor=0.85,
                 max_iterations=100,
@@ -392,18 +458,23 @@ class GraphRAGAdapter:
             ))
             raise
 
-        # 6. Combined scoring: vec_sim × PPR_activation
+    @traced("retrieval.scoring")
+    def _score_and_build(
+        self,
+        vec_scores: dict[str, float],
+        ppr_scores: dict[str, float],
+        top_k: int,
+        kg_coverage: float,
+    ) -> list[RetrievalItem]:
+        """Combined scoring: vec_sim x PPR_activation, then build result items."""
         combined: dict[str, float] = {}
         for node_id in set(list(vec_scores.keys()) + list(ppr_scores.keys())):
             vec_s = vec_scores.get(node_id, 0.0)
             ppr_s = ppr_scores.get(node_id, 0.0)
-            # Hybrid score: both signals contribute
             combined[node_id] = vec_s * 0.5 + ppr_s * 0.5
 
-        # Sort by combined score
         ranked = sorted(combined.items(), key=lambda x: -x[1])
 
-        # 7. Build result items
         items: list[RetrievalItem] = []
         for node_id, score in ranked[:top_k]:
             node = self.backend.get_node(node_id)
@@ -424,26 +495,7 @@ class GraphRAGAdapter:
                     },
                 )
             )
-
-        # Cache query for feedback routing
-        self._query_cache[query_id] = [item.id for item in items]
-
-        elapsed = (time.perf_counter() - t0) * 1000
-        emit(QueryCompleted(
-            query_id=query_id,
-            latency_ms=elapsed,
-            seed_count=len(seed_ids),
-            result_count=len(items),
-            activated_nodes=len(ppr_scores),
-            mode="graph",
-            timestamp=datetime.now(UTC).isoformat(),
-        ))
-
-        return RetrievalResult(
-            items=items,
-            query_id=query_id,
-            activated_nodes=list(ppr_scores.keys()),
-        )
+        return items
 
     def feedback(self, query_id: str, outcomes: dict[str, str]) -> None:
         """Update teleportation factors from feedback via interoception.
@@ -476,6 +528,7 @@ class GraphRAGAdapter:
         """Backward-compat: proxy to interoception's buffer."""
         return self._interoception.buffer
 
+    @traced("retrieval.online_edges")
     def _build_online_edges(
         self,
         seed_ids: list[str],
