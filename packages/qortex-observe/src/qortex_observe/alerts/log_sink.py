@@ -5,8 +5,8 @@ from __future__ import annotations
 from dataclasses import asdict
 from typing import Any
 
-from qortex.observability.alerts.base import AlertRule
-from qortex.observability.logging import get_logger
+from qortex_observe.alerts.base import AlertRule
+from qortex_observe.logging import get_logger
 
 logger = get_logger("qortex.alerts")
 

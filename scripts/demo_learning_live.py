@@ -15,11 +15,11 @@ import time
 
 # Force Prometheus metrics on port 9090
 os.environ["QORTEX_PROMETHEUS_ENABLED"] = "true"
-os.environ["QORTEX_PROMETHEUS_PORT"] = "9090"
+os.environ["QORTEX_PROMETHEUS_PORT"] = "9464"
 
 from qortex.learning.learner import Learner
 from qortex.learning.types import Arm, ArmOutcome, LearnerConfig
-from qortex.observability import configure, reset as obs_reset
+from qortex_observe import configure, reset as obs_reset
 
 # ── Setup ─────────────────────────────────────────────────────────
 obs_reset()
@@ -29,7 +29,7 @@ print("=" * 60)
 print("  QORTEX LEARNING — LIVE GRAFANA DEMO")
 print("=" * 60)
 print()
-print("  Prometheus metrics at: http://localhost:9090/metrics")
+print("  Prometheus metrics at: http://localhost:9464/metrics")
 print("  Grafana dashboard at:  http://localhost:3010/d/qortex-main/qortex-observability")
 print("  Scroll to: 'Learning & Bandits' row")
 print()

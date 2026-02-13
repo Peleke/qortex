@@ -9,7 +9,7 @@ from __future__ import annotations
 from dataclasses import asdict
 from pathlib import Path
 
-from qortex.observability.events import (
+from qortex_observe.events import (
     BufferFlushed,
     CreditPropagated,
     EdgePromoted,
@@ -37,8 +37,8 @@ from qortex.observability.events import (
     QueryStarted,
     VecSearchCompleted,
 )
-from qortex.observability.linker import QortexEventLinker
-from qortex.observability.sinks.jsonl_sink import JsonlSink
+from qortex_observe.linker import QortexEventLinker
+from qortex_observe.sinks.jsonl_sink import JsonlSink
 
 # All event types that should be written to JSONL
 _ALL_EVENTS = (

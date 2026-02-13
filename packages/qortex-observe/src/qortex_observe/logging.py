@@ -1,15 +1,15 @@
 """Structured logging: swappable formatter × destination via config.
 
 Architecture:
-    LogFormatter  — HOW records are structured (structlog, stdlib, future: loguru)
-    LogDestination — WHERE output goes (stderr, VictoriaLogs, JSONL file)
+    LogFormatter:  HOW records are structured (structlog, stdlib, future: loguru)
+    LogDestination: WHERE output goes (stderr, VictoriaLogs, JSONL file)
 
     setup_logging(config) composes them: formatter.setup() returns a
     logging.Formatter, destination.create_handler() returns a logging.Handler,
     the handler gets the formatter, and it's attached to the root logger.
 
     All 44 existing files using logging.getLogger() get structured output
-    automatically — zero code changes — because both formatters bridge stdlib.
+    automatically (zero code changes) because both formatters bridge stdlib.
 
 Swapping:
     QORTEX_LOG_FORMATTER=structlog   (default)
@@ -17,7 +17,7 @@ Swapping:
     QORTEX_LOG_DESTINATION=victorialogs  (default prod)
 
     Or register your own:
-        from qortex.observability.logging import register_formatter, register_destination
+        from qortex_observe.logging import register_formatter, register_destination
         register_destination("datadog", MyDatadogDestination)
 
 VictoriaLogs:
@@ -37,7 +37,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Any, Protocol, runtime_checkable
 
 if TYPE_CHECKING:
-    from qortex.observability.config import ObservabilityConfig
+    from qortex_observe.config import ObservabilityConfig
 
 
 # ---------------------------------------------------------------------------
@@ -65,8 +65,8 @@ class LogFormatter(Protocol):
 class LogDestination(Protocol):
     """Strategy: where formatted log output is shipped.
 
-    create_handler() returns a logging.Handler — the bridge between
-    Python's logging system and the destination.
+    create_handler() returns a logging.Handler (the bridge between
+    Python's logging system and the destination).
     """
 
     def create_handler(self, formatter: logging.Formatter) -> logging.Handler: ...
@@ -237,7 +237,7 @@ class VictoriaLogsDestination:
     Auto-indexes all fields.  Special fields: _time, _msg.
 
     Batches in memory, flushes on threshold or periodic timer.
-    Uses urllib.request (stdlib) — no extra dependencies.
+    Uses urllib.request (stdlib), no extra dependencies.
     """
 
     def __init__(self, config: ObservabilityConfig) -> None:
@@ -289,7 +289,7 @@ class VictoriaLogsDestination:
             )
             urllib.request.urlopen(req, timeout=5)
         except Exception:
-            pass  # fire-and-forget — don't let log shipping break the app
+            pass  # fire-and-forget: don't let log shipping break the app
 
     def shutdown(self) -> None:
         self._closed = True
@@ -421,7 +421,7 @@ def setup_logging(config: ObservabilityConfig) -> None:
     log_formatter = formatter.setup(config)
     handler = destination.create_handler(log_formatter)
 
-    # Wire to root logger — only replace our own handler, preserve external ones
+    # Wire to root logger: only replace our own handler, preserve external ones
     # (monitoring agents, pytest caplog, log aggregation, etc.)
     handler._qortex_managed = True  # type: ignore[attr-defined]
     root_logger = logging.getLogger()
@@ -447,7 +447,7 @@ def get_logger(name: str = "", **kwargs: Any) -> Any:
     """
     if _active_formatter is not None:
         return _active_formatter.get_logger(name, **kwargs)
-    # Fallback before configuration — wrap stdlib so kwargs don't crash
+    # Fallback before configuration: wrap stdlib so kwargs don't crash
     return _StructuredStdlibLogger(logging.getLogger(name))
 
 

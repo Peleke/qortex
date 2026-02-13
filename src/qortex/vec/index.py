@@ -6,13 +6,16 @@ import logging
 import time
 from typing import Protocol, runtime_checkable
 
+from qortex_observe.tracing import traced
+
 logger = logging.getLogger(__name__)
 
 
 def _try_emit(event) -> None:
     """Emit an observability event if the emitter is configured."""
     try:
-        from qortex.observability import emit
+        from qortex_observe import emit
+
         emit(event)
     except Exception:
         pass  # observability is optional
@@ -90,6 +93,7 @@ class NumpyVectorIndex:
         # Stacked matrix: (n_vectors, dimensions), normalized for cosine sim
         self._matrix: np.ndarray = np.zeros((0, dimensions), dtype=np.float32)
 
+    @traced("vec.add")
     def add(self, ids: list[str], embeddings: list[list[float]]) -> None:
         """Add vectors. Overwrites if ID already exists."""
         t0 = time.perf_counter()
@@ -123,14 +127,27 @@ class NumpyVectorIndex:
         else:
             self._matrix = np.vstack([self._matrix, new_vecs])
 
-        from qortex.observability.events import VecIndexUpdated
-        _try_emit(VecIndexUpdated(
-            count_added=len(ids),
-            total_size=len(self._ids),
-            latency_ms=(time.perf_counter() - t0) * 1000,
-            index_type="numpy",
-        ))
+        try:
+            from opentelemetry import trace
 
+            span = trace.get_current_span()
+            span.set_attribute("vec.count_added", len(ids))
+            span.set_attribute("vec.total_size", len(self._ids))
+        except ImportError:
+            pass
+
+        from qortex_observe.events import VecIndexUpdated
+
+        _try_emit(
+            VecIndexUpdated(
+                count_added=len(ids),
+                total_size=len(self._ids),
+                latency_ms=(time.perf_counter() - t0) * 1000,
+                index_type="numpy",
+            )
+        )
+
+    @traced("vec.search")
     def search(
         self,
         query_embedding: list[float],
@@ -165,21 +182,37 @@ class NumpyVectorIndex:
 
         results = [(self._ids[idx], float(top_scores[i])) for i, idx in enumerate(top_indices)]
 
+        try:
+            from opentelemetry import trace
+
+            span = trace.get_current_span()
+            span.set_attribute("vec.top_k", top_k)
+            span.set_attribute("vec.threshold", threshold)
+            span.set_attribute("vec.result_count", len(results))
+            if results:
+                span.set_attribute("vec.top_score", results[0][1])
+        except ImportError:
+            pass
+
         # Vec observability: search quality signal
         elapsed = (time.perf_counter() - t0) * 1000
         top_score = float(top_scores[0]) if len(top_scores) > 0 else 0.0
         bottom_score = float(top_scores[-1]) if len(top_scores) > 0 else 0.0
-        from qortex.observability.events import VecSearchResults
-        _try_emit(VecSearchResults(
-            candidates=len(results),
-            top_score=top_score,
-            score_spread=top_score - bottom_score,
-            latency_ms=elapsed,
-            index_type="numpy",
-        ))
+        from qortex_observe.events import VecSearchResults
+
+        _try_emit(
+            VecSearchResults(
+                candidates=len(results),
+                top_score=top_score,
+                score_spread=top_score - bottom_score,
+                latency_ms=elapsed,
+                index_type="numpy",
+            )
+        )
 
         return results
 
+    @traced("vec.remove")
     def remove(self, ids: list[str]) -> None:
         """Remove vectors by ID."""
         np = self._np
@@ -286,13 +319,16 @@ class SqliteVecIndex:
 
         self._conn.commit()
 
-        from qortex.observability.events import VecIndexUpdated
-        _try_emit(VecIndexUpdated(
-            count_added=len(ids),
-            total_size=self.size(),
-            latency_ms=(time.perf_counter() - t0) * 1000,
-            index_type="sqlite",
-        ))
+        from qortex_observe.events import VecIndexUpdated
+
+        _try_emit(
+            VecIndexUpdated(
+                count_added=len(ids),
+                total_size=self.size(),
+                latency_ms=(time.perf_counter() - t0) * 1000,
+                index_type="sqlite",
+            )
+        )
 
     def search(
         self,
@@ -332,14 +368,17 @@ class SqliteVecIndex:
         elapsed = (time.perf_counter() - t0) * 1000
         top_score = results[0][1] if results else 0.0
         bottom_score = results[-1][1] if results else 0.0
-        from qortex.observability.events import VecSearchResults
-        _try_emit(VecSearchResults(
-            candidates=len(results),
-            top_score=top_score,
-            score_spread=top_score - bottom_score,
-            latency_ms=elapsed,
-            index_type="sqlite",
-        ))
+        from qortex_observe.events import VecSearchResults
+
+        _try_emit(
+            VecSearchResults(
+                candidates=len(results),
+                top_score=top_score,
+                score_spread=top_score - bottom_score,
+                latency_ms=elapsed,
+                index_type="sqlite",
+            )
+        )
 
         return results
 

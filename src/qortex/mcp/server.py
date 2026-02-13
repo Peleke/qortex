@@ -60,18 +60,31 @@ Architecture:
 from __future__ import annotations
 
 import atexit
+import functools
 import os
 from pathlib import Path
 from typing import Any
 
 from fastmcp import FastMCP
+from qortex_observe.logging import get_logger
+from qortex_observe.mcp import mcp_trace_middleware
 
 from qortex.core.memory import InMemoryBackend
 from qortex.hippocampus.adapter import VecOnlyAdapter
-from qortex.observability.logging import get_logger
 from qortex.sources.registry import SourceRegistry
 
 logger = get_logger(__name__)
+
+
+def _mcp_traced(fn):
+    """Wrap an MCP tool handler with distributed trace middleware."""
+
+    @functools.wraps(fn)
+    def wrapper(**kwargs):
+        return mcp_trace_middleware(fn.__name__, kwargs, lambda p: fn(**p))
+
+    return wrapper
+
 
 # ---------------------------------------------------------------------------
 # Server-level state: initialized once via create_server() or serve()
@@ -135,7 +148,8 @@ def _ensure_initialized() -> None:
         return
 
     # Initialize observability (env-var driven, zero-config by default)
-    from qortex.observability import configure
+    from qortex_observe import configure
+
     configure()
 
     # --- Embedding model ---
@@ -413,9 +427,7 @@ def _maybe_propagate_credit(
             continue
 
         # Compute average reward for this domain's outcomes
-        rewards = [
-            _OUTCOME_REWARD.get(outcomes[cid], 0.0) for cid in concept_ids
-        ]
+        rewards = [_OUTCOME_REWARD.get(outcomes[cid], 0.0) for cid in concept_ids]
         avg_reward = sum(rewards) / len(rewards)
 
         assigner = CreditAssigner(dag)
@@ -431,23 +443,25 @@ def _maybe_propagate_credit(
     learner.apply_credit_deltas(updates)
 
     # Emit event
-    from qortex.observability import emit
-    from qortex.observability.events import CreditPropagated
+    from qortex_observe import emit
+    from qortex_observe.events import CreditPropagated
 
     direct = sum(1 for a in all_assignments if a.method == "direct")
     ancestor = sum(1 for a in all_assignments if a.method == "ancestor")
     total_alpha = sum(u.get("alpha_delta", 0.0) for u in updates.values())
     total_beta = sum(u.get("beta_delta", 0.0) for u in updates.values())
 
-    emit(CreditPropagated(
-        query_id=query_id,
-        concept_count=len(updates),
-        direct_count=direct,
-        ancestor_count=ancestor,
-        total_alpha_delta=total_alpha,
-        total_beta_delta=total_beta,
-        learner="credit",
-    ))
+    emit(
+        CreditPropagated(
+            query_id=query_id,
+            concept_count=len(updates),
+            direct_count=direct,
+            ancestor_count=ancestor,
+            total_alpha_delta=total_alpha,
+            total_beta_delta=total_beta,
+            learner="credit",
+        )
+    )
 
     return {
         "concept_count": len(updates),
@@ -840,21 +854,32 @@ def _compare_impl(
     if _adapter is None:
         return {"error": "No vector index available. Install qortex[vec]."}
     vec_result = _adapter.retrieve(
-        query=context, domains=domains, top_k=top_k, min_confidence=0.0,
+        query=context,
+        domains=domains,
+        top_k=top_k,
+        min_confidence=0.0,
     )
 
     # Graph-enhanced (structural + vector)
     graph_result = None
     if _graph_adapter is not None:
         graph_result = _graph_adapter.retrieve(
-            query=context, domains=domains, top_k=top_k, min_confidence=0.0,
+            query=context,
+            domains=domains,
+            top_k=top_k,
+            min_confidence=0.0,
         )
 
     def _fmt(result):
         return [
-            {"rank": i + 1, "id": it.id, "content": it.content[:200],
-             "score": round(it.score, 4), "domain": it.domain,
-             "node_id": it.node_id}
+            {
+                "rank": i + 1,
+                "id": it.id,
+                "content": it.content[:200],
+                "score": round(it.score, 4),
+                "domain": it.domain,
+                "node_id": it.node_id,
+            }
             for i, it in enumerate(result.items)
         ]
 
@@ -873,11 +898,15 @@ def _compare_impl(
         if it["id"] in vec_set:
             vec_rank = vec_ids.index(it["id"]) + 1
             if vec_rank != it["rank"]:
-                rank_changes.append({
-                    "id": it["id"], "content": it["content"][:80],
-                    "vec_rank": vec_rank, "graph_rank": it["rank"],
-                    "delta": vec_rank - it["rank"],
-                })
+                rank_changes.append(
+                    {
+                        "id": it["id"],
+                        "content": it["content"][:80],
+                        "vec_rank": vec_rank,
+                        "graph_rank": it["rank"],
+                        "delta": vec_rank - it["rank"],
+                    }
+                )
 
     rules = _collect_query_rules(graph_items, domains) if graph_result else []
 
@@ -970,7 +999,8 @@ def _stats_impl() -> dict:
             "vector_index": type(_vector_index).__name__ if _vector_index else None,
             "embedding_model": (
                 getattr(_embedding_model, "_model_name", type(_embedding_model).__name__)
-                if _embedding_model else None
+                if _embedding_model
+                else None
             ),
             "persistence": _get_persistence_info(),
         },
@@ -1757,6 +1787,7 @@ def _vector_delete_many_impl(
 
 
 @mcp.tool
+@_mcp_traced
 def qortex_query(
     context: str,
     domains: list[str] | None = None,
@@ -1786,6 +1817,7 @@ def qortex_query(
 
 
 @mcp.tool
+@_mcp_traced
 def qortex_feedback(
     query_id: str,
     outcomes: dict[str, str],
@@ -1807,6 +1839,7 @@ def qortex_feedback(
 
 
 @mcp.tool
+@_mcp_traced
 def qortex_ingest(
     source_path: str,
     domain: str,
@@ -1827,6 +1860,7 @@ def qortex_ingest(
 
 
 @mcp.tool
+@_mcp_traced
 def qortex_ingest_text(
     text: str,
     domain: str,
@@ -1848,6 +1882,7 @@ def qortex_ingest_text(
 
 
 @mcp.tool
+@_mcp_traced
 def qortex_ingest_structured(
     concepts: list[dict],
     domain: str,
@@ -1869,6 +1904,7 @@ def qortex_ingest_structured(
 
 
 @mcp.tool
+@_mcp_traced
 def qortex_domains() -> dict:
     """List all knowledge domains and their sizes.
 
@@ -1878,6 +1914,7 @@ def qortex_domains() -> dict:
 
 
 @mcp.tool
+@_mcp_traced
 def qortex_status() -> dict:
     """Check if the knowledge system is healthy and what capabilities are active.
 
@@ -1887,6 +1924,7 @@ def qortex_status() -> dict:
 
 
 @mcp.tool
+@_mcp_traced
 def qortex_explore(
     node_id: str,
     depth: int = 1,
@@ -1912,6 +1950,7 @@ def qortex_explore(
 
 
 @mcp.tool
+@_mcp_traced
 def qortex_rules(
     domains: list[str] | None = None,
     concept_ids: list[str] | None = None,
@@ -1936,6 +1975,7 @@ def qortex_rules(
 
 
 @mcp.tool
+@_mcp_traced
 def qortex_compare(
     context: str,
     domains: list[str] | None = None,
@@ -1956,6 +1996,7 @@ def qortex_compare(
 
 
 @mcp.tool
+@_mcp_traced
 def qortex_stats() -> dict:
     """See how the knowledge system has improved over time.
 
@@ -1971,6 +2012,7 @@ def qortex_stats() -> dict:
 
 
 @mcp.tool
+@_mcp_traced
 def qortex_source_connect(
     source_id: str,
     connection_string: str,
@@ -1991,6 +2033,7 @@ def qortex_source_connect(
 
 
 @mcp.tool
+@_mcp_traced
 def qortex_source_discover(source_id: str) -> dict:
     """Return discovered schemas for a connected source.
 
@@ -2001,6 +2044,7 @@ def qortex_source_discover(source_id: str) -> dict:
 
 
 @mcp.tool
+@_mcp_traced
 def qortex_source_sync(
     source_id: str,
     tables: list[str] | None = None,
@@ -2019,12 +2063,14 @@ def qortex_source_sync(
 
 
 @mcp.tool
+@_mcp_traced
 def qortex_source_list() -> dict:
     """List all connected database sources."""
     return _source_list_impl()
 
 
 @mcp.tool
+@_mcp_traced
 def qortex_source_disconnect(source_id: str) -> dict:
     """Disconnect a database source and remove it from the registry.
 
@@ -2035,6 +2081,7 @@ def qortex_source_disconnect(source_id: str) -> dict:
 
 
 @mcp.tool
+@_mcp_traced
 def qortex_source_inspect_schema(
     connection_string: str,
     source_id: str,
@@ -2057,6 +2104,7 @@ def qortex_source_inspect_schema(
 
 
 @mcp.tool
+@_mcp_traced
 def qortex_source_ingest_graph(
     connection_string: str,
     source_id: str,
@@ -2094,6 +2142,7 @@ def qortex_source_ingest_graph(
 
 
 @mcp.tool
+@_mcp_traced
 def qortex_vector_create_index(
     index_name: str,
     dimension: int,
@@ -2113,12 +2162,14 @@ def qortex_vector_create_index(
 
 
 @mcp.tool
+@_mcp_traced
 def qortex_vector_list_indexes() -> dict:
     """List all named vector indexes."""
     return _vector_list_indexes_impl()
 
 
 @mcp.tool
+@_mcp_traced
 def qortex_vector_describe_index(index_name: str) -> dict:
     """Get statistics for a named vector index.
 
@@ -2131,6 +2182,7 @@ def qortex_vector_describe_index(index_name: str) -> dict:
 
 
 @mcp.tool
+@_mcp_traced
 def qortex_vector_delete_index(index_name: str) -> dict:
     """Delete a named vector index and all its data.
 
@@ -2141,6 +2193,7 @@ def qortex_vector_delete_index(index_name: str) -> dict:
 
 
 @mcp.tool
+@_mcp_traced
 def qortex_vector_upsert(
     index_name: str,
     vectors: list[list[float]],
@@ -2164,6 +2217,7 @@ def qortex_vector_upsert(
 
 
 @mcp.tool
+@_mcp_traced
 def qortex_vector_query(
     index_name: str,
     query_vector: list[float],
@@ -2187,6 +2241,7 @@ def qortex_vector_query(
 
 
 @mcp.tool
+@_mcp_traced
 def qortex_vector_update(
     index_name: str,
     id: str | None = None,
@@ -2210,6 +2265,7 @@ def qortex_vector_update(
 
 
 @mcp.tool
+@_mcp_traced
 def qortex_vector_delete(index_name: str, id: str) -> dict:
     """Delete a single vector by ID.
 
@@ -2221,6 +2277,7 @@ def qortex_vector_delete(index_name: str, id: str) -> dict:
 
 
 @mcp.tool
+@_mcp_traced
 def qortex_vector_delete_many(
     index_name: str,
     ids: list[str] | None = None,
@@ -2373,6 +2430,7 @@ def _learning_session_end_impl(session_id: str) -> dict:
 
 
 @mcp.tool
+@_mcp_traced
 def qortex_learning_select(
     learner: str,
     candidates: list[dict],
@@ -2399,6 +2457,7 @@ def qortex_learning_select(
 
 
 @mcp.tool
+@_mcp_traced
 def qortex_learning_observe(
     learner: str,
     arm_id: str,
@@ -2422,6 +2481,7 @@ def qortex_learning_observe(
 
 
 @mcp.tool
+@_mcp_traced
 def qortex_learning_posteriors(
     learner: str,
     context: dict | None = None,
@@ -2440,6 +2500,7 @@ def qortex_learning_posteriors(
 
 
 @mcp.tool
+@_mcp_traced
 def qortex_learning_metrics(
     learner: str,
     window: int | None = None,
@@ -2456,6 +2517,7 @@ def qortex_learning_metrics(
 
 
 @mcp.tool
+@_mcp_traced
 def qortex_learning_session_start(
     learner: str,
     session_name: str,
@@ -2470,6 +2532,7 @@ def qortex_learning_session_start(
 
 
 @mcp.tool
+@_mcp_traced
 def qortex_learning_session_end(session_id: str) -> dict:
     """End a learning session and return summary.
 

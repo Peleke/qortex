@@ -144,9 +144,9 @@ class TestGetAllStates:
         assert len(all_states) == 2
 
         # Find keys (context hashes)
-        for ctx_hash, arms in all_states.items():
+        for _ctx_hash, arms in all_states.items():
             assert isinstance(arms, dict)
-            for arm_id, state in arms.items():
+            for _arm_id, state in arms.items():
                 assert isinstance(state, ArmState)
 
     def test_all_states_has_correct_values(self, store):
@@ -195,6 +195,7 @@ class TestSqlitePersistence:
         store = SqliteLearningStore("lazy-test", state_dir)
         # First call triggers connection; verify by checking DB file exists after
         import os
+
         db_path = os.path.join(state_dir, "lazy-test.db")
         assert not os.path.exists(db_path)
         store.get("arm:a")
@@ -207,37 +208,46 @@ class TestSqlitePersistence:
 
 
 class TestNameSanitization:
-    @pytest.mark.parametrize("bad_name", [
-        "../../evil",
-        "../passwd",
-        "foo/bar",
-        "foo\\bar",
-        "",
-        ".hidden",
-        "name with spaces",
-    ])
+    @pytest.mark.parametrize(
+        "bad_name",
+        [
+            "../../evil",
+            "../passwd",
+            "foo/bar",
+            "foo\\bar",
+            "",
+            ".hidden",
+            "name with spaces",
+        ],
+    )
     def test_rejects_unsafe_names_sqlite(self, tmp_path, bad_name):
         with pytest.raises(ValueError, match="Invalid learner name"):
             SqliteLearningStore(bad_name, str(tmp_path))
 
-    @pytest.mark.parametrize("bad_name", [
-        "../../evil",
-        "../passwd",
-        "foo/bar",
-        "",
-        ".hidden",
-    ])
+    @pytest.mark.parametrize(
+        "bad_name",
+        [
+            "../../evil",
+            "../passwd",
+            "foo/bar",
+            "",
+            ".hidden",
+        ],
+    )
     def test_rejects_unsafe_names_json(self, tmp_path, bad_name):
         with pytest.raises(ValueError, match="Invalid learner name"):
             JsonLearningStore(bad_name, str(tmp_path))
 
-    @pytest.mark.parametrize("good_name", [
-        "my-learner",
-        "prompt_optimizer",
-        "v2.1",
-        "learner-A",
-        "test123",
-    ])
+    @pytest.mark.parametrize(
+        "good_name",
+        [
+            "my-learner",
+            "prompt_optimizer",
+            "v2.1",
+            "learner-A",
+            "test123",
+        ],
+    )
     def test_accepts_safe_names(self, tmp_path, good_name):
         SqliteLearningStore(good_name, str(tmp_path))
         JsonLearningStore(good_name, str(tmp_path))

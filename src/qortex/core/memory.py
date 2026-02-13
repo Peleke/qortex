@@ -10,8 +10,8 @@ from collections.abc import Iterator
 from datetime import UTC, datetime
 from typing import Literal
 
-from qortex.observability import emit
-from qortex.observability.events import ManifestIngested, PPRConverged, PPRDiverged, PPRStarted
+from qortex_observe import emit
+from qortex_observe.events import ManifestIngested, PPRConverged, PPRDiverged, PPRStarted
 
 from .backend import GraphPattern
 from .models import ConceptEdge, ConceptNode, Domain, ExplicitRule, IngestionManifest
@@ -200,14 +200,16 @@ class InMemoryBackend:
         domain.updated_at = datetime.now(UTC)
 
         elapsed = (time.perf_counter() - t0) * 1000
-        emit(ManifestIngested(
-            domain=manifest.domain,
-            node_count=len(manifest.concepts),
-            edge_count=len(manifest.edges),
-            rule_count=len(manifest.rules),
-            source_id=manifest.source.id,
-            latency_ms=elapsed,
-        ))
+        emit(
+            ManifestIngested(
+                domain=manifest.domain,
+                node_count=len(manifest.concepts),
+                edge_count=len(manifest.edges),
+                rule_count=len(manifest.rules),
+                source_id=manifest.source.id,
+                latency_ms=elapsed,
+            )
+        )
 
     # -------------------------------------------------------------------------
     # Query (limited — no Cypher support)
@@ -270,13 +272,15 @@ class InMemoryBackend:
             return {}
 
         t0 = time.perf_counter()
-        emit(PPRStarted(
-            query_id=query_id,
-            node_count=len(node_ids),
-            seed_count=len(valid_seeds),
-            damping_factor=damping_factor,
-            extra_edge_count=len(extra_edges) if extra_edges else 0,
-        ))
+        emit(
+            PPRStarted(
+                query_id=query_id,
+                node_count=len(node_ids),
+                seed_count=len(valid_seeds),
+                damping_factor=damping_factor,
+                extra_edge_count=len(extra_edges) if extra_edges else 0,
+            )
+        )
 
         # 2. Build adjacency: node_id → [(neighbor_id, weight)]
         adjacency: dict[str, list[tuple[str, float]]] = {nid: [] for nid in node_ids}
@@ -344,21 +348,25 @@ class InMemoryBackend:
         result = {nid: score for nid, score in scores.items() if score > 1e-8}
 
         if diff < convergence_threshold:
-            emit(PPRConverged(
-                query_id=query_id,
-                iterations=_iteration + 1,
-                final_diff=diff,
-                node_count=len(node_ids),
-                nonzero_scores=len(result),
-                latency_ms=elapsed,
-            ))
+            emit(
+                PPRConverged(
+                    query_id=query_id,
+                    iterations=_iteration + 1,
+                    final_diff=diff,
+                    node_count=len(node_ids),
+                    nonzero_scores=len(result),
+                    latency_ms=elapsed,
+                )
+            )
         else:
-            emit(PPRDiverged(
-                query_id=query_id,
-                iterations=max_iterations,
-                final_diff=diff,
-                node_count=len(node_ids),
-            ))
+            emit(
+                PPRDiverged(
+                    query_id=query_id,
+                    iterations=max_iterations,
+                    final_diff=diff,
+                    node_count=len(node_ids),
+                )
+            )
 
         # Filter out near-zero scores
         return result

@@ -1,18 +1,27 @@
 # Observability and Grafana Dashboard
 
-qortex ships a full observability stack: structured events, OpenTelemetry traces and metrics, Prometheus scraping, and a pre-built Grafana dashboard that visualizes the entire pipeline.
+qortex ships a full observability stack: structured events, OpenTelemetry traces and metrics, Prometheus scraping, distributed tracing, and a pre-built Grafana dashboard that visualizes the entire pipeline.
+
+The observability layer is packaged as `qortex-observe`, a standalone package that can be installed independently. It provides the event system, metric definitions, trace instrumentation, and all subscriber wiring.
 
 ## Architecture
 
 ```
 qortex process
-  ├─ emit(Event)          ← typed frozen dataclass
-  │   ├─ OTel subscriber  → OTel Collector → Prometheus (remote write)
-  │   └─ Prom subscriber  → HTTP /metrics (local scrape target)
-  └─ structlog logger     → stdout / JSONL sink / VictoriaLogs
+  ├─ emit(Event)               ← typed frozen dataclass
+  │   ├─ metrics_handlers      → OTel instruments (counters, histograms, gauges)
+  │   │   ├─ OTLP push         → OTel Collector → Prometheus (remote write)
+  │   │   └─ PrometheusReader  → HTTP /metrics (local scrape target, port 9464)
+  │   ├─ otel_traces           → OTel spans → Jaeger (trace viewer)
+  │   ├─ structlog             → stdout / JSONL sink / VictoriaLogs
+  │   ├─ jsonl                 → append-only log file
+  │   └─ alerts                → threshold-based alerting
+  └─ @traced decorator         → automatic parent-child span hierarchy
 ```
 
-Events are emitted at every stage of the pipeline: ingestion, vector index operations (add/search), retrieval (vec search, online edge generation, PPR), feedback (factor updates), enrichment, and buffer promotion. Each subscriber translates events into counters, histograms, and gauges.
+All 36 metrics are defined in a single declarative schema (`metrics_schema.py`). OTel is the sole metric backend; `PrometheusMetricReader` serves the `/metrics` endpoint for Prometheus scraping. The old `prometheus.py` subscriber has been removed.
+
+Events are emitted at every stage of the pipeline: ingestion, vector index operations (add/search), retrieval (vec search, online edge generation, PPR), feedback (factor updates), enrichment, learning (bandit selection/observation), credit propagation, and buffer promotion. A single set of event handlers in `metrics_handlers.py` translates events into OTel instruments.
 
 ## Quick Start
 
@@ -41,11 +50,13 @@ open http://localhost:3010/d/qortex-main/qortex-observability
 
 | Variable | Default | Description |
 |----------|---------|-------------|
-| `QORTEX_OTEL_ENABLED` | `false` | Enable OTel metrics export |
+| `QORTEX_OTEL_ENABLED` | `false` | Enable OTel metrics and traces export |
 | `OTEL_EXPORTER_OTLP_ENDPOINT` | — | OTel Collector endpoint (e.g. `http://localhost:4318`) |
 | `OTEL_EXPORTER_OTLP_PROTOCOL` | — | Protocol (`http/protobuf` or `grpc`) |
 | `QORTEX_PROMETHEUS_ENABLED` | `false` | Enable local Prometheus HTTP server |
 | `QORTEX_PROMETHEUS_PORT` | `9464` | Port for the local `/metrics` endpoint |
+| `QORTEX_OTEL_TRACE_SAMPLE_RATE` | `0.1` | Fraction of normal traces to export (0.0-1.0). Errors and slow traces are always exported. |
+| `QORTEX_OTEL_TRACE_LATENCY_THRESHOLD_MS` | `100.0` | Spans slower than this are always exported regardless of sample rate. |
 | `MEMGRAPH_USER` | — | Memgraph Bolt auth username |
 | `MEMGRAPH_PASSWORD` | — | Memgraph Bolt auth password |
 
@@ -362,6 +373,87 @@ These panels track causal credit assignment: feedback propagating backward throu
 | `qortex_credit_concepts_per_propagation` | Histogram | `CreditPropagated` | — |
 | `qortex_credit_alpha_delta_total` | Counter | `CreditPropagated` | — |
 | `qortex_credit_beta_delta_total` | Counter | `CreditPropagated` | — |
+
+## Distributed Tracing
+
+qortex uses the `@traced` decorator from `qortex_observe.tracing` to create OpenTelemetry spans with automatic parent-child hierarchy. When OTel is enabled, every operation produces a trace tree visible in Jaeger.
+
+### Span Hierarchy
+
+A typical `ingest_manifest` call produces a trace like:
+
+```
+memgraph.ingest_manifest (domain=python, nodes=12, edges=8, rules=5)
+  ├─ memgraph.create_domain
+  │   └─ cypher.execute (CREATE (:Domain ...))
+  ├─ memgraph.add_node (x12)
+  │   └─ cypher.execute (MERGE (n:Concept ...))
+  ├─ memgraph.add_edge (x8)
+  │   └─ cypher.execute (MATCH ... CREATE (a)-[r]->(...))
+  └─ memgraph.add_rule (x5)
+      └─ cypher.execute (MERGE (r:Rule ...))
+```
+
+A `personalized_pagerank` call shows convergence attributes:
+
+```
+memgraph.personalized_pagerank
+  ├─ cypher.execute (MATCH (n:Concept) ...)   ← fetch nodes
+  ├─ cypher.execute (MATCH ()-[r]->() ...)    ← fetch edges
+  └─ [span attributes]
+      ppr.node_count=45, ppr.edge_count=32, ppr.seed_count=3
+      ppr.iterations=77, ppr.final_diff=9.5e-7, ppr.converged=true
+      ppr.nonzero_scores=12, ppr.latency_ms=4.2
+```
+
+### Instrumented Operations
+
+All major subsystems are traced:
+
+| Subsystem | Span Name | Attributes |
+|-----------|-----------|------------|
+| **Memgraph** | `cypher.execute` | `db.statement`, `db.system` |
+| | `memgraph.create_domain` | — |
+| | `memgraph.add_node` | — |
+| | `memgraph.add_edge` | — |
+| | `memgraph.add_rule` | — |
+| | `memgraph.ingest_manifest` | `ingest.domain`, `ingest.node_count`, `ingest.edge_count`, `ingest.rule_count` |
+| | `memgraph.personalized_pagerank` | `ppr.node_count`, `ppr.edge_count`, `ppr.iterations`, `ppr.converged`, `ppr.latency_ms` |
+| | `memgraph.get_node`, `get_edges`, `get_rules` | — |
+| | `memgraph.query_cypher`, `vector_search` | — |
+| | `memgraph.add_embedding`, `get_embedding` | — |
+| **Vec Embeddings** | `vec.embed.sentence_transformer` | `embed.model`, `embed.batch_size`, `embed.backend` |
+| | `vec.embed.openai` | `embed.model`, `embed.batch_size` |
+| | `vec.embed.ollama` | `embed.model`, `embed.batch_size` |
+| | `vec.embed.cached` | `embed.cache_hits`, `embed.cache_misses`, `embed.batch_size` |
+| **Vec Index** | `vec.add`, `vec.search`, `vec.remove` | — |
+| **Learning** | `learning.select` | — |
+| | `learning.observe` | — |
+| | `learning.apply_credit_deltas` | — |
+
+Embedding model spans are marked `external=True`, meaning they represent I/O boundaries (network calls to OpenAI, Ollama, or GPU inference for sentence-transformers).
+
+### Selective Sampling
+
+By default, only 10% of normal traces are exported. The `SelectiveSpanProcessor` always exports:
+- Spans with error status (regardless of sample rate)
+- Spans slower than the latency threshold (default 100ms)
+
+Adjust with `QORTEX_OTEL_TRACE_SAMPLE_RATE` and `QORTEX_OTEL_TRACE_LATENCY_THRESHOLD_MS`.
+
+### Viewing Traces in Jaeger
+
+```bash
+# Ensure the stack is running
+cd docker && docker compose up -d
+
+# Open Jaeger
+open http://localhost:16686
+
+# Select service "qortex" and search for traces
+```
+
+Traces show the full call hierarchy: an `ingest_manifest` trace includes every `add_node`, `add_edge`, and underlying `cypher.execute` as child spans. Click any span to see its attributes (PPR convergence stats, embedding batch sizes, cache hit rates, etc.).
 
 ## Testing the Dashboard
 

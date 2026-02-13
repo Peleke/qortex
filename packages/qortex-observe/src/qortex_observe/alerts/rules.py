@@ -2,8 +2,8 @@
 
 from __future__ import annotations
 
-from qortex.observability.alerts.base import AlertRule
-from qortex.observability.events import FactorDriftSnapshot, PPRDiverged
+from qortex_observe.alerts.base import AlertRule
+from qortex_observe.events import FactorDriftSnapshot, PPRDiverged
 
 BUILTIN_RULES: list[AlertRule] = [
     AlertRule(

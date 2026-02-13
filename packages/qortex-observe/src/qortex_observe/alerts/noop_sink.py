@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from qortex.observability.alerts.base import AlertRule
+from qortex_observe.alerts.base import AlertRule
 
 
 class NoOpAlertSink:

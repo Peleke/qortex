@@ -5,9 +5,9 @@ from __future__ import annotations
 from unittest.mock import MagicMock, patch
 
 import pytest
+from qortex_observe import reset as obs_reset
 
 from qortex.flags import reset_flags
-from qortex.observability import reset as obs_reset
 
 
 @pytest.fixture(autouse=True)
@@ -62,10 +62,12 @@ class TestMaybePropagateCredit:
         mock_backend.get_node.return_value = MagicMock(domain="test")
 
         import qortex.mcp.server as srv
+
         monkeypatch.setattr(srv, "_backend", mock_backend)
 
         # Simulate networkx not being available
         import builtins
+
         real_import = builtins.__import__
 
         def mock_import(name, *args, **kwargs):
@@ -87,6 +89,7 @@ class TestMaybePropagateCredit:
         mock_backend.get_node.return_value = None  # concept not found
 
         import qortex.mcp.server as srv
+
         monkeypatch.setattr(srv, "_backend", mock_backend)
 
         result = _maybe_propagate_credit("q1", {"unknown:x": "accepted"})
@@ -107,9 +110,15 @@ class TestCreditPropagationEndToEnd:
 
         # Build a mock backend with known nodes
         nodes = {
-            "test:a": ConceptNode(id="test:a", name="A", description="", domain="test", source_id="test"),
-            "test:b": ConceptNode(id="test:b", name="B", description="", domain="test", source_id="test"),
-            "test:c": ConceptNode(id="test:c", name="C", description="", domain="test", source_id="test"),
+            "test:a": ConceptNode(
+                id="test:a", name="A", description="", domain="test", source_id="test"
+            ),
+            "test:b": ConceptNode(
+                id="test:b", name="B", description="", domain="test", source_id="test"
+            ),
+            "test:c": ConceptNode(
+                id="test:c", name="C", description="", domain="test", source_id="test"
+            ),
         }
 
         mock_backend = MagicMock()
@@ -123,6 +132,7 @@ class TestCreditPropagationEndToEnd:
         dag = CausalDAG.from_edges(edges, {n: n for n in nodes})
 
         import qortex.mcp.server as srv
+
         monkeypatch.setattr(srv, "_backend", mock_backend)
         monkeypatch.setattr(srv, "_learning_state_dir", str(tmp_path))
         # Clear any cached learners
@@ -147,7 +157,7 @@ class TestCreditPropagationEndToEnd:
 
     def test_rejected_outcome_increases_beta(self, monkeypatch, tmp_path):
         from qortex.causal.dag import CausalDAG
-        from qortex.causal.types import CausalDirection, CausalEdge, CausalNode
+        from qortex.causal.types import CausalDirection, CausalEdge
         from qortex.core.models import ConceptNode
         from qortex.mcp.server import _maybe_propagate_credit
 
@@ -155,8 +165,12 @@ class TestCreditPropagationEndToEnd:
         reset_flags()
 
         nodes = {
-            "test:x": ConceptNode(id="test:x", name="X", description="", domain="test", source_id="test"),
-            "test:y": ConceptNode(id="test:y", name="Y", description="", domain="test", source_id="test"),
+            "test:x": ConceptNode(
+                id="test:x", name="X", description="", domain="test", source_id="test"
+            ),
+            "test:y": ConceptNode(
+                id="test:y", name="Y", description="", domain="test", source_id="test"
+            ),
         }
         mock_backend = MagicMock()
         mock_backend.get_node.side_effect = lambda nid, **kw: nodes.get(nid)
@@ -168,6 +182,7 @@ class TestCreditPropagationEndToEnd:
         )
 
         import qortex.mcp.server as srv
+
         monkeypatch.setattr(srv, "_backend", mock_backend)
         monkeypatch.setattr(srv, "_learning_state_dir", str(tmp_path))
         monkeypatch.setattr(srv, "_learners", {})
@@ -191,8 +206,12 @@ class TestCreditPropagationEndToEnd:
         reset_flags()
 
         nodes = {
-            "test:p": ConceptNode(id="test:p", name="P", description="", domain="test", source_id="test"),
-            "test:q": ConceptNode(id="test:q", name="Q", description="", domain="test", source_id="test"),
+            "test:p": ConceptNode(
+                id="test:p", name="P", description="", domain="test", source_id="test"
+            ),
+            "test:q": ConceptNode(
+                id="test:q", name="Q", description="", domain="test", source_id="test"
+            ),
         }
         mock_backend = MagicMock()
         mock_backend.get_node.side_effect = lambda nid, **kw: nodes.get(nid)
@@ -203,6 +222,7 @@ class TestCreditPropagationEndToEnd:
         )
 
         import qortex.mcp.server as srv
+
         monkeypatch.setattr(srv, "_backend", mock_backend)
         monkeypatch.setattr(srv, "_learning_state_dir", str(tmp_path))
         monkeypatch.setattr(srv, "_learners", {})
@@ -227,9 +247,15 @@ class TestCreditPropagationEndToEnd:
         reset_flags()
 
         nodes = {
-            "test:root": ConceptNode(id="test:root", name="Root", description="", domain="test", source_id="test"),
-            "test:mid": ConceptNode(id="test:mid", name="Mid", description="", domain="test", source_id="test"),
-            "test:leaf": ConceptNode(id="test:leaf", name="Leaf", description="", domain="test", source_id="test"),
+            "test:root": ConceptNode(
+                id="test:root", name="Root", description="", domain="test", source_id="test"
+            ),
+            "test:mid": ConceptNode(
+                id="test:mid", name="Mid", description="", domain="test", source_id="test"
+            ),
+            "test:leaf": ConceptNode(
+                id="test:leaf", name="Leaf", description="", domain="test", source_id="test"
+            ),
         }
         mock_backend = MagicMock()
         mock_backend.get_node.side_effect = lambda nid, **kw: nodes.get(nid)
@@ -242,6 +268,7 @@ class TestCreditPropagationEndToEnd:
         dag = CausalDAG.from_edges(edges, {n: n for n in nodes})
 
         import qortex.mcp.server as srv
+
         monkeypatch.setattr(srv, "_backend", mock_backend)
         monkeypatch.setattr(srv, "_learning_state_dir", str(tmp_path))
         monkeypatch.setattr(srv, "_learners", {})
@@ -272,12 +299,15 @@ class TestCreditPropagationEndToEnd:
         reset_flags()
 
         nodes = {
-            "test:x": ConceptNode(id="test:x", name="X", description="", domain="test", source_id="test"),
+            "test:x": ConceptNode(
+                id="test:x", name="X", description="", domain="test", source_id="test"
+            ),
         }
         mock_backend = MagicMock()
         mock_backend.get_node.side_effect = lambda nid, **kw: nodes.get(nid)
 
         import qortex.mcp.server as srv
+
         monkeypatch.setattr(srv, "_backend", mock_backend)
         monkeypatch.setattr(srv, "_learning_state_dir", str(tmp_path))
         monkeypatch.setattr(srv, "_learners", {})
@@ -297,8 +327,8 @@ class TestCreditPropagatedEvent:
     """Verify CreditPropagated event is emitted and captured."""
 
     def test_event_in_jsonl_all_events(self):
-        from qortex.observability.events import CreditPropagated
-        from qortex.observability.subscribers.jsonl import _ALL_EVENTS
+        from qortex_observe.events import CreditPropagated
+        from qortex_observe.subscribers.jsonl import _ALL_EVENTS
 
         assert CreditPropagated in _ALL_EVENTS
 
@@ -307,28 +337,32 @@ class TestCreditPropagatedEvent:
         import logging
         import time
 
-        from qortex.observability.config import ObservabilityConfig
-        from qortex.observability.emitter import configure, emit, reset
-        from qortex.observability.events import CreditPropagated
+        from qortex_observe.config import ObservabilityConfig
+        from qortex_observe.emitter import configure, emit, reset
+        from qortex_observe.events import CreditPropagated
 
         reset()
-        configure(ObservabilityConfig(
-            log_formatter="stdlib",
-            log_destination="stderr",
-            log_level="DEBUG",
-            log_format="json",
-        ))
+        configure(
+            ObservabilityConfig(
+                log_formatter="stdlib",
+                log_destination="stderr",
+                log_level="DEBUG",
+                log_format="json",
+            )
+        )
 
         with caplog.at_level(logging.DEBUG, logger="qortex.events"):
-            emit(CreditPropagated(
-                query_id="q1",
-                concept_count=5,
-                direct_count=2,
-                ancestor_count=3,
-                total_alpha_delta=1.5,
-                total_beta_delta=0.3,
-                learner="credit",
-            ))
+            emit(
+                CreditPropagated(
+                    query_id="q1",
+                    concept_count=5,
+                    direct_count=2,
+                    ancestor_count=3,
+                    total_alpha_delta=1.5,
+                    total_beta_delta=0.3,
+                    learner="credit",
+                )
+            )
             # pyventus dispatches async — give handler time to fire
             time.sleep(0.2)
 
@@ -338,9 +372,9 @@ class TestCreditPropagatedEvent:
     def test_event_written_to_jsonl(self, tmp_path):
         import json
 
-        from qortex.observability.emitter import configure, emit, reset
-        from qortex.observability.events import CreditPropagated
-        from qortex.observability.config import ObservabilityConfig
+        from qortex_observe.config import ObservabilityConfig
+        from qortex_observe.emitter import configure, emit, reset
+        from qortex_observe.events import CreditPropagated
 
         reset()
         cfg = ObservabilityConfig(
@@ -349,15 +383,17 @@ class TestCreditPropagatedEvent:
         )
         configure(cfg)
 
-        emit(CreditPropagated(
-            query_id="q1",
-            concept_count=5,
-            direct_count=2,
-            ancestor_count=3,
-            total_alpha_delta=1.5,
-            total_beta_delta=0.3,
-            learner="credit",
-        ))
+        emit(
+            CreditPropagated(
+                query_id="q1",
+                concept_count=5,
+                direct_count=2,
+                ancestor_count=3,
+                total_alpha_delta=1.5,
+                total_beta_delta=0.3,
+                learner="credit",
+            )
+        )
 
         lines = (tmp_path / "events.jsonl").read_text().strip().split("\n")
         events = [json.loads(line) for line in lines]

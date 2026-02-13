@@ -25,7 +25,8 @@ from __future__ import annotations
 
 import json
 import logging
-from typing import Any, Callable
+from collections.abc import Callable
+from typing import Any
 
 from qortex.client import QortexClient
 
@@ -40,9 +41,7 @@ def _to_document(item: Any) -> Any:
 def _docs_to_string(docs: list[Any], agent: Any = None) -> str:
     """Convert documents to a formatted string for the LLM."""
     if agent is not None and hasattr(agent, "_convert_documents_to_string"):
-        dict_docs = [
-            doc.to_dict() if hasattr(doc, "to_dict") else doc for doc in docs
-        ]
+        dict_docs = [doc.to_dict() if hasattr(doc, "to_dict") else doc for doc in docs]
         return agent._convert_documents_to_string(dict_docs)
 
     if not docs:
@@ -220,15 +219,12 @@ class QortexKnowledge:
     # Tool factories
     # ------------------------------------------------------------------
 
-    def _make_search_tool(
-        self, run_response: Any = None, agent: Any = None
-    ) -> Callable:
+    def _make_search_tool(self, run_response: Any = None, agent: Any = None) -> Callable:
         """Create the search_knowledge_base tool."""
         client = self._client
         domains = self._domains
         top_k = self._top_k
         min_confidence = self._min_confidence
-        feedback_source = self._feedback_source
         # Capture self for query_id tracking
         knowledge = self
 
@@ -265,8 +261,7 @@ class QortexKnowledge:
                     references = MessageReferences(
                         query=query,
                         references=[
-                            doc.to_dict() if hasattr(doc, "to_dict") else doc
-                            for doc in docs
+                            doc.to_dict() if hasattr(doc, "to_dict") else doc for doc in docs
                         ],
                     )
                     if run_response.references is None:
@@ -281,9 +276,7 @@ class QortexKnowledge:
             # Append rules if any
             rules_text = ""
             if result.rules:
-                rules_parts = [
-                    f"- {r.text} (confidence={r.confidence:.2f})" for r in result.rules
-                ]
+                rules_parts = [f"- {r.text} (confidence={r.confidence:.2f})" for r in result.rules]
                 rules_text = "\n\nRelevant rules:\n" + "\n".join(rules_parts)
 
             return _docs_to_string(docs, agent) + rules_text
@@ -328,12 +321,10 @@ class QortexKnowledge:
                     for e in result.edges
                 ],
                 "neighbors": [
-                    {"id": n.id, "name": n.name, "domain": n.domain}
-                    for n in result.neighbors
+                    {"id": n.id, "name": n.name, "domain": n.domain} for n in result.neighbors
                 ],
                 "rules": [
-                    {"text": r.text, "confidence": round(r.confidence, 3)}
-                    for r in result.rules
+                    {"text": r.text, "confidence": round(r.confidence, 3)} for r in result.rules
                 ],
             }
             return json.dumps(output, indent=2)
