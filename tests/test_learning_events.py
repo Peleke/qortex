@@ -6,14 +6,14 @@ import pytest
 
 from qortex.learning.learner import Learner
 from qortex.learning.types import Arm, ArmOutcome, LearnerConfig
-from qortex.observability import reset as obs_reset
-from qortex.observability.emitter import configure
-from qortex.observability.events import (
+from qortex_observe import reset as obs_reset
+from qortex_observe.emitter import configure
+from qortex_observe.events import (
     LearningObservationRecorded,
     LearningPosteriorUpdated,
     LearningSelectionMade,
 )
-from qortex.observability.linker import QortexEventLinker
+from qortex_observe.linker import QortexEventLinker
 
 
 @pytest.fixture(autouse=True)

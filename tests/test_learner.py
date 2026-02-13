@@ -7,7 +7,7 @@ import pytest
 from qortex.learning.learner import Learner
 from qortex.learning.store import JsonLearningStore, SqliteLearningStore
 from qortex.learning.types import Arm, ArmOutcome, LearnerConfig
-from qortex.observability import reset as obs_reset
+from qortex_observe import reset as obs_reset
 
 
 @pytest.fixture(autouse=True)

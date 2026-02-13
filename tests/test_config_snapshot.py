@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import pytest
 
-from qortex.observability.snapshot import config_snapshot_hash
+from qortex_observe.snapshot import config_snapshot_hash
 
 
 class TestConfigSnapshotHash:
@@ -82,7 +82,7 @@ class TestConfigHashOnSpans:
         from opentelemetry.sdk.trace.export import SimpleSpanProcessor
         from opentelemetry.sdk.trace.export.in_memory_span_exporter import InMemorySpanExporter
 
-        from qortex.observability.tracing import _config_hash, traced
+        from qortex_observe.tracing import _config_hash, traced
 
         exporter = InMemorySpanExporter()
         provider = TracerProvider()
@@ -116,7 +116,7 @@ class TestConfigHashOnSpans:
         from opentelemetry.sdk.trace.export import SimpleSpanProcessor
         from opentelemetry.sdk.trace.export.in_memory_span_exporter import InMemorySpanExporter
 
-        from qortex.observability.tracing import traced
+        from qortex_observe.tracing import traced
 
         exporter = InMemorySpanExporter()
         provider = TracerProvider()
@@ -143,7 +143,7 @@ class TestConfigHashOnSpans:
         from opentelemetry.sdk.trace.export import SimpleSpanProcessor
         from opentelemetry.sdk.trace.export.in_memory_span_exporter import InMemorySpanExporter
 
-        from qortex.observability.tracing import _config_hash, traced
+        from qortex_observe.tracing import _config_hash, traced
 
         exporter = InMemorySpanExporter()
         provider = TracerProvider()

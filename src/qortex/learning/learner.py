@@ -23,8 +23,8 @@ from qortex.learning.types import (
     SelectionResult,
     context_hash,
 )
-from qortex.observability import emit
-from qortex.observability.events import (
+from qortex_observe import emit
+from qortex_observe.events import (
     LearningObservationRecorded,
     LearningPosteriorUpdated,
     LearningSelectionMade,

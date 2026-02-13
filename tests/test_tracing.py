@@ -7,7 +7,7 @@ import time
 
 import pytest
 
-from qortex.observability.tracing import OverheadTimer, get_overhead_timer, traced
+from qortex_observe.tracing import OverheadTimer, get_overhead_timer, traced
 
 
 @pytest.fixture(autouse=True)
@@ -312,7 +312,7 @@ class TestTracedDecorator:
 class TestOverheadMetric:
     def test_query_completed_overhead_field(self):
         """QueryCompleted accepts overhead_seconds."""
-        from qortex.observability.events import QueryCompleted
+        from qortex_observe.events import QueryCompleted
 
         event = QueryCompleted(
             query_id="q1",
@@ -328,7 +328,7 @@ class TestOverheadMetric:
 
     def test_query_completed_overhead_defaults_none(self):
         """overhead_seconds defaults to None for backward compat."""
-        from qortex.observability.events import QueryCompleted
+        from qortex_observe.events import QueryCompleted
 
         event = QueryCompleted(
             query_id="q1",
@@ -346,10 +346,10 @@ class TestOverheadMetric:
         from opentelemetry.sdk.metrics import MeterProvider
         from opentelemetry.sdk.metrics.export import InMemoryMetricReader
 
-        from qortex.observability.events import QueryCompleted
-        from qortex.observability.linker import QortexEventLinker
-        from qortex.observability.metrics_factory import create_instruments, create_views
-        from qortex.observability.metrics_handlers import register_metric_handlers
+        from qortex_observe.events import QueryCompleted
+        from qortex_observe.linker import QortexEventLinker
+        from qortex_observe.metrics_factory import create_instruments, create_views
+        from qortex_observe.metrics_handlers import register_metric_handlers
 
         reader = InMemoryMetricReader()
         provider = MeterProvider(metric_readers=[reader], views=create_views())
@@ -396,10 +396,10 @@ class TestOverheadMetric:
         from opentelemetry.sdk.metrics import MeterProvider
         from opentelemetry.sdk.metrics.export import InMemoryMetricReader
 
-        from qortex.observability.events import QueryCompleted
-        from qortex.observability.linker import QortexEventLinker
-        from qortex.observability.metrics_factory import create_instruments, create_views
-        from qortex.observability.metrics_handlers import register_metric_handlers
+        from qortex_observe.events import QueryCompleted
+        from qortex_observe.linker import QortexEventLinker
+        from qortex_observe.metrics_factory import create_instruments, create_views
+        from qortex_observe.metrics_handlers import register_metric_handlers
 
         reader = InMemoryMetricReader()
         provider = MeterProvider(metric_readers=[reader], views=create_views())

@@ -17,9 +17,9 @@ from collections.abc import Iterator
 from datetime import UTC, datetime
 from typing import Any, Literal, Protocol, runtime_checkable
 
-from qortex.observability import emit
-from qortex.observability.events import ManifestIngested
-from qortex.observability.tracing import traced
+from qortex_observe import emit
+from qortex_observe.events import ManifestIngested
+from qortex_observe.tracing import traced
 
 from .models import ConceptEdge, ConceptNode, Domain, ExplicitRule, IngestionManifest, RelationType
 
@@ -742,7 +742,7 @@ class MemgraphBackend:
         only supports standard PageRank (no personalization), so we run
         PPR in Python for correctness.
         """
-        from qortex.observability.events import PPRConverged, PPRDiverged, PPRStarted, QueryFailed
+        from qortex_observe.events import PPRConverged, PPRDiverged, PPRStarted, QueryFailed
 
         # 1. Fetch nodes in scope
         try:

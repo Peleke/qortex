@@ -6,7 +6,7 @@ import pytest
 
 from qortex.core.memory import InMemoryBackend
 from qortex.mcp import server as mcp_server
-from qortex.observability import reset as obs_reset
+from qortex_observe import reset as obs_reset
 
 
 @pytest.fixture(autouse=True)

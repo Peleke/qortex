@@ -8,9 +8,9 @@ from datetime import UTC, datetime
 
 from qortex.core.models import Rule
 from qortex.enrichment.base import EnrichmentBackend
-from qortex.observability import emit
-from qortex.observability.events import EnrichmentCompleted, EnrichmentFallback
-from qortex.observability.logging import get_logger
+from qortex_observe import emit
+from qortex_observe.events import EnrichmentCompleted, EnrichmentFallback
+from qortex_observe.logging import get_logger
 from qortex.projectors.models import EnrichedRule, RuleEnrichment
 
 logger = get_logger(__name__)

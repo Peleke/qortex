@@ -6,7 +6,7 @@ import time
 
 import pytest
 
-from qortex.observability.tracing import SelectiveSpanProcessor
+from qortex_observe.tracing import SelectiveSpanProcessor
 
 
 # ---------------------------------------------------------------------------
@@ -169,7 +169,7 @@ class TestVecInstrumentation:
         with patch("qortex.vec.index._try_emit") as mock_emit:
             index.search([1, 0, 0], top_k=3)
             assert mock_emit.called
-            from qortex.observability.events import VecSearchResults
+            from qortex_observe.events import VecSearchResults
 
             events = [call.args[0] for call in mock_emit.call_args_list]
             assert any(isinstance(e, VecSearchResults) for e in events)
@@ -338,7 +338,7 @@ class TestQueryFailedWiring:
                 )
 
             # Check QueryFailed was emitted
-            from qortex.observability.events import QueryFailed
+            from qortex_observe.events import QueryFailed
 
             qf_calls = [
                 c for c in mock_emit.call_args_list if isinstance(c.args[0], QueryFailed)
@@ -375,7 +375,7 @@ class TestSpanTreeStructure:
         from opentelemetry.sdk.trace.export import SimpleSpanProcessor
         from opentelemetry.sdk.trace.export.in_memory_span_exporter import InMemorySpanExporter
 
-        from qortex.observability.tracing import traced
+        from qortex_observe.tracing import traced
 
         exporter = InMemorySpanExporter()
         provider = TracerProvider()

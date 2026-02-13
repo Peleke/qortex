@@ -19,8 +19,8 @@ from pathlib import Path
 
 import pytest
 
-from qortex.observability.config import ObservabilityConfig
-from qortex.observability.events import (
+from qortex_observe.config import ObservabilityConfig
+from qortex_observe.events import (
     BufferFlushed,
     CreditPropagated,
     EdgePromoted,
@@ -56,7 +56,7 @@ from qortex.observability.events import (
 @pytest.fixture(autouse=True)
 def _reset_observability():
     """Reset emitter state before and after each test."""
-    from qortex.observability.emitter import reset
+    from qortex_observe.emitter import reset
 
     reset()
     yield
@@ -66,7 +66,7 @@ def _reset_observability():
 @pytest.fixture()
 def configured():
     """Configure observability with stderr + structlog defaults."""
-    from qortex.observability.emitter import configure
+    from qortex_observe.emitter import configure
 
     cfg = ObservabilityConfig(
         log_formatter="structlog",
@@ -211,7 +211,7 @@ class TestEmitter:
 
     def test_emit_noop_when_not_configured(self):
         """emit() is a no-op when configure() hasn't been called."""
-        from qortex.observability.emitter import emit
+        from qortex_observe.emitter import emit
 
         # Should not raise
         emit(QueryStarted("q", "test", None, "vec", 10, "ts"))
@@ -224,7 +224,7 @@ class TestEmitter:
 
     def test_configure_idempotent(self):
         """Second configure() returns same emitter."""
-        from qortex.observability.emitter import configure
+        from qortex_observe.emitter import configure
 
         cfg = ObservabilityConfig(log_destination="stderr")
         e1 = configure(cfg)
@@ -233,7 +233,7 @@ class TestEmitter:
 
     def test_is_configured(self):
         """is_configured() reflects state."""
-        from qortex.observability.emitter import configure, is_configured
+        from qortex_observe.emitter import configure, is_configured
 
         assert not is_configured()
         configure(ObservabilityConfig(log_destination="stderr"))
@@ -241,7 +241,7 @@ class TestEmitter:
 
     def test_reset_clears_state(self, configured):
         """reset() clears emitter and configured flag."""
-        from qortex.observability.emitter import is_configured, reset
+        from qortex_observe.emitter import is_configured, reset
 
         assert is_configured()
         reset()
@@ -257,7 +257,7 @@ class TestLogging:
     """LogFormatter × LogDestination composition."""
 
     def test_structlog_formatter_setup(self):
-        from qortex.observability.logging import StructlogFormatter
+        from qortex_observe.logging import StructlogFormatter
 
         cfg = ObservabilityConfig(log_format="json")
         formatter = StructlogFormatter()
@@ -265,7 +265,7 @@ class TestLogging:
         assert isinstance(result, logging.Formatter)
 
     def test_stdlib_formatter_setup(self):
-        from qortex.observability.logging import StdlibFormatter
+        from qortex_observe.logging import StdlibFormatter
 
         cfg = ObservabilityConfig(log_format="json")
         formatter = StdlibFormatter()
@@ -273,7 +273,7 @@ class TestLogging:
         assert isinstance(result, logging.Formatter)
 
     def test_stdlib_console_formatter(self):
-        from qortex.observability.logging import StdlibFormatter
+        from qortex_observe.logging import StdlibFormatter
 
         cfg = ObservabilityConfig(log_format="console")
         formatter = StdlibFormatter()
@@ -282,7 +282,7 @@ class TestLogging:
 
     def test_get_logger_before_config(self):
         """get_logger() returns stdlib logger before setup."""
-        from qortex.observability.logging import get_logger
+        from qortex_observe.logging import get_logger
 
         lg = get_logger("test")
         # Should be a stdlib logger (fallback)
@@ -290,7 +290,7 @@ class TestLogging:
 
     def test_get_logger_after_config(self, configured):
         """get_logger() returns structlog BoundLogger after setup."""
-        from qortex.observability.logging import get_logger
+        from qortex_observe.logging import get_logger
 
         lg = get_logger("test")
         assert lg is not None
@@ -300,7 +300,7 @@ class TestLogging:
         assert hasattr(lg, "warning")
 
     def test_stderr_destination(self):
-        from qortex.observability.logging import StderrDestination
+        from qortex_observe.logging import StderrDestination
 
         dest = StderrDestination()
         handler = dest.create_handler(logging.Formatter())
@@ -308,7 +308,7 @@ class TestLogging:
         dest.shutdown()
 
     def test_jsonl_file_destination(self, tmp_path):
-        from qortex.observability.logging import JsonlFileDestination
+        from qortex_observe.logging import JsonlFileDestination
 
         cfg = ObservabilityConfig(jsonl_path=str(tmp_path / "test.jsonl"))
         dest = JsonlFileDestination(cfg)
@@ -317,7 +317,7 @@ class TestLogging:
         dest.shutdown()
 
     def test_register_custom_formatter(self):
-        from qortex.observability.logging import _FORMATTERS, register_formatter
+        from qortex_observe.logging import _FORMATTERS, register_formatter
 
         class CustomFormatter:
             def setup(self, config):
@@ -332,7 +332,7 @@ class TestLogging:
         del _FORMATTERS["custom"]
 
     def test_register_custom_destination(self):
-        from qortex.observability.logging import _DESTINATIONS, register_destination
+        from qortex_observe.logging import _DESTINATIONS, register_destination
 
         class CustomDest:
             def create_handler(self, formatter):
@@ -347,14 +347,14 @@ class TestLogging:
         del _DESTINATIONS["custom"]
 
     def test_setup_unknown_formatter_raises(self):
-        from qortex.observability.logging import setup_logging
+        from qortex_observe.logging import setup_logging
 
         cfg = ObservabilityConfig(log_formatter="nonexistent")
         with pytest.raises(ValueError, match="Unknown log formatter"):
             setup_logging(cfg)
 
     def test_setup_unknown_destination_raises(self):
-        from qortex.observability.logging import setup_logging
+        from qortex_observe.logging import setup_logging
 
         cfg = ObservabilityConfig(log_destination="nonexistent")
         with pytest.raises(ValueError, match="Unknown log destination"):
@@ -402,7 +402,7 @@ class TestSinks:
     """LogSink implementations."""
 
     def test_jsonl_sink_writes(self, tmp_path):
-        from qortex.observability.sinks.jsonl_sink import JsonlSink
+        from qortex_observe.sinks.jsonl_sink import JsonlSink
 
         path = tmp_path / "events.jsonl"
         sink = JsonlSink(path)
@@ -415,7 +415,7 @@ class TestSinks:
         assert json.loads(lines[1])["event"] == "test2"
 
     def test_stdout_sink_writes(self, capsys):
-        from qortex.observability.sinks.stdout_sink import StdoutSink
+        from qortex_observe.sinks.stdout_sink import StdoutSink
 
         sink = StdoutSink()
         sink.write({"event": "hello"})
@@ -423,7 +423,7 @@ class TestSinks:
         assert "hello" in captured.out
 
     def test_noop_sink(self):
-        from qortex.observability.sinks.noop_sink import NoOpSink
+        from qortex_observe.sinks.noop_sink import NoOpSink
 
         sink = NoOpSink()
         sink.write({"event": "ignored"})  # Should not raise
@@ -438,7 +438,7 @@ class TestAlerts:
     """Alert rule evaluation and sinks."""
 
     def test_builtin_rules_exist(self):
-        from qortex.observability.alerts.rules import BUILTIN_RULES
+        from qortex_observe.alerts.rules import BUILTIN_RULES
 
         assert len(BUILTIN_RULES) >= 2
         names = [r.name for r in BUILTIN_RULES]
@@ -446,7 +446,7 @@ class TestAlerts:
         assert "factor_drift_high" in names
 
     def test_ppr_divergence_rule_matches(self):
-        from qortex.observability.alerts.rules import BUILTIN_RULES
+        from qortex_observe.alerts.rules import BUILTIN_RULES
 
         rule = next(r for r in BUILTIN_RULES if r.name == "ppr_divergence")
         event = PPRDiverged(query_id=None, iterations=100, final_diff=0.5, node_count=50)
@@ -457,7 +457,7 @@ class TestAlerts:
         assert rule.condition(other) is False
 
     def test_factor_drift_rule_matches(self):
-        from qortex.observability.alerts.rules import BUILTIN_RULES
+        from qortex_observe.alerts.rules import BUILTIN_RULES
 
         rule = next(r for r in BUILTIN_RULES if r.name == "factor_drift_high")
 
@@ -470,8 +470,8 @@ class TestAlerts:
         assert rule.condition(high) is False
 
     def test_log_alert_sink_fires(self, caplog):
-        from qortex.observability.alerts.base import AlertRule
-        from qortex.observability.alerts.log_sink import LogAlertSink
+        from qortex_observe.alerts.base import AlertRule
+        from qortex_observe.alerts.log_sink import LogAlertSink
 
         sink = LogAlertSink()
         rule = AlertRule(
@@ -485,8 +485,8 @@ class TestAlerts:
         sink.fire(rule, event)
 
     def test_noop_alert_sink(self):
-        from qortex.observability.alerts.base import AlertRule
-        from qortex.observability.alerts.noop_sink import NoOpAlertSink
+        from qortex_observe.alerts.base import AlertRule
+        from qortex_observe.alerts.noop_sink import NoOpAlertSink
 
         sink = NoOpAlertSink()
         rule = AlertRule(
@@ -497,7 +497,7 @@ class TestAlerts:
     def test_alert_cooldown(self):
         from datetime import UTC, datetime
 
-        from qortex.observability.alerts.base import AlertRule
+        from qortex_observe.alerts.base import AlertRule
 
         rule = AlertRule(
             name="test",
@@ -697,7 +697,7 @@ class TestLinker:
     def test_linker_is_event_linker(self):
         from pyventus.events import EventLinker
 
-        from qortex.observability.linker import QortexEventLinker
+        from qortex_observe.linker import QortexEventLinker
 
         assert issubclass(QortexEventLinker, EventLinker)
 
@@ -786,7 +786,7 @@ class TestEnrichmentEmission:
         from unittest.mock import patch
 
         from qortex.enrichment.pipeline import EnrichmentPipeline
-        from qortex.observability.events import EnrichmentCompleted
+        from qortex_observe.events import EnrichmentCompleted
 
         pipeline = EnrichmentPipeline()  # No backend → template fallback
         rules = self._make_rules(3)
@@ -810,7 +810,7 @@ class TestEnrichmentEmission:
         from unittest.mock import patch
 
         from qortex.enrichment.pipeline import EnrichmentPipeline
-        from qortex.observability.events import EnrichmentCompleted, EnrichmentFallback
+        from qortex_observe.events import EnrichmentCompleted, EnrichmentFallback
 
         class FailingBackend:
             def enrich_batch(self, rules, domain):
@@ -855,7 +855,7 @@ class TestManifestIngestedEmission:
             RelationType,
             SourceMetadata,
         )
-        from qortex.observability.events import ManifestIngested
+        from qortex_observe.events import ManifestIngested
 
         backend = InMemoryBackend()
         backend.connect()
@@ -908,7 +908,7 @@ class TestManifestIngestedEmission:
             IngestionManifest,
             SourceMetadata,
         )
-        from qortex.observability.events import ManifestIngested
+        from qortex_observe.events import ManifestIngested
 
         backend = MemgraphBackend(uri="bolt://fake:7687")
         backend._driver = MagicMock()
@@ -956,7 +956,7 @@ class TestPrometheusMetrics:
         """FactorUpdated handler increments qortex_factor_updates_total."""
         from unittest.mock import MagicMock, patch
 
-        from qortex.observability.events import FactorUpdated
+        from qortex_observe.events import FactorUpdated
 
         mock_counter = MagicMock()
         event = FactorUpdated(
@@ -969,7 +969,7 @@ class TestPrometheusMetrics:
 
     def test_vec_search_observes_latency(self):
         """VecSearchCompleted handler observes latency in seconds."""
-        from qortex.observability.events import VecSearchCompleted
+        from qortex_observe.events import VecSearchCompleted
 
         event = VecSearchCompleted(query_id="q1", candidates=30, fetch_k=60, latency_ms=50.0)
         # Handler converts ms → seconds
@@ -978,7 +978,7 @@ class TestPrometheusMetrics:
 
     def test_enrichment_completed_increments_and_observes(self):
         """EnrichmentCompleted handler increments counter and observes latency."""
-        from qortex.observability.events import EnrichmentCompleted
+        from qortex_observe.events import EnrichmentCompleted
 
         event = EnrichmentCompleted(
             rule_count=5, succeeded=4, failed=1,
@@ -989,7 +989,7 @@ class TestPrometheusMetrics:
 
     def test_manifest_ingested_increments_and_observes(self):
         """ManifestIngested handler increments counter and observes latency."""
-        from qortex.observability.events import ManifestIngested
+        from qortex_observe.events import ManifestIngested
 
         event = ManifestIngested(
             domain="test", node_count=10, edge_count=5,
@@ -1002,7 +1002,7 @@ class TestPrometheusMetrics:
         """QueryFailed handler increments error counter by stage."""
         from unittest.mock import MagicMock
 
-        from qortex.observability.events import QueryFailed
+        from qortex_observe.events import QueryFailed
 
         mock_counter = MagicMock()
         event = QueryFailed(query_id="q1", error="boom", stage="embedding", timestamp="ts")
@@ -1050,7 +1050,7 @@ class TestPrometheusLiveMetrics:
         """Full path: configure(prometheus_enabled) → emit(QueryCompleted) → no crash."""
         from unittest.mock import patch
 
-        from qortex.observability.emitter import configure, emit, reset
+        from qortex_observe.emitter import configure, emit, reset
 
         reset()
 
@@ -1093,7 +1093,7 @@ class TestOtelErrorHandling:
         """Non-ImportError from register_otel_traces is caught, not propagated."""
         from unittest.mock import patch
 
-        from qortex.observability.emitter import configure, is_configured, reset
+        from qortex_observe.emitter import configure, is_configured, reset
 
         reset()
 
@@ -1117,7 +1117,7 @@ class TestOtelErrorHandling:
         """ImportError from missing OTEL packages is still caught."""
         from unittest.mock import patch
 
-        from qortex.observability.emitter import configure, is_configured, reset
+        from qortex_observe.emitter import configure, is_configured, reset
 
         reset()
 
@@ -1139,7 +1139,7 @@ class TestOtelErrorHandling:
         """Successful OTEL trace registration emits info log."""
         from unittest.mock import patch
 
-        from qortex.observability.emitter import configure, reset
+        from qortex_observe.emitter import configure, reset
 
         reset()
 
@@ -1169,7 +1169,7 @@ class TestOtelErrorHandling:
         """When grpcio is missing, _get_exporters falls back to HTTP."""
         from unittest.mock import patch
 
-        from qortex.observability.subscribers.otel import _get_exporters
+        from qortex_observe.subscribers.otel import _get_exporters
 
         # Simulate grpcio import failure
         orig_import = __builtins__.__import__ if hasattr(__builtins__, '__import__') else __import__
@@ -1190,7 +1190,7 @@ class TestOtelErrorHandling:
         """Non-ImportError from metrics pipeline is caught, not propagated."""
         from unittest.mock import patch
 
-        from qortex.observability.emitter import configure, is_configured, reset
+        from qortex_observe.emitter import configure, is_configured, reset
 
         reset()
 
@@ -1216,7 +1216,7 @@ class TestStructlogLearningEvents:
     """Structlog subscriber handles learning events and logs them."""
 
     def test_learning_selection_logged(self, configured, caplog):
-        from qortex.observability.emitter import emit
+        from qortex_observe.emitter import emit
 
         with caplog.at_level(logging.DEBUG, logger="qortex.events"):
             emit(LearningSelectionMade(
@@ -1226,7 +1226,7 @@ class TestStructlogLearningEvents:
         assert any("learning.selection" in r.message for r in caplog.records)
 
     def test_learning_observation_logged(self, configured, caplog):
-        from qortex.observability.emitter import emit
+        from qortex_observe.emitter import emit
 
         with caplog.at_level(logging.DEBUG, logger="qortex.events"):
             emit(LearningObservationRecorded(
@@ -1236,7 +1236,7 @@ class TestStructlogLearningEvents:
         assert any("learning.observation" in r.message for r in caplog.records)
 
     def test_learning_posterior_logged(self, configured, caplog):
-        from qortex.observability.emitter import emit
+        from qortex_observe.emitter import emit
 
         with caplog.at_level(logging.DEBUG, logger="qortex.events"):
             emit(LearningPosteriorUpdated(
@@ -1255,14 +1255,14 @@ class TestJsonlLearningEvents:
     """JSONL subscriber captures learning events."""
 
     def test_learning_events_in_all_events_tuple(self):
-        from qortex.observability.subscribers.jsonl import _ALL_EVENTS
+        from qortex_observe.subscribers.jsonl import _ALL_EVENTS
 
         assert LearningSelectionMade in _ALL_EVENTS
         assert LearningObservationRecorded in _ALL_EVENTS
         assert LearningPosteriorUpdated in _ALL_EVENTS
 
     def test_learning_events_written_to_jsonl(self, tmp_path):
-        from qortex.observability.emitter import configure, emit, reset
+        from qortex_observe.emitter import configure, emit, reset
 
         reset()
         cfg = ObservabilityConfig(

@@ -68,7 +68,7 @@ from fastmcp import FastMCP
 
 from qortex.core.memory import InMemoryBackend
 from qortex.hippocampus.adapter import VecOnlyAdapter
-from qortex.observability.logging import get_logger
+from qortex_observe.logging import get_logger
 from qortex.sources.registry import SourceRegistry
 
 logger = get_logger(__name__)
@@ -135,7 +135,7 @@ def _ensure_initialized() -> None:
         return
 
     # Initialize observability (env-var driven, zero-config by default)
-    from qortex.observability import configure
+    from qortex_observe import configure
     configure()
 
     # --- Embedding model ---
@@ -431,8 +431,8 @@ def _maybe_propagate_credit(
     learner.apply_credit_deltas(updates)
 
     # Emit event
-    from qortex.observability import emit
-    from qortex.observability.events import CreditPropagated
+    from qortex_observe import emit
+    from qortex_observe.events import CreditPropagated
 
     direct = sum(1 for a in all_assignments if a.method == "direct")
     ancestor = sum(1 for a in all_assignments if a.method == "ancestor")

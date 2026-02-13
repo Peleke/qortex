@@ -9,7 +9,7 @@ from dataclasses import FrozenInstanceError
 
 import pytest
 
-from qortex.observability.metrics_schema import METRICS, MetricDef, MetricType
+from qortex_observe.metrics_schema import METRICS, MetricDef, MetricType
 
 
 class TestMetricsSchemaCompleteness:

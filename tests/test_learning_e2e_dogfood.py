@@ -18,8 +18,8 @@ from qortex.core.models import ConceptEdge, ConceptNode, RelationType
 from qortex.learning.learner import Learner
 from qortex.learning.types import Arm, ArmOutcome, LearnerConfig
 from qortex.mcp import server as mcp_server
-from qortex.observability import configure, reset as obs_reset
-from qortex.observability.events import (
+from qortex_observe import configure, reset as obs_reset
+from qortex_observe.events import (
     LearningObservationRecorded,
     LearningPosteriorUpdated,
     LearningSelectionMade,
@@ -27,7 +27,7 @@ from qortex.observability.events import (
     QueryFailed,
     QueryStarted,
 )
-from qortex.observability.linker import QortexEventLinker
+from qortex_observe.linker import QortexEventLinker
 
 
 # ---------------------------------------------------------------------------

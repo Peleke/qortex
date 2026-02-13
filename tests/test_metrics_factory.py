@@ -12,8 +12,8 @@ otel_sdk = pytest.importorskip("opentelemetry.sdk")
 from opentelemetry.sdk.metrics import MeterProvider
 from opentelemetry.sdk.metrics.export import InMemoryMetricReader
 
-from qortex.observability.metrics_factory import create_instruments, create_views
-from qortex.observability.metrics_schema import METRICS, MetricType
+from qortex_observe.metrics_factory import create_instruments, create_views
+from qortex_observe.metrics_schema import METRICS, MetricType
 
 
 @pytest.fixture()
