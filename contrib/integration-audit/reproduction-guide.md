@@ -1,189 +1,309 @@
-# Reproduction Guide: qortex Integration Benchmarks
+# Reproduction Guide
 
-> Everything needed to reproduce the numbers in stat-sheet.md.
+> Personal reference for verifying every claim in stat-sheet.md.
+> Each section maps directly to a stat sheet claim. Run the command, check the output, tick the box.
 
 ---
 
-## Prerequisites
+## Setup (one-time)
 
 ```bash
-# Python 3.13+ with uv
-brew install uv
+# 1. qortex-track-c — all Python benchmarks + adapters live here
+cd /Users/peleke/Documents/Projects/qortex-track-c
+uv sync
 
-# Node.js 18+ with npm
-brew install node
+# 2. mastra-qortex — TypeScript MCP integration
+cd /Users/peleke/Documents/Projects/mastra-qortex
+npm install
 
-# uvx (for MCP server)
-pip install uv  # or: brew install uv
+# 3. crewAI — their test suite (large dep tree, ~30s)
+cd /Users/peleke/Documents/Projects/crewAI
+UV_HTTP_TIMEOUT=120 uv sync
 ```
+
+**Env used for original numbers:**
+- Machine: MacBook Pro (Apple Silicon)
+- Python: 3.14.0
+- Node: 18+
+- Embedding: `sentence-transformers/all-MiniLM-L6-v2` (384d, downloaded automatically on first run)
 
 ---
 
-## 1. qortex-track-c Setup
+## Claim 1: "+22% Precision, +26% Recall, +14% nDCG"
+
+This is the headline. Three independent benchmarks produce it — one per adapter (CrewAI, Agno, AutoGen). They all hit the same engine, so the numbers should be identical.
+
+### 1a. CrewAI adapter path
 
 ```bash
 cd /Users/peleke/Documents/Projects/qortex-track-c
-
-# Install deps (creates .venv automatically)
-uv sync
+uv run pytest tests/bench_crewai_vs_vanilla.py -v -s
 ```
 
-### 1a. Agno Eval (graph-enhanced vs vanilla)
+**What to look for in the output:**
+
+```
+AVERAGE   0.55   0.45   0.81   0.65   0.716   0.628
+  Precision delta: +22%
+  Recall delta:    +26%
+  nDCG delta:      +14%
+```
+
+The columns are: Q-P@5, V-P@5, Q-R@5, V-R@5, Q-nDCG, V-nDCG. Q = qortex, V = vanilla.
+
+**Verify:** The delta percentages match stat-sheet.md headline numbers.
+
+### 1b. Agno adapter path
 
 ```bash
 uv run pytest tests/eval_agno_vs_qortex.py -v -s
 ```
 
-**What it does:** 20-concept auth corpus, 4 queries with ground truth. Compares QortexKnowledge (graph+vec) vs flat cosine similarity. Reports P@5, R@5, distractor counts per query.
+**What to look for:**
 
-**Expected output includes:**
 ```
 AVERAGE   0.55    0.45   0.81   0.65       4       4
 ```
 
-### 1b. Performance Overhead (batch latency)
+Same P@5 and R@5 as CrewAI. (Agno eval doesn't compute nDCG — it was written earlier.)
+
+**Verify:** P@5 0.55 vs 0.45 = +22%. R@5 0.81 vs 0.65 = +25%.
+
+### 1c. AutoGen adapter path (async)
+
+```bash
+uv run pytest tests/bench_autogen_vs_vanilla.py -v -s
+```
+
+**What to look for:**
+
+```
+AVERAGE   0.55   0.45   0.81   0.65   0.716   0.628
+  Precision delta: +22%
+  Recall delta:    +26%
+  nDCG delta:      +14%
+```
+
+Identical to CrewAI. This exercises the async `QortexMemory.query()` path.
+
+**Verify:** Same numbers as 1a. This confirms the adapter is a thin passthrough.
+
+---
+
+## Claim 2: "Zero overhead / -0.5% batch overhead"
 
 ```bash
 uv run pytest tests/bench_perf.py -v -s
 ```
 
-**What it does:** 8 queries per method, 20 iterations. Measures median/P95 latency for vanilla search vs qortex retrieve, plus embedding, explore, and feedback latency individually.
+**What to look for:**
 
-**Expected output includes:**
 ```
 Vanilla (embed + cosine)                    40.34ms    49.86ms     5.04ms
 Qortex (embed + vec + graph + rules)        40.15ms    50.48ms     5.02ms
 Overhead                                     -0.5%
 ```
 
-### 1c. CrewAI Adapter Benchmark (quality + nDCG + latency)
+And the component breakdown:
 
-```bash
-uv run pytest tests/bench_crewai_vs_vanilla.py -v -s
+```
+Embedding only                               3.97ms     5.77ms
+Graph explore (depth=2)                      0.02ms     0.03ms
+Feedback recording                          <0.01ms     0.01ms
 ```
 
-**What it does:** Same corpus/queries as agno eval, but exercises QortexKnowledgeStorage.search() (the CrewAI adapter path). Reports P@5, R@5, nDCG@5, distractor counts, and per-query latency.
+**Verify:**
+- [ ] Batch overhead is near zero (should be -2% to +2%)
+- [ ] Graph explore is sub-millisecond (should be <0.1ms)
+- [ ] Embedding dominates total cost (should be >95% of total)
 
-**Expected output includes:**
-```
-AVERAGE   0.55   0.45   0.81   0.65   0.716   0.628       4       4   28.3    5.0
-  Precision delta: +22%
-  Recall delta:    +26%
-  nDCG delta:      +14%
-```
-
-### 1d. AutoGen Adapter Benchmark (quality + nDCG + latency, async)
-
-```bash
-uv run pytest tests/bench_autogen_vs_vanilla.py -v -s
-```
-
-**What it does:** Same corpus/queries, but exercises QortexMemory.query() (the AutoGen adapter path, all async). Reports P@5, R@5, nDCG@5, distractor counts, and per-query latency.
-
-**Expected output includes:**
-```
-AVERAGE   0.55   0.45   0.81   0.65   0.716   0.628       4       4   25.8    5.3
-  Precision delta: +22%
-  Recall delta:    +26%
-  nDCG delta:      +14%
-```
-
-### 1e. AutoGen Adapter Unit + Integration Tests
-
-```bash
-uv run pytest tests/test_autogen_adapter.py -v
-```
-
-**What it does:** 18 unit tests (mocked client) + 8 integration tests (real client + InMemoryBackend). Validates all 5 Memory ABC methods, config serialization, feedback loop, and result shapes.
-
-**Expected:** 26/26 pass.
+**Why batch is negative:** numpy batch cosine is faster than per-query cosine. The graph traversal cost (0.02ms) is less than the batch optimization saves.
 
 ---
 
-## 2. CrewAI's Own Test Suite
+## Claim 3: "46/49 CrewAI tests pass"
 
 ```bash
 cd /Users/peleke/Documents/Projects/crewAI
-
-# Install (takes ~30s, large dependency tree)
-UV_HTTP_TIMEOUT=120 uv sync
-
-# Run knowledge tests
 uv run pytest lib/crewai/tests/knowledge/ -v --timeout=60
 ```
 
-**What it does:** Runs CrewAI's own 49-test knowledge suite. Tests KnowledgeStorage contract, async ops, SearchResult format, Knowledge pipeline, error handling.
+**What to look for:**
 
-**Expected:** 46 pass, 3 fail (missing optional deps: pandas, docling).
+```
+46 passed, 3 failed
+```
+
+**Verify:**
+- [ ] 46+ passed
+- [ ] The 3 failures reference `pandas` or `docling` (missing optional deps, not our code)
+- [ ] No failures in storage/search/async tests
 
 ---
 
-## 3. Mastra E2E (MCP over stdio)
+## Claim 4: "26/26 AutoGen adapter tests pass"
 
-### 3a. Unit Tests (mock-based, no server needed)
+```bash
+cd /Users/peleke/Documents/Projects/qortex-track-c
+uv run pytest tests/test_autogen_adapter.py -v
+```
+
+**What to look for:**
+
+```
+26 passed
+```
+
+**Verify:**
+- [ ] All 26 pass (18 unit + 8 integration)
+- [ ] No skips, no xfails
+
+---
+
+## Claim 5: "12/12 Agno tests pass"
+
+The agno eval file doubles as the test suite:
+
+```bash
+uv run pytest tests/eval_agno_vs_qortex.py -v
+```
+
+**What to look for:** `12 passed`
+
+---
+
+## Claim 6: "Mastra — 31/31 tests, 29 MCP calls in 3.94s"
+
+### Unit tests (no server needed)
 
 ```bash
 cd /Users/peleke/Documents/Projects/mastra-qortex
-npm install  # if not already done
 npx vitest run tests/vector.test.ts
 ```
 
-**Expected:** 20/20 pass in ~5ms.
+**What to look for:** `20 passed`
 
-### 3b. E2E Tests (real MCP server)
+### E2E tests (spawns real MCP server)
 
 ```bash
-# Requires uvx qortex to be available
 npx vitest run tests/e2e.test.ts
 ```
 
-**What it does:** Spawns real qortex MCP server via `uvx qortex mcp-serve`, connects QortexVector over stdio, runs all 9 MastraVector methods + dimension validation + full lifecycle test. 29 MCP tool calls total.
+**What to look for:**
+- `11 passed`
+- Total time ~3-5s
+- Look for `29 MCP tool calls` in the log output
 
-**Expected:** 11/11 pass in ~4s.
+**Verify:**
+- [ ] 20 + 11 = 31 total
+- [ ] E2E time is under 5s (MCP transport is not the bottleneck)
+
+**Requires:** `uvx qortex` to be available (the MCP server). If this fails, check `uvx qortex mcp-serve` runs standalone.
 
 ---
 
-## 4. All Benchmarks (one-shot)
+## Claim 7: "Cross-cutting queries: +50% precision, +49% recall"
+
+This comes from the per-query breakdown in claims 1a/1c. In the CrewAI or AutoGen benchmark output, look at the individual query rows:
+
+```
+Enterprise SSO for corporate apps     0.60   0.40   1.00   0.67   0.712   0.416
+M2M microservices auth                0.60   0.40   1.00   0.67   0.906   0.704
+```
+
+**Verify:**
+- [ ] SSO query: P@5 0.60 vs 0.40 = +50%
+- [ ] SSO query: R@5 1.00 vs 0.67 = +49%
+- [ ] SSO query: nDCG 0.712 vs 0.416 = +71%
+- [ ] These are the queries where graph dominates (typed edge traversal finds SAML, OpenID Connect)
+
+The first two queries (OAuth2 flow, token formats) should show identical scores — graph doesn't help on focused single-concept queries.
+
+---
+
+## Claim 8: "8,700+ lines of integration code"
+
+Not a benchmark — just a line count. If you want to spot-check:
 
 ```bash
-# From qortex-track-c, run everything:
+# Adapter implementations
+wc -l /Users/peleke/Documents/Projects/qortex-track-c/src/qortex/adapters/*.py
+
+# Specific repos (rough)
+find /Users/peleke/Documents/Projects/langchain-qortex/langchain_qortex -name "*.py" | xargs wc -l
+find /Users/peleke/Documents/Projects/mastra-qortex/src -name "*.ts" | xargs wc -l
+```
+
+Not critical to verify exactly. The point is "this isn't a toy integration."
+
+---
+
+## Claim 9: "LangChain — 47 tests pass" / "LangChain.js — ~40 tests pass"
+
+```bash
+# Python
+cd /Users/peleke/Documents/Projects/langchain-qortex
+uv run pytest -v
+
+# TypeScript
+cd /Users/peleke/Documents/Projects/langchain-qortex-js
+npx vitest run
+```
+
+These are our test suites (not LangChain's own). They validate the VectorStore interface contract.
+
+---
+
+## Run Everything (one shot)
+
+```bash
+# All Python benchmarks + tests from qortex-track-c
 cd /Users/peleke/Documents/Projects/qortex-track-c
 uv run pytest tests/eval_agno_vs_qortex.py tests/bench_perf.py tests/bench_crewai_vs_vanilla.py tests/bench_autogen_vs_vanilla.py tests/test_autogen_adapter.py -v -s
 
-# From mastra-qortex:
+# Mastra (TS, MCP)
 cd /Users/peleke/Documents/Projects/mastra-qortex
 npx vitest run
 
-# From crewAI:
+# CrewAI's own suite
 cd /Users/peleke/Documents/Projects/crewAI
 UV_HTTP_TIMEOUT=120 uv run pytest lib/crewai/tests/knowledge/ -v --timeout=60
+
+# LangChain (Python)
+cd /Users/peleke/Documents/Projects/langchain-qortex
+uv run pytest -v
+
+# LangChain (TypeScript)
+cd /Users/peleke/Documents/Projects/langchain-qortex-js
+npx vitest run
 ```
 
 ---
 
-## Environment Used for Stat Sheet Numbers
+## Corpus Reference
 
-```
-Machine:    MacBook Pro (Apple Silicon)
-Python:     3.14.0
-Node:       18+
-uv:         latest
-Embedding:  sentence-transformers/all-MiniLM-L6-v2 (384d)
-Date:       2026-02-13
-```
+All quality benchmarks use the same 20-concept authentication domain:
+
+**Core (10):** OAuth2, JWT, OpenID Connect, PKCE, Refresh Token, SAML, mTLS, API Key, Session Cookie, CORS
+
+**Distractors (10):** OAuth1, HTTP Basic Auth, Kerberos, LDAP, RADIUS, X.509 Certificate, Digest Auth, SCRAM, WebAuthn, TOTP
+
+**Edges (8):** Typed relationships between core concepts (`refines`, `supports`, `uses`, `part_of`, `similar_to`, `alternative_to`). Distractors have NO edges — this is the structural signal the graph exploits.
+
+**Rules (5):** Security and architecture constraints (e.g., "Always use PKCE for public clients").
+
+**Queries (4):** Cross-cutting auth scenarios with hand-labeled ground truth. Two are focused (graph ties vanilla), two are cross-cutting (graph dominates).
 
 ---
 
-## Corpus Description
+## If Something Fails
 
-All benchmarks use the same 20-concept authentication domain:
-
-**Core concepts (10):** OAuth2, JWT, OpenID Connect, PKCE, Refresh Token, SAML, mTLS, API Key, Session Cookie, CORS
-
-**Distractors (10):** OAuth1, HTTP Basic Auth, Kerberos, LDAP, RADIUS, X.509 Certificate, Digest Authentication, SCRAM, WebAuthn, TOTP
-
-**Graph edges (8):** Typed relationships between core concepts (refines, supports, uses, part_of, similar_to, alternative_to). Distractors have NO edges -- this is the structural signal the graph exploits.
-
-**Rules (5):** Security and architecture rules (e.g., "Always use PKCE for public clients").
-
-**Queries (4):** Cross-cutting auth scenarios with ground-truth expected concepts and known distractors.
+| Symptom | Fix |
+|---------|-----|
+| `ModuleNotFoundError: qortex` | Run `uv sync` in qortex-track-c |
+| `ModuleNotFoundError: sentence_transformers` | Same — `uv sync` pulls it |
+| Embedding download on first run (~90MB) | Normal, one-time. Subsequent runs use cache. |
+| CrewAI tests: `ImportError: pandas` | Expected. Those 3 failures are missing optional deps. |
+| Mastra E2E: `spawn ENOENT` or `uvx not found` | Install uv globally: `brew install uv` |
+| Mastra E2E: timeout | MCP server spawn can be slow first time. Retry once. |
+| Numbers differ slightly from stat sheet | Embedding non-determinism. P@5/R@5 should be exact (rank-based). Latency will vary by machine. |
