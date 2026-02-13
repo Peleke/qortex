@@ -209,3 +209,82 @@ class TestMcpTraceMiddleware:
 
         handler.assert_called_once()
         assert result == 42
+
+
+# ── _mcp_traced decorator wiring Tests ────────────────────────────
+
+
+class TestMcpTracedDecorator:
+    """Verify _mcp_traced decorator on MCP server tool wrappers."""
+
+    def test_all_tools_have_traced_decorator(self):
+        """Every @mcp.tool wrapper should also have @_mcp_traced."""
+        from qortex.mcp.server import mcp
+
+        # FastMCP wraps functions into FunctionTool objects;
+        # check the inner fn has __wrapped__ from _mcp_traced
+        tools = mcp._tool_manager._tools
+        assert len(tools) == 33, f"Expected 33 tools, got {len(tools)}"
+
+        for name, tool in tools.items():
+            fn = tool.fn
+            assert hasattr(fn, "__wrapped__"), (
+                f"{name} missing __wrapped__ -- not decorated with @_mcp_traced"
+            )
+
+    def test_traced_decorator_creates_span(self):
+        """_mcp_traced creates a span when calling a tool."""
+        from opentelemetry import trace
+        from opentelemetry.sdk.trace import TracerProvider
+        from opentelemetry.sdk.trace.export import SimpleSpanProcessor
+        from opentelemetry.sdk.trace.export.in_memory_span_exporter import InMemorySpanExporter
+
+        from qortex.mcp.server import _mcp_traced
+
+        exporter = InMemorySpanExporter()
+        provider = TracerProvider()
+        provider.add_span_processor(SimpleSpanProcessor(exporter))
+        trace.set_tracer_provider(provider)
+
+        try:
+            @_mcp_traced
+            def my_test_tool(x: int = 0) -> dict:
+                return {"value": x}
+
+            result = my_test_tool(x=42)
+            assert result == {"value": 42}
+
+            spans = exporter.get_finished_spans()
+            assert len(spans) == 1
+            assert spans[0].name == "mcp.tool.my_test_tool"
+            assert spans[0].attributes["mcp.tool.name"] == "my_test_tool"
+        finally:
+            provider.shutdown()
+            try:
+                if hasattr(trace, "_TRACER_PROVIDER_SET_ONCE"):
+                    trace._TRACER_PROVIDER_SET_ONCE._done = False
+            except Exception:
+                pass
+
+    def test_traced_decorator_preserves_signature(self):
+        """_mcp_traced preserves function name and docstring."""
+        from qortex.mcp.server import _mcp_traced
+
+        @_mcp_traced
+        def example_tool(query: str, top_k: int = 10) -> dict:
+            """Example docstring."""
+            return {}
+
+        assert example_tool.__name__ == "example_tool"
+        assert example_tool.__doc__ == "Example docstring."
+
+    def test_traced_decorator_propagates_exception(self):
+        """_mcp_traced re-raises exceptions from the wrapped function."""
+        from qortex.mcp.server import _mcp_traced
+
+        @_mcp_traced
+        def failing_tool() -> dict:
+            raise ValueError("boom")
+
+        with pytest.raises(ValueError, match="boom"):
+            failing_tool()
