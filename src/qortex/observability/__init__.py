@@ -53,6 +53,7 @@ from qortex.observability.logging import (
     register_formatter,
 )
 from qortex.observability.metrics_schema import METRICS, MetricDef, MetricType
+from qortex.observability.snapshot import config_snapshot_hash
 from qortex.observability.tracing import OverheadTimer, SelectiveSpanProcessor, traced
 
 __all__ = [
@@ -113,4 +114,6 @@ __all__ = [
     "traced",
     "OverheadTimer",
     "SelectiveSpanProcessor",
+    # Config snapshot
+    "config_snapshot_hash",
 ]

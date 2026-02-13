@@ -24,9 +24,12 @@ from typing import Any, Callable, TypeVar
 
 F = TypeVar("F", bound=Callable[..., Any])
 
-# ── Context var for overhead timer propagation ─────────────────────
+# ── Context vars for propagation ───────────────────────────────────
 _overhead_timer: contextvars.ContextVar[OverheadTimer | None] = contextvars.ContextVar(
     "_overhead_timer", default=None
+)
+_config_hash: contextvars.ContextVar[str | None] = contextvars.ContextVar(
+    "_config_hash", default=None
 )
 
 
@@ -89,6 +92,11 @@ def traced(name: str, *, external: bool = False) -> Callable[[F], F]:
             parent_timer = _overhead_timer.get()
 
             with tracer.start_as_current_span(name) as span:
+                # Attach config snapshot hash if available
+                config_h = _config_hash.get()
+                if config_h:
+                    span.set_attribute("config.snapshot_hash", config_h)
+
                 # If this is a top-level traced call, create an OverheadTimer
                 if parent_timer is None:
                     timer = OverheadTimer()
@@ -129,6 +137,10 @@ def traced(name: str, *, external: bool = False) -> Callable[[F], F]:
             parent_timer = _overhead_timer.get()
 
             with tracer.start_as_current_span(name) as span:
+                config_h = _config_hash.get()
+                if config_h:
+                    span.set_attribute("config.snapshot_hash", config_h)
+
                 if parent_timer is None:
                     timer = OverheadTimer()
                     token = _overhead_timer.set(timer)

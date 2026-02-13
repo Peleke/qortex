@@ -20,7 +20,8 @@ from typing import TYPE_CHECKING, Protocol, runtime_checkable
 
 from qortex.core.backend import GraphBackend
 from qortex.observability import emit
-from qortex.observability.tracing import get_overhead_timer, traced
+from qortex.observability.snapshot import config_snapshot_hash
+from qortex.observability.tracing import _config_hash, get_overhead_timer, traced
 from qortex.observability.events import (
     FeedbackReceived,
     KGCoverageComputed,
@@ -271,6 +272,11 @@ class GraphRAGAdapter:
         top_k: int = 20,
         min_confidence: float = 0.0,
     ) -> RetrievalResult:
+        # Set config snapshot hash for this query's span tree
+        _config_hash.set(config_snapshot_hash(
+            learner_configs={"interoception": type(self._interoception).__name__},
+        ))
+
         query_id = str(uuid.uuid4())
         t0 = time.perf_counter()
 
