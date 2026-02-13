@@ -10,6 +10,7 @@ Adapters:
     langchain_vectorstore → QortexVectorStore (VectorStore — full integration)
     agno                → QortexKnowledge (knowledge protocol)
     mastra              → QortexVectorStore (MastraVector mapping)
+    autogen             → QortexMemory (Memory — 5 async methods)
 
 Usage:
     from qortex.client import LocalQortexClient
