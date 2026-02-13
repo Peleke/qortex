@@ -1090,7 +1090,7 @@ class TestOtelErrorHandling:
     """OTEL subscriber registration: error handling, protocol fallback, success log."""
 
     def test_non_import_error_caught_and_logged(self):
-        """Non-ImportError from register_otel_subscriber is caught, not propagated."""
+        """Non-ImportError from register_otel_traces is caught, not propagated."""
         from unittest.mock import patch
 
         from qortex.observability.emitter import configure, is_configured, reset
@@ -1099,10 +1099,12 @@ class TestOtelErrorHandling:
 
         cfg = ObservabilityConfig(otel_enabled=True)
 
-        # Simulate register_otel_subscriber raising AttributeError (e.g. missing create_gauge)
+        # Simulate register_otel_traces raising AttributeError
         with patch(
-            "qortex.observability.subscribers.otel.register_otel_subscriber",
+            "qortex.observability.subscribers.otel.register_otel_traces",
             side_effect=AttributeError("create_gauge not found"),
+        ), patch(
+            "qortex.observability.emitter._setup_metrics_pipeline",
         ):
             emitter = configure(cfg)
 
@@ -1122,8 +1124,10 @@ class TestOtelErrorHandling:
         cfg = ObservabilityConfig(otel_enabled=True)
 
         with patch(
-            "qortex.observability.subscribers.otel.register_otel_subscriber",
+            "qortex.observability.subscribers.otel.register_otel_traces",
             side_effect=ImportError("No module named 'opentelemetry'"),
+        ), patch(
+            "qortex.observability.emitter._setup_metrics_pipeline",
         ):
             emitter = configure(cfg)
 
@@ -1132,7 +1136,7 @@ class TestOtelErrorHandling:
         reset()
 
     def test_otel_success_log_emitted(self, caplog):
-        """Successful OTEL registration emits info log."""
+        """Successful OTEL trace registration emits info log."""
         from unittest.mock import patch
 
         from qortex.observability.emitter import configure, reset
@@ -1142,7 +1146,9 @@ class TestOtelErrorHandling:
         cfg = ObservabilityConfig(otel_enabled=True)
 
         with patch(
-            "qortex.observability.subscribers.otel.register_otel_subscriber"
+            "qortex.observability.subscribers.otel.register_otel_traces"
+        ), patch(
+            "qortex.observability.emitter._setup_metrics_pipeline",
         ):
             configure(cfg)
 
@@ -1180,8 +1186,8 @@ class TestOtelErrorHandling:
             # If HTTP exporter also can't import (no otel in test env), that's OK
             pytest.skip("opentelemetry not installed")
 
-    def test_prometheus_non_import_error_caught(self):
-        """Non-ImportError from Prometheus subscriber is caught."""
+    def test_metrics_pipeline_non_import_error_caught(self):
+        """Non-ImportError from metrics pipeline is caught, not propagated."""
         from unittest.mock import patch
 
         from qortex.observability.emitter import configure, is_configured, reset
@@ -1191,7 +1197,7 @@ class TestOtelErrorHandling:
         cfg = ObservabilityConfig(prometheus_enabled=True)
 
         with patch(
-            "qortex.observability.subscribers.prometheus.register_prometheus_subscriber",
+            "qortex.observability.emitter._setup_metrics_pipeline",
             side_effect=OSError("Address already in use"),
         ):
             emitter = configure(cfg)

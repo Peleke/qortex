@@ -1,23 +1,16 @@
-"""OpenTelemetry subscriber: routes events to OTel spans and metrics.
+"""OpenTelemetry trace subscriber: routes query events to OTel spans.
+
+Metrics have moved to the unified pipeline (metrics_schema + metrics_factory
++ metrics_handlers). This module only handles trace spans.
 
 Requires qortex[observability] (opentelemetry-api, opentelemetry-sdk,
 opentelemetry-exporter-otlp).
-
-Push-based: metrics and traces are pushed to an OTLP endpoint (collector,
-Jaeger, etc.). The OTEL Collector's Prometheus exporter converts these to
-Prometheus-format metrics, so the same Grafana dashboard works whether
-qortex runs locally or in a remote sandbox.
 
 Protocol selection (OTEL_EXPORTER_OTLP_PROTOCOL):
     "grpc"          -> gRPC exporters (default, requires grpcio)
     "http/protobuf" -> HTTP/protobuf exporters (works through firewalls/VMs)
 
 If gRPC import fails, automatically falls back to HTTP/protobuf.
-
-Metric naming convention:
-    Counter  "qortex_foo"         -> Prometheus "qortex_foo_total"
-    Histogram "qortex_bar_seconds" -> Prometheus "qortex_bar_seconds_bucket"
-    Gauge    "qortex_baz"         -> Prometheus "qortex_baz"
 """
 
 from __future__ import annotations
@@ -76,41 +69,21 @@ def _get_exporters(protocol: str, endpoint: str):
         ), OTLPMetricExporter(endpoint=endpoint + "/v1/metrics")
 
 
-def register_otel_subscriber(config: ObservabilityConfig) -> None:
-    """Register OTel trace + metric subscribers."""
-    from opentelemetry import metrics, trace
-    from opentelemetry.sdk.metrics import MeterProvider
-    from opentelemetry.sdk.metrics.export import PeriodicExportingMetricReader
+def register_otel_traces(config: ObservabilityConfig) -> None:
+    """Register OTel trace spans for query lifecycle.
+
+    Only handles traces. Metrics are registered separately via the
+    unified metrics pipeline in emitter.configure().
+    """
+    from opentelemetry import trace
     from opentelemetry.sdk.resources import Resource
     from opentelemetry.sdk.trace import TracerProvider
     from opentelemetry.sdk.trace.export import BatchSpanProcessor
 
     from qortex.observability.events import (
-        BufferFlushed,
-        CreditPropagated,
-        EdgePromoted,
-        EnrichmentCompleted,
-        EnrichmentFallback,
-        FactorDriftSnapshot,
-        FactorUpdated,
-        FeedbackReceived,
-        KGCoverageComputed,
-        LearningObservationRecorded,
-        LearningPosteriorUpdated,
-        LearningSelectionMade,
-        ManifestIngested,
-        OnlineEdgeRecorded,
-        OnlineEdgesGenerated,
-        PPRConverged,
-        PPRDiverged,
-        PPRStarted,
         QueryCompleted,
         QueryFailed,
         QueryStarted,
-        VecIndexUpdated,
-        VecSearchCompleted,
-        VecSearchResults,
-        VecSeedYield,
     )
     from qortex.observability.linker import QortexEventLinker
 
@@ -118,9 +91,7 @@ def register_otel_subscriber(config: ObservabilityConfig) -> None:
     resource = Resource.create({"service.name": config.otel_service_name})
 
     # ── Exporters (gRPC with HTTP fallback) ───────────────────────────
-    span_exporter, metric_exporter = _get_exporters(
-        config.otel_protocol, config.otel_endpoint
-    )
+    span_exporter, _ = _get_exporters(config.otel_protocol, config.otel_endpoint)
 
     # ── Tracer ────────────────────────────────────────────────────────
     provider = TracerProvider(resource=resource)
@@ -128,116 +99,11 @@ def register_otel_subscriber(config: ObservabilityConfig) -> None:
     trace.set_tracer_provider(provider)
     tracer = trace.get_tracer("qortex")
 
-    # ── Meter ─────────────────────────────────────────────────────────
-    metric_reader = PeriodicExportingMetricReader(metric_exporter)
-    meter_provider = MeterProvider(resource=resource, metric_readers=[metric_reader])
-    metrics.set_meter_provider(meter_provider)
-    meter = metrics.get_meter("qortex")
-
-    # ── Instruments (names align with prometheus.py for dashboard compat) ──
-    #
-    # Counters: OTEL Prometheus exporter adds "_total" suffix automatically.
-    # Histograms: include "_seconds" in name, no unit param (avoids double suffix).
-    # Gauges: name used as-is.
-
-    # Counters
-    queries_total = meter.create_counter(
-        "qortex_queries", description="Total queries"
-    )
-    factor_updates_total = meter.create_counter(
-        "qortex_factor_updates", description="Factor update events"
-    )
-    edges_promoted = meter.create_counter(
-        "qortex_edges_promoted", description="Lifetime edge promotions"
-    )
-    feedback_total = meter.create_counter(
-        "qortex_feedback", description="Feedback events"
-    )
-    query_errors = meter.create_counter(
-        "qortex_query_errors", description="Query errors"
-    )
-    enrichment_total = meter.create_counter(
-        "qortex_enrichment", description="Enrichment runs"
-    )
-    enrichment_fallbacks = meter.create_counter(
-        "qortex_enrichment_fallbacks", description="Enrichment fallbacks"
-    )
-    manifests_ingested = meter.create_counter(
-        "qortex_manifests_ingested", description="Manifests ingested"
-    )
-
-    # Histograms
-    query_latency = meter.create_histogram(
-        "qortex_query_duration_seconds", description="Query latency"
-    )
-    ppr_iterations_hist = meter.create_histogram(
-        "qortex_ppr_iterations", description="PPR iterations to converge"
-    )
-    vec_search_latency = meter.create_histogram(
-        "qortex_vec_search_duration_seconds", description="Vec search latency"
-    )
-    enrichment_latency = meter.create_histogram(
-        "qortex_enrichment_duration_seconds", description="Enrichment latency"
-    )
-    ingest_latency = meter.create_histogram(
-        "qortex_ingest_duration_seconds", description="Ingest latency"
-    )
-
-    ppr_started_total = meter.create_counter(
-        "qortex_ppr_started", description="PPR executions started"
-    )
-    online_edges_total = meter.create_counter(
-        "qortex_online_edges_generated", description="Online edge generation events"
-    )
-
-    # Gauges (synchronous — set() on event)
-    factor_mean = meter.create_gauge(
-        "qortex_factor_mean", description="Mean teleportation factor"
-    )
-    factor_entropy = meter.create_gauge(
-        "qortex_factor_entropy", description="Factor distribution entropy"
-    )
-    active_factors = meter.create_gauge(
-        "qortex_factors_active", description="Active teleportation factors"
-    )
-    buffer_size = meter.create_gauge(
-        "qortex_buffer_edges", description="Buffered online edges"
-    )
-    kg_coverage = meter.create_gauge(
-        "qortex_kg_coverage", description="KG coverage ratio"
-    )
-    online_edge_count = meter.create_gauge(
-        "qortex_online_edge_count", description="Online edges generated in last query"
-    )
-
-    # Vec index instruments
-    vec_add_total = meter.create_counter(
-        "qortex_vec_add", description="Vec index add operations"
-    )
-    vec_add_latency = meter.create_histogram(
-        "qortex_vec_add_duration_seconds", description="Vec add latency"
-    )
-    vec_index_size = meter.create_gauge(
-        "qortex_vec_index_size", description="Number of vectors in index"
-    )
-    vec_search_candidates = meter.create_histogram(
-        "qortex_vec_search_candidates", description="Candidates returned per search"
-    )
-    vec_search_top_score = meter.create_gauge(
-        "qortex_vec_search_top_score", description="Top cosine sim score of last search"
-    )
-    vec_search_score_spread = meter.create_gauge(
-        "qortex_vec_search_score_spread", description="Top - bottom score spread"
-    )
-    vec_seed_yield = meter.create_gauge(
-        "qortex_vec_seed_yield", description="Seed yield ratio after domain filtering"
-    )
-
     # ── Trace state ───────────────────────────────────────────────────
     _MAX_ACTIVE_SPANS = 1000
     _active_spans: dict[str, trace.Span] = {}
 
-    # ── Query lifecycle (traces + metrics) ────────────────────────────
+    # ── Query lifecycle (traces only) ─────────────────────────────────
 
     @QortexEventLinker.on(QueryStarted)
     def _on_query_start(event: QueryStarted) -> None:
@@ -268,8 +134,6 @@ def register_otel_subscriber(config: ObservabilityConfig) -> None:
             span.set_attribute("activated_nodes", event.activated_nodes)
             span.set_attribute("latency_ms", event.latency_ms)
             span.end()
-        queries_total.add(1, {"mode": event.mode})
-        query_latency.record(event.latency_ms / 1000)
 
     @QortexEventLinker.on(QueryFailed)
     def _on_query_failed(event: QueryFailed) -> None:
@@ -279,177 +143,7 @@ def register_otel_subscriber(config: ObservabilityConfig) -> None:
             span.set_attribute("error.stage", event.stage)
             span.set_attribute("error.message", event.error)
             span.end()
-        query_errors.add(1, {"stage": event.stage})
 
-    # ── PPR lifecycle ─────────────────────────────────────────────────
 
-    @QortexEventLinker.on(PPRStarted)
-    def _on_ppr_started(event: PPRStarted) -> None:
-        ppr_started_total.add(1)
-
-    @QortexEventLinker.on(PPRConverged)
-    def _on_ppr_converged(event: PPRConverged) -> None:
-        ppr_iterations_hist.record(event.iterations)
-
-    @QortexEventLinker.on(PPRDiverged)
-    def _on_ppr_diverged(event: PPRDiverged) -> None:
-        ppr_iterations_hist.record(event.iterations)
-
-    # ── Teleportation factors ─────────────────────────────────────────
-
-    @QortexEventLinker.on(FactorUpdated)
-    def _on_factor_updated(event: FactorUpdated) -> None:
-        factor_updates_total.add(1, {"outcome": event.outcome})
-
-    @QortexEventLinker.on(FactorDriftSnapshot)
-    def _on_factor_drift(event: FactorDriftSnapshot) -> None:
-        active_factors.set(event.count)
-        factor_mean.set(event.mean)
-        factor_entropy.set(event.entropy)
-
-    # ── Edge promotion ────────────────────────────────────────────────
-
-    @QortexEventLinker.on(OnlineEdgeRecorded)
-    def _on_edge_recorded(event: OnlineEdgeRecorded) -> None:
-        buffer_size.set(event.buffer_size)
-
-    @QortexEventLinker.on(EdgePromoted)
-    def _on_edge_promoted(event: EdgePromoted) -> None:
-        edges_promoted.add(1)
-
-    @QortexEventLinker.on(BufferFlushed)
-    def _on_buffer_flushed(event: BufferFlushed) -> None:
-        if event.kg_coverage is not None:
-            kg_coverage.set(event.kg_coverage)
-
-    # ── Retrieval ─────────────────────────────────────────────────────
-
-    @QortexEventLinker.on(VecSearchCompleted)
-    def _on_vec_search(event: VecSearchCompleted) -> None:
-        vec_search_latency.record(event.latency_ms / 1000)
-
-    @QortexEventLinker.on(OnlineEdgesGenerated)
-    def _on_online_edges(event: OnlineEdgesGenerated) -> None:
-        online_edges_total.add(1)
-        online_edge_count.set(event.edge_count)
-
-    @QortexEventLinker.on(KGCoverageComputed)
-    def _on_kg_coverage(event: KGCoverageComputed) -> None:
-        kg_coverage.set(event.coverage)
-
-    @QortexEventLinker.on(FeedbackReceived)
-    def _on_feedback(event: FeedbackReceived) -> None:
-        if event.accepted > 0:
-            feedback_total.add(event.accepted, {"outcome": "accepted"})
-        if event.rejected > 0:
-            feedback_total.add(event.rejected, {"outcome": "rejected"})
-        if event.partial > 0:
-            feedback_total.add(event.partial, {"outcome": "partial"})
-
-    # ── Enrichment ────────────────────────────────────────────────────
-
-    @QortexEventLinker.on(EnrichmentCompleted)
-    def _on_enrichment(event: EnrichmentCompleted) -> None:
-        enrichment_total.add(1, {"backend_type": event.backend_type})
-        enrichment_latency.record(event.latency_ms / 1000)
-
-    @QortexEventLinker.on(EnrichmentFallback)
-    def _on_enrichment_fallback(event: EnrichmentFallback) -> None:
-        enrichment_fallbacks.add(1)
-
-    # ── Vec Index ─────────────────────────────────────────────────────
-
-    @QortexEventLinker.on(VecIndexUpdated)
-    def _on_vec_index_updated(event: VecIndexUpdated) -> None:
-        vec_add_total.add(1, {"index_type": event.index_type})
-        vec_add_latency.record(event.latency_ms / 1000)
-        vec_index_size.set(event.total_size)
-
-    @QortexEventLinker.on(VecSearchResults)
-    def _on_vec_search_results(event: VecSearchResults) -> None:
-        vec_search_candidates.record(event.candidates)
-        vec_search_top_score.set(event.top_score)
-        vec_search_score_spread.set(event.score_spread)
-
-    @QortexEventLinker.on(VecSeedYield)
-    def _on_vec_seed_yield(event: VecSeedYield) -> None:
-        vec_seed_yield.set(event.yield_ratio)
-
-    # ── Ingestion ─────────────────────────────────────────────────────
-
-    @QortexEventLinker.on(ManifestIngested)
-    def _on_manifest(event: ManifestIngested) -> None:
-        manifests_ingested.add(1, {"domain": event.domain})
-        ingest_latency.record(event.latency_ms / 1000)
-
-    # ── Learning ─────────────────────────────────────────────────────
-
-    learning_selections = meter.create_counter(
-        "qortex_learning_selections", description="Learning selection events"
-    )
-    learning_observations = meter.create_counter(
-        "qortex_learning_observations", description="Learning observation events"
-    )
-    learning_posterior_mean = meter.create_gauge(
-        "qortex_learning_posterior_mean", description="Posterior mean by arm"
-    )
-    learning_arm_pulls = meter.create_counter(
-        "qortex_learning_arm_pulls", description="Total arm pulls"
-    )
-    learning_token_budget = meter.create_histogram(
-        "qortex_learning_token_budget_used", description="Token budget utilization"
-    )
-
-    @QortexEventLinker.on(LearningSelectionMade)
-    def _on_learning_selection(event: LearningSelectionMade) -> None:
-        learning_selections.add(1, {
-            "learner": event.learner,
-            "baseline": str(event.is_baseline),
-        })
-        if event.token_budget > 0:
-            learning_token_budget.record(event.used_tokens)
-
-    @QortexEventLinker.on(LearningObservationRecorded)
-    def _on_learning_observation(event: LearningObservationRecorded) -> None:
-        learning_observations.add(1, {
-            "learner": event.learner,
-            "outcome": event.outcome,
-        })
-
-    @QortexEventLinker.on(LearningPosteriorUpdated)
-    def _on_learning_posterior(event: LearningPosteriorUpdated) -> None:
-        learning_posterior_mean.set(event.mean, {
-            "learner": event.learner,
-            "arm_id": event.arm_id,
-        })
-        learning_arm_pulls.add(1, {
-            "learner": event.learner,
-            "arm_id": event.arm_id,
-        })
-
-    # ── Credit Propagation ────────────────────────────────────────────
-
-    credit_propagations = meter.create_counter(
-        "qortex_credit_propagations", description="Credit propagation events"
-    )
-    credit_concepts = meter.create_histogram(
-        "qortex_credit_concepts_per_propagation",
-        description="Concepts receiving credit per propagation",
-    )
-    credit_alpha_delta = meter.create_counter(
-        "qortex_credit_alpha_delta",
-        description="Cumulative alpha (success) delta from credit propagation",
-    )
-    credit_beta_delta = meter.create_counter(
-        "qortex_credit_beta_delta",
-        description="Cumulative beta (failure) delta from credit propagation",
-    )
-
-    @QortexEventLinker.on(CreditPropagated)
-    def _on_credit_propagated(event: CreditPropagated) -> None:
-        credit_propagations.add(1, {"learner": event.learner})
-        credit_concepts.record(event.concept_count)
-        if event.total_alpha_delta > 0:
-            credit_alpha_delta.add(event.total_alpha_delta)
-        if event.total_beta_delta > 0:
-            credit_beta_delta.add(event.total_beta_delta)
+# Backwards compat alias (used by existing tests)
+register_otel_subscriber = register_otel_traces

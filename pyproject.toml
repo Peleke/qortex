@@ -81,9 +81,10 @@ memgraph = [
     "neo4j>=5.0",
 ]
 observability = [
-    "opentelemetry-api>=1.22",
-    "opentelemetry-sdk>=1.22",
-    "opentelemetry-exporter-otlp>=1.22",
+    "opentelemetry-api>=1.28",
+    "opentelemetry-sdk>=1.28",
+    "opentelemetry-exporter-otlp>=1.28",
+    "opentelemetry-exporter-prometheus>=0.49b0",
     "prometheus-client>=0.20",
 ]
 all = [
@@ -141,4 +142,9 @@ asyncio_mode = "auto"
 testpaths = ["tests"]
 markers = [
     "integration: requires Docker Compose services",
+]
+
+[dependency-groups]
+dev = [
+    "hypothesis>=6.151.5",
 ]

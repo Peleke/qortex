@@ -20,6 +20,80 @@ def emit(event: Any) -> None:
         _emitter.emit(event)
 
 
+def _setup_metrics_pipeline(cfg: "ObservabilityConfig") -> None:
+    """Create unified metrics pipeline: schema -> factory -> handlers.
+
+    Sets up OTel MeterProvider with configured readers (OTLP push
+    and/or Prometheus pull), creates instruments from the declarative
+    schema, applies histogram bucket Views, and registers event handlers.
+    """
+    from qortex.observability.logging import get_logger
+
+    from opentelemetry.sdk.metrics import MeterProvider
+    from opentelemetry.sdk.resources import Resource
+
+    from qortex.observability.metrics_factory import create_instruments, create_views
+    from qortex.observability.metrics_handlers import register_metric_handlers
+
+    resource = Resource.create({"service.name": cfg.otel_service_name})
+    readers: list = []
+
+    # OTLP push reader (to collector)
+    if cfg.otel_enabled:
+        try:
+            from opentelemetry.sdk.metrics.export import PeriodicExportingMetricReader
+
+            from qortex.observability.subscribers.otel import _get_exporters
+
+            _, metric_exporter = _get_exporters(cfg.otel_protocol, cfg.otel_endpoint)
+            readers.append(PeriodicExportingMetricReader(metric_exporter))
+        except ImportError:
+            get_logger().warning(
+                "otel_enabled but OTLP exporter not installed",
+                hint="pip install qortex[observability]",
+            )
+
+    # Prometheus pull reader (/metrics endpoint)
+    if cfg.prometheus_enabled:
+        try:
+            from opentelemetry.exporter.prometheus import PrometheusMetricReader
+            from prometheus_client import start_http_server
+
+            readers.append(PrometheusMetricReader())
+            start_http_server(cfg.prometheus_port)
+        except ImportError:
+            get_logger().warning(
+                "prometheus_enabled but opentelemetry-exporter-prometheus not installed",
+                hint="pip install qortex[observability]",
+            )
+
+    if not readers:
+        get_logger().warning(
+            "metrics.pipeline.no_readers",
+            hint="No metric readers configured; metrics will be collected but not exported",
+        )
+
+    views = create_views()
+    meter_provider = MeterProvider(
+        resource=resource, metric_readers=readers, views=views,
+    )
+    meter = meter_provider.get_meter("qortex")
+    instruments = create_instruments(meter)
+    register_metric_handlers(instruments)
+
+    reader_names = []
+    if cfg.otel_enabled:
+        reader_names.append("otlp")
+    if cfg.prometheus_enabled:
+        reader_names.append(f"prometheus:{cfg.prometheus_port}")
+
+    get_logger().info(
+        "metrics.pipeline.registered",
+        readers=reader_names,
+        metric_count=len(instruments),
+    )
+
+
 def configure(config: "ObservabilityConfig | None" = None) -> EventEmitter:
     """Initialize the global emitter and register subscribers.
 
@@ -59,16 +133,36 @@ def configure(config: "ObservabilityConfig | None" = None) -> EventEmitter:
 
         register_jsonl_subscriber(cfg.jsonl_path)
 
-    # Optional: OTel traces + metrics (requires qortex[observability])
+    # Unified metrics pipeline (OTel instruments, one set of handlers)
+    if cfg.otel_enabled or cfg.prometheus_enabled:
+        try:
+            _setup_metrics_pipeline(cfg)
+        except ImportError:
+            from qortex.observability.logging import get_logger
+
+            get_logger().warning(
+                "metrics pipeline requires opentelemetry-sdk",
+                hint="pip install qortex[observability]",
+            )
+        except Exception:
+            from qortex.observability.logging import get_logger
+
+            get_logger().error(
+                "metrics.pipeline.failed",
+                exc_info=True,
+                hint="Metrics pipeline crashed during setup",
+            )
+
+    # OTel traces (spans only, metrics handled above)
     if cfg.otel_enabled:
         try:
-            from qortex.observability.subscribers.otel import register_otel_subscriber
+            from qortex.observability.subscribers.otel import register_otel_traces
 
-            register_otel_subscriber(cfg)
+            register_otel_traces(cfg)
             from qortex.observability.logging import get_logger
 
             get_logger().info(
-                "otel.subscriber.registered",
+                "otel.traces.registered",
                 endpoint=cfg.otel_endpoint,
                 service=cfg.otel_service_name,
             )
@@ -83,39 +177,9 @@ def configure(config: "ObservabilityConfig | None" = None) -> EventEmitter:
             from qortex.observability.logging import get_logger
 
             get_logger().error(
-                "otel.subscriber.failed",
+                "otel.traces.failed",
                 exc_info=True,
-                hint="OTEL subscriber crashed during registration",
-            )
-
-    # Optional: Prometheus metrics (requires qortex[observability])
-    if cfg.prometheus_enabled:
-        try:
-            from qortex.observability.subscribers.prometheus import (
-                register_prometheus_subscriber,
-            )
-
-            register_prometheus_subscriber(cfg)
-            from qortex.observability.logging import get_logger
-
-            get_logger().info(
-                "prometheus.subscriber.registered",
-                port=cfg.prometheus_port,
-            )
-        except ImportError:
-            from qortex.observability.logging import get_logger
-
-            get_logger().warning(
-                "prometheus_enabled but prometheus-client not installed",
-                hint="pip install qortex[observability]",
-            )
-        except Exception:
-            from qortex.observability.logging import get_logger
-
-            get_logger().error(
-                "prometheus.subscriber.failed",
-                exc_info=True,
-                hint="Prometheus subscriber crashed during registration",
+                hint="OTel trace subscriber crashed during registration",
             )
 
     # Always register alert subscriber (no-op sink by default)

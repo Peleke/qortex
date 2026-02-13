@@ -52,6 +52,7 @@ from qortex.observability.logging import (
     register_destination,
     register_formatter,
 )
+from qortex.observability.metrics_schema import METRICS, MetricDef, MetricType
 
 __all__ = [
     # Core API
@@ -103,4 +104,8 @@ __all__ = [
     "LearningSelectionMade",
     "LearningObservationRecorded",
     "LearningPosteriorUpdated",
+    # Metric schema
+    "MetricDef",
+    "MetricType",
+    "METRICS",
 ]
