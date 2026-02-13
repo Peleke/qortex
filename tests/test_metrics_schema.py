@@ -8,8 +8,7 @@ from __future__ import annotations
 from dataclasses import FrozenInstanceError
 
 import pytest
-
-from qortex_observe.metrics_schema import METRICS, MetricDef, MetricType
+from qortex_observe.metrics_schema import METRICS, MetricType
 
 
 class TestMetricsSchemaCompleteness:

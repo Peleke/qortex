@@ -13,13 +13,8 @@ import pytest
 
 from qortex.core.models import (
     ConceptEdge,
-    ConceptNode,
-    ExplicitRule,
-    IngestionManifest,
     RelationType,
-    SourceMetadata,
 )
-
 
 # ---------------------------------------------------------------------------
 # Helpers

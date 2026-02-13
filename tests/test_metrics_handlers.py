@@ -14,7 +14,6 @@ otel_sdk = pytest.importorskip("opentelemetry.sdk")
 
 from opentelemetry.sdk.metrics import MeterProvider
 from opentelemetry.sdk.metrics.export import InMemoryMetricReader
-
 from qortex_observe.events import (
     BufferFlushed,
     CreditPropagated,
@@ -24,13 +23,11 @@ from qortex_observe.events import (
     FactorDriftSnapshot,
     FactorUpdated,
     FeedbackReceived,
-    KGCoverageComputed,
     LearningObservationRecorded,
     LearningPosteriorUpdated,
     LearningSelectionMade,
     ManifestIngested,
     OnlineEdgeRecorded,
-    OnlineEdgesGenerated,
     PPRConverged,
     PPRDiverged,
     PPRStarted,

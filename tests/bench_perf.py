@@ -15,7 +15,6 @@ import pytest
 from qortex.adapters.agno import QortexKnowledge
 from qortex.client import LocalQortexClient
 from qortex.core.memory import InMemoryBackend
-from qortex.core.models import RelationType
 from qortex.vec.embeddings import SentenceTransformerEmbedding
 from qortex.vec.index import NumpyVectorIndex
 

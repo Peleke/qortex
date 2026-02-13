@@ -15,10 +15,8 @@ import json
 import logging
 from dataclasses import FrozenInstanceError, asdict
 from datetime import timedelta
-from pathlib import Path
 
 import pytest
-
 from qortex_observe.config import ObservabilityConfig
 from qortex_observe.events import (
     BufferFlushed,
@@ -46,7 +44,6 @@ from qortex_observe.events import (
     QueryStarted,
     VecSearchCompleted,
 )
-
 
 # =============================================================================
 # Fixtures
@@ -696,7 +693,6 @@ class TestLinker:
 
     def test_linker_is_event_linker(self):
         from pyventus.events import EventLinker
-
         from qortex_observe.linker import QortexEventLinker
 
         assert issubclass(QortexEventLinker, EventLinker)
@@ -785,8 +781,9 @@ class TestEnrichmentEmission:
         """enrich() emits EnrichmentCompleted at end."""
         from unittest.mock import patch
 
-        from qortex.enrichment.pipeline import EnrichmentPipeline
         from qortex_observe.events import EnrichmentCompleted
+
+        from qortex.enrichment.pipeline import EnrichmentPipeline
 
         pipeline = EnrichmentPipeline()  # No backend → template fallback
         rules = self._make_rules(3)
@@ -809,8 +806,9 @@ class TestEnrichmentEmission:
         """Backend failure path emits EnrichmentFallback."""
         from unittest.mock import patch
 
-        from qortex.enrichment.pipeline import EnrichmentPipeline
         from qortex_observe.events import EnrichmentCompleted, EnrichmentFallback
+
+        from qortex.enrichment.pipeline import EnrichmentPipeline
 
         class FailingBackend:
             def enrich_batch(self, rules, domain):
@@ -846,6 +844,8 @@ class TestManifestIngestedEmission:
     def test_manifest_ingested_emitted(self, configured):
         from unittest.mock import patch
 
+        from qortex_observe.events import ManifestIngested
+
         from qortex.core.memory import InMemoryBackend
         from qortex.core.models import (
             ConceptEdge,
@@ -855,7 +855,6 @@ class TestManifestIngestedEmission:
             RelationType,
             SourceMetadata,
         )
-        from qortex_observe.events import ManifestIngested
 
         backend = InMemoryBackend()
         backend.connect()
@@ -902,13 +901,14 @@ class TestManifestIngestedEmission:
         """MemgraphBackend.ingest_manifest() emits ManifestIngested too."""
         from unittest.mock import MagicMock, patch
 
+        from qortex_observe.events import ManifestIngested
+
         from qortex.core.backend import MemgraphBackend
         from qortex.core.models import (
             ConceptNode,
             IngestionManifest,
             SourceMetadata,
         )
-        from qortex_observe.events import ManifestIngested
 
         backend = MemgraphBackend(uri="bolt://fake:7687")
         backend._driver = MagicMock()
@@ -954,7 +954,7 @@ class TestPrometheusMetrics:
 
     def test_factor_updated_increments_counter(self):
         """FactorUpdated handler increments qortex_factor_updates_total."""
-        from unittest.mock import MagicMock, patch
+        from unittest.mock import MagicMock
 
         from qortex_observe.events import FactorUpdated
 

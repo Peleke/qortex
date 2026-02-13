@@ -19,6 +19,8 @@ import hashlib
 import logging
 from collections import OrderedDict
 
+from qortex_observe.tracing import traced
+
 logger = logging.getLogger(__name__)
 
 
@@ -44,6 +46,7 @@ class CachedEmbeddingModel:
     def dimensions(self) -> int:
         return self._model.dimensions
 
+    @traced("vec.embed.cached")
     def embed(self, texts: list[str]) -> list[list[float]]:
         """Embed texts with caching. Only calls model for uncached texts."""
         results: list[list[float] | None] = [None] * len(texts)
@@ -72,6 +75,16 @@ class CachedEmbeddingModel:
                 # Evict oldest if over capacity
                 if len(self._cache) > self._max_size:
                     self._cache.popitem(last=False)
+
+        try:
+            from opentelemetry import trace
+
+            span = trace.get_current_span()
+            span.set_attribute("embed.cache_hits", len(texts) - len(uncached_texts))
+            span.set_attribute("embed.cache_misses", len(uncached_texts))
+            span.set_attribute("embed.batch_size", len(texts))
+        except ImportError:
+            pass
 
         return results  # type: ignore[return-value]
 

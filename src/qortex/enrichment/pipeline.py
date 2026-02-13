@@ -6,11 +6,12 @@ import time
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
 
-from qortex.core.models import Rule
-from qortex.enrichment.base import EnrichmentBackend
 from qortex_observe import emit
 from qortex_observe.events import EnrichmentCompleted, EnrichmentFallback
 from qortex_observe.logging import get_logger
+
+from qortex.core.models import Rule
+from qortex.enrichment.base import EnrichmentBackend
 from qortex.projectors.models import EnrichedRule, RuleEnrichment
 
 logger = get_logger(__name__)

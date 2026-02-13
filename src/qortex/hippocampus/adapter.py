@@ -12,16 +12,12 @@ from __future__ import annotations
 
 import time
 import uuid
-
-import numpy as np
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from typing import TYPE_CHECKING, Protocol, runtime_checkable
 
-from qortex.core.backend import GraphBackend
+import numpy as np
 from qortex_observe import emit
-from qortex_observe.snapshot import config_snapshot_hash
-from qortex_observe.tracing import _config_hash, get_overhead_timer, traced
 from qortex_observe.events import (
     FeedbackReceived,
     KGCoverageComputed,
@@ -33,6 +29,10 @@ from qortex_observe.events import (
     VecSeedYield,
 )
 from qortex_observe.logging import get_logger
+from qortex_observe.snapshot import config_snapshot_hash
+from qortex_observe.tracing import _config_hash, get_overhead_timer, traced
+
+from qortex.core.backend import GraphBackend
 
 if TYPE_CHECKING:
     from qortex.hippocampus.buffer import EdgePromotionBuffer

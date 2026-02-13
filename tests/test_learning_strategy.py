@@ -2,8 +2,6 @@
 
 from __future__ import annotations
 
-import random
-
 import pytest
 
 from qortex.learning.strategy import ThompsonSampling

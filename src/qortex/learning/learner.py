@@ -11,6 +11,14 @@ import uuid
 from datetime import UTC, datetime
 from typing import Any
 
+from qortex_observe import emit
+from qortex_observe.events import (
+    LearningObservationRecorded,
+    LearningPosteriorUpdated,
+    LearningSelectionMade,
+)
+from qortex_observe.tracing import traced
+
 from qortex.learning.reward import RewardModel, TernaryReward
 from qortex.learning.store import LearningStore, SqliteLearningStore
 from qortex.learning.strategy import LearningStrategy, ThompsonSampling
@@ -22,12 +30,6 @@ from qortex.learning.types import (
     RunTrace,
     SelectionResult,
     context_hash,
-)
-from qortex_observe import emit
-from qortex_observe.events import (
-    LearningObservationRecorded,
-    LearningPosteriorUpdated,
-    LearningSelectionMade,
 )
 
 
@@ -72,6 +74,7 @@ class Learner:
         # Active sessions
         self._sessions: dict[str, RunTrace] = {}
 
+    @traced("learning.select")
     def select(
         self,
         candidates: list[Arm],
@@ -102,6 +105,7 @@ class Learner:
 
         return result
 
+    @traced("learning.observe")
     def observe(
         self,
         outcome: ArmOutcome,
@@ -149,6 +153,7 @@ class Learner:
 
         return new_state
 
+    @traced("learning.apply_credit_deltas")
     def apply_credit_deltas(
         self,
         deltas: dict[str, dict[str, float]],

@@ -21,7 +21,7 @@ jobs:
         uses: astral-sh/setup-uv@v4
 
       - name: Install dependencies
-        run: uv pip install --system -e ".[dev]"
+        run: uv pip install --system -e ".[dev,observe]"
 
       - name: Ruff check
         run: ruff check src/ tests/
@@ -43,7 +43,7 @@ jobs:
         uses: astral-sh/setup-uv@v4
 
       - name: Install dependencies
-        run: uv pip install --system -e ".[dev,llm,memgraph,mcp]"
+        run: uv pip install --system -e ".[dev,llm,memgraph,mcp,observe]"
 
       - name: MyPy
         run: mypy src/
@@ -65,7 +65,7 @@ jobs:
         uses: astral-sh/setup-uv@v4
 
       - name: Install dependencies
-        run: uv pip install --system -e ".[dev,llm,memgraph,mcp]"
+        run: uv pip install --system -e ".[dev,llm,memgraph,mcp,observe]"
 
       - name: Run tests
         run: pytest tests/ -v --tb=short --ignore=tests/integration

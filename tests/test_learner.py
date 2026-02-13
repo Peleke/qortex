@@ -3,11 +3,11 @@
 from __future__ import annotations
 
 import pytest
+from qortex_observe import reset as obs_reset
 
 from qortex.learning.learner import Learner
 from qortex.learning.store import JsonLearningStore, SqliteLearningStore
 from qortex.learning.types import Arm, ArmOutcome, LearnerConfig
-from qortex_observe import reset as obs_reset
 
 
 @pytest.fixture(autouse=True)

@@ -445,6 +445,7 @@ class MemgraphBackend:
         )
         return [self._record_to_domain(r) for r in records]
 
+    @traced("memgraph.delete_domain")
     def delete_domain(self, name: str) -> bool:
         # Check existence first
         existing = self.get_domain(name)
@@ -514,6 +515,7 @@ class MemgraphBackend:
             },
         )
 
+    @traced("memgraph.get_node")
     def get_node(self, node_id: str, domain: str | None = None) -> ConceptNode | None:
         if domain:
             record = self._run_single(
@@ -591,6 +593,7 @@ class MemgraphBackend:
             },
         )
 
+    @traced("memgraph.get_edges")
     def get_edges(
         self,
         node_id: str,
@@ -658,6 +661,7 @@ class MemgraphBackend:
             },
         )
 
+    @traced("memgraph.get_rules")
     def get_rules(self, domain: str | None = None) -> list[ExplicitRule]:
         if domain:
             records = self._run(
@@ -731,6 +735,7 @@ class MemgraphBackend:
     def query(self, pattern: GraphPattern) -> Iterator[dict]:
         raise NotImplementedError("Structured queries not yet supported; use query_cypher()")
 
+    @traced("memgraph.query_cypher")
     def query_cypher(self, cypher: str, params: dict | None = None) -> Iterator[dict]:
         records = self._run(cypher, params)
         yield from records
@@ -918,6 +923,7 @@ class MemgraphBackend:
     # Vector Operations
     # -------------------------------------------------------------------------
 
+    @traced("memgraph.add_embedding")
     def add_embedding(self, node_id: str, embedding: list[float]) -> None:
         """Store embedding as a JSON property on the Concept node."""
         self._run(
@@ -925,6 +931,7 @@ class MemgraphBackend:
             {"id": node_id, "emb": json.dumps(embedding)},
         )
 
+    @traced("memgraph.get_embedding")
     def get_embedding(self, node_id: str) -> list[float] | None:
         record = self._run_single(
             "MATCH (c:Concept {id: $id}) RETURN c.embedding AS emb",
@@ -934,6 +941,7 @@ class MemgraphBackend:
             return None
         return json.loads(record["emb"])
 
+    @traced("memgraph.vector_search")
     def vector_search(
         self,
         query_embedding: list[float],

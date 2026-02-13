@@ -25,7 +25,8 @@ from __future__ import annotations
 
 import json
 import logging
-from typing import Any, Callable
+from collections.abc import Callable
+from typing import Any
 
 from qortex.client import QortexClient
 
@@ -228,7 +229,6 @@ class QortexKnowledge:
         domains = self._domains
         top_k = self._top_k
         min_confidence = self._min_confidence
-        feedback_source = self._feedback_source
         # Capture self for query_id tracking
         knowledge = self
 

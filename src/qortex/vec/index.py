@@ -205,6 +205,7 @@ class NumpyVectorIndex:
 
         return results
 
+    @traced("vec.remove")
     def remove(self, ids: list[str]) -> None:
         """Remove vectors by ID."""
         np = self._np

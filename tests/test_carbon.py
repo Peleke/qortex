@@ -2,16 +2,13 @@
 
 from __future__ import annotations
 
-from datetime import UTC, datetime
 from unittest.mock import MagicMock, patch
 
 import pytest
-
 from qortex_observe.carbon import (
     DEFAULT_CARBON_FACTORS,
     FALLBACK_CARBON_FACTOR,
     CarbonCalculation,
-    CarbonEquivalents,
     CarbonFactor,
     CarbonFactorSource,
     CarbonSummary,
@@ -28,9 +25,8 @@ from qortex_observe.carbon.ghg import (
     export_iso14064,
     export_tcfd,
 )
-from qortex_observe.carbon.types import ConfidenceLevel, UncertaintyBounds
+from qortex_observe.carbon.types import ConfidenceLevel
 from qortex_observe.events import CarbonTracked
-
 
 # ── Calculator Tests ──────────────────────────────────────────────
 

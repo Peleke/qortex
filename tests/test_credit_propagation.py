@@ -5,9 +5,9 @@ from __future__ import annotations
 from unittest.mock import MagicMock, patch
 
 import pytest
+from qortex_observe import reset as obs_reset
 
 from qortex.flags import reset_flags
-from qortex_observe import reset as obs_reset
 
 
 @pytest.fixture(autouse=True)
@@ -147,7 +147,7 @@ class TestCreditPropagationEndToEnd:
 
     def test_rejected_outcome_increases_beta(self, monkeypatch, tmp_path):
         from qortex.causal.dag import CausalDAG
-        from qortex.causal.types import CausalDirection, CausalEdge, CausalNode
+        from qortex.causal.types import CausalDirection, CausalEdge
         from qortex.core.models import ConceptNode
         from qortex.mcp.server import _maybe_propagate_credit
 
@@ -338,9 +338,9 @@ class TestCreditPropagatedEvent:
     def test_event_written_to_jsonl(self, tmp_path):
         import json
 
+        from qortex_observe.config import ObservabilityConfig
         from qortex_observe.emitter import configure, emit, reset
         from qortex_observe.events import CreditPropagated
-        from qortex_observe.config import ObservabilityConfig
 
         reset()
         cfg = ObservabilityConfig(

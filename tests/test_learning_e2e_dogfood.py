@@ -12,13 +12,8 @@ from __future__ import annotations
 import hashlib
 
 import pytest
-
-from qortex.core.memory import InMemoryBackend
-from qortex.core.models import ConceptEdge, ConceptNode, RelationType
-from qortex.learning.learner import Learner
-from qortex.learning.types import Arm, ArmOutcome, LearnerConfig
-from qortex.mcp import server as mcp_server
-from qortex_observe import configure, reset as obs_reset
+from qortex_observe import configure
+from qortex_observe import reset as obs_reset
 from qortex_observe.events import (
     LearningObservationRecorded,
     LearningPosteriorUpdated,
@@ -29,6 +24,9 @@ from qortex_observe.events import (
 )
 from qortex_observe.linker import QortexEventLinker
 
+from qortex.core.memory import InMemoryBackend
+from qortex.core.models import ConceptEdge, ConceptNode, RelationType
+from qortex.mcp import server as mcp_server
 
 # ---------------------------------------------------------------------------
 # Fake embedding model (deterministic, no GPU needed)
@@ -190,7 +188,6 @@ class TestLearningE2EDogfood:
             mode="graph",
         )
         assert len(query_result["items"]) > 0
-        query_id = query_result["query_id"]
 
         # ── Step 2: Select arms for prompt optimization ────────────
         candidates = [

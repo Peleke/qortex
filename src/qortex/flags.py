@@ -8,7 +8,7 @@ YAML file default: ~/.qortex/flags.yaml
 from __future__ import annotations
 
 import os
-from dataclasses import dataclass, field, fields
+from dataclasses import dataclass, fields
 from pathlib import Path
 
 import yaml

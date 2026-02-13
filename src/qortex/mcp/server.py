@@ -66,11 +66,11 @@ from pathlib import Path
 from typing import Any
 
 from fastmcp import FastMCP
+from qortex_observe.logging import get_logger
+from qortex_observe.mcp import mcp_trace_middleware
 
 from qortex.core.memory import InMemoryBackend
 from qortex.hippocampus.adapter import VecOnlyAdapter
-from qortex_observe.logging import get_logger
-from qortex_observe.mcp import mcp_trace_middleware
 from qortex.sources.registry import SourceRegistry
 
 logger = get_logger(__name__)

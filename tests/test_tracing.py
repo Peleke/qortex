@@ -6,7 +6,6 @@ import asyncio
 import time
 
 import pytest
-
 from qortex_observe.tracing import OverheadTimer, get_overhead_timer, traced
 
 
@@ -240,9 +239,8 @@ class TestTracedDecorator:
 
     def test_traced_exception_propagates(self):
         """@traced doesn't swallow exceptions."""
-        from opentelemetry.sdk.trace import TracerProvider
-
         from opentelemetry import trace
+        from opentelemetry.sdk.trace import TracerProvider
 
         trace.set_tracer_provider(TracerProvider())
 
@@ -345,7 +343,6 @@ class TestOverheadMetric:
         """Overhead metric is recorded when QueryCompleted has overhead_seconds."""
         from opentelemetry.sdk.metrics import MeterProvider
         from opentelemetry.sdk.metrics.export import InMemoryMetricReader
-
         from qortex_observe.events import QueryCompleted
         from qortex_observe.linker import QortexEventLinker
         from qortex_observe.metrics_factory import create_instruments, create_views
@@ -395,7 +392,6 @@ class TestOverheadMetric:
         """Overhead metric is NOT recorded when overhead_seconds is None."""
         from opentelemetry.sdk.metrics import MeterProvider
         from opentelemetry.sdk.metrics.export import InMemoryMetricReader
-
         from qortex_observe.events import QueryCompleted
         from qortex_observe.linker import QortexEventLinker
         from qortex_observe.metrics_factory import create_instruments, create_views

@@ -2,12 +2,8 @@
 
 from __future__ import annotations
 
-import time
-
 import pytest
-
 from qortex_observe.tracing import SelectiveSpanProcessor
-
 
 # ---------------------------------------------------------------------------
 # Cypher helpers
@@ -374,7 +370,6 @@ class TestSpanTreeStructure:
         from opentelemetry.sdk.trace import TracerProvider
         from opentelemetry.sdk.trace.export import SimpleSpanProcessor
         from opentelemetry.sdk.trace.export.in_memory_span_exporter import InMemorySpanExporter
-
         from qortex_observe.tracing import traced
 
         exporter = InMemorySpanExporter()

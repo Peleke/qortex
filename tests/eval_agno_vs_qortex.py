@@ -20,10 +20,8 @@ import pytest
 from qortex.adapters.agno import QortexKnowledge
 from qortex.client import LocalQortexClient
 from qortex.core.memory import InMemoryBackend
-from qortex.core.models import ConceptEdge, ConceptNode, ExplicitRule, RelationType
 from qortex.vec.embeddings import SentenceTransformerEmbedding
 from qortex.vec.index import NumpyVectorIndex
-
 
 # ---------------------------------------------------------------------------
 # Test corpus: a small domain where relationships matter
@@ -395,7 +393,7 @@ class TestFeedbackLoop:
 
     def test_feedback_invalid_outcome_rejected(self, qortex_knowledge):
         """Invalid feedback outcomes should be rejected gracefully."""
-        docs = qortex_knowledge.retrieve("test")
+        qortex_knowledge.retrieve("test")  # ensure state is initialized
         tools = qortex_knowledge.get_tools()
         feedback = [t for t in tools if t.__name__ == "report_knowledge_feedback"][0]
 
