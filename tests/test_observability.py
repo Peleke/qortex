@@ -1101,10 +1101,10 @@ class TestOtelErrorHandling:
 
         # Simulate register_otel_traces raising AttributeError
         with patch(
-            "qortex.observability.subscribers.otel.register_otel_traces",
+            "qortex_observe.subscribers.otel.register_otel_traces",
             side_effect=AttributeError("create_gauge not found"),
         ), patch(
-            "qortex.observability.emitter._setup_metrics_pipeline",
+            "qortex_observe.emitter._setup_metrics_pipeline",
         ):
             emitter = configure(cfg)
 
@@ -1124,10 +1124,10 @@ class TestOtelErrorHandling:
         cfg = ObservabilityConfig(otel_enabled=True)
 
         with patch(
-            "qortex.observability.subscribers.otel.register_otel_traces",
+            "qortex_observe.subscribers.otel.register_otel_traces",
             side_effect=ImportError("No module named 'opentelemetry'"),
         ), patch(
-            "qortex.observability.emitter._setup_metrics_pipeline",
+            "qortex_observe.emitter._setup_metrics_pipeline",
         ):
             emitter = configure(cfg)
 
@@ -1146,9 +1146,9 @@ class TestOtelErrorHandling:
         cfg = ObservabilityConfig(otel_enabled=True)
 
         with patch(
-            "qortex.observability.subscribers.otel.register_otel_traces"
+            "qortex_observe.subscribers.otel.register_otel_traces"
         ), patch(
-            "qortex.observability.emitter._setup_metrics_pipeline",
+            "qortex_observe.emitter._setup_metrics_pipeline",
         ):
             configure(cfg)
 
@@ -1197,7 +1197,7 @@ class TestOtelErrorHandling:
         cfg = ObservabilityConfig(prometheus_enabled=True)
 
         with patch(
-            "qortex.observability.emitter._setup_metrics_pipeline",
+            "qortex_observe.emitter._setup_metrics_pipeline",
             side_effect=OSError("Address already in use"),
         ):
             emitter = configure(cfg)

@@ -16,6 +16,12 @@ resolution-markers = [
     "python_full_version < '3.12' and sys_platform != 'emscripten' and sys_platform != 'win32'",
 ]
 
+[manifest]
+members = [
+    "qortex",
+    "qortex-observe",
+]
+
 [[package]]
 name = "annotated-types"
 version = "0.7.0"
@@ -3309,14 +3315,13 @@ wheels = [
 
 [[package]]
 name = "qortex"
-version = "0.3.8"
+version = "0.4.0"
 source = { editable = "." }
 dependencies = [
     { name = "fastmcp" },
     { name = "numpy" },
-    { name = "pyventus" },
     { name = "pyyaml" },
-    { name = "structlog" },
+    { name = "qortex-observe" },
     { name = "typer" },
 ]
 
@@ -3330,16 +3335,12 @@ all = [
     { name = "mypy" },
     { name = "neo4j" },
     { name = "networkx" },
-    { name = "opentelemetry-api" },
-    { name = "opentelemetry-exporter-otlp" },
-    { name = "opentelemetry-exporter-prometheus" },
-    { name = "opentelemetry-sdk" },
     { name = "pdfplumber" },
-    { name = "prometheus-client" },
     { name = "pymupdf" },
     { name = "pytest" },
     { name = "pytest-asyncio" },
     { name = "pytest-cov" },
+    { name = "qortex-observe", extra = ["otel"] },
     { name = "ruff" },
     { name = "sentence-transformers" },
     { name = "sqlite-vec" },
@@ -3378,11 +3379,7 @@ memgraph = [
     { name = "neo4j" },
 ]
 observability = [
-    { name = "opentelemetry-api" },
-    { name = "opentelemetry-exporter-otlp" },
-    { name = "opentelemetry-exporter-prometheus" },
-    { name = "opentelemetry-sdk" },
-    { name = "prometheus-client" },
+    { name = "qortex-observe", extra = ["otel"] },
 ]
 pdf = [
     { name = "pdfplumber" },
@@ -3402,6 +3399,11 @@ vec-sqlite = [
 [package.dev-dependencies]
 dev = [
     { name = "hypothesis" },
+    { name = "mypy" },
+    { name = "pytest" },
+    { name = "pytest-asyncio" },
+    { name = "pytest-cov" },
+    { name = "ruff" },
 ]
 
 [package.metadata]
@@ -3421,32 +3423,80 @@ requires-dist = [
     { name = "networkx", marker = "extra == 'causal-full'", specifier = ">=3.0" },
     { name = "networkx", marker = "extra == 'dev'", specifier = ">=3.0" },
     { name = "numpy", specifier = ">=1.24" },
-    { name = "opentelemetry-api", marker = "extra == 'observability'", specifier = ">=1.28" },
-    { name = "opentelemetry-exporter-otlp", marker = "extra == 'observability'", specifier = ">=1.28" },
-    { name = "opentelemetry-exporter-prometheus", marker = "extra == 'observability'", specifier = ">=0.49b0" },
-    { name = "opentelemetry-sdk", marker = "extra == 'observability'", specifier = ">=1.28" },
     { name = "pdfplumber", marker = "extra == 'pdf'", specifier = ">=0.10" },
-    { name = "prometheus-client", marker = "extra == 'observability'", specifier = ">=0.20" },
     { name = "pymupdf", marker = "extra == 'pdf'", specifier = ">=1.23" },
     { name = "pyro-ppl", marker = "extra == 'causal-full'", specifier = ">=1.8" },
     { name = "pytest", marker = "extra == 'dev'", specifier = ">=8.0" },
     { name = "pytest-asyncio", marker = "extra == 'dev'", specifier = ">=0.23" },
     { name = "pytest-cov", marker = "extra == 'dev'", specifier = ">=4.0" },
-    { name = "pyventus", specifier = ">=0.7" },
     { name = "pyyaml", specifier = ">=6.0" },
     { name = "qortex", extras = ["pdf", "vec-sqlite", "mcp", "llm", "memgraph", "causal", "source-postgres", "observability", "dev"], marker = "extra == 'all'" },
     { name = "qortex", extras = ["vec"], marker = "extra == 'vec-sqlite'" },
+    { name = "qortex-observe", editable = "packages/qortex-observe" },
+    { name = "qortex-observe", extras = ["otel"], marker = "extra == 'observability'", editable = "packages/qortex-observe" },
     { name = "ruff", marker = "extra == 'dev'", specifier = ">=0.2" },
     { name = "sentence-transformers", marker = "extra == 'vec'", specifier = ">=2.2" },
     { name = "sqlite-vec", marker = "extra == 'vec-sqlite'", specifier = ">=0.1" },
-    { name = "structlog", specifier = ">=24.0" },
     { name = "typer", specifier = ">=0.9" },
     { name = "types-pyyaml", marker = "extra == 'dev'", specifier = ">=6.0" },
 ]
 provides-extras = ["pdf", "vec", "vec-sqlite", "source-postgres", "mcp", "causal", "causal-dowhy", "causal-full", "dev", "llm", "memgraph", "observability", "all"]
 
 [package.metadata.requires-dev]
-dev = [{ name = "hypothesis", specifier = ">=6.151.5" }]
+dev = [
+    { name = "hypothesis", specifier = ">=6.151.5" },
+    { name = "mypy", specifier = ">=1.8" },
+    { name = "pytest", specifier = ">=8.0" },
+    { name = "pytest-asyncio", specifier = ">=0.23" },
+    { name = "pytest-cov", specifier = ">=4.0" },
+    { name = "ruff", specifier = ">=0.2" },
+]
+
+[[package]]
+name = "qortex-observe"
+version = "0.1.0"
+source = { editable = "packages/qortex-observe" }
+dependencies = [
+    { name = "pyventus" },
+    { name = "structlog" },
+]
+
+[package.optional-dependencies]
+all = [
+    { name = "opentelemetry-api" },
+    { name = "opentelemetry-exporter-otlp" },
+    { name = "opentelemetry-exporter-prometheus" },
+    { name = "opentelemetry-sdk" },
+    { name = "prometheus-client" },
+    { name = "pytest" },
+    { name = "pytest-asyncio" },
+]
+dev = [
+    { name = "pytest" },
+    { name = "pytest-asyncio" },
+]
+otel = [
+    { name = "opentelemetry-api" },
+    { name = "opentelemetry-exporter-otlp" },
+    { name = "opentelemetry-exporter-prometheus" },
+    { name = "opentelemetry-sdk" },
+    { name = "prometheus-client" },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "opentelemetry-api", marker = "extra == 'otel'", specifier = ">=1.28" },
+    { name = "opentelemetry-exporter-otlp", marker = "extra == 'otel'", specifier = ">=1.28" },
+    { name = "opentelemetry-exporter-prometheus", marker = "extra == 'otel'", specifier = ">=0.49b0" },
+    { name = "opentelemetry-sdk", marker = "extra == 'otel'", specifier = ">=1.28" },
+    { name = "prometheus-client", marker = "extra == 'otel'", specifier = ">=0.20" },
+    { name = "pytest", marker = "extra == 'dev'", specifier = ">=8.0" },
+    { name = "pytest-asyncio", marker = "extra == 'dev'", specifier = ">=0.23" },
+    { name = "pyventus", specifier = ">=0.7" },
+    { name = "qortex-observe", extras = ["otel", "dev"], marker = "extra == 'all'", editable = "packages/qortex-observe" },
+    { name = "structlog", specifier = ">=24.0" },
+]
+provides-extras = ["otel", "dev", "all"]
 
 [[package]]
 name = "redis"

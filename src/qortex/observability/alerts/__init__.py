@@ -1,8 +1,2 @@
-"""Alert system: condition evaluation on events."""
-
-from qortex.observability.alerts.base import AlertRule, AlertSink
-from qortex.observability.alerts.log_sink import LogAlertSink
-from qortex.observability.alerts.noop_sink import NoOpAlertSink
-from qortex.observability.alerts.rules import BUILTIN_RULES
-
-__all__ = ["AlertRule", "AlertSink", "LogAlertSink", "NoOpAlertSink", "BUILTIN_RULES"]
+"""Compatibility shim: re-exports from qortex_observe.alerts."""
+from qortex_observe.alerts import *  # noqa: F401,F403

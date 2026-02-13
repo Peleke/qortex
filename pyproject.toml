@@ -29,8 +29,7 @@ dependencies = [
     "pyyaml>=6.0",
     "fastmcp>=2.0",
     "numpy>=1.24",
-    "pyventus>=0.7",
-    "structlog>=24.0",
+    "qortex-observe",
 ]
 
 [project.optional-dependencies]
@@ -81,11 +80,7 @@ memgraph = [
     "neo4j>=5.0",
 ]
 observability = [
-    "opentelemetry-api>=1.28",
-    "opentelemetry-sdk>=1.28",
-    "opentelemetry-exporter-otlp>=1.28",
-    "opentelemetry-exporter-prometheus>=0.49b0",
-    "prometheus-client>=0.20",
+    "qortex-observe[otel]",
 ]
 all = [
     "qortex[pdf,vec-sqlite,mcp,llm,memgraph,causal,source-postgres,observability,dev]",
@@ -146,5 +141,16 @@ markers = [
 
 [dependency-groups]
 dev = [
+    "pytest>=8.0",
+    "pytest-asyncio>=0.23",
+    "pytest-cov>=4.0",
     "hypothesis>=6.151.5",
+    "ruff>=0.2",
+    "mypy>=1.8",
 ]
+
+[tool.uv.workspace]
+members = ["packages/*"]
+
+[tool.uv.sources]
+qortex-observe = { workspace = true }

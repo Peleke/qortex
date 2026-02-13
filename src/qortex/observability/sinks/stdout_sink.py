@@ -1,15 +1,2 @@
-"""Stdout sink: write JSON to stdout (dev mode)."""
-
-from __future__ import annotations
-
-import json
-import sys
-
-
-class StdoutSink:
-    """Write JSON event dicts to stdout."""
-
-    def write(self, event_dict: dict) -> None:
-        line = json.dumps(event_dict, default=str)
-        sys.stdout.write(line + "\n")
-        sys.stdout.flush()
+"""Compatibility shim: re-exports from qortex_observe.sinks.stdout_sink."""
+from qortex_observe.sinks.stdout_sink import *  # noqa: F401,F403

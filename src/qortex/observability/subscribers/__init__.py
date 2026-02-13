@@ -1,1 +1,2 @@
-"""Event subscribers: route typed events to observability backends."""
+"""Compatibility shim: re-exports from qortex_observe.subscribers."""
+from qortex_observe.subscribers import *  # noqa: F401,F403

@@ -1,15 +1,2 @@
-"""QortexEventLinker: isolated event namespace for qortex observability.
-
-All qortex subscribers register here. Separate from any other
-pyventus usage in the process.
-"""
-
-from __future__ import annotations
-
-from pyventus.events import EventLinker
-
-
-class QortexEventLinker(EventLinker):
-    """Isolated event namespace for qortex observability."""
-
-    pass
+"""Compatibility shim: re-exports from qortex_observe.linker."""
+from qortex_observe.linker import *  # noqa: F401,F403
