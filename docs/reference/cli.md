@@ -19,6 +19,8 @@ qortex <command> --help  # Show command help
 | `inspect` | Graph inspection |
 | `viz` | Visualization and queries |
 | `interop` | Consumer interop protocol |
+| `prune` | Edge pruning and analysis |
+| `mcp-serve` | Start the MCP server (top-level command) |
 
 ---
 
@@ -363,16 +365,96 @@ signals:
 
 ---
 
+## prune
+
+Prune and analyze graph edges from saved manifests.
+
+### `qortex prune manifest <path>`
+
+Apply the 6-step pruning pipeline to edges in a saved manifest:
+
+1. Minimum evidence length
+2. Confidence floor
+3. Jaccard deduplication
+4. Competing relation resolution
+5. Isolated weak edge removal
+6. Structural/causal layer tagging
+
+```bash
+# Preview what would be pruned
+qortex prune manifest ch05.manifest.json --dry-run
+
+# Prune with custom thresholds and save
+qortex prune manifest ch05.manifest.json -c 0.6 -o pruned.json
+
+# Show details of dropped edges
+qortex prune manifest ch05.manifest.json --show-dropped
+```
+
+Options:
+- `--dry-run / -n`: Show what would be pruned without modifying
+- `--min-confidence / -c`: Confidence floor (default: 0.55)
+- `--min-evidence / -e`: Minimum evidence tokens (default: 8)
+- `--output / -o`: Output path for pruned manifest
+- `--show-dropped`: Show details of dropped edges
+
+### `qortex prune stats <path>`
+
+Show edge statistics without pruning. Displays confidence distribution, relation type breakdown, layer breakdown, and evidence quality metrics.
+
+```bash
+qortex prune stats ch05.manifest.json
+```
+
+Output:
+```
+Edge Statistics for: ch05.manifest.json
+  Total edges: 119
+  Total concepts: 285
+  Edge density: 0.42 edges/concept
+
+Confidence distribution:
+      <0.55:    5 (  4.2%)
+  0.55-0.70:   23 ( 19.3%)
+  0.70-0.85:   51 ( 42.9%)
+     >=0.85:   40 ( 33.6%)
+```
+
+---
+
+## mcp-serve
+
+### `qortex mcp-serve`
+
+Start the qortex MCP server.
+
+```bash
+# Default: stdio transport
+qortex mcp-serve
+
+# SSE transport (for web clients)
+qortex mcp-serve --transport sse
+```
+
+Options:
+- `--transport`: Transport protocol: `"stdio"` or `"sse"` (default: `"stdio"`)
+
+---
+
 ## Environment Variables
 
 | Variable | Description | Default |
 |----------|-------------|---------|
-| `MEMGRAPH_HOST` | Memgraph hostname | localhost |
-| `MEMGRAPH_PORT` | Memgraph port | 7687 |
+| `MEMGRAPH_HOST` | Memgraph hostname | `localhost` |
+| `MEMGRAPH_PORT` | Memgraph port | `7687` |
 | `MEMGRAPH_USER` | Memgraph username | (none) |
 | `MEMGRAPH_PASSWORD` | Memgraph password | (none) |
-| `ANTHROPIC_API_KEY` | Anthropic API key for LLM enrichment | (none) |
-| `QORTEX_CONFIG` | Config file path | ~/.claude/qortex-consumers.yaml |
+| `ANTHROPIC_API_KEY` | Anthropic API key for LLM extraction and enrichment | (none) |
+| `QORTEX_CONFIG` | Config file path | `~/.claude/qortex-consumers.yaml` |
+| `QORTEX_VEC` | Vector layer backend: `memory` or `sqlite` | `sqlite` |
+| `QORTEX_GRAPH` | Graph layer backend: `memory` or `memgraph` | `memory` |
+| `QORTEX_STATE_DIR` | Override for learning state persistence directory | (none) |
+| `OLLAMA_HOST` | Ollama server URL for local LLM extraction | `http://localhost:11434` |
 
 ---
 

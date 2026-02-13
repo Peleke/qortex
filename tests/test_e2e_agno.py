@@ -234,27 +234,45 @@ class TestAgnoBuildContext:
     """
 
     def test_build_context_returns_string(self, agno_knowledge):
-        context = agno_knowledge.build_context("OAuth2 authentication methods")
+        """build_context() now returns instructions (KnowledgeProtocol)."""
+        context = agno_knowledge.build_context()
 
         assert isinstance(context, str)
         assert len(context) > 0
+        assert "search_knowledge_base" in context
 
-    def test_build_context_contains_relevant_content(self, agno_knowledge):
-        context = agno_knowledge.build_context("token-based authentication")
-
-        # Real embeddings → context should contain auth-related content
+    def test_build_context_includes_tool_instructions(self, agno_knowledge):
+        """build_context includes instructions for all three tools."""
+        context = agno_knowledge.build_context()
         context_lower = context.lower()
-        assert any(term in context_lower for term in ["auth", "token", "oauth", "jwt", "access"]), (
-            f"Context not relevant: {context[:200]}"
+        assert "search" in context_lower
+        assert "explore" in context_lower
+        assert "feedback" in context_lower
+
+    def test_build_context_includes_domain(self):
+        """build_context mentions configured domains."""
+        from qortex.adapters.agno import QortexKnowledge
+
+        knowledge = QortexKnowledge(
+            client=self._make_client(),
+            domains=["security", "auth"],
         )
+        context = knowledge.build_context()
+        assert "security" in context
+        assert "auth" in context
 
-    def test_build_context_concatenates_multiple_results(self, agno_knowledge):
-        """build_context joins multiple retrieved docs with newlines."""
-        context = agno_knowledge.build_context("security best practices")
+    def _make_client(self):
+        """Helper to create a test client."""
+        from qortex.client import LocalQortexClient
+        from qortex.core.memory import InMemoryBackend
+        from qortex.vec.embeddings import SentenceTransformerEmbedding
+        from qortex.vec.index import NumpyVectorIndex
 
-        # With 4 concepts ingested, we should get multiple chunks
-        # The context should be more than a single result
-        assert len(context) > 50  # non-trivial amount of content
+        vi = NumpyVectorIndex(dimensions=384)
+        backend = InMemoryBackend(vector_index=vi)
+        backend.connect()
+        emb = SentenceTransformerEmbedding()
+        return LocalQortexClient(vector_index=vi, backend=backend, embedding_model=emb)
 
 
 # ===========================================================================
@@ -433,10 +451,10 @@ class TestAgnoE2ESimulation:
         )
         knowledge = QortexKnowledge(client=client, domains=["security"], top_k=4)
 
-        # --- Step 2: build_context (injected into system prompt) ---
-        context = knowledge.build_context("security best practices")
+        # --- Step 2: build_context (returns instructions per KnowledgeProtocol) ---
+        context = knowledge.build_context()
         assert isinstance(context, str)
-        assert len(context) > 0
+        assert "search_knowledge_base" in context
 
         # --- Step 3: retrieve (search_knowledge_base tool) ---
         docs = knowledge.retrieve(

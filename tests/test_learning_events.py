@@ -3,17 +3,17 @@
 from __future__ import annotations
 
 import pytest
-
-from qortex.learning.learner import Learner
-from qortex.learning.types import Arm, ArmOutcome, LearnerConfig
-from qortex.observability import reset as obs_reset
-from qortex.observability.emitter import configure
-from qortex.observability.events import (
+from qortex_observe import reset as obs_reset
+from qortex_observe.emitter import configure
+from qortex_observe.events import (
     LearningObservationRecorded,
     LearningPosteriorUpdated,
     LearningSelectionMade,
 )
-from qortex.observability.linker import QortexEventLinker
+from qortex_observe.linker import QortexEventLinker
+
+from qortex.learning.learner import Learner
+from qortex.learning.types import Arm, ArmOutcome, LearnerConfig
 
 
 @pytest.fixture(autouse=True)
@@ -46,11 +46,13 @@ def captured_events():
 
 @pytest.fixture
 def learner(tmp_path):
-    return Learner(LearnerConfig(
-        name="event-test",
-        baseline_rate=0.0,
-        state_dir=str(tmp_path),
-    ))
+    return Learner(
+        LearnerConfig(
+            name="event-test",
+            baseline_rate=0.0,
+            state_dir=str(tmp_path),
+        )
+    )
 
 
 class TestSelectionEvents:
@@ -77,9 +79,7 @@ class TestSelectionEvents:
 
 class TestObservationEvents:
     def test_observe_emits_events(self, learner, captured_events):
-        learner.observe(ArmOutcome(
-            arm_id="arm:a", reward=1.0, outcome="accepted"
-        ))
+        learner.observe(ArmOutcome(arm_id="arm:a", reward=1.0, outcome="accepted"))
 
         obs_events = [e for t, e in captured_events if t == "observation"]
         assert len(obs_events) == 1
@@ -91,9 +91,7 @@ class TestObservationEvents:
         assert ev.outcome == "accepted"
 
     def test_observe_emits_posterior_update(self, learner, captured_events):
-        learner.observe(ArmOutcome(
-            arm_id="arm:b", reward=0.0, outcome="rejected"
-        ))
+        learner.observe(ArmOutcome(arm_id="arm:b", reward=0.0, outcome="rejected"))
 
         posterior_events = [e for t, e in captured_events if t == "posterior"]
         assert len(posterior_events) == 1

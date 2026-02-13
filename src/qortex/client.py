@@ -83,7 +83,7 @@ class QueryItem:
         meta = {"domain": self.domain, "node_id": self.node_id}
         meta.update(self.metadata)
         try:
-            from agno.document import Document
+            from agno.knowledge.document import Document
 
             return Document(
                 content=self.content,
@@ -111,6 +111,34 @@ class QueryItem:
             "metadata": meta,
             "document": self.content,
         }
+
+    def to_autogen_memory_content(self) -> dict[str, Any]:
+        """Convert to AutoGen MemoryContent shape.
+
+        Returns a dict with {content, mime_type, metadata}. If autogen-core
+        is installed, returns an actual MemoryContent instance.
+        """
+        meta = {
+            "score": self.score,
+            "domain": self.domain,
+            "node_id": self.node_id,
+            "id": self.id,
+        }
+        meta.update(self.metadata)
+        try:
+            from autogen_core.memory import MemoryContent, MemoryMimeType
+
+            return MemoryContent(
+                content=self.content,
+                mime_type=MemoryMimeType.TEXT,
+                metadata=meta,
+            )
+        except ImportError:
+            return {
+                "content": self.content,
+                "mime_type": "text/plain",
+                "metadata": meta,
+            }
 
 
 # -- Graph exploration result types --

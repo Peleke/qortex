@@ -23,15 +23,15 @@ import time
 
 # Force Prometheus metrics on port 9090
 os.environ["QORTEX_PROMETHEUS_ENABLED"] = "true"
-os.environ["QORTEX_PROMETHEUS_PORT"] = "9090"
+os.environ["QORTEX_PROMETHEUS_PORT"] = "9464"
 
 from qortex.causal.credit import CreditAssigner
 from qortex.causal.dag import CausalDAG
 from qortex.causal.types import CausalDirection, CausalEdge
 from qortex.learning.learner import Learner
 from qortex.learning.types import LearnerConfig
-from qortex.observability import configure, emit, reset as obs_reset
-from qortex.observability.events import CreditPropagated
+from qortex_observe import configure, emit, reset as obs_reset
+from qortex_observe.events import CreditPropagated
 
 # ── Setup ─────────────────────────────────────────────────────────
 obs_reset()
@@ -41,7 +41,7 @@ print("=" * 64)
 print("  QORTEX CREDIT PROPAGATION — LIVE GRAFANA DEMO")
 print("=" * 64)
 print()
-print("  Prometheus metrics at: http://localhost:9090/metrics")
+print("  Prometheus metrics at: http://localhost:9464/metrics")
 print("  Grafana dashboard at:  http://localhost:3010/d/qortex-main/qortex-observability")
 print("  Scroll to: 'Credit Propagation' row")
 print()

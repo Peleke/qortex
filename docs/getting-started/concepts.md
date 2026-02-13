@@ -135,3 +135,34 @@ metadata:
 ```
 
 See [Interop Schema](../reference/interop-schema.md) for the full JSON Schema definition.
+
+## Vector Indexing
+
+qortex maintains a vector layer independent of the graph layer. Two implementations are available:
+
+- **NumpyVectorIndex**: In-memory cosine similarity. Fast, no dependencies beyond numpy. Data is lost on restart.
+- **SqliteVecIndex**: SQLite-backed persistence via `sqlite-vec`. Vectors survive restarts. Install with `pip install qortex[vec-sqlite]`.
+
+The MCP server also exposes a separate registry of **named vector indexes** (the `qortex_vector_*` tools) for raw-vector consumers like MastraVector. These are independent of the text-level index used by `qortex_query`.
+
+## Adaptive Learning
+
+qortex includes a Thompson Sampling-based learning module that improves retrieval quality over time.
+
+- **Learner**: Manages a pool of "arms" (candidate items). Uses Beta-Bernoulli posteriors to balance exploration (trying new items) vs exploitation (using known-good items).
+- **LearningStore protocol**: Pluggable persistence for arm states. Two backends: `SqliteLearningStore` (ACID, concurrent-safe) and `JsonLearningStore` (simple, no locking).
+- **Credit propagation**: When feedback is recorded, credit can cascade through the causal DAG to update posteriors of upstream concepts.
+
+The learning layer is exposed via MCP tools (`qortex_learning_select`, `qortex_learning_observe`, etc.) and the Python `Learner` API.
+
+## Observability (qortex-observe)
+
+`qortex-observe` is a workspace package that provides structured logging, event emission, and optional OpenTelemetry integration. It is a core dependency of qortex.
+
+- **Structured logging**: `get_logger(__name__)` returns a logger with structured key-value output.
+- **Event system**: `emit(event)` publishes typed events (e.g., `CreditPropagated`, `QueryServed`) to configurable subscribers.
+- **Subscribers**: JSONL file sink, stdout sink, structlog, OpenTelemetry span exporter, and alert rules.
+- **MCP tracing**: `mcp_trace_middleware` wraps each MCP tool call with distributed trace context.
+- **Carbon tracking**: Optional GHG Protocol-aligned carbon footprint estimation for LLM calls.
+
+Install `pip install qortex[observability]` for OpenTelemetry exporters. The base logging and event system works without extras.

@@ -321,14 +321,15 @@ class TestAgnoCompat:
                 assert agno_doc.id == doc_dict["id"]
                 assert agno_doc.reranking_score == doc_dict["reranking_score"]
 
-    def test_build_context_returns_string(self, client):
-        """agno's build_context returns a string for prompt injection."""
+    def test_build_context_returns_instructions(self, client):
+        """build_context returns tool instructions per KnowledgeProtocol."""
         from qortex.adapters.agno import QortexKnowledge
 
         knowledge = QortexKnowledge(client=client, domains=["security"])
-        context = knowledge.build_context("authentication methods")
+        context = knowledge.build_context()
         assert isinstance(context, str)
-        assert len(context) > 0
+        assert "search_knowledge_base" in context
+        assert "security" in context
 
 
 # ===========================================================================

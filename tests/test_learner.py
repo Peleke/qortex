@@ -3,11 +3,11 @@
 from __future__ import annotations
 
 import pytest
+from qortex_observe import reset as obs_reset
 
 from qortex.learning.learner import Learner
 from qortex.learning.store import JsonLearningStore, SqliteLearningStore
 from qortex.learning.types import Arm, ArmOutcome, LearnerConfig
-from qortex.observability import reset as obs_reset
 
 
 @pytest.fixture(autouse=True)
@@ -62,9 +62,7 @@ class TestLearnerSelect:
 
 class TestLearnerObserve:
     def test_observe_updates_posterior(self, learner):
-        state = learner.observe(
-            ArmOutcome(arm_id="arm:a", reward=1.0, outcome="accepted")
-        )
+        state = learner.observe(ArmOutcome(arm_id="arm:a", reward=1.0, outcome="accepted"))
 
         assert state.alpha == 2.0
         assert state.beta == 1.0
@@ -72,18 +70,14 @@ class TestLearnerObserve:
 
     def test_observe_uses_reward_model(self, learner):
         # TernaryReward: "partial" → 0.5
-        state = learner.observe(
-            ArmOutcome(arm_id="arm:b", reward=0.0, outcome="partial")
-        )
+        state = learner.observe(ArmOutcome(arm_id="arm:b", reward=0.0, outcome="partial"))
 
         assert state.alpha == 1.5
         assert state.beta == 1.5
         assert state.pulls == 1
 
     def test_observe_rejected(self, learner):
-        state = learner.observe(
-            ArmOutcome(arm_id="arm:c", reward=0.0, outcome="rejected")
-        )
+        state = learner.observe(ArmOutcome(arm_id="arm:c", reward=0.0, outcome="rejected"))
 
         assert state.alpha == 1.0
         assert state.beta == 2.0
@@ -91,9 +85,7 @@ class TestLearnerObserve:
     def test_observe_multiple(self, learner):
         learner.observe(ArmOutcome(arm_id="arm:a", reward=1.0, outcome="accepted"))
         learner.observe(ArmOutcome(arm_id="arm:a", reward=1.0, outcome="accepted"))
-        state = learner.observe(
-            ArmOutcome(arm_id="arm:a", reward=0.0, outcome="rejected")
-        )
+        state = learner.observe(ArmOutcome(arm_id="arm:a", reward=0.0, outcome="rejected"))
 
         assert state.pulls == 3
         assert state.alpha == 3.0
@@ -272,10 +264,7 @@ class TestApplyCreditDeltas:
         assert state_ctx.alpha == pytest.approx(2.0)
 
     def test_multiple_concepts(self, learner):
-        deltas = {
-            f"concept:{i}": {"alpha_delta": 0.1 * i, "beta_delta": 0.0}
-            for i in range(1, 6)
-        }
+        deltas = {f"concept:{i}": {"alpha_delta": 0.1 * i, "beta_delta": 0.0} for i in range(1, 6)}
         results = learner.apply_credit_deltas(deltas)
         assert len(results) == 5
         assert results["concept:3"].alpha == pytest.approx(1.3)
@@ -285,3 +274,171 @@ class TestApplyCreditDeltas:
         results = learner.apply_credit_deltas(deltas)
         assert results["arm:x"].alpha == pytest.approx(1.5)
         assert results["arm:x"].beta == pytest.approx(1.0)  # unchanged
+
+
+class TestBatchObserve:
+    """Tests for Learner.batch_observe() — bulk observation wrapper."""
+
+    def test_batch_observe_returns_all_states(self, learner):
+        outcomes = [
+            ArmOutcome(arm_id="arm:a", reward=1.0, outcome="accepted"),
+            ArmOutcome(arm_id="arm:b", reward=0.0, outcome="rejected"),
+        ]
+        results = learner.batch_observe(outcomes)
+
+        assert len(results) == 2
+        assert results["arm:a"].alpha == 2.0
+        assert results["arm:b"].beta == 2.0
+
+    def test_batch_observe_accumulates_same_arm(self, learner):
+        outcomes = [
+            ArmOutcome(arm_id="arm:a", reward=1.0, outcome="accepted"),
+            ArmOutcome(arm_id="arm:a", reward=1.0, outcome="accepted"),
+            ArmOutcome(arm_id="arm:a", reward=0.0, outcome="rejected"),
+        ]
+        results = learner.batch_observe(outcomes)
+
+        assert results["arm:a"].pulls == 3
+        assert results["arm:a"].alpha == 3.0
+        assert results["arm:a"].beta == 2.0
+
+    def test_batch_observe_with_context(self, learner):
+        ctx = {"task": "testing"}
+        outcomes = [
+            ArmOutcome(arm_id="arm:a", reward=1.0, outcome="accepted"),
+        ]
+        learner.batch_observe(outcomes, context=ctx)
+
+        # Context-partitioned: default context untouched
+        p_default = learner.posteriors()
+        p_ctx = learner.posteriors(context=ctx)
+        assert "arm:a" not in p_default
+        assert p_ctx["arm:a"]["alpha"] == 2.0
+
+    def test_batch_observe_empty(self, learner):
+        results = learner.batch_observe([])
+        assert results == {}
+
+    def test_batch_observe_persisted(self, learner):
+        outcomes = [
+            ArmOutcome(arm_id="arm:a", reward=1.0, outcome="accepted"),
+        ]
+        learner.batch_observe(outcomes)
+
+        state = learner.store.get("arm:a")
+        assert state.alpha == 2.0
+
+
+class TestTopArms:
+    """Tests for Learner.top_arms() — ranked arm retrieval."""
+
+    def test_top_arms_sorted_by_mean(self, learner):
+        learner.observe(ArmOutcome(arm_id="arm:good", reward=1.0, outcome="accepted"))
+        learner.observe(ArmOutcome(arm_id="arm:good", reward=1.0, outcome="accepted"))
+        learner.observe(ArmOutcome(arm_id="arm:bad", reward=0.0, outcome="rejected"))
+        learner.observe(ArmOutcome(arm_id="arm:bad", reward=0.0, outcome="rejected"))
+
+        top = learner.top_arms(k=2)
+        assert len(top) == 2
+        assert top[0][0] == "arm:good"
+        assert top[1][0] == "arm:bad"
+        assert top[0][1].mean > top[1][1].mean
+
+    def test_top_arms_k_larger_than_arms(self, learner):
+        learner.observe(ArmOutcome(arm_id="arm:a", reward=1.0, outcome="accepted"))
+        top = learner.top_arms(k=100)
+        assert len(top) == 1
+
+    def test_top_arms_empty(self, learner):
+        top = learner.top_arms()
+        assert top == []
+
+    def test_top_arms_with_context(self, learner):
+        ctx = {"task": "typing"}
+        learner.observe(
+            ArmOutcome(arm_id="arm:a", reward=1.0, outcome="accepted"),
+            context=ctx,
+        )
+        learner.observe(
+            ArmOutcome(arm_id="arm:b", reward=1.0, outcome="accepted"),
+        )
+
+        top_ctx = learner.top_arms(context=ctx, k=10)
+        top_default = learner.top_arms(k=10)
+
+        assert len(top_ctx) == 1
+        assert top_ctx[0][0] == "arm:a"
+        assert len(top_default) == 1
+        assert top_default[0][0] == "arm:b"
+
+    def test_top_arms_returns_arm_state(self, learner):
+        learner.observe(ArmOutcome(arm_id="arm:a", reward=1.0, outcome="accepted"))
+        top = learner.top_arms(k=1)
+        arm_id, state = top[0]
+        assert arm_id == "arm:a"
+        assert hasattr(state, "alpha")
+        assert hasattr(state, "mean")
+
+
+class TestDecayArm:
+    """Tests for Learner.decay_arm() — signal decay toward prior."""
+
+    def test_decay_weakens_confidence(self, learner):
+        # Build up signal
+        for _ in range(5):
+            learner.observe(ArmOutcome(arm_id="arm:a", reward=1.0, outcome="accepted"))
+
+        state_before = learner.store.get("arm:a")
+        assert state_before.alpha == 6.0  # 1.0 prior + 5 rewards
+
+        state_after = learner.decay_arm("arm:a", decay_factor=0.5)
+        assert state_after.alpha == pytest.approx(3.0)
+        assert state_after.beta == pytest.approx(0.5)
+
+    def test_decay_preserves_mean_ratio(self, learner):
+        learner.observe(ArmOutcome(arm_id="arm:a", reward=1.0, outcome="accepted"))
+        learner.observe(ArmOutcome(arm_id="arm:a", reward=1.0, outcome="accepted"))
+
+        state_before = learner.store.get("arm:a")
+        mean_before = state_before.mean
+
+        state_after = learner.decay_arm("arm:a", decay_factor=0.5)
+        # alpha/beta both scaled by same factor, so mean = alpha/(alpha+beta) is preserved
+        assert state_after.mean == pytest.approx(mean_before, abs=0.01)
+
+    def test_decay_floors_at_001(self, learner):
+        # Default arm: alpha=1.0, beta=1.0
+        state = learner.decay_arm("arm:new", decay_factor=0.001)
+        assert state.alpha == pytest.approx(0.01)
+        assert state.beta == pytest.approx(0.01)
+
+    def test_decay_persisted(self, learner):
+        learner.observe(ArmOutcome(arm_id="arm:a", reward=1.0, outcome="accepted"))
+        learner.decay_arm("arm:a", decay_factor=0.5)
+
+        state = learner.store.get("arm:a")
+        assert state.alpha == pytest.approx(1.0)  # (1+1)*0.5
+
+    def test_decay_with_context(self, learner):
+        ctx = {"task": "testing"}
+        learner.observe(
+            ArmOutcome(arm_id="arm:a", reward=1.0, outcome="accepted"),
+            context=ctx,
+        )
+        learner.decay_arm("arm:a", decay_factor=0.5, context=ctx)
+
+        state_ctx = learner.store.get("arm:a", ctx)
+        state_default = learner.store.get("arm:a")
+        assert state_ctx.alpha == pytest.approx(1.0)  # decayed
+        assert state_default.alpha == pytest.approx(1.0)  # untouched (default prior)
+
+    def test_decay_updates_total_reward(self, learner):
+        learner.observe(ArmOutcome(arm_id="arm:a", reward=1.0, outcome="accepted"))
+        state = learner.decay_arm("arm:a", decay_factor=0.5)
+        assert state.total_reward == pytest.approx(0.5)
+
+    def test_decay_preserves_pulls(self, learner):
+        learner.observe(ArmOutcome(arm_id="arm:a", reward=1.0, outcome="accepted"))
+        learner.observe(ArmOutcome(arm_id="arm:a", reward=1.0, outcome="accepted"))
+        state = learner.decay_arm("arm:a", decay_factor=0.5)
+        assert state.pulls == 2  # not changed

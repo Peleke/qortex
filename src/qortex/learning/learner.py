@@ -1,7 +1,8 @@
 """Learner: the main class for bandit-based learning.
 
 Composes strategy + reward model + state store. Exposes select(),
-observe(), metrics(), and posteriors(). Emits observability events.
+observe(), batch_observe(), top_arms(), decay_arm(), metrics(),
+and posteriors(). Emits observability events.
 """
 
 from __future__ import annotations
@@ -9,6 +10,14 @@ from __future__ import annotations
 import uuid
 from datetime import UTC, datetime
 from typing import Any
+
+from qortex_observe import emit
+from qortex_observe.events import (
+    LearningObservationRecorded,
+    LearningPosteriorUpdated,
+    LearningSelectionMade,
+)
+from qortex_observe.tracing import traced
 
 from qortex.learning.reward import RewardModel, TernaryReward
 from qortex.learning.store import LearningStore, SqliteLearningStore
@@ -21,12 +30,6 @@ from qortex.learning.types import (
     RunTrace,
     SelectionResult,
     context_hash,
-)
-from qortex.observability import emit
-from qortex.observability.events import (
-    LearningObservationRecorded,
-    LearningPosteriorUpdated,
-    LearningSelectionMade,
 )
 
 
@@ -71,6 +74,7 @@ class Learner:
         # Active sessions
         self._sessions: dict[str, RunTrace] = {}
 
+    @traced("learning.select")
     def select(
         self,
         candidates: list[Arm],
@@ -90,17 +94,20 @@ class Learner:
             token_budget=token_budget,
         )
 
-        emit(LearningSelectionMade(
-            learner=self.config.name,
-            selected_count=len(result.selected),
-            excluded_count=len(result.excluded),
-            is_baseline=result.is_baseline,
-            token_budget=result.token_budget,
-            used_tokens=result.used_tokens,
-        ))
+        emit(
+            LearningSelectionMade(
+                learner=self.config.name,
+                selected_count=len(result.selected),
+                excluded_count=len(result.excluded),
+                is_baseline=result.is_baseline,
+                token_budget=result.token_budget,
+                used_tokens=result.used_tokens,
+            )
+        )
 
         return result
 
+    @traced("learning.observe")
     def observe(
         self,
         outcome: ArmOutcome,
@@ -129,25 +136,30 @@ class Learner:
 
         ctx_hash = context_hash(ctx)
 
-        emit(LearningObservationRecorded(
-            learner=self.config.name,
-            arm_id=outcome.arm_id,
-            reward=reward,
-            outcome=outcome.outcome,
-            context_hash=ctx_hash,
-        ))
+        emit(
+            LearningObservationRecorded(
+                learner=self.config.name,
+                arm_id=outcome.arm_id,
+                reward=reward,
+                outcome=outcome.outcome,
+                context_hash=ctx_hash,
+            )
+        )
 
-        emit(LearningPosteriorUpdated(
-            learner=self.config.name,
-            arm_id=outcome.arm_id,
-            alpha=new_state.alpha,
-            beta=new_state.beta,
-            pulls=new_state.pulls,
-            mean=new_state.mean,
-        ))
+        emit(
+            LearningPosteriorUpdated(
+                learner=self.config.name,
+                arm_id=outcome.arm_id,
+                alpha=new_state.alpha,
+                beta=new_state.beta,
+                pulls=new_state.pulls,
+                mean=new_state.mean,
+            )
+        )
 
         return new_state
 
+    @traced("learning.apply_credit_deltas")
     def apply_credit_deltas(
         self,
         deltas: dict[str, dict[str, float]],
@@ -174,17 +186,80 @@ class Learner:
             self.store.put(arm_id, new_state, ctx)
             results[arm_id] = new_state
 
-            emit(LearningPosteriorUpdated(
-                learner=self.config.name,
-                arm_id=arm_id,
-                alpha=new_state.alpha,
-                beta=new_state.beta,
-                pulls=new_state.pulls,
-                mean=new_state.mean,
-            ))
+            emit(
+                LearningPosteriorUpdated(
+                    learner=self.config.name,
+                    arm_id=arm_id,
+                    alpha=new_state.alpha,
+                    beta=new_state.beta,
+                    pulls=new_state.pulls,
+                    mean=new_state.mean,
+                )
+            )
 
         self.store.save()
         return results
+
+    def batch_observe(
+        self,
+        outcomes: list[ArmOutcome],
+        context: dict | None = None,
+    ) -> dict[str, ArmState]:
+        """Record multiple observations in a single call.
+
+        Delegates to observe() for each outcome so events are emitted
+        per-arm. Saves once at the end (observe already saves per call,
+        but this keeps the contract simple for callers).
+        """
+        results: dict[str, ArmState] = {}
+        for outcome in outcomes:
+            results[outcome.arm_id] = self.observe(outcome, context)
+        return results
+
+    def top_arms(
+        self,
+        context: dict | None = None,
+        k: int = 10,
+    ) -> list[tuple[str, ArmState]]:
+        """Return the top-k arms by posterior mean, descending.
+
+        Derives from posteriors(). Returns (arm_id, ArmState) tuples
+        so callers get both the ID and the full state.
+        """
+        all_states = self.store.get_all(context)
+        sorted_arms = sorted(
+            all_states.items(),
+            key=lambda pair: pair[1].mean,
+            reverse=True,
+        )
+        return sorted_arms[:k]
+
+    def decay_arm(
+        self,
+        arm_id: str,
+        decay_factor: float = 0.9,
+        context: dict | None = None,
+    ) -> ArmState:
+        """Shrink an arm's learned signal toward the prior.
+
+        Multiplies alpha and beta by decay_factor, weakening confidence
+        while preserving the mean ratio. Useful when seed data changes
+        and old signal should fade.
+
+        Floors alpha/beta at 0.01 to avoid degenerate posteriors.
+        """
+        state = self.store.get(arm_id, context)
+        now = datetime.now(UTC).isoformat()
+        new_state = ArmState(
+            alpha=max(state.alpha * decay_factor, 0.01),
+            beta=max(state.beta * decay_factor, 0.01),
+            pulls=state.pulls,
+            total_reward=state.total_reward * decay_factor,
+            last_updated=now,
+        )
+        self.store.put(arm_id, new_state, context)
+        self.store.save()
+        return new_state
 
     def posteriors(
         self,

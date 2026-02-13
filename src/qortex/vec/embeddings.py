@@ -18,6 +18,8 @@ from __future__ import annotations
 import logging
 from typing import Protocol, runtime_checkable
 
+from qortex_observe.tracing import traced
+
 logger = logging.getLogger(__name__)
 
 
@@ -70,10 +72,20 @@ class SentenceTransformerEmbedding:
         self._dimensions = self._model.get_sentence_embedding_dimension()
         logger.info("Loaded embedding model %s (%d dims)", self._model_name, self._dimensions)
 
+    @traced("vec.embed.sentence_transformer", external=True)
     def embed(self, texts: list[str]) -> list[list[float]]:
         """Embed texts using sentence-transformers."""
         self._load()
         assert self._model is not None
+        try:
+            from opentelemetry import trace
+
+            span = trace.get_current_span()
+            span.set_attribute("embed.model", self._model_name)
+            span.set_attribute("embed.batch_size", len(texts))
+            span.set_attribute("embed.backend", "sentence_transformers")
+        except ImportError:
+            pass
         embeddings = self._model.encode(texts, convert_to_numpy=True)
         return embeddings.tolist()
 
@@ -118,8 +130,18 @@ class OpenAIEmbedding:
         self._client = openai.OpenAI(**kwargs)
         return self._client
 
+    @traced("vec.embed.openai", external=True)
     def embed(self, texts: list[str]) -> list[list[float]]:
         """Embed texts via OpenAI API."""
+        try:
+            from opentelemetry import trace
+
+            span = trace.get_current_span()
+            span.set_attribute("embed.model", self._model)
+            span.set_attribute("embed.batch_size", len(texts))
+            span.set_attribute("embed.backend", "openai")
+        except ImportError:
+            pass
         client = self._get_client()
         response = client.embeddings.create(input=texts, model=self._model)
         return [item.embedding for item in response.data]
@@ -153,8 +175,18 @@ class OllamaEmbedding:
             "snowflake-arctic-embed": 1024,
         }
 
+    @traced("vec.embed.ollama", external=True)
     def embed(self, texts: list[str]) -> list[list[float]]:
         """Embed texts via Ollama API."""
+        try:
+            from opentelemetry import trace
+
+            span = trace.get_current_span()
+            span.set_attribute("embed.model", self._model_name)
+            span.set_attribute("embed.batch_size", len(texts))
+            span.set_attribute("embed.backend", "ollama")
+        except ImportError:
+            pass
         import json
         import urllib.request
 

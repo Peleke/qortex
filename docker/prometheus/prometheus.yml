@@ -3,9 +3,13 @@ global:
 
 scrape_configs:
   # Local qortex process (prometheus-client HTTP server on host)
+  # Port 9090: sandbox or long-running MCP server
+  # Port 9464: local dev / validation scripts
   - job_name: "qortex"
     static_configs:
-      - targets: ["host.docker.internal:9090"]
+      - targets:
+          - "host.docker.internal:9090"
+          - "host.docker.internal:9464"
     metrics_path: /metrics
 
   # OTEL Collector (push-based metrics from remote/sandbox)

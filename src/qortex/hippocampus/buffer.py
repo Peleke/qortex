@@ -22,9 +22,9 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
-from qortex.observability import emit
-from qortex.observability.events import BufferFlushed, EdgePromoted, OnlineEdgeRecorded
-from qortex.observability.logging import get_logger
+from qortex_observe import emit
+from qortex_observe.events import BufferFlushed, EdgePromoted, OnlineEdgeRecorded
+from qortex_observe.logging import get_logger
 
 logger = get_logger(__name__)
 
@@ -83,13 +83,15 @@ class EdgePromotionBuffer:
         stats.scores.append(score)
         stats.last_seen = datetime.now(UTC).isoformat()
 
-        emit(OnlineEdgeRecorded(
-            source_id=source_id,
-            target_id=target_id,
-            score=score,
-            hit_count=stats.hit_count,
-            buffer_size=len(self._buffer),
-        ))
+        emit(
+            OnlineEdgeRecorded(
+                source_id=source_id,
+                target_id=target_id,
+                score=score,
+                hit_count=stats.hit_count,
+                buffer_size=len(self._buffer),
+            )
+        )
 
         for hook in self._hooks.get("on_record", []):
             try:
@@ -146,12 +148,14 @@ class EdgePromotionBuffer:
                     }
                     details.append(detail)
 
-                    emit(EdgePromoted(
-                        source_id=src,
-                        target_id=tgt,
-                        hit_count=stats.hit_count,
-                        avg_score=round(stats.avg_score, 4),
-                    ))
+                    emit(
+                        EdgePromoted(
+                            source_id=src,
+                            target_id=tgt,
+                            hit_count=stats.hit_count,
+                            avg_score=round(stats.avg_score, 4),
+                        )
+                    )
 
                     for hook in self._hooks.get("on_promote", []):
                         try:
@@ -171,13 +175,15 @@ class EdgePromotionBuffer:
             details=details,
         )
 
-        emit(BufferFlushed(
-            promoted=promoted,
-            remaining=len(self._buffer),
-            total_promoted_lifetime=self._total_promoted,
-            kg_coverage=None,
-            timestamp=datetime.now(UTC).isoformat(),
-        ))
+        emit(
+            BufferFlushed(
+                promoted=promoted,
+                remaining=len(self._buffer),
+                total_promoted_lifetime=self._total_promoted,
+                kg_coverage=None,
+                timestamp=datetime.now(UTC).isoformat(),
+            )
+        )
 
         for hook in self._hooks.get("on_flush", []):
             try:

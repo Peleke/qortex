@@ -56,10 +56,7 @@ class ThompsonSampling:
         # Partition: arms below min_pulls are force-included (cold-start protection)
         min_pulls = config.min_pulls
         if min_pulls > 0:
-            forced = [
-                a for a in candidates
-                if states.get(a.id, ArmState()).pulls < min_pulls
-            ]
+            forced = [a for a in candidates if states.get(a.id, ArmState()).pulls < min_pulls]
             eligible = [a for a in candidates if a not in forced]
         else:
             forced = []
@@ -111,7 +108,7 @@ class ThompsonSampling:
 
         # If token_budget > 0, respect it
         if token_budget > 0:
-            selected: list[Arm] = list(forced)
+            selected = list(forced)
             used = sum(a.token_cost for a in forced)
             for arm in ranked:
                 if len(selected) - len(forced) >= remaining_k:
