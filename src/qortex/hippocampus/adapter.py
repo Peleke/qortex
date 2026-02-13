@@ -12,6 +12,8 @@ from __future__ import annotations
 
 import time
 import uuid
+
+import numpy as np
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from typing import TYPE_CHECKING, Protocol, runtime_checkable
@@ -480,7 +482,8 @@ class GraphRAGAdapter:
     ) -> list[tuple[str, str, float]]:
         """Generate ephemeral cosine-sim edges between candidate pairs.
 
-        O(K²) where K = len(seed_ids). For K=30 this is 435 pairs — fast.
+        O(K²) where K = len(seed_ids). Uses numpy batch matmul for the
+        heavy lifting (all-pairs cosine via normalized matrix multiply).
         """
         if len(seed_ids) < 2:
             return []
@@ -495,14 +498,18 @@ class GraphRAGAdapter:
         if len(embeddings) < 2:
             return []
 
-        edges: list[tuple[str, str, float]] = []
         ids = list(embeddings.keys())
+        matrix = np.array([embeddings[nid] for nid in ids])
+        norms = np.linalg.norm(matrix, axis=1, keepdims=True)
+        normed = matrix / (norms + 1e-9)
+        sim_matrix = normed @ normed.T
 
+        edges: list[tuple[str, str, float]] = []
+        threshold = self.online_sim_threshold
         for i in range(len(ids)):
             for j in range(i + 1, len(ids)):
-                sim = _cosine_similarity(embeddings[ids[i]], embeddings[ids[j]])
-                if sim >= self.online_sim_threshold:
-                    edges.append((ids[i], ids[j], sim))
+                if sim_matrix[i, j] >= threshold:
+                    edges.append((ids[i], ids[j], float(sim_matrix[i, j])))
 
         return edges
 
@@ -515,16 +522,6 @@ class GraphRAGAdapter:
                 if edge.target_id in node_set:
                     count += 1
         return count
-
-
-def _cosine_similarity(a: list[float], b: list[float]) -> float:
-    """Cosine similarity between two vectors. Pure Python — no numpy required."""
-    dot = sum(x * y for x, y in zip(a, b))
-    norm_a = sum(x * x for x in a) ** 0.5
-    norm_b = sum(x * x for x in b) ** 0.5
-    if norm_a == 0 or norm_b == 0:
-        return 0.0
-    return dot / (norm_a * norm_b)
 
 
 def get_adapter(

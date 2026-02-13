@@ -83,7 +83,7 @@ class QueryItem:
         meta = {"domain": self.domain, "node_id": self.node_id}
         meta.update(self.metadata)
         try:
-            from agno.document import Document
+            from agno.knowledge.document import Document
 
             return Document(
                 content=self.content,

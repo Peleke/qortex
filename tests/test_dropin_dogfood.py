@@ -418,7 +418,7 @@ class TestAgnoDropIn:
                 assert hasattr(doc, "content")
 
     def test_build_context_like_agno(self, knowledge_base):
-        """Agno consumer code: knowledge.build_context(query)"""
+        """Agno consumer code: knowledge.build_context() returns instructions."""
         from qortex.adapters.agno import QortexKnowledge
 
         knowledge = QortexKnowledge(
@@ -426,9 +426,25 @@ class TestAgnoDropIn:
             domains=["security"],
         )
 
-        context = knowledge.build_context("What authentication methods exist?")
+        context = knowledge.build_context()
         assert isinstance(context, str)
-        assert len(context) > 0
+        assert "search_knowledge_base" in context
+        assert "security" in context
+
+    def test_get_tools_like_agno(self, knowledge_base):
+        """Agno consumer code: knowledge.get_tools() returns callable tools."""
+        from qortex.adapters.agno import QortexKnowledge
+
+        knowledge = QortexKnowledge(
+            client=knowledge_base,
+            domains=["security"],
+        )
+
+        tools = knowledge.get_tools()
+        assert len(tools) == 3
+        for tool in tools:
+            assert callable(tool)
+            assert tool.__doc__  # Each tool needs a docstring for the LLM
 
 
 # ===========================================================================

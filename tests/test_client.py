@@ -576,16 +576,43 @@ class TestAgnoAdapter:
         client = make_client(with_data=True)
         knowledge = QortexKnowledge(client=client, domains=["security"])
 
-        context = knowledge.build_context("authentication")
+        context = knowledge.build_context()
         assert isinstance(context, str)
-        assert len(context) > 0
+        assert "search_knowledge_base" in context
+        assert "security" in context  # domain should appear
 
-    def test_build_context_empty(self):
+    def test_build_context_no_domains(self):
         from qortex.adapters.agno import QortexKnowledge
 
         knowledge = QortexKnowledge(client=make_client())
-        context = knowledge.build_context("anything")
-        assert context == ""
+        context = knowledge.build_context()
+        assert isinstance(context, str)
+        assert "search_knowledge_base" in context
+
+    def test_get_tools(self):
+        from qortex.adapters.agno import QortexKnowledge
+
+        client = make_client(with_data=True)
+        knowledge = QortexKnowledge(client=client, domains=["security"])
+
+        tools = knowledge.get_tools()
+        assert len(tools) == 3
+        names = [t.__name__ for t in tools]
+        assert "search_knowledge_base" in names
+        assert "explore_knowledge_graph" in names
+        assert "report_knowledge_feedback" in names
+
+    def test_get_tools_filtered(self):
+        from qortex.adapters.agno import QortexKnowledge
+
+        knowledge = QortexKnowledge(
+            client=make_client(),
+            enable_explore=False,
+            enable_feedback=False,
+        )
+        tools = knowledge.get_tools()
+        assert len(tools) == 1
+        assert tools[0].__name__ == "search_knowledge_base"
 
     def test_feedback_loop(self):
         from qortex.adapters.agno import QortexKnowledge
@@ -595,7 +622,9 @@ class TestAgnoAdapter:
 
         docs = knowledge.retrieve("auth")
         assert knowledge.last_query_id is not None
-        knowledge.feedback({docs[0]["id"]: "accepted"})  # should not raise
+        doc = docs[0]
+        item_id = doc.id if hasattr(doc, "id") else doc.get("id", "")
+        knowledge.feedback({item_id: "accepted"})  # should not raise
 
     def test_retrieve_with_kwargs(self):
         from qortex.adapters.agno import QortexKnowledge
