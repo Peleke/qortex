@@ -56,3 +56,4 @@ site/
 .env.local
 *.pem
 *.key
+data/books/
