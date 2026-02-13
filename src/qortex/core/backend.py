@@ -413,6 +413,7 @@ class MemgraphBackend:
     # Domain Management
     # -------------------------------------------------------------------------
 
+    @traced("memgraph.create_domain")
     def create_domain(self, name: str, description: str | None = None) -> Domain:
         now = datetime.now(UTC).isoformat()
         record = self._run_single(
@@ -494,6 +495,7 @@ class MemgraphBackend:
     # Node Operations
     # -------------------------------------------------------------------------
 
+    @traced("memgraph.add_node")
     def add_node(self, node: ConceptNode) -> None:
         self._run(
             "MERGE (c:Concept {id: $id}) "
@@ -572,6 +574,7 @@ class MemgraphBackend:
     # Edge Operations
     # -------------------------------------------------------------------------
 
+    @traced("memgraph.add_edge")
     def add_edge(self, edge: ConceptEdge) -> None:
         # Use relation_type as actual edge label for proper graph analytics
         rel_type = edge.relation_type.value.upper()
@@ -636,6 +639,7 @@ class MemgraphBackend:
     # Rule Operations
     # -------------------------------------------------------------------------
 
+    @traced("memgraph.add_rule")
     def add_rule(self, rule: ExplicitRule) -> None:
         self._run(
             "MERGE (r:Rule {id: $id}) "
@@ -678,8 +682,21 @@ class MemgraphBackend:
     # Manifest Ingestion
     # -------------------------------------------------------------------------
 
+    @traced("memgraph.ingest_manifest")
     def ingest_manifest(self, manifest: IngestionManifest) -> None:
         """Atomically ingest a manifest. Uses a single transaction."""
+        try:
+            from opentelemetry import trace as _trace
+
+            span = _trace.get_current_span()
+            span.set_attribute("ingest.domain", manifest.domain)
+            span.set_attribute("ingest.node_count", len(manifest.concepts))
+            span.set_attribute("ingest.edge_count", len(manifest.edges))
+            span.set_attribute("ingest.rule_count", len(manifest.rules))
+            span.set_attribute("ingest.source_id", manifest.source.id)
+        except ImportError:
+            pass
+
         t0 = time.perf_counter()
         self.create_domain(manifest.domain)
 
@@ -725,6 +742,7 @@ class MemgraphBackend:
     def supports_mage(self) -> bool:
         return True
 
+    @traced("memgraph.personalized_pagerank")
     def personalized_pagerank(
         self,
         source_nodes: list[str],
@@ -857,6 +875,25 @@ class MemgraphBackend:
 
         elapsed = (time.perf_counter() - t0) * 1000
         result = {nid: score for nid, score in scores.items() if score > 1e-8}
+
+        # Annotate the parent span with convergence details
+        try:
+            from opentelemetry import trace as _trace
+
+            span = _trace.get_current_span()
+            span.set_attribute("ppr.node_count", len(node_ids))
+            span.set_attribute("ppr.edge_count", len(edge_records))
+            span.set_attribute("ppr.seed_count", len(valid_seeds))
+            span.set_attribute("ppr.iterations", _iteration + 1)
+            span.set_attribute("ppr.final_diff", diff)
+            span.set_attribute("ppr.converged", diff < convergence_threshold)
+            span.set_attribute("ppr.damping_factor", damping_factor)
+            span.set_attribute("ppr.nonzero_scores", len(result))
+            span.set_attribute("ppr.latency_ms", elapsed)
+            if query_id:
+                span.set_attribute("ppr.query_id", query_id)
+        except ImportError:
+            pass
 
         if diff < convergence_threshold:
             emit(PPRConverged(
