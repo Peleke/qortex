@@ -99,13 +99,17 @@ class TestYAMLLoading:
 
     def test_disable_graph_layer(self, tmp_path):
         yaml_file = tmp_path / "flags.yaml"
-        yaml_file.write_text(yaml.dump({
-            "graph": False,
-            "enrichment": False,
-            "learning": False,
-            "causal": False,
-            "online_edges": False,
-        }))
+        yaml_file.write_text(
+            yaml.dump(
+                {
+                    "graph": False,
+                    "enrichment": False,
+                    "learning": False,
+                    "causal": False,
+                    "online_edges": False,
+                }
+            )
+        )
 
         flags = FeatureFlags.load(yaml_file)
         assert flags.graph is False
@@ -164,10 +168,14 @@ class TestPriority:
 
     def test_full_priority_chain(self, monkeypatch, tmp_path):
         yaml_file = tmp_path / "flags.yaml"
-        yaml_file.write_text(yaml.dump({
-            "teleportation": True,
-            "credit_propagation": True,
-        }))
+        yaml_file.write_text(
+            yaml.dump(
+                {
+                    "teleportation": True,
+                    "credit_propagation": True,
+                }
+            )
+        )
 
         # env overrides yaml for teleportation only
         monkeypatch.setenv("QORTEX_TELEPORTATION", "off")
@@ -208,15 +216,19 @@ class TestVecOnlyMode:
 
     def test_vec_only_config(self, tmp_path):
         yaml_file = tmp_path / "flags.yaml"
-        yaml_file.write_text(yaml.dump({
-            "graph": False,
-            "teleportation": False,
-            "online_edges": False,
-            "enrichment": False,
-            "learning": False,
-            "causal": False,
-            "credit_propagation": False,
-        }))
+        yaml_file.write_text(
+            yaml.dump(
+                {
+                    "graph": False,
+                    "teleportation": False,
+                    "online_edges": False,
+                    "enrichment": False,
+                    "learning": False,
+                    "causal": False,
+                    "credit_propagation": False,
+                }
+            )
+        )
 
         flags = FeatureFlags.load(yaml_file)
         # Everything is off

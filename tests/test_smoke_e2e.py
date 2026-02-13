@@ -24,6 +24,7 @@ import requests
 # Skip guards: check real services are up
 # ---------------------------------------------------------------------------
 
+
 def _port_open(host: str, port: int, timeout: float = 2.0) -> bool:
     try:
         s = socket.socket()
@@ -33,6 +34,7 @@ def _port_open(host: str, port: int, timeout: float = 2.0) -> bool:
         return True
     except OSError:
         return False
+
 
 MEMGRAPH_HOST = os.environ.get("MEMGRAPH_HOST", "localhost")
 MEMGRAPH_PORT = int(os.environ.get("MEMGRAPH_PORT", "7687"))
@@ -56,6 +58,7 @@ pytestmark = pytest.mark.skipif(
 # ---------------------------------------------------------------------------
 # Fixtures: real backends, real observability
 # ---------------------------------------------------------------------------
+
 
 @pytest.fixture(scope="module")
 def memgraph_backend():
@@ -116,32 +119,55 @@ def test_domain(memgraph_backend):
 
     domain_name = f"smoke-test-{uuid.uuid4().hex[:8]}"
     source = SourceMetadata(
-        id="smoke-source", name="smoke-test",
-        source_type="text", path_or_url="/dev/null",
+        id="smoke-source",
+        name="smoke-test",
+        source_type="text",
+        path_or_url="/dev/null",
     )
 
     nodes = [
-        ConceptNode(id="python", name="Python", domain=domain_name,
-                    description="A programming language", source_id=source.id),
-        ConceptNode(id="typing", name="Type Hints", domain=domain_name,
-                    description="Static typing for Python", source_id=source.id),
-        ConceptNode(id="mypy", name="Mypy", domain=domain_name,
-                    description="Static type checker for Python", source_id=source.id),
-        ConceptNode(id="pydantic", name="Pydantic", domain=domain_name,
-                    description="Data validation using Python type hints", source_id=source.id),
-        ConceptNode(id="fastapi", name="FastAPI", domain=domain_name,
-                    description="Modern Python web framework", source_id=source.id),
+        ConceptNode(
+            id="python",
+            name="Python",
+            domain=domain_name,
+            description="A programming language",
+            source_id=source.id,
+        ),
+        ConceptNode(
+            id="typing",
+            name="Type Hints",
+            domain=domain_name,
+            description="Static typing for Python",
+            source_id=source.id,
+        ),
+        ConceptNode(
+            id="mypy",
+            name="Mypy",
+            domain=domain_name,
+            description="Static type checker for Python",
+            source_id=source.id,
+        ),
+        ConceptNode(
+            id="pydantic",
+            name="Pydantic",
+            domain=domain_name,
+            description="Data validation using Python type hints",
+            source_id=source.id,
+        ),
+        ConceptNode(
+            id="fastapi",
+            name="FastAPI",
+            domain=domain_name,
+            description="Modern Python web framework",
+            source_id=source.id,
+        ),
     ]
 
     edges = [
-        ConceptEdge(source_id="python", target_id="typing",
-                    relation_type=RelationType.SUPPORTS),
-        ConceptEdge(source_id="typing", target_id="mypy",
-                    relation_type=RelationType.REQUIRES),
-        ConceptEdge(source_id="typing", target_id="pydantic",
-                    relation_type=RelationType.USES),
-        ConceptEdge(source_id="pydantic", target_id="fastapi",
-                    relation_type=RelationType.PART_OF),
+        ConceptEdge(source_id="python", target_id="typing", relation_type=RelationType.SUPPORTS),
+        ConceptEdge(source_id="typing", target_id="mypy", relation_type=RelationType.REQUIRES),
+        ConceptEdge(source_id="typing", target_id="pydantic", relation_type=RelationType.USES),
+        ConceptEdge(source_id="pydantic", target_id="fastapi", relation_type=RelationType.PART_OF),
     ]
 
     manifest = IngestionManifest(
@@ -169,6 +195,7 @@ def test_domain(memgraph_backend):
 # ---------------------------------------------------------------------------
 # Tests: real data, real services, real metrics
 # ---------------------------------------------------------------------------
+
 
 class TestMemgraphPPRReal:
     """PPR against actual Memgraph data -- not mocked."""
@@ -282,7 +309,9 @@ class TestObservabilityMetricsReal:
                 return
         pytest.fail("qortex_ppr_started_total line not found in /metrics output")
 
-    def test_ppr_convergence_latency_in_prometheus(self, memgraph_backend, test_domain, observability):
+    def test_ppr_convergence_latency_in_prometheus(
+        self, memgraph_backend, test_domain, observability
+    ):
         """Verify PPR convergence histogram shows up on direct /metrics."""
         # Trigger another PPR
         memgraph_backend.personalized_pagerank(
@@ -341,11 +370,14 @@ class TestFactorFeedbackReal:
 
         # Simulate query outcome: "python" was helpful, "mypy" was not
         query_id = f"smoke-fb-{uuid.uuid4().hex[:8]}"
-        provider.report_outcome(query_id, {
-            "python": "accepted",
-            "typing": "accepted",
-            "mypy": "rejected",
-        })
+        provider.report_outcome(
+            query_id,
+            {
+                "python": "accepted",
+                "typing": "accepted",
+                "mypy": "rejected",
+            },
+        )
 
         # Verify factors actually changed via the internal factors object
         weights = provider._factors.weight_seeds(["python", "typing", "mypy"])
@@ -363,14 +395,18 @@ class TestFactorFeedbackReal:
 
         # Generate several rounds of feedback to produce drift
         for i in range(5):
-            provider.report_outcome(f"drift-{i}", {
-                "python": "accepted",
-                "mypy": "rejected",
-            })
+            provider.report_outcome(
+                f"drift-{i}",
+                {
+                    "python": "accepted",
+                    "mypy": "rejected",
+                },
+            )
 
         # Force OTel flush
         try:
             from opentelemetry.metrics import get_meter_provider
+
             provider_otel = get_meter_provider()
             if hasattr(provider_otel, "force_flush"):
                 provider_otel.force_flush(timeout_millis=5000)

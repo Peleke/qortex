@@ -272,9 +272,7 @@ class TestAgnoBuildContext:
         backend = InMemoryBackend(vector_index=vi)
         backend.connect()
         emb = SentenceTransformerEmbedding()
-        return LocalQortexClient(
-            vector_index=vi, backend=backend, embedding_model=emb
-        )
+        return LocalQortexClient(vector_index=vi, backend=backend, embedding_model=emb)
 
 
 # ===========================================================================

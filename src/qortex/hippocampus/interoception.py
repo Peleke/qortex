@@ -201,11 +201,13 @@ class LocalInteroceptionProvider:
 
         self._started = True
 
-        emit(InteroceptionStarted(
-            factors_loaded=len(self._factors.factors),
-            buffer_loaded=self._buffer.summary()["buffered_edges"],
-            teleportation_enabled=self._config.teleportation_enabled,
-        ))
+        emit(
+            InteroceptionStarted(
+                factors_loaded=len(self._factors.factors),
+                buffer_loaded=self._buffer.summary()["buffered_edges"],
+                teleportation_enabled=self._config.teleportation_enabled,
+            )
+        )
 
     def shutdown(self) -> None:
         """Persist state to disk and log summary."""
@@ -220,11 +222,13 @@ class LocalInteroceptionProvider:
         s = self.summary()
         logger.info("interoception.shutdown", **s)
 
-        emit(InteroceptionShutdown(
-            factors_persisted=len(self._factors.factors),
-            buffer_persisted=self._buffer.summary()["buffered_edges"],
-            summary=s,
-        ))
+        emit(
+            InteroceptionShutdown(
+                factors_persisted=len(self._factors.factors),
+                buffer_persisted=self._buffer.summary()["buffered_edges"],
+                summary=s,
+            )
+        )
 
     def get_seed_weights(self, seed_ids: list[str]) -> dict[str, float]:
         """Normalized teleportation weights for PPR seeds.

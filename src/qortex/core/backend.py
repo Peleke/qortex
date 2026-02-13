@@ -31,9 +31,15 @@ logger = logging.getLogger(__name__)
 # ---------------------------------------------------------------------------
 
 _CYPHER_OPS = {
-    "MATCH": "query", "CREATE": "create", "DELETE": "delete",
-    "MERGE": "upsert", "CALL": "procedure", "DROP": "drop",
-    "RETURN": "query", "WITH": "query", "UNWIND": "query",
+    "MATCH": "query",
+    "CREATE": "create",
+    "DELETE": "delete",
+    "MERGE": "upsert",
+    "CALL": "procedure",
+    "DROP": "drop",
+    "RETURN": "query",
+    "WITH": "query",
+    "UNWIND": "query",
 }
 
 
@@ -719,14 +725,16 @@ class MemgraphBackend:
             self.add_rule(rule)
 
         elapsed = (time.perf_counter() - t0) * 1000
-        emit(ManifestIngested(
-            domain=manifest.domain,
-            node_count=len(manifest.concepts),
-            edge_count=len(manifest.edges),
-            rule_count=len(manifest.rules),
-            source_id=manifest.source.id,
-            latency_ms=elapsed,
-        ))
+        emit(
+            ManifestIngested(
+                domain=manifest.domain,
+                node_count=len(manifest.concepts),
+                edge_count=len(manifest.edges),
+                rule_count=len(manifest.rules),
+                source_id=manifest.source.id,
+                latency_ms=elapsed,
+            )
+        )
 
     # -------------------------------------------------------------------------
     # Query
@@ -777,12 +785,14 @@ class MemgraphBackend:
             else:
                 node_records = self._run("MATCH (n:Concept) RETURN n.id AS id")
         except Exception as exc:
-            emit(QueryFailed(
-                query_id=query_id,
-                error=str(exc),
-                stage="ppr",
-                timestamp=datetime.now(UTC).isoformat(),
-            ))
+            emit(
+                QueryFailed(
+                    query_id=query_id,
+                    error=str(exc),
+                    stage="ppr",
+                    timestamp=datetime.now(UTC).isoformat(),
+                )
+            )
             raise
 
         node_ids = [r["id"] for r in node_records if r.get("id")]
@@ -794,13 +804,15 @@ class MemgraphBackend:
             return {}
 
         t0 = time.perf_counter()
-        emit(PPRStarted(
-            query_id=query_id,
-            node_count=len(node_ids),
-            seed_count=len(valid_seeds),
-            damping_factor=damping_factor,
-            extra_edge_count=len(extra_edges) if extra_edges else 0,
-        ))
+        emit(
+            PPRStarted(
+                query_id=query_id,
+                node_count=len(node_ids),
+                seed_count=len(valid_seeds),
+                damping_factor=damping_factor,
+                extra_edge_count=len(extra_edges) if extra_edges else 0,
+            )
+        )
 
         # 2. Fetch edges and build adjacency: node_id → [(neighbor_id, weight)]
         try:
@@ -818,12 +830,14 @@ class MemgraphBackend:
                     "COALESCE(r.confidence, 1.0) AS weight",
                 )
         except Exception as exc:
-            emit(QueryFailed(
-                query_id=query_id,
-                error=str(exc),
-                stage="ppr",
-                timestamp=datetime.now(UTC).isoformat(),
-            ))
+            emit(
+                QueryFailed(
+                    query_id=query_id,
+                    error=str(exc),
+                    stage="ppr",
+                    timestamp=datetime.now(UTC).isoformat(),
+                )
+            )
             raise
 
         adjacency: dict[str, list[tuple[str, float]]] = {nid: [] for nid in node_ids}
@@ -901,21 +915,25 @@ class MemgraphBackend:
             pass
 
         if diff < convergence_threshold:
-            emit(PPRConverged(
-                query_id=query_id,
-                iterations=_iteration + 1,
-                final_diff=diff,
-                node_count=len(node_ids),
-                nonzero_scores=len(result),
-                latency_ms=elapsed,
-            ))
+            emit(
+                PPRConverged(
+                    query_id=query_id,
+                    iterations=_iteration + 1,
+                    final_diff=diff,
+                    node_count=len(node_ids),
+                    nonzero_scores=len(result),
+                    latency_ms=elapsed,
+                )
+            )
         else:
-            emit(PPRDiverged(
-                query_id=query_id,
-                iterations=max_iterations,
-                final_diff=diff,
-                node_count=len(node_ids),
-            ))
+            emit(
+                PPRDiverged(
+                    query_id=query_id,
+                    iterations=max_iterations,
+                    final_diff=diff,
+                    node_count=len(node_ids),
+                )
+            )
 
         return result
 

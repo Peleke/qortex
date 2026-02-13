@@ -339,12 +339,8 @@ class TestPersonalizedPageRank:
         )
         if len(scores) >= 3:
             # c1 (seed) should have highest score, c2 next, c3 lowest
-            assert scores.get("c1", 0) >= scores.get("c2", 0), (
-                f"c1 should score >= c2: {scores}"
-            )
-            assert scores.get("c2", 0) >= scores.get("c3", 0), (
-                f"c2 should score >= c3: {scores}"
-            )
+            assert scores.get("c1", 0) >= scores.get("c2", 0), f"c1 should score >= c2: {scores}"
+            assert scores.get("c2", 0) >= scores.get("c3", 0), f"c2 should score >= c3: {scores}"
 
     def test_ppr_without_domain_filter(self, backend, sample_manifest):
         """PPR without domain filter should also work with typed edges."""
@@ -363,9 +359,7 @@ class TestPersonalizedPageRank:
         backend.create_domain("mixed")
         for nid, name in [("a", "A"), ("b", "B"), ("c", "C"), ("d", "D")]:
             backend.add_node(
-                ConceptNode(
-                    id=nid, name=name, description="", domain="mixed", source_id="s"
-                )
+                ConceptNode(id=nid, name=name, description="", domain="mixed", source_id="s")
             )
         # Mix of edge types
         backend.add_edge(
@@ -405,9 +399,7 @@ class TestEdgeCountWithTypedLabels:
         backend.create_domain("multi")
         for nid in ["a", "b", "c"]:
             backend.add_node(
-                ConceptNode(
-                    id=nid, name=nid, description="", domain="multi", source_id="s"
-                )
+                ConceptNode(id=nid, name=nid, description="", domain="multi", source_id="s")
             )
         backend.add_edge(
             ConceptEdge(source_id="a", target_id="b", relation_type=RelationType.REQUIRES)
@@ -418,6 +410,4 @@ class TestEdgeCountWithTypedLabels:
 
         domain = backend.get_domain("multi")
         assert domain is not None
-        assert domain.edge_count == 2, (
-            f"Expected 2 edges across types, got {domain.edge_count}"
-        )
+        assert domain.edge_count == 2, f"Expected 2 edges across types, got {domain.edge_count}"

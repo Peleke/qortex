@@ -121,7 +121,6 @@ def vanilla_setup(embedding_model):
 
 
 class TestPerformance:
-
     def test_embedding_latency(self, embedding_model):
         """Baseline: how fast is embedding a query?"""
         med, p95, _ = _timeit(lambda: embedding_model.embed(["test query"]))
@@ -138,7 +137,9 @@ class TestPerformance:
 
         med, p95, _ = _timeit(search)
         per_query = med / len(QUERIES)
-        print(f"\n  Vanilla search ({len(QUERIES)} queries):  median={med:.2f}ms  p95={p95:.2f}ms  per_query={per_query:.2f}ms")
+        print(
+            f"\n  Vanilla search ({len(QUERIES)} queries):  median={med:.2f}ms  p95={p95:.2f}ms  per_query={per_query:.2f}ms"
+        )
 
     def test_qortex_retrieve_latency(self, qortex_setup):
         """Qortex retrieve: embed + vec search + graph PPR + rules."""
@@ -150,7 +151,9 @@ class TestPerformance:
 
         med, p95, _ = _timeit(search)
         per_query = med / len(QUERIES)
-        print(f"\n  Qortex retrieve ({len(QUERIES)} queries):  median={med:.2f}ms  p95={p95:.2f}ms  per_query={per_query:.2f}ms")
+        print(
+            f"\n  Qortex retrieve ({len(QUERIES)} queries):  median={med:.2f}ms  p95={p95:.2f}ms  per_query={per_query:.2f}ms"
+        )
 
     def test_qortex_search_tool_latency(self, qortex_setup):
         """Qortex search tool: retrieve + format + rules text."""
@@ -164,7 +167,9 @@ class TestPerformance:
 
         med, p95, _ = _timeit(search_all)
         per_query = med / len(QUERIES)
-        print(f"\n  Qortex search_tool ({len(QUERIES)} queries):  median={med:.2f}ms  p95={p95:.2f}ms  per_query={per_query:.2f}ms")
+        print(
+            f"\n  Qortex search_tool ({len(QUERIES)} queries):  median={med:.2f}ms  p95={p95:.2f}ms  per_query={per_query:.2f}ms"
+        )
 
     def test_qortex_explore_latency(self, qortex_setup):
         """Qortex explore: BFS graph traversal."""
@@ -212,9 +217,11 @@ class TestPerformance:
         overhead = ((q_per - v_per) / v_per) * 100 if v_per > 0 else 0
 
         print(f"\n  {'':40} {'Median':>10} {'P95':>10} {'Per Query':>10}")
-        print(f"  {'-'*75}")
+        print(f"  {'-' * 75}")
         print(f"  {'Vanilla (embed + cosine)':40} {v_med:>8.2f}ms {v_p95:>8.2f}ms {v_per:>8.2f}ms")
-        print(f"  {'Qortex (embed + vec + graph + rules)':40} {q_med:>8.2f}ms {q_p95:>8.2f}ms {q_per:>8.2f}ms")
-        print(f"  {'-'*75}")
+        print(
+            f"  {'Qortex (embed + vec + graph + rules)':40} {q_med:>8.2f}ms {q_p95:>8.2f}ms {q_per:>8.2f}ms"
+        )
+        print(f"  {'-' * 75}")
         print(f"  {'Overhead':40} {overhead:>+8.1f}%")
         print(f"  {'Overhead per query':40} {q_per - v_per:>+8.2f}ms")

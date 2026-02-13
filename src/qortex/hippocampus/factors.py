@@ -130,15 +130,17 @@ class TeleportationFactors:
             updates.append(update)
 
             # Emit observability event
-            emit(FactorUpdated(
-                node_id=node_id,
-                query_id=query_id,
-                outcome=outcome,
-                old_factor=old,
-                new_factor=new,
-                delta=delta,
-                clamped=(new in (_MIN_FACTOR, _MAX_FACTOR)),
-            ))
+            emit(
+                FactorUpdated(
+                    node_id=node_id,
+                    query_id=query_id,
+                    outcome=outcome,
+                    old_factor=old,
+                    new_factor=new,
+                    delta=delta,
+                    clamped=(new in (_MIN_FACTOR, _MAX_FACTOR)),
+                )
+            )
 
             # Fire legacy hooks (backward compat)
             for hook in self._hooks.get("on_update", []):
@@ -157,15 +159,17 @@ class TeleportationFactors:
                 entropy = -sum(p * math.log2(p) for p in probs if p > 0)
             else:
                 entropy = 0.0
-            emit(FactorDriftSnapshot(
-                count=n,
-                mean=sum(vals) / n,
-                min_val=min(vals),
-                max_val=max(vals),
-                boosted=sum(1 for v in vals if v > _DEFAULT_FACTOR),
-                penalized=sum(1 for v in vals if v < _DEFAULT_FACTOR),
-                entropy=entropy,
-            ))
+            emit(
+                FactorDriftSnapshot(
+                    count=n,
+                    mean=sum(vals) / n,
+                    min_val=min(vals),
+                    max_val=max(vals),
+                    boosted=sum(1 for v in vals if v > _DEFAULT_FACTOR),
+                    penalized=sum(1 for v in vals if v < _DEFAULT_FACTOR),
+                    entropy=entropy,
+                )
+            )
 
         return updates
 
@@ -191,11 +195,13 @@ class TeleportationFactors:
         target.parent.mkdir(parents=True, exist_ok=True)
         target.write_text(json.dumps(self.factors, indent=2))
 
-        emit(FactorsPersisted(
-            path=str(target),
-            count=len(self.factors),
-            timestamp=datetime.now(UTC).isoformat(),
-        ))
+        emit(
+            FactorsPersisted(
+                path=str(target),
+                count=len(self.factors),
+                timestamp=datetime.now(UTC).isoformat(),
+            )
+        )
 
         for hook in self._hooks.get("on_persist", []):
             try:
@@ -216,11 +222,13 @@ class TeleportationFactors:
             data = json.loads(path.read_text())
             instance = cls(factors=data, _persistence_path=path)
 
-            emit(FactorsLoaded(
-                path=str(path),
-                count=len(data),
-                timestamp=datetime.now(UTC).isoformat(),
-            ))
+            emit(
+                FactorsLoaded(
+                    path=str(path),
+                    count=len(data),
+                    timestamp=datetime.now(UTC).isoformat(),
+                )
+            )
 
             for hook in instance._hooks.get("on_load", []):
                 try:

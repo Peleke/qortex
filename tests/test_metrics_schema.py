@@ -156,8 +156,7 @@ class TestMetricsSchemaConventions:
 
     def test_duration_histogram_names_end_with_seconds(self):
         duration_hists = [
-            m for m in METRICS
-            if m.type == MetricType.HISTOGRAM and "duration" in m.name
+            m for m in METRICS if m.type == MetricType.HISTOGRAM and "duration" in m.name
         ]
         for m in duration_hists:
             assert m.name.endswith("_seconds"), f"{m.name} should end with _seconds"

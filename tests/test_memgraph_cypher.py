@@ -175,7 +175,9 @@ class TestEdgeCountCypher:
             captured.append(cypher)
             # Return a domain record for the first call, then counts
             if "MATCH (d:Domain" in cypher and "RETURN" in cypher and "count" not in cypher.lower():
-                return [{"name": "test", "description": "test", "created_at": None, "updated_at": None}]
+                return [
+                    {"name": "test", "description": "test", "created_at": None, "updated_at": None}
+                ]
             return [{"cnt": 0}]
 
         with patch.object(b, "_run", side_effect=spy):
@@ -183,7 +185,9 @@ class TestEdgeCountCypher:
 
         # Find the edge count query (matches relationship r between Concept nodes)
         edge_queries = [c for c in captured if "count(r)" in c and "-[r]-" in c]
-        assert len(edge_queries) == 1, f"Expected 1 edge count query, got {len(edge_queries)}: {captured}"
+        assert len(edge_queries) == 1, (
+            f"Expected 1 edge count query, got {len(edge_queries)}: {captured}"
+        )
         edge_cypher = edge_queries[0]
 
         # Must NOT contain :REL

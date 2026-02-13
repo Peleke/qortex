@@ -56,10 +56,7 @@ class ThompsonSampling:
         # Partition: arms below min_pulls are force-included (cold-start protection)
         min_pulls = config.min_pulls
         if min_pulls > 0:
-            forced = [
-                a for a in candidates
-                if states.get(a.id, ArmState()).pulls < min_pulls
-            ]
+            forced = [a for a in candidates if states.get(a.id, ArmState()).pulls < min_pulls]
             eligible = [a for a in candidates if a not in forced]
         else:
             forced = []

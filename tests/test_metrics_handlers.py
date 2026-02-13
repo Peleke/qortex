@@ -46,6 +46,7 @@ from qortex_observe.metrics_handlers import register_metric_handlers  # noqa: E4
 def _reset_linker():
     """Reset QortexEventLinker between tests to avoid duplicate handler registration."""
     from qortex_observe.linker import QortexEventLinker
+
     QortexEventLinker.remove_all()
     yield
     QortexEventLinker.remove_all()
@@ -139,8 +140,13 @@ class TestQueryHandlers:
     def test_query_completed_increments_counter(self, instruments_and_reader):
         _, reader = instruments_and_reader
         event = QueryCompleted(
-            query_id="q1", latency_ms=42.0, seed_count=3,
-            result_count=5, activated_nodes=8, mode="graph", timestamp="ts",
+            query_id="q1",
+            latency_ms=42.0,
+            seed_count=3,
+            result_count=5,
+            activated_nodes=8,
+            mode="graph",
+            timestamp="ts",
         )
         _emit(event)
         m = _collect(reader)
@@ -149,8 +155,13 @@ class TestQueryHandlers:
     def test_query_completed_records_latency(self, instruments_and_reader):
         _, reader = instruments_and_reader
         event = QueryCompleted(
-            query_id="q1", latency_ms=50.0, seed_count=3,
-            result_count=5, activated_nodes=8, mode="vec", timestamp="ts",
+            query_id="q1",
+            latency_ms=50.0,
+            seed_count=3,
+            result_count=5,
+            activated_nodes=8,
+            mode="vec",
+            timestamp="ts",
         )
         _emit(event)
         m = _collect(reader)
@@ -169,14 +180,23 @@ class TestPPRHandlers:
 
     def test_ppr_started_increments(self, instruments_and_reader):
         _, reader = instruments_and_reader
-        event = PPRStarted(query_id=None, node_count=100, seed_count=5, damping_factor=0.85, extra_edge_count=0)
+        event = PPRStarted(
+            query_id=None, node_count=100, seed_count=5, damping_factor=0.85, extra_edge_count=0
+        )
         _emit(event)
         m = _collect(reader)
         assert _get_value(m, "qortex_ppr_started") == 1
 
     def test_ppr_converged_records_iterations(self, instruments_and_reader):
         _, reader = instruments_and_reader
-        event = PPRConverged(query_id=None, iterations=15, final_diff=1e-7, node_count=100, nonzero_scores=42, latency_ms=3.0)
+        event = PPRConverged(
+            query_id=None,
+            iterations=15,
+            final_diff=1e-7,
+            node_count=100,
+            nonzero_scores=42,
+            latency_ms=3.0,
+        )
         _emit(event)
         m = _collect(reader)
         assert _get_hist_count(m, "qortex_ppr_iterations") == 1
@@ -196,8 +216,13 @@ class TestFactorHandlers:
     def test_factor_updated_increments_by_outcome(self, instruments_and_reader):
         _, reader = instruments_and_reader
         event = FactorUpdated(
-            node_id="n1", query_id="q1", outcome="accepted",
-            old_factor=1.0, new_factor=1.1, delta=0.1, clamped=False,
+            node_id="n1",
+            query_id="q1",
+            outcome="accepted",
+            old_factor=1.0,
+            new_factor=1.1,
+            delta=0.1,
+            clamped=False,
         )
         _emit(event)
         m = _collect(reader)
@@ -205,7 +230,9 @@ class TestFactorHandlers:
 
     def test_factor_drift_sets_gauges(self, instruments_and_reader):
         _, reader = instruments_and_reader
-        event = FactorDriftSnapshot(count=5, mean=1.2, min_val=0.5, max_val=3.0, boosted=3, penalized=2, entropy=0.8)
+        event = FactorDriftSnapshot(
+            count=5, mean=1.2, min_val=0.5, max_val=3.0, boosted=3, penalized=2, entropy=0.8
+        )
         _emit(event)
         m = _collect(reader)
         assert _get_value(m, "qortex_factors_active") == 5
@@ -218,7 +245,9 @@ class TestEdgeHandlers:
 
     def test_online_edge_sets_buffer_size(self, instruments_and_reader):
         _, reader = instruments_and_reader
-        event = OnlineEdgeRecorded(source_id="a", target_id="b", score=0.9, hit_count=1, buffer_size=42)
+        event = OnlineEdgeRecorded(
+            source_id="a", target_id="b", score=0.9, hit_count=1, buffer_size=42
+        )
         _emit(event)
         m = _collect(reader)
         assert _get_value(m, "qortex_buffer_edges") == 42
@@ -232,14 +261,18 @@ class TestEdgeHandlers:
 
     def test_buffer_flushed_sets_coverage(self, instruments_and_reader):
         _, reader = instruments_and_reader
-        event = BufferFlushed(promoted=2, remaining=8, total_promoted_lifetime=10, kg_coverage=0.75, timestamp="ts")
+        event = BufferFlushed(
+            promoted=2, remaining=8, total_promoted_lifetime=10, kg_coverage=0.75, timestamp="ts"
+        )
         _emit(event)
         m = _collect(reader)
         assert _get_value(m, "qortex_kg_coverage") == pytest.approx(0.75)
 
     def test_buffer_flushed_skips_none_coverage(self, instruments_and_reader):
         _, reader = instruments_and_reader
-        event = BufferFlushed(promoted=0, remaining=0, total_promoted_lifetime=0, kg_coverage=None, timestamp="ts")
+        event = BufferFlushed(
+            promoted=0, remaining=0, total_promoted_lifetime=0, kg_coverage=None, timestamp="ts"
+        )
         _emit(event)
         m = _collect(reader)
         # Gauge never set, so either absent or no data points
@@ -253,7 +286,9 @@ class TestFeedbackHandlers:
 
     def test_feedback_routes_by_outcome(self, instruments_and_reader):
         _, reader = instruments_and_reader
-        event = FeedbackReceived(query_id="q1", outcomes=3, accepted=2, rejected=1, partial=0, source="mcp")
+        event = FeedbackReceived(
+            query_id="q1", outcomes=3, accepted=2, rejected=1, partial=0, source="mcp"
+        )
         _emit(event)
         m = _collect(reader)
         assert _get_value_with_attrs(m, "qortex_feedback", {"outcome": "accepted"}) == 2
@@ -261,7 +296,9 @@ class TestFeedbackHandlers:
 
     def test_feedback_skips_zero_outcomes(self, instruments_and_reader):
         _, reader = instruments_and_reader
-        event = FeedbackReceived(query_id="q1", outcomes=0, accepted=0, rejected=0, partial=0, source="mcp")
+        event = FeedbackReceived(
+            query_id="q1", outcomes=0, accepted=0, rejected=0, partial=0, source="mcp"
+        )
         _emit(event)
         m = _collect(reader)
         metric = m.get("qortex_feedback")
@@ -281,7 +318,9 @@ class TestVecSearchHandlers:
 
     def test_vec_search_results_sets_gauges(self, instruments_and_reader):
         _, reader = instruments_and_reader
-        event = VecSearchResults(candidates=15, top_score=0.95, score_spread=0.3, latency_ms=10.0, index_type="numpy")
+        event = VecSearchResults(
+            candidates=15, top_score=0.95, score_spread=0.3, latency_ms=10.0, index_type="numpy"
+        )
         _emit(event)
         m = _collect(reader)
         assert _get_hist_count(m, "qortex_vec_search_candidates") == 1
@@ -290,7 +329,9 @@ class TestVecSearchHandlers:
 
     def test_vec_seed_yield_sets_gauge(self, instruments_and_reader):
         _, reader = instruments_and_reader
-        event = VecSeedYield(query_id="q1", vec_candidates=20, seeds_after_filter=16, yield_ratio=0.8)
+        event = VecSeedYield(
+            query_id="q1", vec_candidates=20, seeds_after_filter=16, yield_ratio=0.8
+        )
         _emit(event)
         m = _collect(reader)
         assert _get_value(m, "qortex_vec_seed_yield") == pytest.approx(0.8)
@@ -314,7 +355,9 @@ class TestEnrichmentHandlers:
 
     def test_enrichment_completed_increments_and_records(self, instruments_and_reader):
         _, reader = instruments_and_reader
-        event = EnrichmentCompleted(rule_count=5, succeeded=4, failed=1, backend_type="template", latency_ms=1500.0)
+        event = EnrichmentCompleted(
+            rule_count=5, succeeded=4, failed=1, backend_type="template", latency_ms=1500.0
+        )
         _emit(event)
         m = _collect(reader)
         assert _get_value_with_attrs(m, "qortex_enrichment", {"backend_type": "template"}) == 1
@@ -333,7 +376,14 @@ class TestIngestionHandlers:
 
     def test_manifest_ingested_increments_and_records(self, instruments_and_reader):
         _, reader = instruments_and_reader
-        event = ManifestIngested(domain="test", node_count=10, edge_count=5, rule_count=3, source_id="src1", latency_ms=250.0)
+        event = ManifestIngested(
+            domain="test",
+            node_count=10,
+            edge_count=5,
+            rule_count=3,
+            source_id="src1",
+            latency_ms=250.0,
+        )
         _emit(event)
         m = _collect(reader)
         assert _get_value_with_attrs(m, "qortex_manifests_ingested", {"domain": "test"}) == 1
@@ -345,15 +395,34 @@ class TestLearningHandlers:
 
     def test_learning_selection_increments(self, instruments_and_reader):
         _, reader = instruments_and_reader
-        event = LearningSelectionMade(learner="test", selected_count=3, excluded_count=2, is_baseline=False, token_budget=1000, used_tokens=750)
+        event = LearningSelectionMade(
+            learner="test",
+            selected_count=3,
+            excluded_count=2,
+            is_baseline=False,
+            token_budget=1000,
+            used_tokens=750,
+        )
         _emit(event)
         m = _collect(reader)
-        assert _get_value_with_attrs(m, "qortex_learning_selections", {"learner": "test", "baseline": "False"}) == 1
+        assert (
+            _get_value_with_attrs(
+                m, "qortex_learning_selections", {"learner": "test", "baseline": "False"}
+            )
+            == 1
+        )
         assert _get_hist_count(m, "qortex_learning_token_budget_used") == 1
 
     def test_learning_selection_skips_zero_budget(self, instruments_and_reader):
         _, reader = instruments_and_reader
-        event = LearningSelectionMade(learner="test", selected_count=1, excluded_count=0, is_baseline=True, token_budget=0, used_tokens=0)
+        event = LearningSelectionMade(
+            learner="test",
+            selected_count=1,
+            excluded_count=0,
+            is_baseline=True,
+            token_budget=0,
+            used_tokens=0,
+        )
         _emit(event)
         m = _collect(reader)
         count = _get_hist_count(m, "qortex_learning_token_budget_used")
@@ -361,18 +430,34 @@ class TestLearningHandlers:
 
     def test_learning_observation_increments(self, instruments_and_reader):
         _, reader = instruments_and_reader
-        event = LearningObservationRecorded(learner="test", arm_id="arm:a", reward=1.0, outcome="accepted", context_hash="abc")
+        event = LearningObservationRecorded(
+            learner="test", arm_id="arm:a", reward=1.0, outcome="accepted", context_hash="abc"
+        )
         _emit(event)
         m = _collect(reader)
-        assert _get_value_with_attrs(m, "qortex_learning_observations", {"learner": "test", "outcome": "accepted"}) == 1
+        assert (
+            _get_value_with_attrs(
+                m, "qortex_learning_observations", {"learner": "test", "outcome": "accepted"}
+            )
+            == 1
+        )
 
     def test_learning_posterior_sets_gauge_and_increments(self, instruments_and_reader):
         _, reader = instruments_and_reader
-        event = LearningPosteriorUpdated(learner="test", arm_id="arm:a", alpha=2.0, beta=1.0, pulls=1, mean=0.667)
+        event = LearningPosteriorUpdated(
+            learner="test", arm_id="arm:a", alpha=2.0, beta=1.0, pulls=1, mean=0.667
+        )
         _emit(event)
         m = _collect(reader)
-        assert _get_value_with_attrs(m, "qortex_learning_posterior_mean", {"learner": "test", "arm_id": "arm:a"}) == pytest.approx(0.667)
-        assert _get_value_with_attrs(m, "qortex_learning_arm_pulls", {"learner": "test", "arm_id": "arm:a"}) == 1
+        assert _get_value_with_attrs(
+            m, "qortex_learning_posterior_mean", {"learner": "test", "arm_id": "arm:a"}
+        ) == pytest.approx(0.667)
+        assert (
+            _get_value_with_attrs(
+                m, "qortex_learning_arm_pulls", {"learner": "test", "arm_id": "arm:a"}
+            )
+            == 1
+        )
 
 
 class TestCreditHandlers:
@@ -380,7 +465,15 @@ class TestCreditHandlers:
 
     def test_credit_propagated_increments(self, instruments_and_reader):
         _, reader = instruments_and_reader
-        event = CreditPropagated(query_id="q1", concept_count=25, direct_count=10, ancestor_count=15, total_alpha_delta=1.5, total_beta_delta=0.3, learner="credit")
+        event = CreditPropagated(
+            query_id="q1",
+            concept_count=25,
+            direct_count=10,
+            ancestor_count=15,
+            total_alpha_delta=1.5,
+            total_beta_delta=0.3,
+            learner="credit",
+        )
         _emit(event)
         m = _collect(reader)
         assert _get_value_with_attrs(m, "qortex_credit_propagations", {"learner": "credit"}) == 1
@@ -390,7 +483,15 @@ class TestCreditHandlers:
 
     def test_credit_skips_zero_deltas(self, instruments_and_reader):
         _, reader = instruments_and_reader
-        event = CreditPropagated(query_id="q1", concept_count=0, direct_count=0, ancestor_count=0, total_alpha_delta=0.0, total_beta_delta=0.0, learner="credit")
+        event = CreditPropagated(
+            query_id="q1",
+            concept_count=0,
+            direct_count=0,
+            ancestor_count=0,
+            total_alpha_delta=0.0,
+            total_beta_delta=0.0,
+            learner="credit",
+        )
         _emit(event)
         m = _collect(reader)
         alpha_val = _get_value(m, "qortex_credit_alpha_delta")

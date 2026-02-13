@@ -707,7 +707,9 @@ class TestFeedbackInvalidOutcome:
         assert "error" in result
         assert mcp_server._feedback_count == 0
         assert mcp_server._feedback_outcomes == {
-            "accepted": 0, "rejected": 0, "partial": 0,
+            "accepted": 0,
+            "rejected": 0,
+            "partial": 0,
         }
 
     def test_valid_outcomes_still_increment(self, configured_server):

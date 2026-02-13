@@ -155,11 +155,13 @@ def seeded_server():
         vec_index.add([concept.id], [emb])
 
     # Add edge: v2 REFINES v1
-    backend.add_edge(ConceptEdge(
-        source_id="prompt:v2",
-        target_id="prompt:v1",
-        relation_type=RelationType.REFINES,
-    ))
+    backend.add_edge(
+        ConceptEdge(
+            source_id="prompt:v2",
+            target_id="prompt:v1",
+            relation_type=RelationType.REFINES,
+        )
+    )
 
     mcp_server.create_server(
         backend=backend,

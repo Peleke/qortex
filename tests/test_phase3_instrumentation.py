@@ -176,6 +176,9 @@ class TestVecInstrumentation:
 # ---------------------------------------------------------------------------
 
 
+_has_otel_sdk = pytest.importorskip("opentelemetry.sdk", reason="OTel SDK not installed")
+
+
 class TestSelectiveSpanProcessor:
     """Export filter: errors always, slow always, sample the rest."""
 
@@ -242,9 +245,7 @@ class TestSelectiveSpanProcessor:
         from unittest.mock import MagicMock
 
         mock_exporter = MagicMock()
-        proc = SelectiveSpanProcessor(
-            mock_exporter, sample_rate=0.0, latency_threshold_ms=1000.0
-        )
+        proc = SelectiveSpanProcessor(mock_exporter, sample_rate=0.0, latency_threshold_ms=1000.0)
         proc._inner = MagicMock()
 
         normal_span = self._make_span(duration_ns=1_000_000)  # 1ms
@@ -257,9 +258,7 @@ class TestSelectiveSpanProcessor:
         from unittest.mock import MagicMock
 
         mock_exporter = MagicMock()
-        proc = SelectiveSpanProcessor(
-            mock_exporter, sample_rate=1.0, latency_threshold_ms=1000.0
-        )
+        proc = SelectiveSpanProcessor(mock_exporter, sample_rate=1.0, latency_threshold_ms=1000.0)
         proc._inner = MagicMock()
 
         normal_span = self._make_span(duration_ns=1_000_000)
@@ -336,9 +335,7 @@ class TestQueryFailedWiring:
             # Check QueryFailed was emitted
             from qortex_observe.events import QueryFailed
 
-            qf_calls = [
-                c for c in mock_emit.call_args_list if isinstance(c.args[0], QueryFailed)
-            ]
+            qf_calls = [c for c in mock_emit.call_args_list if isinstance(c.args[0], QueryFailed)]
             assert len(qf_calls) >= 1
             qf = qf_calls[0].args[0]
             assert qf.stage == "ppr"

@@ -15,7 +15,6 @@ VALID_TRACEPARENT = "00-4bf92f3577b34da6a3ce929d0e0e4736-00f067aa0ba902b7-01"
 
 
 class TestExtractMcpContext:
-
     def test_extract_with_valid_traceparent(self):
         """Valid traceparent in _meta returns a non-None context."""
         params = {"_meta": {"traceparent": VALID_TRACEPARENT}}
@@ -68,9 +67,7 @@ class TestExtractMcpContext:
             from qortex_observe.mcp import _propagation
 
             importlib.reload(_propagation)
-            ctx = _propagation.extract_mcp_context(
-                {"_meta": {"traceparent": VALID_TRACEPARENT}}
-            )
+            ctx = _propagation.extract_mcp_context({"_meta": {"traceparent": VALID_TRACEPARENT}})
             # Reload to restore
             importlib.reload(_propagation)
             # When OTel import fails, returns None
@@ -81,7 +78,6 @@ class TestExtractMcpContext:
 
 
 class TestMcpTraceMiddleware:
-
     @pytest.fixture(autouse=True)
     def _reset_tracer_provider(self):
         """Reset the global TracerProvider between tests."""
@@ -245,6 +241,7 @@ class TestMcpTracedDecorator:
         trace.set_tracer_provider(provider)
 
         try:
+
             @_mcp_traced
             def my_test_tool(x: int = 0) -> dict:
                 return {"value": x}

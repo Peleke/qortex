@@ -154,15 +154,11 @@ class TestEvents:
         assert e.accepted + e.rejected + e.partial == e.outcomes
 
     def test_interoception_started(self):
-        e = InteroceptionStarted(
-            factors_loaded=5, buffer_loaded=10, teleportation_enabled=True
-        )
+        e = InteroceptionStarted(factors_loaded=5, buffer_loaded=10, teleportation_enabled=True)
         assert e.teleportation_enabled is True
 
     def test_interoception_shutdown(self):
-        e = InteroceptionShutdown(
-            factors_persisted=5, buffer_persisted=0, summary={"key": "val"}
-        )
+        e = InteroceptionShutdown(factors_persisted=5, buffer_persisted=0, summary={"key": "val"})
         assert e.summary == {"key": "val"}
 
     def test_all_events_frozen(self):
@@ -486,9 +482,7 @@ class TestAlerts:
         from qortex_observe.alerts.noop_sink import NoOpAlertSink
 
         sink = NoOpAlertSink()
-        rule = AlertRule(
-            name="test", description="test", severity="info", condition=lambda e: True
-        )
+        rule = AlertRule(name="test", description="test", severity="info", condition=lambda e: True)
         sink.fire(rule, None)  # Should not raise
 
     def test_alert_cooldown(self):
@@ -616,7 +610,7 @@ class TestPPREvents:
             backend.add_edge(
                 ConceptEdge(
                     source_id=f"n{i}",
-                    target_id=f"n{i+1}",
+                    target_id=f"n{i + 1}",
                     relation_type=RelationType.REQUIRES,
                     confidence=0.9,
                 )
@@ -860,13 +854,15 @@ class TestManifestIngestedEmission:
         backend.connect()
 
         manifest = IngestionManifest(
-            source=SourceMetadata(
-                id="src1", name="test", source_type="text", path_or_url="/test"
-            ),
+            source=SourceMetadata(id="src1", name="test", source_type="text", path_or_url="/test"),
             domain="test_domain",
             concepts=[
-                ConceptNode(id="n1", name="Node 1", description="", domain="test_domain", source_id="src1"),
-                ConceptNode(id="n2", name="Node 2", description="", domain="test_domain", source_id="src1"),
+                ConceptNode(
+                    id="n1", name="Node 1", description="", domain="test_domain", source_id="src1"
+                ),
+                ConceptNode(
+                    id="n2", name="Node 2", description="", domain="test_domain", source_id="src1"
+                ),
             ],
             edges=[
                 ConceptEdge(
@@ -915,20 +911,24 @@ class TestManifestIngestedEmission:
         # _run returns empty list by default (MERGE, SET calls)
         backend._run = MagicMock(return_value=[])
         # create_domain calls _run_single which returns a domain record
-        backend._run_single = MagicMock(return_value={
-            "name": "test_domain", "description": None,
-            "created_at": None, "updated_at": None,
-        })
+        backend._run_single = MagicMock(
+            return_value={
+                "name": "test_domain",
+                "description": None,
+                "created_at": None,
+                "updated_at": None,
+            }
+        )
         # _count returns 0 for stats queries
         backend._count = MagicMock(return_value=0)
 
         manifest = IngestionManifest(
-            source=SourceMetadata(
-                id="src1", name="test", source_type="text", path_or_url="/test"
-            ),
+            source=SourceMetadata(id="src1", name="test", source_type="text", path_or_url="/test"),
             domain="test_domain",
             concepts=[
-                ConceptNode(id="n1", name="N1", description="", domain="test_domain", source_id="src1"),
+                ConceptNode(
+                    id="n1", name="N1", description="", domain="test_domain", source_id="src1"
+                ),
             ],
             edges=[],
             rules=[],
@@ -960,8 +960,13 @@ class TestPrometheusMetrics:
 
         mock_counter = MagicMock()
         event = FactorUpdated(
-            node_id="n1", query_id="q1", outcome="accepted",
-            old_factor=1.0, new_factor=1.1, delta=0.1, clamped=False,
+            node_id="n1",
+            query_id="q1",
+            outcome="accepted",
+            old_factor=1.0,
+            new_factor=1.1,
+            delta=0.1,
+            clamped=False,
         )
         # Simulate the handler logic directly
         mock_counter.labels(outcome=event.outcome).inc()
@@ -981,8 +986,11 @@ class TestPrometheusMetrics:
         from qortex_observe.events import EnrichmentCompleted
 
         event = EnrichmentCompleted(
-            rule_count=5, succeeded=4, failed=1,
-            backend_type="template", latency_ms=1500.0,
+            rule_count=5,
+            succeeded=4,
+            failed=1,
+            backend_type="template",
+            latency_ms=1500.0,
         )
         assert event.latency_ms / 1000 == pytest.approx(1.5)
         assert event.backend_type == "template"
@@ -992,8 +1000,12 @@ class TestPrometheusMetrics:
         from qortex_observe.events import ManifestIngested
 
         event = ManifestIngested(
-            domain="test", node_count=10, edge_count=5,
-            rule_count=3, source_id="src1", latency_ms=250.0,
+            domain="test",
+            node_count=10,
+            edge_count=5,
+            rule_count=3,
+            source_id="src1",
+            latency_ms=250.0,
         )
         assert event.latency_ms / 1000 == pytest.approx(0.25)
         assert event.domain == "test"
@@ -1014,8 +1026,12 @@ class TestPrometheusMetrics:
         from unittest.mock import MagicMock
 
         event = CreditPropagated(
-            query_id="q1", concept_count=5, direct_count=2,
-            ancestor_count=3, total_alpha_delta=1.5, total_beta_delta=0.3,
+            query_id="q1",
+            concept_count=5,
+            direct_count=2,
+            ancestor_count=3,
+            total_alpha_delta=1.5,
+            total_beta_delta=0.3,
             learner="credit",
         )
 
@@ -1034,8 +1050,12 @@ class TestPrometheusMetrics:
     def test_credit_propagated_skips_zero_deltas(self):
         """CreditPropagated handler skips alpha/beta inc when deltas are zero."""
         event = CreditPropagated(
-            query_id="q1", concept_count=0, direct_count=0,
-            ancestor_count=0, total_alpha_delta=0.0, total_beta_delta=0.0,
+            query_id="q1",
+            concept_count=0,
+            direct_count=0,
+            ancestor_count=0,
+            total_alpha_delta=0.0,
+            total_beta_delta=0.0,
             learner="credit",
         )
         # Handler guards: `if event.total_alpha_delta > 0` and `if event.total_beta_delta > 0`
@@ -1058,24 +1078,41 @@ class TestPrometheusLiveMetrics:
         cfg.prometheus_enabled = True
 
         # Patch start_http_server to avoid port binding in tests
-        with patch(
-            "prometheus_client.start_http_server"
-        ):
+        with patch("prometheus_client.start_http_server"):
             emitter = configure(cfg)
             assert emitter is not None
 
         # Emit real events through the full pipeline — verifies handlers are wired
-        emit(QueryCompleted(
-            query_id="smoke-1", mode="hybrid", result_count=5,
-            latency_ms=42.0, seed_count=3, activated_nodes=10, timestamp="ts",
-        ))
-        emit(QueryFailed(
-            query_id="smoke-2", error="test", stage="embedding", timestamp="ts",
-        ))
-        emit(FactorUpdated(
-            node_id="n1", query_id="q1", outcome="accepted",
-            old_factor=1.0, new_factor=1.1, delta=0.1, clamped=False,
-        ))
+        emit(
+            QueryCompleted(
+                query_id="smoke-1",
+                mode="hybrid",
+                result_count=5,
+                latency_ms=42.0,
+                seed_count=3,
+                activated_nodes=10,
+                timestamp="ts",
+            )
+        )
+        emit(
+            QueryFailed(
+                query_id="smoke-2",
+                error="test",
+                stage="embedding",
+                timestamp="ts",
+            )
+        )
+        emit(
+            FactorUpdated(
+                node_id="n1",
+                query_id="q1",
+                outcome="accepted",
+                old_factor=1.0,
+                new_factor=1.1,
+                delta=0.1,
+                clamped=False,
+            )
+        )
 
         # No exception = handlers are registered and functional
         reset()
@@ -1100,11 +1137,14 @@ class TestOtelErrorHandling:
         cfg = ObservabilityConfig(otel_enabled=True)
 
         # Simulate register_otel_traces raising AttributeError
-        with patch(
-            "qortex_observe.subscribers.otel.register_otel_traces",
-            side_effect=AttributeError("create_gauge not found"),
-        ), patch(
-            "qortex_observe.emitter._setup_metrics_pipeline",
+        with (
+            patch(
+                "qortex_observe.subscribers.otel.register_otel_traces",
+                side_effect=AttributeError("create_gauge not found"),
+            ),
+            patch(
+                "qortex_observe.emitter._setup_metrics_pipeline",
+            ),
         ):
             emitter = configure(cfg)
 
@@ -1123,11 +1163,14 @@ class TestOtelErrorHandling:
 
         cfg = ObservabilityConfig(otel_enabled=True)
 
-        with patch(
-            "qortex_observe.subscribers.otel.register_otel_traces",
-            side_effect=ImportError("No module named 'opentelemetry'"),
-        ), patch(
-            "qortex_observe.emitter._setup_metrics_pipeline",
+        with (
+            patch(
+                "qortex_observe.subscribers.otel.register_otel_traces",
+                side_effect=ImportError("No module named 'opentelemetry'"),
+            ),
+            patch(
+                "qortex_observe.emitter._setup_metrics_pipeline",
+            ),
         ):
             emitter = configure(cfg)
 
@@ -1145,10 +1188,11 @@ class TestOtelErrorHandling:
 
         cfg = ObservabilityConfig(otel_enabled=True)
 
-        with patch(
-            "qortex_observe.subscribers.otel.register_otel_traces"
-        ), patch(
-            "qortex_observe.emitter._setup_metrics_pipeline",
+        with (
+            patch("qortex_observe.subscribers.otel.register_otel_traces"),
+            patch(
+                "qortex_observe.emitter._setup_metrics_pipeline",
+            ),
         ):
             configure(cfg)
 
@@ -1172,7 +1216,7 @@ class TestOtelErrorHandling:
         from qortex_observe.subscribers.otel import _get_exporters
 
         # Simulate grpcio import failure
-        orig_import = __builtins__.__import__ if hasattr(__builtins__, '__import__') else __import__
+        orig_import = __builtins__.__import__ if hasattr(__builtins__, "__import__") else __import__
 
         def mock_import(name, *args, **kwargs):
             if "grpc" in name:
@@ -1219,30 +1263,47 @@ class TestStructlogLearningEvents:
         from qortex_observe.emitter import emit
 
         with caplog.at_level(logging.DEBUG, logger="qortex.events"):
-            emit(LearningSelectionMade(
-                learner="test", selected_count=3, excluded_count=2,
-                is_baseline=False, token_budget=1000, used_tokens=750,
-            ))
+            emit(
+                LearningSelectionMade(
+                    learner="test",
+                    selected_count=3,
+                    excluded_count=2,
+                    is_baseline=False,
+                    token_budget=1000,
+                    used_tokens=750,
+                )
+            )
         assert any("learning.selection" in r.message for r in caplog.records)
 
     def test_learning_observation_logged(self, configured, caplog):
         from qortex_observe.emitter import emit
 
         with caplog.at_level(logging.DEBUG, logger="qortex.events"):
-            emit(LearningObservationRecorded(
-                learner="test", arm_id="arm:a", reward=1.0,
-                outcome="accepted", context_hash="default",
-            ))
+            emit(
+                LearningObservationRecorded(
+                    learner="test",
+                    arm_id="arm:a",
+                    reward=1.0,
+                    outcome="accepted",
+                    context_hash="default",
+                )
+            )
         assert any("learning.observation" in r.message for r in caplog.records)
 
     def test_learning_posterior_logged(self, configured, caplog):
         from qortex_observe.emitter import emit
 
         with caplog.at_level(logging.DEBUG, logger="qortex.events"):
-            emit(LearningPosteriorUpdated(
-                learner="test", arm_id="arm:a",
-                alpha=2.0, beta=1.0, pulls=1, mean=0.667,
-            ))
+            emit(
+                LearningPosteriorUpdated(
+                    learner="test",
+                    arm_id="arm:a",
+                    alpha=2.0,
+                    beta=1.0,
+                    pulls=1,
+                    mean=0.667,
+                )
+            )
         assert any("learning.posterior" in r.message for r in caplog.records)
 
 
@@ -1271,18 +1332,35 @@ class TestJsonlLearningEvents:
         )
         configure(cfg)
 
-        emit(LearningSelectionMade(
-            learner="test", selected_count=2, excluded_count=1,
-            is_baseline=False, token_budget=500, used_tokens=400,
-        ))
-        emit(LearningObservationRecorded(
-            learner="test", arm_id="arm:x", reward=1.0,
-            outcome="accepted", context_hash="abc123",
-        ))
-        emit(LearningPosteriorUpdated(
-            learner="test", arm_id="arm:x",
-            alpha=2.0, beta=1.0, pulls=1, mean=0.667,
-        ))
+        emit(
+            LearningSelectionMade(
+                learner="test",
+                selected_count=2,
+                excluded_count=1,
+                is_baseline=False,
+                token_budget=500,
+                used_tokens=400,
+            )
+        )
+        emit(
+            LearningObservationRecorded(
+                learner="test",
+                arm_id="arm:x",
+                reward=1.0,
+                outcome="accepted",
+                context_hash="abc123",
+            )
+        )
+        emit(
+            LearningPosteriorUpdated(
+                learner="test",
+                arm_id="arm:x",
+                alpha=2.0,
+                beta=1.0,
+                pulls=1,
+                mean=0.667,
+            )
+        )
 
         lines = (tmp_path / "events.jsonl").read_text().strip().split("\n")
         events = [json.loads(line) for line in lines]

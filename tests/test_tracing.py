@@ -8,6 +8,8 @@ import time
 import pytest
 from qortex_observe.tracing import OverheadTimer, get_overhead_timer, traced
 
+pytest.importorskip("opentelemetry.sdk", reason="OTel SDK required")
+
 
 @pytest.fixture(autouse=True)
 def _reset_tracer_provider():

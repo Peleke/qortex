@@ -205,17 +205,19 @@ class AnthropicEnrichmentBackend:
             provider="anthropic",
             model=self._model,
         )
-        emit(CarbonTracked(
-            provider="anthropic",
-            model=self._model,
-            input_tokens=input_tokens,
-            output_tokens=output_tokens,
-            cache_read_tokens=cache_read,
-            total_co2_grams=calc.total_co2_grams,
-            water_ml=calc.water_ml,
-            confidence=calc.factor.confidence,
-            timestamp=datetime.now(UTC).isoformat(),
-        ))
+        emit(
+            CarbonTracked(
+                provider="anthropic",
+                model=self._model,
+                input_tokens=input_tokens,
+                output_tokens=output_tokens,
+                cache_read_tokens=cache_read,
+                total_co2_grams=calc.total_co2_grams,
+                water_ml=calc.water_ml,
+                confidence=calc.factor.confidence,
+                timestamp=datetime.now(UTC).isoformat(),
+            )
+        )
 
     def _parse_json(self, text: str) -> Any:
         """Extract JSON from Claude's response (may be wrapped in markdown)."""

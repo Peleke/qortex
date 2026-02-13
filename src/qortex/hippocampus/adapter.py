@@ -117,25 +117,29 @@ class VecOnlyAdapter:
         query_id = str(uuid.uuid4())
         t0 = time.perf_counter()
 
-        emit(QueryStarted(
-            query_id=query_id,
-            query_text=query,
-            domains=tuple(domains) if domains else None,
-            mode="vec",
-            top_k=top_k,
-            timestamp=datetime.now(UTC).isoformat(),
-        ))
+        emit(
+            QueryStarted(
+                query_id=query_id,
+                query_text=query,
+                domains=tuple(domains) if domains else None,
+                mode="vec",
+                top_k=top_k,
+                timestamp=datetime.now(UTC).isoformat(),
+            )
+        )
 
         # 1. Embed query
         try:
             query_embedding = self.embedding_model.embed([query])[0]
         except Exception as exc:
-            emit(QueryFailed(
-                query_id=query_id,
-                error=str(exc),
-                stage="embedding",
-                timestamp=datetime.now(UTC).isoformat(),
-            ))
+            emit(
+                QueryFailed(
+                    query_id=query_id,
+                    error=str(exc),
+                    stage="embedding",
+                    timestamp=datetime.now(UTC).isoformat(),
+                )
+            )
             raise
 
         # 2. Search VectorIndex directly (not backend.vector_search)
@@ -146,12 +150,14 @@ class VecOnlyAdapter:
                 query_embedding, top_k=fetch_k, threshold=min_confidence
             )
         except Exception as exc:
-            emit(QueryFailed(
-                query_id=query_id,
-                error=str(exc),
-                stage="vec_search",
-                timestamp=datetime.now(UTC).isoformat(),
-            ))
+            emit(
+                QueryFailed(
+                    query_id=query_id,
+                    error=str(exc),
+                    stage="vec_search",
+                    timestamp=datetime.now(UTC).isoformat(),
+                )
+            )
             raise
 
         # 3. Resolve node metadata from backend and filter by domain
@@ -178,15 +184,17 @@ class VecOnlyAdapter:
         elapsed = (time.perf_counter() - t0) * 1000
         activated = [item.node_id for item in items if item.node_id]
 
-        emit(QueryCompleted(
-            query_id=query_id,
-            latency_ms=elapsed,
-            seed_count=len(vec_results),
-            result_count=len(items),
-            activated_nodes=len(activated),
-            mode="vec",
-            timestamp=datetime.now(UTC).isoformat(),
-        ))
+        emit(
+            QueryCompleted(
+                query_id=query_id,
+                latency_ms=elapsed,
+                seed_count=len(vec_results),
+                result_count=len(items),
+                activated_nodes=len(activated),
+                mode="vec",
+                timestamp=datetime.now(UTC).isoformat(),
+            )
+        )
 
         return RetrievalResult(
             items=items,
@@ -273,25 +281,34 @@ class GraphRAGAdapter:
         min_confidence: float = 0.0,
     ) -> RetrievalResult:
         # Set config snapshot hash for this query's span tree
-        _config_hash.set(config_snapshot_hash(
-            learner_configs={"interoception": type(self._interoception).__name__},
-        ))
+        _config_hash.set(
+            config_snapshot_hash(
+                learner_configs={"interoception": type(self._interoception).__name__},
+            )
+        )
 
         query_id = str(uuid.uuid4())
         t0 = time.perf_counter()
 
-        emit(QueryStarted(
-            query_id=query_id,
-            query_text=query,
-            domains=tuple(domains) if domains else None,
-            mode="graph",
-            top_k=top_k,
-            timestamp=datetime.now(UTC).isoformat(),
-        ))
+        emit(
+            QueryStarted(
+                query_id=query_id,
+                query_text=query,
+                domains=tuple(domains) if domains else None,
+                mode="graph",
+                top_k=top_k,
+                timestamp=datetime.now(UTC).isoformat(),
+            )
+        )
 
         # 1. Vec layer: embed query → vector search → seed candidates
         seed_ids, vec_scores, vec_results_count = self._vec_search(
-            query, top_k, min_confidence, domains, query_id, t0,
+            query,
+            top_k,
+            min_confidence,
+            domains,
+            query_id,
+            t0,
         )
 
         if seed_ids is None:
@@ -300,12 +317,14 @@ class GraphRAGAdapter:
         # 2. Online edge generation: cosine sim between candidate pairs
         online_edges = self._build_online_edges(seed_ids)
 
-        emit(OnlineEdgesGenerated(
-            query_id=query_id,
-            edge_count=len(online_edges),
-            threshold=self.online_sim_threshold,
-            seed_count=len(seed_ids),
-        ))
+        emit(
+            OnlineEdgesGenerated(
+                query_id=query_id,
+                edge_count=len(online_edges),
+                threshold=self.online_sim_threshold,
+                seed_count=len(seed_ids),
+            )
+        )
 
         # 3. Buffer online edges for future promotion
         for src, tgt, weight in online_edges:
@@ -316,19 +335,24 @@ class GraphRAGAdapter:
         total_edges = len(online_edges) + persistent_count
         kg_coverage = persistent_count / max(total_edges, 1)
 
-        emit(KGCoverageComputed(
-            query_id=query_id,
-            persistent_edges=persistent_count,
-            online_edges=len(online_edges),
-            coverage=kg_coverage,
-        ))
+        emit(
+            KGCoverageComputed(
+                query_id=query_id,
+                persistent_edges=persistent_count,
+                online_edges=len(online_edges),
+                coverage=kg_coverage,
+            )
+        )
 
         # 5. PPR over merged graph (persistent edges in backend + online extras)
         ppr_scores = self._run_ppr(seed_ids, online_edges, domains, query_id)
 
         # 6. Combined scoring + result assembly
         items = self._score_and_build(
-            vec_scores, ppr_scores, top_k, kg_coverage,
+            vec_scores,
+            ppr_scores,
+            top_k,
+            kg_coverage,
         )
 
         # Cache query for feedback routing
@@ -338,16 +362,18 @@ class GraphRAGAdapter:
         timer = get_overhead_timer()
         overhead = timer.overhead_seconds() if timer else None
 
-        emit(QueryCompleted(
-            query_id=query_id,
-            latency_ms=elapsed,
-            seed_count=len(seed_ids),
-            result_count=len(items),
-            activated_nodes=len(ppr_scores),
-            mode="graph",
-            timestamp=datetime.now(UTC).isoformat(),
-            overhead_seconds=overhead,
-        ))
+        emit(
+            QueryCompleted(
+                query_id=query_id,
+                latency_ms=elapsed,
+                seed_count=len(seed_ids),
+                result_count=len(items),
+                activated_nodes=len(ppr_scores),
+                mode="graph",
+                timestamp=datetime.now(UTC).isoformat(),
+                overhead_seconds=overhead,
+            )
+        )
 
         return RetrievalResult(
             items=items,
@@ -373,12 +399,14 @@ class GraphRAGAdapter:
         try:
             query_embedding = self.embedding_model.embed([query])[0]
         except Exception as exc:
-            emit(QueryFailed(
-                query_id=query_id,
-                error=str(exc),
-                stage="embedding",
-                timestamp=datetime.now(UTC).isoformat(),
-            ))
+            emit(
+                QueryFailed(
+                    query_id=query_id,
+                    error=str(exc),
+                    stage="embedding",
+                    timestamp=datetime.now(UTC).isoformat(),
+                )
+            )
             raise
 
         fetch_k = max(top_k * 3, 30)  # Over-fetch for graph expansion
@@ -389,12 +417,14 @@ class GraphRAGAdapter:
                 threshold=min_confidence,
             )
         except Exception as exc:
-            emit(QueryFailed(
-                query_id=query_id,
-                error=str(exc),
-                stage="vec_search",
-                timestamp=datetime.now(UTC).isoformat(),
-            ))
+            emit(
+                QueryFailed(
+                    query_id=query_id,
+                    error=str(exc),
+                    stage="vec_search",
+                    timestamp=datetime.now(UTC).isoformat(),
+                )
+            )
             raise
 
         if not vec_results:
@@ -411,12 +441,14 @@ class GraphRAGAdapter:
             seed_nodes.append((node_id, score))
 
         # Seed yield: how many vec results survived domain filtering
-        emit(VecSeedYield(
-            query_id=query_id,
-            vec_candidates=len(vec_results),
-            seeds_after_filter=len(seed_nodes),
-            yield_ratio=len(seed_nodes) / max(len(vec_results), 1),
-        ))
+        emit(
+            VecSeedYield(
+                query_id=query_id,
+                vec_candidates=len(vec_results),
+                seeds_after_filter=len(seed_nodes),
+                yield_ratio=len(seed_nodes) / max(len(vec_results), 1),
+            )
+        )
 
         if not seed_nodes:
             return None, {}, len(vec_results)
@@ -425,12 +457,14 @@ class GraphRAGAdapter:
         vec_scores = dict(seed_nodes)
 
         vec_elapsed = (time.perf_counter() - t0) * 1000
-        emit(VecSearchCompleted(
-            query_id=query_id,
-            candidates=len(vec_results),
-            fetch_k=fetch_k,
-            latency_ms=vec_elapsed,
-        ))
+        emit(
+            VecSearchCompleted(
+                query_id=query_id,
+                candidates=len(vec_results),
+                fetch_k=fetch_k,
+                latency_ms=vec_elapsed,
+            )
+        )
 
         return seed_ids, vec_scores, len(vec_results)
 
@@ -456,12 +490,14 @@ class GraphRAGAdapter:
                 query_id=query_id,
             )
         except Exception as exc:
-            emit(QueryFailed(
-                query_id=query_id,
-                error=str(exc),
-                stage="ppr",
-                timestamp=datetime.now(UTC).isoformat(),
-            ))
+            emit(
+                QueryFailed(
+                    query_id=query_id,
+                    error=str(exc),
+                    stage="ppr",
+                    timestamp=datetime.now(UTC).isoformat(),
+                )
+            )
             raise
 
     @traced("retrieval.scoring")
@@ -509,14 +545,16 @@ class GraphRAGAdapter:
         Accepted items get boosted, rejected items get penalized.
         This biases future PPR toward nodes that produce good results.
         """
-        emit(FeedbackReceived(
-            query_id=query_id,
-            outcomes=len(outcomes),
-            accepted=sum(1 for v in outcomes.values() if v == "accepted"),
-            rejected=sum(1 for v in outcomes.values() if v == "rejected"),
-            partial=sum(1 for v in outcomes.values() if v == "partial"),
-            source="adapter",
-        ))
+        emit(
+            FeedbackReceived(
+                query_id=query_id,
+                outcomes=len(outcomes),
+                accepted=sum(1 for v in outcomes.values() if v == "accepted"),
+                rejected=sum(1 for v in outcomes.values() if v == "rejected"),
+                partial=sum(1 for v in outcomes.values() if v == "partial"),
+                source="adapter",
+            )
+        )
         self._interoception.report_outcome(query_id, outcomes)
         logger.debug(
             "graph.feedback.routed",

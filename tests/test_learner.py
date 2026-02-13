@@ -62,9 +62,7 @@ class TestLearnerSelect:
 
 class TestLearnerObserve:
     def test_observe_updates_posterior(self, learner):
-        state = learner.observe(
-            ArmOutcome(arm_id="arm:a", reward=1.0, outcome="accepted")
-        )
+        state = learner.observe(ArmOutcome(arm_id="arm:a", reward=1.0, outcome="accepted"))
 
         assert state.alpha == 2.0
         assert state.beta == 1.0
@@ -72,18 +70,14 @@ class TestLearnerObserve:
 
     def test_observe_uses_reward_model(self, learner):
         # TernaryReward: "partial" → 0.5
-        state = learner.observe(
-            ArmOutcome(arm_id="arm:b", reward=0.0, outcome="partial")
-        )
+        state = learner.observe(ArmOutcome(arm_id="arm:b", reward=0.0, outcome="partial"))
 
         assert state.alpha == 1.5
         assert state.beta == 1.5
         assert state.pulls == 1
 
     def test_observe_rejected(self, learner):
-        state = learner.observe(
-            ArmOutcome(arm_id="arm:c", reward=0.0, outcome="rejected")
-        )
+        state = learner.observe(ArmOutcome(arm_id="arm:c", reward=0.0, outcome="rejected"))
 
         assert state.alpha == 1.0
         assert state.beta == 2.0
@@ -91,9 +85,7 @@ class TestLearnerObserve:
     def test_observe_multiple(self, learner):
         learner.observe(ArmOutcome(arm_id="arm:a", reward=1.0, outcome="accepted"))
         learner.observe(ArmOutcome(arm_id="arm:a", reward=1.0, outcome="accepted"))
-        state = learner.observe(
-            ArmOutcome(arm_id="arm:a", reward=0.0, outcome="rejected")
-        )
+        state = learner.observe(ArmOutcome(arm_id="arm:a", reward=0.0, outcome="rejected"))
 
         assert state.pulls == 3
         assert state.alpha == 3.0
@@ -272,10 +264,7 @@ class TestApplyCreditDeltas:
         assert state_ctx.alpha == pytest.approx(2.0)
 
     def test_multiple_concepts(self, learner):
-        deltas = {
-            f"concept:{i}": {"alpha_delta": 0.1 * i, "beta_delta": 0.0}
-            for i in range(1, 6)
-        }
+        deltas = {f"concept:{i}": {"alpha_delta": 0.1 * i, "beta_delta": 0.0} for i in range(1, 6)}
         results = learner.apply_credit_deltas(deltas)
         assert len(results) == 5
         assert results["concept:3"].alpha == pytest.approx(1.3)

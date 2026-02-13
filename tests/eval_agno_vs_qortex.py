@@ -42,9 +42,15 @@ AUTH_CONCEPTS = [
     # Distractors — semantically similar to auth concepts but structurally unrelated.
     # These SHOULD confuse cosine similarity but NOT graph-enhanced retrieval,
     # because the graph knows they're not connected to the query's target concepts.
-    ("OAuth1", "Legacy authorization protocol using request signing and nonces, predecessor to OAuth2"),
+    (
+        "OAuth1",
+        "Legacy authorization protocol using request signing and nonces, predecessor to OAuth2",
+    ),
     ("HTTP Basic Auth", "Simple username/password authentication sent as base64 in HTTP header"),
-    ("Kerberos", "Network authentication protocol using ticket-granting tickets and symmetric keys"),
+    (
+        "Kerberos",
+        "Network authentication protocol using ticket-granting tickets and symmetric keys",
+    ),
     ("LDAP", "Lightweight Directory Access Protocol for directory services and user lookup"),
     ("RADIUS", "Remote Authentication Dial-In User Service for network access control"),
     ("X.509 Certificate", "Public key certificate standard for identity verification in PKI"),
@@ -124,9 +130,7 @@ class VanillaVectorSearch:
         embeddings = self.embedding.embed(texts)
         self._ids = [f"vanilla:{i}" for i in range(len(texts))]
         self.index.add(self._ids, embeddings)
-        self._name_map = {
-            self._ids[i]: self.concepts[i][0] for i in range(len(self.concepts))
-        }
+        self._name_map = {self._ids[i]: self.concepts[i][0] for i in range(len(self.concepts))}
 
     def search(self, query: str, top_k: int = 5) -> list[str]:
         """Search and return concept names, ranked by cosine similarity."""
@@ -163,16 +167,11 @@ def qortex_client(embedding_model):
     # Ingest structured data with relationships
     client.ingest_structured(
         domain="auth",
-        concepts=[
-            {"name": name, "description": desc} for name, desc in AUTH_CONCEPTS
-        ],
+        concepts=[{"name": name, "description": desc} for name, desc in AUTH_CONCEPTS],
         edges=[
-            {"source": src, "target": tgt, "relation_type": rel}
-            for src, tgt, rel in AUTH_EDGES
+            {"source": src, "target": tgt, "relation_type": rel} for src, tgt, rel in AUTH_EDGES
         ],
-        rules=[
-            {"text": text, "category": cat} for text, cat in AUTH_RULES
-        ],
+        rules=[{"text": text, "category": cat} for text, cat in AUTH_RULES],
     )
     return client
 
@@ -255,9 +254,7 @@ class TestRetrievalQuality:
                     names.append(concept_name)
         return names
 
-    def test_qortex_beats_vanilla_on_precision(
-        self, qortex_knowledge, vanilla_search
-    ):
+    def test_qortex_beats_vanilla_on_precision(self, qortex_knowledge, vanilla_search):
         """Qortex should avoid distractors better than vanilla cosine search.
 
         With 20 concepts (10 real + 10 distractors) and top_k=5, cosine
@@ -298,7 +295,9 @@ class TestRetrievalQuality:
         total_q_dist = sum(qortex_distractors_found)
         total_v_dist = sum(vanilla_distractors_found)
 
-        print(f"\n{'Query':<58} {'Q-Prec':>7} {'V-Prec':>7} {'Q-Rec':>6} {'V-Rec':>6} {'Q-Dist':>7} {'V-Dist':>7}")
+        print(
+            f"\n{'Query':<58} {'Q-Prec':>7} {'V-Prec':>7} {'Q-Rec':>6} {'V-Rec':>6} {'Q-Dist':>7} {'V-Dist':>7}"
+        )
         print("-" * 100)
         for i, case in enumerate(EVAL_QUERIES):
             print(
@@ -364,8 +363,7 @@ class TestRetrievalQuality:
         # Should show PKCE, JWT, etc. as neighbors
         neighbor_names = {n["name"] for n in data["neighbors"]}
         assert any(
-            "PKCE" in name or "JWT" in name or "OpenID" in name
-            for name in neighbor_names
+            "PKCE" in name or "JWT" in name or "OpenID" in name for name in neighbor_names
         ), f"Expected auth-related neighbors, got: {neighbor_names}"
 
 

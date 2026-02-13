@@ -63,9 +63,7 @@ class TestThompsonSamplingSelect:
         states = {a.id: ArmState() for a in candidates}
         # Budget of 250 should fit at most arm:d(50) + arm:a(100) + arm:c(150) = 300
         # or arm:d(50) + arm:a(100) = 150, etc.
-        result = strategy.select(
-            candidates, states, k=4, config=config, token_budget=250
-        )
+        result = strategy.select(candidates, states, k=4, config=config, token_budget=250)
 
         assert result.used_tokens <= 250
         assert result.token_budget == 250
@@ -112,7 +110,6 @@ class TestThompsonSamplingBaseline:
 
         # Should be roughly 50% baseline ± some variance
         assert 60 < baseline_count < 140
-
 
     def test_select_empty_candidates(self, strategy, config):
         result = strategy.select([], {}, k=1, config=config)
@@ -164,9 +161,7 @@ class TestThompsonSamplingMinPulls:
         config = LearnerConfig(name="test", baseline_rate=0.0, min_pulls=5)
         states = {a.id: ArmState(pulls=0) for a in candidates}
         # Forced arms still consume token budget
-        result = strategy.select(
-            candidates, states, k=4, config=config, token_budget=8000
-        )
+        result = strategy.select(candidates, states, k=4, config=config, token_budget=8000)
 
         # All arms forced (token_cost 100+200+150+50=500 < 8000)
         assert len(result.selected) == 4

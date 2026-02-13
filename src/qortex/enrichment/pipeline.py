@@ -134,12 +134,14 @@ class EnrichmentPipeline:
             result.append(EnrichedRule(rule=rule, enrichment=enrichment))
 
         elapsed = (time.perf_counter() - t0) * 1000
-        emit(EnrichmentCompleted(
-            rule_count=self.stats.total,
-            succeeded=self.stats.succeeded,
-            failed=self.stats.failed,
-            backend_type=backend_type,
-            latency_ms=elapsed,
-        ))
+        emit(
+            EnrichmentCompleted(
+                rule_count=self.stats.total,
+                succeeded=self.stats.succeeded,
+                failed=self.stats.failed,
+                backend_type=backend_type,
+                latency_ms=elapsed,
+            )
+        )
 
         return result

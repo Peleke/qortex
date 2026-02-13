@@ -149,6 +149,7 @@ def _ensure_initialized() -> None:
 
     # Initialize observability (env-var driven, zero-config by default)
     from qortex_observe import configure
+
     configure()
 
     # --- Embedding model ---
@@ -426,9 +427,7 @@ def _maybe_propagate_credit(
             continue
 
         # Compute average reward for this domain's outcomes
-        rewards = [
-            _OUTCOME_REWARD.get(outcomes[cid], 0.0) for cid in concept_ids
-        ]
+        rewards = [_OUTCOME_REWARD.get(outcomes[cid], 0.0) for cid in concept_ids]
         avg_reward = sum(rewards) / len(rewards)
 
         assigner = CreditAssigner(dag)
@@ -452,15 +451,17 @@ def _maybe_propagate_credit(
     total_alpha = sum(u.get("alpha_delta", 0.0) for u in updates.values())
     total_beta = sum(u.get("beta_delta", 0.0) for u in updates.values())
 
-    emit(CreditPropagated(
-        query_id=query_id,
-        concept_count=len(updates),
-        direct_count=direct,
-        ancestor_count=ancestor,
-        total_alpha_delta=total_alpha,
-        total_beta_delta=total_beta,
-        learner="credit",
-    ))
+    emit(
+        CreditPropagated(
+            query_id=query_id,
+            concept_count=len(updates),
+            direct_count=direct,
+            ancestor_count=ancestor,
+            total_alpha_delta=total_alpha,
+            total_beta_delta=total_beta,
+            learner="credit",
+        )
+    )
 
     return {
         "concept_count": len(updates),
@@ -853,21 +854,32 @@ def _compare_impl(
     if _adapter is None:
         return {"error": "No vector index available. Install qortex[vec]."}
     vec_result = _adapter.retrieve(
-        query=context, domains=domains, top_k=top_k, min_confidence=0.0,
+        query=context,
+        domains=domains,
+        top_k=top_k,
+        min_confidence=0.0,
     )
 
     # Graph-enhanced (structural + vector)
     graph_result = None
     if _graph_adapter is not None:
         graph_result = _graph_adapter.retrieve(
-            query=context, domains=domains, top_k=top_k, min_confidence=0.0,
+            query=context,
+            domains=domains,
+            top_k=top_k,
+            min_confidence=0.0,
         )
 
     def _fmt(result):
         return [
-            {"rank": i + 1, "id": it.id, "content": it.content[:200],
-             "score": round(it.score, 4), "domain": it.domain,
-             "node_id": it.node_id}
+            {
+                "rank": i + 1,
+                "id": it.id,
+                "content": it.content[:200],
+                "score": round(it.score, 4),
+                "domain": it.domain,
+                "node_id": it.node_id,
+            }
             for i, it in enumerate(result.items)
         ]
 
@@ -886,11 +898,15 @@ def _compare_impl(
         if it["id"] in vec_set:
             vec_rank = vec_ids.index(it["id"]) + 1
             if vec_rank != it["rank"]:
-                rank_changes.append({
-                    "id": it["id"], "content": it["content"][:80],
-                    "vec_rank": vec_rank, "graph_rank": it["rank"],
-                    "delta": vec_rank - it["rank"],
-                })
+                rank_changes.append(
+                    {
+                        "id": it["id"],
+                        "content": it["content"][:80],
+                        "vec_rank": vec_rank,
+                        "graph_rank": it["rank"],
+                        "delta": vec_rank - it["rank"],
+                    }
+                )
 
     rules = _collect_query_rules(graph_items, domains) if graph_result else []
 
@@ -983,7 +999,8 @@ def _stats_impl() -> dict:
             "vector_index": type(_vector_index).__name__ if _vector_index else None,
             "embedding_model": (
                 getattr(_embedding_model, "_model_name", type(_embedding_model).__name__)
-                if _embedding_model else None
+                if _embedding_model
+                else None
             ),
             "persistence": _get_persistence_info(),
         },

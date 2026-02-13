@@ -69,8 +69,7 @@ class JsonLearningStore:
             raw = json.loads(self._path.read_text())
             for ctx, arms in raw.items():
                 self._data[ctx] = {
-                    arm_id: ArmState.from_dict(state)
-                    for arm_id, state in arms.items()
+                    arm_id: ArmState.from_dict(state) for arm_id, state in arms.items()
                 }
 
     def save(self) -> None:
@@ -151,8 +150,7 @@ class SqliteLearningStore:
             )
         """)
         self._conn.execute(
-            "CREATE INDEX IF NOT EXISTS idx_arm_states_context "
-            "ON arm_states(context_hash)"
+            "CREATE INDEX IF NOT EXISTS idx_arm_states_context ON arm_states(context_hash)"
         )
         self._conn.commit()
         return self._conn
@@ -187,8 +185,11 @@ class SqliteLearningStore:
             ).fetchall()
             return {
                 row[0]: ArmState(
-                    alpha=row[1], beta=row[2], pulls=row[3],
-                    total_reward=row[4], last_updated=row[5],
+                    alpha=row[1],
+                    beta=row[2],
+                    pulls=row[3],
+                    total_reward=row[4],
+                    last_updated=row[5],
                 )
                 for row in rows
             }
@@ -201,17 +202,22 @@ class SqliteLearningStore:
                 "INSERT OR REPLACE INTO arm_states "
                 "(context_hash, arm_id, alpha, beta, pulls, total_reward, last_updated) "
                 "VALUES (?, ?, ?, ?, ?, ?, ?)",
-                (ctx, arm_id, state.alpha, state.beta, state.pulls,
-                 state.total_reward, state.last_updated),
+                (
+                    ctx,
+                    arm_id,
+                    state.alpha,
+                    state.beta,
+                    state.pulls,
+                    state.total_reward,
+                    state.last_updated,
+                ),
             )
             conn.commit()
 
     def get_all_contexts(self) -> list[str]:
         with self._lock:
             conn = self._ensure_connection()
-            rows = conn.execute(
-                "SELECT DISTINCT context_hash FROM arm_states"
-            ).fetchall()
+            rows = conn.execute("SELECT DISTINCT context_hash FROM arm_states").fetchall()
             return [row[0] for row in rows]
 
     def get_all_states(self) -> dict[str, dict[str, ArmState]]:
@@ -227,8 +233,11 @@ class SqliteLearningStore:
                 if ctx not in result:
                     result[ctx] = {}
                 result[ctx][row[1]] = ArmState(
-                    alpha=row[2], beta=row[3], pulls=row[4],
-                    total_reward=row[5], last_updated=row[6],
+                    alpha=row[2],
+                    beta=row[3],
+                    pulls=row[4],
+                    total_reward=row[5],
+                    last_updated=row[6],
                 )
             return result
 

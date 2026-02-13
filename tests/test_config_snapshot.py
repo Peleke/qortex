@@ -94,6 +94,7 @@ class TestConfigHashOnSpans:
         token = _config_hash.set(test_hash)
 
         try:
+
             @traced("test.op")
             def do_work():
                 return 42
@@ -153,6 +154,7 @@ class TestConfigHashOnSpans:
         token = _config_hash.set(test_hash)
 
         try:
+
             @traced("child.op")
             def child():
                 return "ok"
