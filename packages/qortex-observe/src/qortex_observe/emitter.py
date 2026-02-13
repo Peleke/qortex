@@ -12,6 +12,7 @@ from pyventus.events import EventEmitter
 
 _emitter: EventEmitter | None = None
 _configured: bool = False
+_meter_provider: Any = None  # stored for force_flush and clean shutdown
 
 
 def emit(event: Any) -> None:
@@ -73,10 +74,19 @@ def _setup_metrics_pipeline(cfg: "ObservabilityConfig") -> None:
             hint="No metric readers configured; metrics will be collected but not exported",
         )
 
+    global _meter_provider
+
     views = create_views()
     meter_provider = MeterProvider(
         resource=resource, metric_readers=readers, views=views,
     )
+
+    # Set as global so force_flush() and get_meter_provider() work everywhere
+    from opentelemetry.metrics import set_meter_provider
+
+    set_meter_provider(meter_provider)
+    _meter_provider = meter_provider
+
     meter = meter_provider.get_meter("qortex")
     instruments = create_instruments(meter)
     register_metric_handlers(instruments)
@@ -199,11 +209,19 @@ def is_configured() -> bool:
 
 def reset() -> None:
     """Reset for testing."""
-    global _emitter, _configured
+    global _emitter, _configured, _meter_provider
 
     from qortex_observe.logging import shutdown_logging
 
     shutdown_logging()
+
+    if _meter_provider is not None:
+        try:
+            _meter_provider.force_flush(timeout_millis=5000)
+            _meter_provider.shutdown()
+        except Exception:
+            pass
+        _meter_provider = None
 
     _emitter = None
     _configured = False

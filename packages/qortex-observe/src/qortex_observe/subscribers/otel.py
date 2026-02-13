@@ -91,7 +91,11 @@ def register_otel_traces(config: ObservabilityConfig) -> None:
 
     # ── Tracer with selective export ──────────────────────────────────
     provider = TracerProvider(resource=resource)
-    provider.add_span_processor(SelectiveSpanProcessor(span_exporter))
+    provider.add_span_processor(SelectiveSpanProcessor(
+        span_exporter,
+        sample_rate=config.otel_trace_sample_rate,
+        latency_threshold_ms=config.otel_trace_latency_threshold_ms,
+    ))
     trace.set_tracer_provider(provider)
 
 

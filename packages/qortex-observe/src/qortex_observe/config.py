@@ -110,6 +110,19 @@ class ObservabilityConfig:
         )
     )  # "grpc" | "http/protobuf"
 
+    # Trace sampling: fraction of non-error, non-slow spans to export.
+    # 1.0 = export everything (demos/debugging), 0.1 = 10% sample (production).
+    otel_trace_sample_rate: float = field(
+        default_factory=lambda: _float_env(
+            "QORTEX_OTEL_TRACE_SAMPLE_RATE", "0.1", min_val=0.0
+        )
+    )
+    otel_trace_latency_threshold_ms: float = field(
+        default_factory=lambda: _float_env(
+            "QORTEX_OTEL_TRACE_LATENCY_THRESHOLD_MS", "100.0", min_val=0.0
+        )
+    )
+
     # --- Prometheus ---
     prometheus_enabled: bool = field(
         default_factory=lambda: os.environ.get("QORTEX_PROMETHEUS_ENABLED", "").lower()
@@ -117,7 +130,7 @@ class ObservabilityConfig:
     )
     prometheus_port: int = field(
         default_factory=lambda: _int_env(
-            "QORTEX_PROMETHEUS_PORT", "9090", min_val=1, max_val=65535
+            "QORTEX_PROMETHEUS_PORT", "9464", min_val=1, max_val=65535
         )
     )
 
