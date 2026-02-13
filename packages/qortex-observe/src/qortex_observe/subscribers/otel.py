@@ -40,7 +40,7 @@ def _get_exporters(protocol: str, endpoint: str):
             endpoint=endpoint + "/v1/metrics"
         )
 
-    # Default: gRPC — fall back to HTTP if grpcio unavailable
+    # Default: gRPC. Falls back to HTTP if grpcio unavailable.
     try:
         from opentelemetry.exporter.otlp.proto.grpc.metric_exporter import (
             OTLPMetricExporter,

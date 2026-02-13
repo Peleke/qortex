@@ -169,6 +169,21 @@ class TestCalculateCarbon:
         assert calc.total_co2_grams > 0
         assert calc.total_co2_grams < 1.0  # Sub-gram for small calls
 
+    def test_negative_tokens_clamped_to_zero(self):
+        """Negative token counts are clamped to zero."""
+        calc = calculate_carbon(
+            input_tokens=-100,
+            output_tokens=-50,
+            cache_read_tokens=-25,
+            provider="anthropic",
+            model="claude-sonnet-4",
+        )
+        assert calc.input_co2_grams == 0.0
+        assert calc.output_co2_grams == 0.0
+        assert calc.cache_co2_grams == 0.0
+        assert calc.total_co2_grams == 0.0
+        assert calc.water_ml == 0.0
+
 
 class TestCalculateEquivalents:
     """calculate_equivalents() human-readable conversions."""
@@ -191,6 +206,14 @@ class TestCalculateEquivalents:
 
     def test_zero_emissions(self):
         eq = calculate_equivalents(0.0)
+        assert eq.car_km == 0.0
+        assert eq.phone_charges == 0
+        assert eq.tree_days == 0.0
+        assert eq.google_searches == 0
+
+    def test_negative_emissions_clamped(self):
+        """Negative CO2 grams are clamped to zero."""
+        eq = calculate_equivalents(-50.0)
         assert eq.car_km == 0.0
         assert eq.phone_charges == 0
         assert eq.tree_days == 0.0
@@ -223,6 +246,14 @@ class TestConfidenceMappers:
         bounds = confidence_to_uncertainty(0.3)
         assert bounds.lower == pytest.approx(0.50)
         assert bounds.upper == pytest.approx(1.50)
+
+    def test_confidence_above_one_clamped(self):
+        """Confidence > 1.0 is clamped to 1.0 (HIGH tier)."""
+        assert format_confidence(1.5) == ConfidenceLevel.HIGH
+
+    def test_confidence_negative_clamped(self):
+        """Negative confidence is clamped to 0.0 (VERY_LOW tier)."""
+        assert format_confidence(-0.5) == ConfidenceLevel.VERY_LOW
 
     def test_data_quality_score_best(self):
         assert confidence_to_data_quality(0.9) == 1
@@ -423,3 +454,42 @@ class TestFactorTable:
     def test_confidence_in_valid_range(self):
         for f in DEFAULT_CARBON_FACTORS:
             assert 0 < f.confidence <= 1.0
+
+
+# ── Config Env Var Validation Tests ──────────────────────────────
+
+
+class TestConfigEnvVarValidation:
+    """Verify _int_env and _float_env helpers."""
+
+    def test_int_env_valid(self):
+        from qortex_observe.config import _int_env
+
+        with patch.dict("os.environ", {"TEST_PORT": "8080"}):
+            assert _int_env("TEST_PORT", "9090") == 8080
+
+    def test_int_env_default(self):
+        from qortex_observe.config import _int_env
+
+        assert _int_env("NONEXISTENT_VAR", "42") == 42
+
+    def test_int_env_invalid_raises(self):
+        from qortex_observe.config import _int_env
+
+        with patch.dict("os.environ", {"BAD_PORT": "abc"}):
+            with pytest.raises(ValueError, match="Invalid integer"):
+                _int_env("BAD_PORT", "9090")
+
+    def test_int_env_below_min_raises(self):
+        from qortex_observe.config import _int_env
+
+        with patch.dict("os.environ", {"LOW_PORT": "0"}):
+            with pytest.raises(ValueError, match="below minimum"):
+                _int_env("LOW_PORT", "9090", min_val=1)
+
+    def test_int_env_above_max_raises(self):
+        from qortex_observe.config import _int_env
+
+        with patch.dict("os.environ", {"HIGH_PORT": "99999"}):
+            with pytest.raises(ValueError, match="exceeds maximum"):
+                _int_env("HIGH_PORT", "9090", max_val=65535)

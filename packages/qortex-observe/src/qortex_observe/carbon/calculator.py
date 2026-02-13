@@ -65,6 +65,11 @@ def calculate_carbon(
 
     Either pass provider+model (auto-lookup) or an explicit factor.
     """
+    # Clamp negative values to zero (physically meaningless)
+    input_tokens = max(0, input_tokens)
+    output_tokens = max(0, output_tokens)
+    cache_read_tokens = max(0, cache_read_tokens)
+
     if factor is None:
         factor = find_carbon_factor(provider, model)
 
@@ -95,6 +100,7 @@ def calculate_equivalents(co2_grams: float) -> CarbonEquivalents:
     - 1 tree absorbs 48g CO2/day
     - 1 Google search = 0.2g CO2
     """
+    co2_grams = max(0.0, co2_grams)
     return CarbonEquivalents(
         car_km=co2_grams / 120,
         phone_charges=round(co2_grams / 10),
@@ -108,6 +114,7 @@ def calculate_equivalents(co2_grams: float) -> CarbonEquivalents:
 
 def format_confidence(confidence: float) -> ConfidenceLevel:
     """Map numeric confidence to human-readable tier."""
+    confidence = max(0.0, min(1.0, confidence))
     if confidence >= 0.7:
         return ConfidenceLevel.HIGH
     if confidence >= 0.5:
@@ -119,6 +126,7 @@ def format_confidence(confidence: float) -> ConfidenceLevel:
 
 def confidence_to_uncertainty(confidence: float) -> UncertaintyBounds:
     """Map confidence to emission uncertainty bounds (multipliers)."""
+    confidence = max(0.0, min(1.0, confidence))
     if confidence >= 0.7:
         return UncertaintyBounds(lower=0.85, upper=1.15)
     if confidence >= 0.5:
@@ -139,6 +147,7 @@ def source_to_calculation_method(source: CarbonFactorSource) -> GhgCalculationMe
 
 def confidence_to_data_quality(confidence: float) -> GhgDataQualityScore:
     """Map confidence to GHG Protocol 5-point data quality score (1=best)."""
+    confidence = max(0.0, min(1.0, confidence))
     if confidence >= 0.8:
         return 1
     if confidence >= 0.6:

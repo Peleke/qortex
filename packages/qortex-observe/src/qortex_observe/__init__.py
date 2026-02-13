@@ -1,14 +1,14 @@
 """qortex observability: event-driven architecture for metrics, traces, and logs.
 
 Public API:
-    emit(event)     — Fire-and-forget event emission (no-op if not configured)
-    configure(cfg)  — Initialize emitter + subscribers (call once at startup)
-    reset()         — Reset for testing
+    emit(event)                  Fire-and-forget event emission (no-op if not configured)
+    configure(cfg)               Initialize emitter + subscribers (call once at startup)
+    reset()                      Reset for testing
 
 Logging (swappable formatter x destination):
-    get_logger(name)           — Get a structured logger
-    register_formatter(n, cls) — Register custom LogFormatter
-    register_destination(n, cls) — Register custom LogDestination
+    get_logger(name)             Get a structured logger
+    register_formatter(n, cls)   Register custom LogFormatter
+    register_destination(n, cls) Register custom LogDestination
 
 Modules import `emit` and fire typed events. They don't know about
 metrics, traces, or logs. Subscribers handle routing.

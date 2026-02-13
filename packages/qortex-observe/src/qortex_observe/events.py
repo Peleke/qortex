@@ -1,6 +1,6 @@
 """Typed event dataclasses for qortex observability.
 
-All events are frozen (immutable) dataclasses. Modules emit these —
+All events are frozen (immutable) dataclasses. Modules emit these;
 they don't know about metrics, traces, or logs. Subscribers handle routing.
 
 Grouped by domain: query lifecycle, PPR convergence, teleportation factors,
@@ -111,7 +111,7 @@ class FactorsLoaded:
 
 @dataclass(frozen=True)
 class FactorDriftSnapshot:
-    """Emitted periodically — tracks whether factors are converging or diverging."""
+    """Emitted periodically. Tracks whether factors are converging or diverging."""
 
     count: int
     mean: float

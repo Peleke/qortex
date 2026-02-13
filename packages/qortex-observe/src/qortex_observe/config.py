@@ -17,6 +17,36 @@ import os
 from dataclasses import dataclass, field
 
 
+def _int_env(name: str, default: str, *, min_val: int = 0, max_val: int | None = None) -> int:
+    """Parse an integer from an env var with validation."""
+    raw = os.environ.get(name, default)
+    try:
+        val = int(raw)
+    except ValueError:
+        raise ValueError(
+            f"Invalid integer for {name}: {raw!r}. Expected a number, got {type(raw).__name__}."
+        ) from None
+    if val < min_val:
+        raise ValueError(f"{name}={val} is below minimum {min_val}.")
+    if max_val is not None and val > max_val:
+        raise ValueError(f"{name}={val} exceeds maximum {max_val}.")
+    return val
+
+
+def _float_env(name: str, default: str, *, min_val: float = 0.0) -> float:
+    """Parse a float from an env var with validation."""
+    raw = os.environ.get(name, default)
+    try:
+        val = float(raw)
+    except ValueError:
+        raise ValueError(
+            f"Invalid float for {name}: {raw!r}. Expected a number."
+        ) from None
+    if val < min_val:
+        raise ValueError(f"{name}={val} is below minimum {min_val}.")
+    return val
+
+
 @dataclass
 class ObservabilityConfig:
     """Observability configuration, env-var driven."""
@@ -46,13 +76,13 @@ class ObservabilityConfig:
         )
     )
     victorialogs_batch_size: int = field(
-        default_factory=lambda: int(
-            os.environ.get("QORTEX_VICTORIALOGS_BATCH_SIZE", "100")
+        default_factory=lambda: _int_env(
+            "QORTEX_VICTORIALOGS_BATCH_SIZE", "100", min_val=1, max_val=10_000
         )
     )
     victorialogs_flush_interval: float = field(
-        default_factory=lambda: float(
-            os.environ.get("QORTEX_VICTORIALOGS_FLUSH_INTERVAL", "5.0")
+        default_factory=lambda: _float_env(
+            "QORTEX_VICTORIALOGS_FLUSH_INTERVAL", "5.0", min_val=0.1
         )
     )
 
@@ -86,7 +116,9 @@ class ObservabilityConfig:
         in ("1", "true", "on")
     )
     prometheus_port: int = field(
-        default_factory=lambda: int(os.environ.get("QORTEX_PROMETHEUS_PORT", "9090"))
+        default_factory=lambda: _int_env(
+            "QORTEX_PROMETHEUS_PORT", "9090", min_val=1, max_val=65535
+        )
     )
 
     # --- Alerting ---
