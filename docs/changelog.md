@@ -5,6 +5,35 @@ All notable changes to qortex are documented here.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.5.0] - 2026-02-13
+
+### Added
+
+- **`qortex-observe` standalone package**: Extracted observability layer into `packages/qortex-observe/`, installable independently as `qortex-observe` (#73)
+- **Declarative metric schema**: All 36 metrics defined in a single `metrics_schema.py` registry with types, labels, and custom histogram buckets
+- **Unified metrics pipeline**: OTel as sole metric backend. One set of event handlers in `metrics_handlers.py` creates OTel instruments from the schema
+- **PrometheusMetricReader**: Replaces the old `prometheus_client` subscriber. Serves `/metrics` on port 9464 using OTel's built-in Prometheus exporter
+- **Full trace hierarchy**: `@traced` decorator on all MemgraphBackend operations (14 methods), vec layer (embeddings, index ops), and learning (select, observe, credit deltas). Jaeger shows complete parent-child span trees
+- **PPR span attributes**: `ppr.node_count`, `ppr.edge_count`, `ppr.iterations`, `ppr.converged`, `ppr.final_diff`, `ppr.latency_ms` on every PageRank execution
+- **Embedding model tracing**: `vec.embed.sentence_transformer`, `vec.embed.openai`, `vec.embed.ollama` spans with model name, batch size, and external I/O marking
+- **Cached embedding tracing**: `vec.embed.cached` spans with cache hit/miss/batch_size attributes
+- **Selective trace sampling**: `SelectiveSpanProcessor` always exports errors and slow spans; normal spans sampled at configurable rate (default 10%)
+- **Trace sampling env vars**: `QORTEX_OTEL_TRACE_SAMPLE_RATE` (default 0.1) and `QORTEX_OTEL_TRACE_LATENCY_THRESHOLD_MS` (default 100.0)
+- **Live stack validation**: `scripts/validate_live_stack.py` verifies metrics in Prometheus, traces in Jaeger, and dashboards in Grafana (132 checks)
+
+### Removed
+
+- **`prometheus.py` subscriber**: Replaced by unified OTel metrics pipeline with PrometheusMetricReader
+- **Direct `prometheus_client` dependency**: All Prometheus exposition now via `opentelemetry-exporter-prometheus`
+
+### Changed
+
+- `emitter.configure()` now wires the unified metrics pipeline (schema -> factory -> handlers) instead of separate OTel + Prometheus subscribers
+- OTel subscriber (`otel.py`) slimmed to traces-only; all metric definitions and handlers moved to dedicated modules
+- Global `MeterProvider` set via `set_meter_provider()` so `force_flush()` works from external code
+- CI workflow installs `observe` extra in all jobs (lint, type check, test)
+- Observability guide updated with new architecture diagram, tracing section, and env var documentation
+
 ## [0.4.0] - 2026-02-13
 
 ### Added
