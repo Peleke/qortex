@@ -33,7 +33,7 @@ class MetricDef:
     buckets: tuple[float, ...] | None = None  # histograms only
 
 
-# All 38 metrics in one registry.
+# All 42 metrics in one registry.
 # Names follow Prometheus conventions:
 #   Counter:   "qortex_foo"          → exported as "qortex_foo_total"
 #   Histogram: "qortex_bar_seconds"  → exported as "qortex_bar_seconds_bucket" etc.
@@ -211,5 +211,22 @@ METRICS: tuple[MetricDef, ...] = (
     MetricDef(
         "qortex_credit_beta_delta", MetricType.COUNTER,
         "Cumulative beta delta",
+    ),
+    # ── Carbon accounting ───────────────────────────────────────────
+    MetricDef(
+        "qortex_carbon_co2_grams", MetricType.COUNTER,
+        "Cumulative CO2 emissions (grams)", ("provider", "model"),
+    ),
+    MetricDef(
+        "qortex_carbon_water_ml", MetricType.COUNTER,
+        "Cumulative water usage (milliliters)", ("provider", "model"),
+    ),
+    MetricDef(
+        "qortex_carbon_tokens", MetricType.COUNTER,
+        "Cumulative tokens processed for carbon tracking", ("provider", "model"),
+    ),
+    MetricDef(
+        "qortex_carbon_confidence", MetricType.GAUGE,
+        "Latest emission factor confidence",
     ),
 )

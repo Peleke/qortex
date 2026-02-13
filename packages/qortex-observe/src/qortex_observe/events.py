@@ -330,3 +330,23 @@ class CreditPropagated:
     total_alpha_delta: float
     total_beta_delta: float
     learner: str
+
+
+# ---------------------------------------------------------------------------
+# Carbon Accounting
+# ---------------------------------------------------------------------------
+
+
+@dataclass(frozen=True)
+class CarbonTracked:
+    """Emitted after an LLM call with carbon emission data."""
+
+    provider: str
+    model: str
+    input_tokens: int
+    output_tokens: int
+    cache_read_tokens: int
+    total_co2_grams: float
+    water_ml: float
+    confidence: float
+    timestamp: str

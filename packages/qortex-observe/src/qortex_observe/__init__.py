@@ -17,6 +17,7 @@ metrics, traces, or logs. Subscribers handle routing.
 from qortex_observe.emitter import configure, emit, is_configured, reset
 from qortex_observe.events import (
     BufferFlushed,
+    CarbonTracked,
     EdgePromoted,
     EnrichmentCompleted,
     EnrichmentFallback,
@@ -102,6 +103,8 @@ __all__ = [
     "VecSeedYield",
     # Ingestion
     "ManifestIngested",
+    # Carbon
+    "CarbonTracked",
     # Learning
     "LearningSelectionMade",
     "LearningObservationRecorded",

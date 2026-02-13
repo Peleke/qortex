@@ -9,6 +9,9 @@ from typing import Any
 
 from qortex.core.models import Rule
 from qortex.projectors.models import RuleEnrichment
+from qortex_observe import emit
+from qortex_observe.carbon import calculate_carbon
+from qortex_observe.events import CarbonTracked
 
 logger = logging.getLogger(__name__)
 
@@ -108,6 +111,7 @@ class AnthropicEnrichmentBackend:
             max_tokens=1024,
             messages=[{"role": "user", "content": prompt}],
         )
+        self._emit_carbon(response)
 
         data = self._parse_json(response.content[0].text)
         return RuleEnrichment(
@@ -140,6 +144,7 @@ class AnthropicEnrichmentBackend:
                 }
             ],
         )
+        self._emit_carbon(response)
 
         try:
             data = self._parse_json(response.content[0].text)
@@ -183,6 +188,33 @@ class AnthropicEnrichmentBackend:
             enriched_at=datetime.now(UTC),
             enrichment_source="template",
         )
+
+    def _emit_carbon(self, response: Any) -> None:
+        """Emit CarbonTracked event from an Anthropic API response."""
+        usage = getattr(response, "usage", None)
+        if usage is None:
+            return
+        input_tokens = getattr(usage, "input_tokens", 0)
+        output_tokens = getattr(usage, "output_tokens", 0)
+        cache_read = getattr(usage, "cache_read_input_tokens", 0) or 0
+        calc = calculate_carbon(
+            input_tokens=input_tokens,
+            output_tokens=output_tokens,
+            cache_read_tokens=cache_read,
+            provider="anthropic",
+            model=self._model,
+        )
+        emit(CarbonTracked(
+            provider="anthropic",
+            model=self._model,
+            input_tokens=input_tokens,
+            output_tokens=output_tokens,
+            cache_read_tokens=cache_read,
+            total_co2_grams=calc.total_co2_grams,
+            water_ml=calc.water_ml,
+            confidence=calc.factor.confidence,
+            timestamp=datetime.now(UTC).isoformat(),
+        ))
 
     def _parse_json(self, text: str) -> Any:
         """Extract JSON from Claude's response (may be wrapped in markdown)."""

@@ -13,6 +13,7 @@ from typing import Any
 
 from qortex_observe.events import (
     BufferFlushed,
+    CarbonTracked,
     CreditPropagated,
     EdgePromoted,
     EnrichmentCompleted,
@@ -200,3 +201,14 @@ def register_metric_handlers(instruments: dict[str, Any]) -> None:
             instruments["qortex_credit_alpha_delta"].add(event.total_alpha_delta)
         if event.total_beta_delta > 0:
             instruments["qortex_credit_beta_delta"].add(event.total_beta_delta)
+
+    # ── Carbon accounting ─────────────────────────────────────────
+
+    @QortexEventLinker.on(CarbonTracked)
+    def _on_carbon_tracked(event: CarbonTracked) -> None:
+        labels = {"provider": event.provider, "model": event.model}
+        instruments["qortex_carbon_co2_grams"].add(event.total_co2_grams, labels)
+        instruments["qortex_carbon_water_ml"].add(event.water_ml, labels)
+        total_tokens = event.input_tokens + event.output_tokens + event.cache_read_tokens
+        instruments["qortex_carbon_tokens"].add(total_tokens, labels)
+        instruments["qortex_carbon_confidence"].set(event.confidence)
