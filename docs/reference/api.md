@@ -166,105 +166,132 @@ from qortex.client import (
 
 ## MCP Tools
 
-qortex runs as an MCP server exposing all client operations over JSON-RPC.
+qortex runs as an MCP server exposing 33 tools over JSON-RPC, organized by category.
 
-### qortex_query
+---
 
-Search the knowledge graph.
+### Core Tools (11)
+
+#### qortex_query
+
+Search the knowledge graph for context relevant to the current task.
 
 | Parameter | Type | Required | Default |
 |-----------|------|----------|---------|
-| `context` | `str` | Yes | — |
+| `context` | `str` | Yes | -- |
 | `domains` | `list[str]` | No | all |
-| `top_k` | `int` | No | `10` |
+| `top_k` | `int` | No | `20` |
 | `min_confidence` | `float` | No | `0.0` |
+| `mode` | `str` | No | `"auto"` |
+
+`mode` controls retrieval strategy: `"auto"` (graph if available, else vec), `"vec"` (cosine similarity only), `"graph"` (structural + vector + rules).
 
 Returns: `{query_id, items: [{id, content, score, domain, node_id, metadata}], rules: [{id, text, ...}]}`
 
-### qortex_explore
+#### qortex_feedback
 
-Traverse the graph from a node.
+Report which knowledge items were useful after answering a question.
 
 | Parameter | Type | Required | Default |
 |-----------|------|----------|---------|
-| `node_id` | `str` | Yes | — |
+| `query_id` | `str` | Yes | -- |
+| `outcomes` | `dict[str, str]` | Yes | -- |
+| `source` | `str` | No | `"unknown"` |
+
+`outcomes` maps each `item_id` to `"accepted"`, `"rejected"`, or `"partial"`. If credit propagation is enabled, feedback cascades through the causal DAG.
+
+Returns: `{status: "recorded", query_id, outcome_count, source}`
+
+#### qortex_ingest
+
+Add a file to the knowledge graph via LLM extraction.
+
+| Parameter | Type | Required | Default |
+|-----------|------|----------|---------|
+| `source_path` | `str` | Yes | -- |
+| `domain` | `str` | Yes | -- |
+| `source_type` | `str` | No | auto-detected |
+
+`source_type` accepts `"text"`, `"markdown"`, or `"pdf"`. Auto-detected from file extension if omitted.
+
+Returns: `{domain, source, concepts, edges, rules, warnings}`
+
+#### qortex_ingest_text
+
+Ingest raw text or markdown into a domain (no file needed).
+
+| Parameter | Type | Required | Default |
+|-----------|------|----------|---------|
+| `text` | `str` | Yes | -- |
+| `domain` | `str` | Yes | -- |
+| `format` | `str` | No | `"text"` |
+| `name` | `str` | No | `"raw_text"` |
+
+`format` accepts `"text"` or `"markdown"`, selecting the chunking strategy.
+
+Returns: `{domain, source, concepts, edges, rules, warnings}`
+
+#### qortex_ingest_structured
+
+Ingest pre-structured data directly (bypasses LLM extraction).
+
+| Parameter | Type | Required | Default |
+|-----------|------|----------|---------|
+| `concepts` | `list[dict]` | Yes | -- |
+| `domain` | `str` | Yes | -- |
+| `edges` | `list[dict]` | No | `[]` |
+| `rules` | `list[dict]` | No | `[]` |
+
+Each concept dict requires `"name"` and optionally `"description"`, `"id"`, `"properties"`, `"confidence"`. Each edge dict: `{"source": "name", "target": "name", "relation_type": "requires"}`. Each rule dict: `{"text": "rule text", "category": "optional"}`.
+
+Returns: `{domain, source, concepts, edges, rules}`
+
+#### qortex_domains
+
+List all knowledge domains and their sizes.
+
+No parameters.
+
+Returns: `{domains: [{name, description, concept_count, edge_count, rule_count}]}`
+
+#### qortex_status
+
+Check server health and active capabilities.
+
+No parameters.
+
+Returns: `{status, backend, vector_index, vector_search, graph_algorithms, domain_count, embedding_model, interoception}`
+
+#### qortex_explore
+
+Traverse the knowledge graph from a concept to discover connections.
+
+| Parameter | Type | Required | Default |
+|-----------|------|----------|---------|
+| `node_id` | `str` | Yes | -- |
 | `depth` | `int` | No | `1` |
 
-Returns: `{node, edges, neighbors, rules}` or `null` if node not found.
+`depth` is clamped to 1-3.
 
-### qortex_rules
+Returns: `{node, edges, neighbors, rules}` or `{node: null}` if not found.
 
-Get projected rules.
+#### qortex_rules
+
+Get domain rules, constraints, and best practices from the knowledge graph.
 
 | Parameter | Type | Required | Default |
 |-----------|------|----------|---------|
 | `domains` | `list[str]` | No | all |
 | `concept_ids` | `list[str]` | No | all |
 | `categories` | `list[str]` | No | all |
+| `include_derived` | `bool` | No | `true` |
+| `min_confidence` | `float` | No | `0.0` |
 
-Returns: `{rules: [...], domain_count, projection: "rules"}`
+Returns: `{rules: [{id, text, domain, category, confidence, relevance, derivation, source_concepts, metadata}], domain_count, projection: "rules"}`
 
-### qortex_feedback
+#### qortex_compare
 
-Report outcomes for a query.
-
-| Parameter | Type | Required | Default |
-|-----------|------|----------|---------|
-| `query_id` | `str` | Yes | — |
-| `outcomes` | `dict[str, str]` | Yes | — |
-| `source` | `str` | No | `"unknown"` |
-
-Returns: `{status: "recorded", processed: N}`
-
-### qortex_status
-
-Health check.
-
-Returns: `{status: "ok", vector_search: bool, graph_backend: str, domains: int}`
-
-### qortex_domains
-
-List domains.
-
-Returns: `{domains: [{name, description, node_count, edge_count, rule_count}]}`
-
-### qortex_ingest
-
-Ingest content.
-
-| Parameter | Type | Required | Default |
-|-----------|------|----------|---------|
-| `source_path` | `str` | Yes | — |
-| `domain` | `str` | Yes | — |
-
-Returns: `{status, domain, concepts, edges, rules}`
-
-### qortex_ingest_text
-
-Ingest raw text directly (no file needed).
-
-| Parameter | Type | Required | Default |
-|-----------|------|----------|---------|
-| `text` | `str` | Yes | -- |
-| `domain` | `str` | Yes | -- |
-| `title` | `str` | No | `""` |
-
-Returns: `{status, domain, concepts, edges, rules}`
-
-### qortex_ingest_structured
-
-Ingest structured JSON data.
-
-| Parameter | Type | Required | Default |
-|-----------|------|----------|---------|
-| `data` | `dict` | Yes | -- |
-| `domain` | `str` | Yes | -- |
-
-Returns: `{status, domain, concepts, edges, rules}`
-
-### qortex_compare
-
-Compare graph-enhanced retrieval against cosine-only retrieval on the same query. Use this to see what the graph adds.
+Compare graph-enhanced retrieval against cosine-only retrieval on the same query.
 
 | Parameter | Type | Required | Default |
 |-----------|------|----------|---------|
@@ -277,7 +304,7 @@ Returns:
 {
   "query": "...",
   "vec_only": {"method": "Cosine similarity", "items": [...]},
-  "graph_enhanced": {"method": "Graph-enhanced", "items": [...], "rules_surfaced": N, "rules": [...]},
+  "graph_enhanced": {"method": "Graph-enhanced (structural + vector + rules)", "items": [...], "rules_surfaced": N, "rules": [...]},
   "diff": {
     "graph_found_that_cosine_missed": [...],
     "cosine_found_that_graph_dropped": [...],
@@ -288,9 +315,11 @@ Returns:
 }
 ```
 
-### qortex_stats
+#### qortex_stats
 
 Knowledge coverage, learning progress, query activity, and persistence info.
+
+No parameters.
 
 Returns:
 ```json
@@ -298,79 +327,300 @@ Returns:
   "knowledge": {"domains": N, "concepts": N, "edges": N, "rules": N, "domain_breakdown": {...}},
   "learning": {"learners": N, "total_observations": N, "learner_breakdown": {...}},
   "activity": {"queries_served": N, "feedback_given": N, "feedback_rate": 0.5, "outcomes": {...}},
-  "health": {"backend": "InMemoryBackend", "vector_index": "NumpyVectorIndex", "persistence": {...}}
+  "health": {"backend": "InMemoryBackend", "vector_index": "NumpyVectorIndex", "embedding_model": "...", "persistence": {...}}
 }
 ```
 
-### Learning Tools
+---
+
+### Source Tools (7)
+
+Tools for connecting to external databases and ingesting their schemas.
+
+#### qortex_source_connect
+
+Connect to a PostgreSQL database and discover its schema.
+
+| Parameter | Type | Required | Default |
+|-----------|------|----------|---------|
+| `source_id` | `str` | Yes | -- |
+| `connection_string` | `str` | Yes | -- |
+| `schemas` | `list[str]` | No | `["public"]` |
+| `domain_map` | `dict[str, str]` | No | `{}` |
+| `targets` | `str` | No | `"both"` |
+
+`targets` accepts `"vec"`, `"graph"`, or `"both"`.
+
+Returns: `{status, source_id, tables, table_names}`
+
+#### qortex_source_discover
+
+Return discovered schemas for a connected source.
+
+| Parameter | Type | Required | Default |
+|-----------|------|----------|---------|
+| `source_id` | `str` | Yes | -- |
+
+Returns: `{source_id, tables: [{name, schema, columns, row_count, pk_columns, fk_count}]}`
+
+#### qortex_source_sync
+
+Sync a database source's data to the vector layer.
+
+| Parameter | Type | Required | Default |
+|-----------|------|----------|---------|
+| `source_id` | `str` | Yes | -- |
+| `tables` | `list[str]` | No | all |
+| `mode` | `str` | No | `"full"` |
+
+`mode` accepts `"full"` (re-sync everything) or `"incremental"` (only changes).
+
+Returns: `{source_id, tables_synced, rows_added, vectors_created, duration_seconds, errors}`
+
+#### qortex_source_list
+
+List all connected database sources.
+
+No parameters.
+
+Returns: `{sources: [{source_id, tables}]}`
+
+#### qortex_source_disconnect
+
+Disconnect a source and remove it from the registry.
+
+| Parameter | Type | Required | Default |
+|-----------|------|----------|---------|
+| `source_id` | `str` | Yes | -- |
+
+Returns: `{status: "disconnected", source_id}`
+
+#### qortex_source_inspect_schema
+
+Inspect a PostgreSQL database schema with full constraint metadata (FK, CHECK, UNIQUE). Read-only, does not modify data.
+
+| Parameter | Type | Required | Default |
+|-----------|------|----------|---------|
+| `connection_string` | `str` | Yes | -- |
+| `source_id` | `str` | Yes | -- |
+| `schemas` | `list[str]` | No | `["public"]` |
+| `domain_map` | `dict[str, str]` | No | `{}` |
+
+Returns: `{source_id, tables: [{name, schema, columns, row_count, foreign_keys, check_constraints, unique_constraints, is_catalog, domain, name_column}], edges, rules, table_count, edge_count, rule_count}`
+
+#### qortex_source_ingest_graph
+
+Ingest a PostgreSQL database schema into the knowledge graph. Discovers schema, classifies FK relationships, and creates ConceptNodes, ConceptEdges, and ExplicitRules.
+
+| Parameter | Type | Required | Default |
+|-----------|------|----------|---------|
+| `connection_string` | `str` | Yes | -- |
+| `source_id` | `str` | Yes | -- |
+| `schemas` | `list[str]` | No | `["public"]` |
+| `domain_map` | `dict[str, str]` | No | `{}` |
+| `embed_catalog_tables` | `bool` | No | `true` |
+| `extract_rules` | `bool` | No | `true` |
+
+Returns: `{source_id, concepts, edges, rules}`
+
+---
+
+### Vector Tools (9)
+
+Low-level vector index management for MastraVector and other raw-vector consumers. These are separate from the text-level index used by `qortex_query`.
+
+#### qortex_vector_create_index
+
+Create a named vector index.
+
+| Parameter | Type | Required | Default |
+|-----------|------|----------|---------|
+| `index_name` | `str` | Yes | -- |
+| `dimension` | `int` | Yes | -- |
+| `metric` | `str` | No | `"cosine"` |
+
+`metric` accepts `"cosine"`, `"euclidean"`, or `"dotproduct"`.
+
+Returns: `{status: "created", index_name}` or `{status: "exists", index_name}` if already created with the same dimension.
+
+#### qortex_vector_list_indexes
+
+List all named vector indexes.
+
+No parameters.
+
+Returns: `{indexes: [...]}`
+
+#### qortex_vector_describe_index
+
+Get statistics for a named vector index.
+
+| Parameter | Type | Required | Default |
+|-----------|------|----------|---------|
+| `index_name` | `str` | Yes | -- |
+
+Returns: `{dimension, count, metric}`
+
+#### qortex_vector_delete_index
+
+Delete a named vector index and all its data.
+
+| Parameter | Type | Required | Default |
+|-----------|------|----------|---------|
+| `index_name` | `str` | Yes | -- |
+
+Returns: `{status: "deleted", index_name}`
+
+#### qortex_vector_upsert
+
+Upsert vectors into a named index. Replaces existing vectors if IDs match.
+
+| Parameter | Type | Required | Default |
+|-----------|------|----------|---------|
+| `index_name` | `str` | Yes | -- |
+| `vectors` | `list[list[float]]` | Yes | -- |
+| `metadata` | `list[dict]` | No | `[{}]` per vector |
+| `ids` | `list[str]` | No | auto-generated UUIDs |
+| `documents` | `list[str]` | No | `None` |
+
+Returns: `{ids: [...]}`
+
+#### qortex_vector_query
+
+Query a named vector index by similarity. Supports MongoDB-like metadata filters.
+
+| Parameter | Type | Required | Default |
+|-----------|------|----------|---------|
+| `index_name` | `str` | Yes | -- |
+| `query_vector` | `list[float]` | Yes | -- |
+| `top_k` | `int` | No | `10` |
+| `filter` | `dict` | No | `None` |
+| `include_vector` | `bool` | No | `false` |
+
+`filter` supports operators: `$ne`, `$gt`, `$gte`, `$lt`, `$lte`, `$in`, `$nin`, `$and`, `$or`, `$not`.
+
+Returns: `{results: [{id, score, metadata, document?}]}`
+
+#### qortex_vector_update
+
+Update a vector's embedding and/or metadata.
+
+| Parameter | Type | Required | Default |
+|-----------|------|----------|---------|
+| `index_name` | `str` | Yes | -- |
+| `id` | `str` | No | -- |
+| `filter` | `dict` | No | -- |
+| `vector` | `list[float]` | No | -- |
+| `metadata` | `dict` | No | -- |
+
+Specify either `id` or `filter` (mutually exclusive). At least one of `vector` or `metadata` is required.
+
+Returns: `{status: "updated", count}`
+
+#### qortex_vector_delete
+
+Delete a single vector by ID.
+
+| Parameter | Type | Required | Default |
+|-----------|------|----------|---------|
+| `index_name` | `str` | Yes | -- |
+| `id` | `str` | Yes | -- |
+
+Returns: `{status: "deleted", id}`
+
+#### qortex_vector_delete_many
+
+Delete multiple vectors by IDs or metadata filter.
+
+| Parameter | Type | Required | Default |
+|-----------|------|----------|---------|
+| `index_name` | `str` | Yes | -- |
+| `ids` | `list[str]` | No | -- |
+| `filter` | `dict` | No | -- |
+
+Specify either `ids` or `filter` (mutually exclusive).
+
+Returns: `{status: "deleted", count}`
+
+---
+
+### Learning Tools (6)
+
+Adaptive learning via Thompson Sampling. Learners are auto-created on first use.
 
 #### qortex_learning_select
 
-Select items using adaptive learning (Thompson Sampling).
+Select the best candidates from a pool using adaptive learning.
 
 | Parameter | Type | Required | Default |
 |-----------|------|----------|---------|
 | `learner` | `str` | Yes | -- |
 | `candidates` | `list[dict]` | Yes | -- |
-| `context` | `dict` | No | `{}` |
+| `context` | `dict` | No | `None` |
 | `k` | `int` | No | `1` |
+| `token_budget` | `int` | No | `0` |
+| `min_pulls` | `int` | No | `0` |
 
-Returns: `{selected_arms: [...], excluded_arms: [...], is_baseline: bool}`
+Each candidate dict requires `"id"` (str). Optional: `"metadata"` (dict), `"token_cost"` (int). Set `token_budget` > 0 to cap total token cost of selected arms. Set `min_pulls` > 0 to force-explore under-observed arms.
+
+Returns: `{selected_arms: [...], excluded_arms: [...], is_baseline, scores, token_budget, used_tokens}`
 
 #### qortex_learning_observe
 
-Record whether a selected item worked well.
+Record whether a selected item worked well. Updates posterior distribution.
 
 | Parameter | Type | Required | Default |
 |-----------|------|----------|---------|
 | `learner` | `str` | Yes | -- |
 | `arm_id` | `str` | Yes | -- |
-| `outcome` | `str` | No | -- |
-| `reward` | `float` | No | -- |
-| `context` | `dict` | No | `{}` |
+| `outcome` | `str` | No | `""` |
+| `reward` | `float` | No | `0.0` |
+| `context` | `dict` | No | `None` |
 
-Returns: `{alpha, beta, pulls, total_reward, mean}`
+`outcome` accepts `"accepted"`, `"rejected"`, `"partial"`, or custom strings. `reward` is a direct 0.0-1.0 value that overrides outcome if both are given.
+
+Returns: `{arm_id, alpha, beta, mean, pulls}`
 
 #### qortex_learning_posteriors
 
-Get posterior distributions for arms.
+Get current posterior distributions for tracked arms.
 
 | Parameter | Type | Required | Default |
 |-----------|------|----------|---------|
 | `learner` | `str` | Yes | -- |
-| `context` | `dict` | No | `{}` |
+| `context` | `dict` | No | `None` |
 | `arm_ids` | `list[str]` | No | all |
 
-Returns: `{posteriors: {arm_id: {alpha, beta, pulls, mean, ...}}}`
+Returns: `{learner, posteriors: {arm_id: {alpha, beta, pulls, mean, ...}}}`
 
 #### qortex_learning_metrics
 
-Get aggregate learning metrics.
+Get aggregate learning metrics for a learner.
 
 | Parameter | Type | Required | Default |
 |-----------|------|----------|---------|
 | `learner` | `str` | Yes | -- |
+| `window` | `int` | No | `None` |
 
 Returns: `{learner, total_pulls, total_reward, accuracy, arm_count, explore_ratio}`
 
 #### qortex_learning_session_start
 
-Start a learning session for tracking.
+Start a named learning session for tracking arm selections.
 
 | Parameter | Type | Required | Default |
 |-----------|------|----------|---------|
 | `learner` | `str` | Yes | -- |
 | `session_name` | `str` | Yes | -- |
 
-Returns: `{session_id: "..."}`
+Returns: `{session_id, learner}`
 
 #### qortex_learning_session_end
 
-End a learning session.
+End a learning session and return summary.
 
 | Parameter | Type | Required | Default |
 |-----------|------|----------|---------|
-| `learner` | `str` | Yes | -- |
 | `session_id` | `str` | Yes | -- |
 
 Returns: `{session_id, learner, selected_arms, outcomes, started_at, ended_at}`
