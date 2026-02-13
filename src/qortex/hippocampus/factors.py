@@ -137,7 +137,7 @@ class TeleportationFactors:
                 old_factor=old,
                 new_factor=new,
                 delta=delta,
-                clamped=(new == _MIN_FACTOR or new == _MAX_FACTOR),
+                clamped=(new in (_MIN_FACTOR, _MAX_FACTOR)),
             ))
 
             # Fire legacy hooks (backward compat)

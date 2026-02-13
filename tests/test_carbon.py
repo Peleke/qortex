@@ -472,20 +472,17 @@ class TestConfigEnvVarValidation:
     def test_int_env_invalid_raises(self):
         from qortex_observe.config import _int_env
 
-        with patch.dict("os.environ", {"BAD_PORT": "abc"}):
-            with pytest.raises(ValueError, match="Invalid integer"):
-                _int_env("BAD_PORT", "9090")
+        with patch.dict("os.environ", {"BAD_PORT": "abc"}), pytest.raises(ValueError, match="Invalid integer"):
+            _int_env("BAD_PORT", "9090")
 
     def test_int_env_below_min_raises(self):
         from qortex_observe.config import _int_env
 
-        with patch.dict("os.environ", {"LOW_PORT": "0"}):
-            with pytest.raises(ValueError, match="below minimum"):
-                _int_env("LOW_PORT", "9090", min_val=1)
+        with patch.dict("os.environ", {"LOW_PORT": "0"}), pytest.raises(ValueError, match="below minimum"):
+            _int_env("LOW_PORT", "9090", min_val=1)
 
     def test_int_env_above_max_raises(self):
         from qortex_observe.config import _int_env
 
-        with patch.dict("os.environ", {"HIGH_PORT": "99999"}):
-            with pytest.raises(ValueError, match="exceeds maximum"):
-                _int_env("HIGH_PORT", "9090", max_val=65535)
+        with patch.dict("os.environ", {"HIGH_PORT": "99999"}), pytest.raises(ValueError, match="exceeds maximum"):
+            _int_env("HIGH_PORT", "9090", max_val=65535)

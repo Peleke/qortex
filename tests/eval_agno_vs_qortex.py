@@ -251,9 +251,8 @@ class TestRetrievalQuality:
             content = doc.content if hasattr(doc, "content") else doc.get("content", "")
             # Match against known concept names
             for concept_name, _ in AUTH_CONCEPTS:
-                if concept_name.lower() in content.lower():
-                    if concept_name not in names:
-                        names.append(concept_name)
+                if concept_name.lower() in content.lower() and concept_name not in names:
+                    names.append(concept_name)
         return names
 
     def test_qortex_beats_vanilla_on_precision(

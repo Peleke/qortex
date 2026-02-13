@@ -12,9 +12,9 @@ import pytest
 
 otel_sdk = pytest.importorskip("opentelemetry.sdk")
 
-from opentelemetry.sdk.metrics import MeterProvider
-from opentelemetry.sdk.metrics.export import InMemoryMetricReader
-from qortex_observe.events import (
+from opentelemetry.sdk.metrics import MeterProvider  # noqa: E402
+from opentelemetry.sdk.metrics.export import InMemoryMetricReader  # noqa: E402
+from qortex_observe.events import (  # noqa: E402
     BufferFlushed,
     CreditPropagated,
     EdgePromoted,
@@ -38,8 +38,8 @@ from qortex_observe.events import (
     VecSearchResults,
     VecSeedYield,
 )
-from qortex_observe.metrics_factory import create_instruments, create_views
-from qortex_observe.metrics_handlers import register_metric_handlers
+from qortex_observe.metrics_factory import create_instruments, create_views  # noqa: E402
+from qortex_observe.metrics_handlers import register_metric_handlers  # noqa: E402
 
 
 @pytest.fixture(autouse=True)

@@ -144,9 +144,9 @@ class TestGetAllStates:
         assert len(all_states) == 2
 
         # Find keys (context hashes)
-        for ctx_hash, arms in all_states.items():
+        for _ctx_hash, arms in all_states.items():
             assert isinstance(arms, dict)
-            for arm_id, state in arms.items():
+            for _arm_id, state in arms.items():
                 assert isinstance(state, ArmState)
 
     def test_all_states_has_correct_values(self, store):
