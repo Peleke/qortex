@@ -1,13 +1,21 @@
 """MCP server implementation for qortex.
 
-Tools exposed:
-- qortex_query: Retrieve relevant knowledge items for a context
-- qortex_feedback: Report outcomes for retrieved items
-- qortex_ingest: Ingest a file into a domain
-- qortex_domains: List available domains
-- qortex_status: Server health + backend info
+Tools exposed (33 total):
+
+Core tools:
+- qortex_query: Retrieve relevant knowledge for a question
+- qortex_feedback: Report whether retrieved items were useful
+- qortex_ingest: Ingest a file into the knowledge graph
+- qortex_ingest_text: Ingest raw text into a domain
+- qortex_ingest_structured: Ingest structured JSON data
+- qortex_domains: List available knowledge domains
+- qortex_status: Server health and backend info
 - qortex_explore: Explore a node's neighborhood in the graph
-- qortex_rules: Get projected rules from the knowledge graph
+- qortex_rules: Get rules from the knowledge graph
+- qortex_compare: Compare graph-enhanced vs cosine-only retrieval
+- qortex_stats: Knowledge coverage, learning progress, and activity
+
+Source tools:
 - qortex_source_connect: Connect to a database source
 - qortex_source_discover: Discover schemas from a connected source
 - qortex_source_sync: Sync source data to vec layer
@@ -15,6 +23,8 @@ Tools exposed:
 - qortex_source_disconnect: Disconnect a source
 - qortex_source_inspect_schema: Inspect database schema with constraint metadata
 - qortex_source_ingest_graph: Ingest database schema into knowledge graph
+
+Vector tools:
 - qortex_vector_create_index: Create a named vector index
 - qortex_vector_list_indexes: List named vector indexes
 - qortex_vector_describe_index: Get index stats
@@ -24,8 +34,10 @@ Tools exposed:
 - qortex_vector_update: Update vector/metadata
 - qortex_vector_delete: Delete a single vector
 - qortex_vector_delete_many: Delete vectors by IDs or filter
-- qortex_learning_select: Select arms using Thompson Sampling
-- qortex_learning_observe: Record outcome for a selected arm
+
+Learning tools:
+- qortex_learning_select: Select items using adaptive learning
+- qortex_learning_observe: Record outcome for a selected item
 - qortex_learning_posteriors: Get posterior distributions
 - qortex_learning_metrics: Get aggregate learning metrics
 - qortex_learning_session_start: Start a learning session
@@ -37,8 +49,8 @@ Architecture:
     Tests call the `_impl` functions directly; MCP clients hit the wrappers.
 
     Vec layer and graph layer are independent:
-        QORTEX_VEC=memory|sqlite   → VectorIndex (similarity search)
-        QORTEX_GRAPH=memory|memgraph → GraphBackend (node metadata, PPR, rules)
+        QORTEX_VEC=memory|sqlite   -> VectorIndex (similarity search)
+        QORTEX_GRAPH=memory|memgraph -> GraphBackend (node metadata, PPR, rules)
     The adapter composes both layers.
 
     Vector-level tools (qortex_vector_*) manage a separate registry of
@@ -84,6 +96,15 @@ _source_registry = SourceRegistry()
 
 _learners: dict[str, Any] = {}  # name -> Learner instance
 _learning_state_dir: str = ""  # override for tests (empty = default ~/.qortex/learning)
+
+# ---------------------------------------------------------------------------
+# Activity counters (feed qortex_stats)
+# Note: not thread-safe. MCP stdio transport is single-threaded, so this is fine.
+# ---------------------------------------------------------------------------
+
+_query_count: int = 0
+_feedback_count: int = 0
+_feedback_outcomes: dict[str, int] = {"accepted": 0, "rejected": 0, "partial": 0}
 
 # ---------------------------------------------------------------------------
 # Vector-level index registry (for MastraVector / raw vector operations)
@@ -248,6 +269,11 @@ def create_server(
     _source_registry = SourceRegistry()
     _learners = {}
 
+    global _query_count, _feedback_count, _feedback_outcomes
+    _query_count = 0
+    _feedback_count = 0
+    _feedback_outcomes = {"accepted": 0, "rejected": 0, "partial": 0}
+
     # Auto-create in-memory vector index if not provided
     if vector_index is not None:
         _vector_index = vector_index
@@ -316,6 +342,9 @@ def _query_impl(
         top_k=top_k,
         min_confidence=min_confidence,
     )
+
+    global _query_count
+    _query_count += 1
 
     items = [
         {
@@ -447,6 +476,12 @@ def _feedback_impl(
         _graph_adapter.feedback(query_id, outcomes)
     elif _adapter is not None:
         _adapter.feedback(query_id, outcomes)
+
+    global _feedback_count, _feedback_outcomes
+    _feedback_count += 1
+    for outcome in outcomes.values():
+        if outcome in _feedback_outcomes:
+            _feedback_outcomes[outcome] += 1
 
     # Credit propagation (if enabled)
     credit_summary = _maybe_propagate_credit(query_id, outcomes)
@@ -790,6 +825,173 @@ def _status_impl() -> dict:
             else None
         ),
         "interoception": _interoception.summary() if _interoception else None,
+    }
+
+
+def _compare_impl(
+    context: str,
+    domains: list[str] | None = None,
+    top_k: int = 5,
+) -> dict:
+    _ensure_initialized()
+    top_k = max(1, min(top_k, 20))
+
+    # Vec-only (flat cosine)
+    if _adapter is None:
+        return {"error": "No vector index available. Install qortex[vec]."}
+    vec_result = _adapter.retrieve(
+        query=context, domains=domains, top_k=top_k, min_confidence=0.0,
+    )
+
+    # Graph-enhanced (structural + vector)
+    graph_result = None
+    if _graph_adapter is not None:
+        graph_result = _graph_adapter.retrieve(
+            query=context, domains=domains, top_k=top_k, min_confidence=0.0,
+        )
+
+    def _fmt(result):
+        return [
+            {"rank": i + 1, "id": it.id, "content": it.content[:200],
+             "score": round(it.score, 4), "domain": it.domain,
+             "node_id": it.node_id}
+            for i, it in enumerate(result.items)
+        ]
+
+    vec_items = _fmt(vec_result)
+    graph_items = _fmt(graph_result) if graph_result else []
+
+    vec_ids = [it["id"] for it in vec_items]
+    graph_ids = [it["id"] for it in graph_items]
+    vec_set, graph_set = set(vec_ids), set(graph_ids)
+
+    graph_unique = [it for it in graph_items if it["id"] not in vec_set]
+    vec_unique = [it for it in vec_items if it["id"] not in graph_set]
+
+    rank_changes = []
+    for it in graph_items:
+        if it["id"] in vec_set:
+            vec_rank = vec_ids.index(it["id"]) + 1
+            if vec_rank != it["rank"]:
+                rank_changes.append({
+                    "id": it["id"], "content": it["content"][:80],
+                    "vec_rank": vec_rank, "graph_rank": it["rank"],
+                    "delta": vec_rank - it["rank"],
+                })
+
+    rules = _collect_query_rules(graph_items, domains) if graph_result else []
+
+    return {
+        "query": context,
+        "vec_only": {"method": "Cosine similarity", "items": vec_items},
+        "graph_enhanced": {
+            "method": "Graph-enhanced (structural + vector + rules)",
+            "items": graph_items,
+            "rules_surfaced": len(rules),
+            "rules": rules[:3],
+        },
+        "diff": {
+            "graph_found_that_cosine_missed": graph_unique,
+            "cosine_found_that_graph_dropped": vec_unique,
+            "rank_changes": rank_changes,
+            "overlap": len(vec_set & graph_set),
+        },
+        "summary": _compare_summary(vec_items, graph_items, graph_unique, rules),
+    }
+
+
+def _compare_summary(vec_items, graph_items, graph_unique, rules) -> str:
+    if not graph_items:
+        return "Graph adapter not available. Showing vector-only results."
+    parts = []
+    if graph_unique:
+        parts.append(f"found {len(graph_unique)} item(s) that cosine missed")
+    if rules:
+        parts.append(f"surfaced {len(rules)} rule(s)")
+    overlap = len(set(i["id"] for i in vec_items) & set(i["id"] for i in graph_items))
+    if overlap < len(vec_items):
+        parts.append(f"replaced {len(vec_items) - overlap} distractor(s)")
+    if not parts:
+        return "Both methods returned similar results for this query."
+    return "Graph-enhanced retrieval " + ", ".join(parts) + "."
+
+
+def _stats_impl() -> dict:
+    _ensure_initialized()
+
+    # Knowledge coverage
+    domains = _backend.list_domains() if _backend else []
+    domain_breakdown = {}
+    totals = {"concepts": 0, "edges": 0, "rules": 0}
+    for d in domains:
+        stats = {
+            "concepts": d.concept_count,
+            "edges": d.edge_count,
+            "rules": d.rule_count,
+        }
+        domain_breakdown[d.name] = stats
+        for k in totals:
+            totals[k] += stats[k]
+
+    # Learning progress
+    learner_breakdown = {}
+    total_observations = 0
+    for name, lrn in _learners.items():
+        m = lrn.metrics()
+        learner_breakdown[name] = {
+            "total_pulls": m.get("total_pulls", 0),
+            "accuracy": round(m.get("accuracy", 0.0), 3),
+            "arms_tracked": m.get("arm_count", 0),
+            "exploration_ratio": round(m.get("explore_ratio", 0.0), 3),
+        }
+        total_observations += m.get("total_pulls", 0)
+
+    feedback_rate = round(_feedback_count / _query_count, 3) if _query_count > 0 else 0.0
+
+    return {
+        "knowledge": {
+            "domains": len(domains),
+            **totals,
+            "domain_breakdown": domain_breakdown,
+        },
+        "learning": {
+            "learners": len(_learners),
+            "total_observations": total_observations,
+            "learner_breakdown": learner_breakdown,
+        },
+        "activity": {
+            "queries_served": _query_count,
+            "feedback_given": _feedback_count,
+            "feedback_rate": feedback_rate,
+            "outcomes": dict(_feedback_outcomes),
+        },
+        "health": {
+            "backend": type(_backend).__name__ if _backend else None,
+            "vector_index": type(_vector_index).__name__ if _vector_index else None,
+            "embedding_model": (
+                getattr(_embedding_model, "_model_name", type(_embedding_model).__name__)
+                if _embedding_model else None
+            ),
+            "persistence": _get_persistence_info(),
+        },
+    }
+
+
+def _get_persistence_info() -> dict:
+    state_dir = os.environ.get("QORTEX_STATE_DIR")
+    if not state_dir:
+        return {"mode": "in-memory", "persistent": False}
+    state_path = Path(state_dir)
+    if not state_path.exists():
+        return {"mode": "configured", "path": str(state_path), "persistent": False}
+    files = list(state_path.glob("*.db"))
+    size_bytes = sum(f.stat().st_size for f in files if f.is_file())
+    return {
+        "mode": "sqlite",
+        "path": str(state_path),
+        "persistent": True,
+        "db_files": len(files),
+        "size_mb": round(size_bytes / (1024 * 1024), 2),
     }
 
 
@@ -1562,18 +1764,23 @@ def qortex_query(
     min_confidence: float = 0.0,
     mode: str = "auto",
 ) -> dict:
-    """Retrieve relevant knowledge items for a context.
+    """Search the project's knowledge graph for context relevant to the current task.
 
-    Uses vector similarity search, optionally enhanced with graph-based
-    PPR (Personalized PageRank) for deeper structural retrieval.
+    Call this BEFORE answering questions about:
+    - Code architecture, cross-cutting concerns, or component relationships
+    - Domain rules, constraints, or best practices
+    - How modules interact or depend on each other
+
+    Returns ranked items with content, relevance scores, and applicable rules.
+    After using results, call qortex_feedback to report which items helped.
 
     Args:
-        context: Query text (file content, task description, question).
-        domains: Restrict search to these domains. None = search all.
-        top_k: Maximum number of items to return.
-        min_confidence: Minimum similarity score (0.0 to 1.0).
-        mode: Retrieval mode. "vec" = cosine similarity only (Level 0).
-            "graph" = PPR over merged graph (Level 1+). "auto" = best available.
+        context: What you need context for. Be specific: "How does auth
+            middleware validate JWT tokens?" beats "auth".
+        domains: Restrict to specific knowledge domains. None = search all.
+        top_k: Maximum items to return (default 20).
+        min_confidence: Minimum relevance score, 0.0-1.0 (default 0.0).
+        mode: "auto" (recommended), "vec" (similarity only), "graph" (structural).
     """
     return _query_impl(context, domains, top_k, min_confidence, mode)
 
@@ -1584,15 +1791,17 @@ def qortex_feedback(
     outcomes: dict[str, str],
     source: str = "unknown",
 ) -> dict:
-    """Report outcomes for retrieved items to improve future retrieval.
+    """Report which knowledge items were useful after answering a question.
 
-    After using qortex_query results, report which items were useful.
-    This data feeds teleportation factor updates (Phase 4).
+    Call this AFTER using qortex_query results. Items marked "accepted"
+    get boosted in future retrievals; "rejected" get suppressed. This is
+    how the system gets smarter over time. Always call this.
 
     Args:
-        query_id: The query_id from a qortex_query response.
-        outcomes: Mapping of item_id to "accepted", "rejected", or "partial".
-        source: Identifier for the consumer reporting feedback.
+        query_id: The query_id from the qortex_query response.
+        outcomes: Map each item_id to "accepted", "rejected", or "partial".
+            Only include items you actually used or considered.
+        source: Your identifier (e.g. "claude-code", "cursor").
     """
     return _feedback_impl(query_id, outcomes, source)
 
@@ -1603,15 +1812,16 @@ def qortex_ingest(
     domain: str,
     source_type: str | None = None,
 ) -> dict:
-    """Ingest a file into a domain.
+    """Add a file to the knowledge graph.
 
-    Runs the ingestion pipeline: chunk → LLM extraction → concepts + edges + rules.
-    Generates embeddings if qortex[vec] is installed.
+    Extracts concepts, relationships, and rules automatically via LLM
+    analysis. Call this when the user wants to teach the system about
+    new material: documentation, specs, architecture docs, or code.
 
     Args:
         source_path: Path to the file to ingest.
-        domain: Target domain name (e.g. "memory/default", "buildlog/rules").
-        source_type: File type override: "text", "markdown", or "pdf". Auto-detected if None.
+        domain: Knowledge domain name (e.g. "auth", "billing", "docs").
+        source_type: "text", "markdown", or "pdf". Auto-detected if None.
     """
     return _ingest_impl(source_path, domain, source_type)
 
@@ -1625,7 +1835,7 @@ def qortex_ingest_text(
 ) -> dict:
     """Ingest raw text or markdown into a domain.
 
-    No file needed — paste text directly. Runs the full LLM extraction
+    No file needed. Paste text directly. Runs the full LLM extraction
     pipeline (concepts + typed edges + rules) on the provided content.
 
     Args:
@@ -1646,7 +1856,7 @@ def qortex_ingest_structured(
 ) -> dict:
     """Ingest pre-structured data directly into the knowledge graph.
 
-    Bypasses LLM extraction — takes concepts, edges, and rules directly.
+    Bypasses LLM extraction. Takes concepts, edges, and rules directly.
     Use when you already have structured data to add.
 
     Args:
@@ -1660,13 +1870,19 @@ def qortex_ingest_structured(
 
 @mcp.tool
 def qortex_domains() -> dict:
-    """List available domains and their stats."""
+    """List all knowledge domains and their sizes.
+
+    Call this first to discover what knowledge is available before querying.
+    """
     return _domains_impl()
 
 
 @mcp.tool
 def qortex_status() -> dict:
-    """Check server health and backend info."""
+    """Check if the knowledge system is healthy and what capabilities are active.
+
+    Call this if queries return unexpected results or errors.
+    """
     return _status_impl()
 
 
@@ -1675,14 +1891,19 @@ def qortex_explore(
     node_id: str,
     depth: int = 1,
 ) -> dict:
-    """Explore a node's neighborhood in the knowledge graph.
+    """Traverse the knowledge graph from a concept to discover connections.
 
-    Returns the node, its typed edges, neighbor nodes, and linked rules.
-    Returns {"node": null} if the node doesn't exist.
+    Call this when you need to understand HOW things connect, not just
+    WHAT is relevant (use qortex_query for that). Good for:
+    - Tracing dependencies: "what depends on AuthMiddleware?"
+    - Understanding hierarchies: "sub-components of PaymentService?"
+    - Finding related rules: "what constraints apply to this module?"
+
+    Returns the node, typed edges, neighbors, and linked rules.
 
     Args:
-        node_id: The concept node ID to explore.
-        depth: How many hops to traverse (1-3). Default 1 = immediate neighbors.
+        node_id: Concept ID to explore (from qortex_query results).
+        depth: Hops to traverse (1-3). Start with 1, increase if needed.
     """
     result = _explore_impl(node_id, depth)
     if result is None:
@@ -1698,19 +1919,50 @@ def qortex_rules(
     include_derived: bool = True,
     min_confidence: float = 0.0,
 ) -> dict:
-    """Get projected rules from the knowledge graph.
+    """Get domain rules, constraints, and best practices.
 
-    Delegates to the FlatRuleSource projector system. Returns both explicit
-    rules (from ingestion) and derived rules (from edge templates).
+    Call this when the user asks about standards, conventions, or
+    constraints. Returns explicit rules and patterns derived from the
+    graph structure, with confidence scores and linked concepts.
 
     Args:
         domains: Filter to these domains. None = all.
-        concept_ids: Only return rules linked to these concept IDs.
-        categories: Filter by rule category (e.g. "architectural", "testing").
-        include_derived: Include edge-derived rules (default True).
-        min_confidence: Minimum rule confidence (0.0 to 1.0).
+        concept_ids: Only rules linked to these concepts.
+        categories: Filter by category (e.g. "security", "testing").
+        include_derived: Include pattern-derived rules (default True).
+        min_confidence: Minimum rule confidence, 0.0-1.0.
     """
     return _rules_impl(domains, concept_ids, categories, include_derived, min_confidence)
+
+
+@mcp.tool
+def qortex_compare(
+    context: str,
+    domains: list[str] | None = None,
+    top_k: int = 5,
+) -> dict:
+    """Compare graph-enhanced vs vanilla retrieval side-by-side.
+
+    Runs the same query through both methods and shows exactly what the
+    knowledge graph adds. Use this to demonstrate the value of structural
+    retrieval over flat similarity search on your own data.
+
+    Args:
+        context: Query to compare both methods on.
+        domains: Restrict to these domains. None = search all.
+        top_k: Items per method (default 5 for readable comparison).
+    """
+    return _compare_impl(context, domains, top_k)
+
+
+@mcp.tool
+def qortex_stats() -> dict:
+    """See how the knowledge system has improved over time.
+
+    Shows knowledge coverage, learning progress, query activity, and
+    system health. Call this to understand the value qortex is providing.
+    """
+    return _stats_impl()
 
 
 # ---------------------------------------------------------------------------
@@ -2129,20 +2381,19 @@ def qortex_learning_select(
     token_budget: int = 0,
     min_pulls: int = 0,
 ) -> dict:
-    """Select arms from candidates using Thompson Sampling.
+    """Select the best candidates from a pool using adaptive learning.
 
-    The bandit selects the top-k candidates likely to produce the best
-    outcomes, based on accumulated feedback. Use qortex_learning_observe
-    to report results after using the selected arms.
+    Balances exploring new options vs exploiting known-good ones. Returns
+    selections ranked by learned quality. Call qortex_learning_observe
+    after using selections to close the feedback loop.
 
     Args:
-        learner: Learner name (e.g. "prompts", "strategies"). Auto-created on first use.
-        candidates: List of candidate arms. Each dict must have "id" (str).
-            Optional: "metadata" (dict), "token_cost" (int).
-        context: Optional context dict for partitioned learning (e.g. {"error_class": "type-errors"}).
+        learner: Learner name (auto-created on first use).
+        candidates: List of dicts, each with "id" (str). Optional: "metadata", "token_cost".
+        context: Optional context dict for partitioned learning.
         k: Number of arms to select.
-        token_budget: If > 0, respect total token budget across selected arms.
-        min_pulls: Force-include arms with fewer than N observations (cold-start protection).
+        token_budget: Max total token cost. 0 = unlimited.
+        min_pulls: Force-explore arms with fewer than this many observations.
     """
     return _learning_select_impl(learner, candidates, context, k, token_budget, min_pulls)
 
@@ -2155,16 +2406,16 @@ def qortex_learning_observe(
     reward: float = 0.0,
     context: dict | None = None,
 ) -> dict:
-    """Record an outcome for a selected arm.
+    """Record whether a selected item worked well.
 
-    Updates the arm's posterior distribution. Provide either outcome
-    (mapped to reward via reward model) or reward directly.
+    Updates the system's beliefs about item quality. Always call this
+    after qortex_learning_select to close the feedback loop.
 
     Args:
         learner: Learner name.
         arm_id: The arm ID that was used.
-        outcome: Outcome string: "accepted", "rejected", or "partial".
-        reward: Direct reward value (0.0 to 1.0). Overrides outcome if both provided.
+        outcome: "accepted", "rejected", or "partial".
+        reward: Direct reward 0.0-1.0. Overrides outcome if both given.
         context: Context dict matching the select call.
     """
     return _learning_observe_impl(learner, arm_id, outcome, reward, context)

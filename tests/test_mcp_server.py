@@ -53,12 +53,18 @@ def _reset_server_state():
     mcp_server._adapter = None
     mcp_server._embedding_model = None
     mcp_server._llm_backend = None
+    mcp_server._query_count = 0
+    mcp_server._feedback_count = 0
+    mcp_server._feedback_outcomes = {"accepted": 0, "rejected": 0, "partial": 0}
     yield
     mcp_server._backend = None
     mcp_server._vector_index = None
     mcp_server._adapter = None
     mcp_server._embedding_model = None
     mcp_server._llm_backend = None
+    mcp_server._query_count = 0
+    mcp_server._feedback_count = 0
+    mcp_server._feedback_outcomes = {"accepted": 0, "rejected": 0, "partial": 0}
 
 
 @pytest.fixture
@@ -527,3 +533,303 @@ class TestServerConfiguration:
         llm = StubLLMBackend()
         mcp_server.set_llm_backend(llm)
         assert mcp_server._llm_backend is llm
+
+
+# ===========================================================================
+# qortex_compare
+# ===========================================================================
+
+
+class TestQortexCompare:
+    def test_compare_returns_structure(self, configured_server):
+        """Compare should return all expected top-level keys even with empty data."""
+        result = mcp_server._compare_impl("test query")
+        assert "query" in result
+        assert "vec_only" in result
+        assert "graph_enhanced" in result
+        assert "diff" in result
+        assert "summary" in result
+        assert isinstance(result["summary"], str)
+
+    def test_compare_vec_only_method_label(self, configured_server):
+        result = mcp_server._compare_impl("test")
+        assert result["vec_only"]["method"] == "Cosine similarity"
+
+    def test_compare_with_data(self, configured_server, backend, embedding):
+        """With indexed nodes, both methods return items and diff is computed."""
+        nodes = [
+            _make_node("n1", "Auth", "Authentication and login system"),
+            _make_node("n2", "Database", "PostgreSQL database layer"),
+            _make_node("n3", "API", "REST API endpoints"),
+        ]
+        _add_nodes_with_embeddings(backend, embedding, nodes)
+
+        result = mcp_server._compare_impl("Authentication and login system", top_k=3)
+        assert len(result["vec_only"]["items"]) > 0
+        assert len(result["graph_enhanced"]["items"]) > 0
+        assert "overlap" in result["diff"]
+
+    def test_compare_content_truncated(self, configured_server, backend, embedding):
+        """Content in compare results should be truncated to 200 chars."""
+        long_desc = "A" * 500
+        nodes = [_make_node("n1", "LongNode", long_desc)]
+        _add_nodes_with_embeddings(backend, embedding, nodes)
+
+        result = mcp_server._compare_impl("AAAA", top_k=1)
+        for item in result["vec_only"]["items"]:
+            assert len(item["content"]) <= 200
+
+    def test_compare_clamps_top_k(self, configured_server):
+        """top_k should be clamped to [1, 20]."""
+        result = mcp_server._compare_impl("test", top_k=100)
+        # Should not error; just clamped internally
+        assert "vec_only" in result
+
+    def test_compare_no_adapter_returns_error(self):
+        """When no embedding model is available, return error."""
+        backend = InMemoryBackend()
+        backend.connect()
+        mcp_server.create_server(backend=backend, embedding_model=None)
+        result = mcp_server._compare_impl("test")
+        assert "error" in result
+
+
+# ===========================================================================
+# qortex_stats
+# ===========================================================================
+
+
+class TestQortexStats:
+    def test_stats_returns_structure(self, configured_server):
+        """Stats should return all 4 top-level sections."""
+        result = mcp_server._stats_impl()
+        assert "knowledge" in result
+        assert "learning" in result
+        assert "activity" in result
+        assert "health" in result
+
+    def test_stats_knowledge_defaults(self, configured_server):
+        result = mcp_server._stats_impl()
+        assert result["knowledge"]["domains"] >= 0
+        assert result["knowledge"]["concepts"] >= 0
+
+    def test_stats_counts_domains(self, configured_server, backend, embedding):
+        backend.create_domain("alpha", description="Alpha domain")
+        backend.create_domain("beta", description="Beta domain")
+        nodes = [
+            _make_node("a1", "NodeA", "Desc A", domain="alpha"),
+            _make_node("b1", "NodeB", "Desc B", domain="beta"),
+        ]
+        _add_nodes_with_embeddings(backend, embedding, nodes)
+
+        result = mcp_server._stats_impl()
+        assert result["knowledge"]["domains"] == 2
+        assert "alpha" in result["knowledge"]["domain_breakdown"]
+        assert "beta" in result["knowledge"]["domain_breakdown"]
+
+    def test_stats_tracks_queries(self, configured_server, backend, embedding):
+        """Query counter should increment after _query_impl calls."""
+        nodes = [_make_node("n1", "Auth", "Authentication system")]
+        _add_nodes_with_embeddings(backend, embedding, nodes)
+
+        assert mcp_server._query_count == 0
+        mcp_server._query_impl(context="auth")
+        assert mcp_server._query_count == 1
+        mcp_server._query_impl(context="auth again")
+        assert mcp_server._query_count == 2
+
+        result = mcp_server._stats_impl()
+        assert result["activity"]["queries_served"] == 2
+
+    def test_stats_tracks_feedback(self, configured_server):
+        """Feedback counter should increment with per-outcome tracking."""
+        mcp_server._feedback_impl("q1", {"i1": "accepted", "i2": "rejected"})
+        mcp_server._feedback_impl("q2", {"i3": "accepted"})
+
+        result = mcp_server._stats_impl()
+        assert result["activity"]["feedback_given"] == 2
+        assert result["activity"]["outcomes"]["accepted"] == 2
+        assert result["activity"]["outcomes"]["rejected"] == 1
+
+    def test_stats_feedback_rate(self, configured_server, backend, embedding):
+        """Feedback rate = feedback_count / query_count."""
+        nodes = [_make_node("n1", "Auth", "Auth system")]
+        _add_nodes_with_embeddings(backend, embedding, nodes)
+
+        mcp_server._query_impl(context="auth")
+        mcp_server._query_impl(context="auth2")
+        mcp_server._feedback_impl("q1", {"i1": "accepted"})
+
+        result = mcp_server._stats_impl()
+        assert result["activity"]["feedback_rate"] == 0.5
+
+    def test_stats_health_section(self, configured_server):
+        result = mcp_server._stats_impl()
+        assert result["health"]["backend"] == "InMemoryBackend"
+        assert result["health"]["persistence"]["persistent"] is False
+
+    def test_stats_no_learners(self, configured_server):
+        result = mcp_server._stats_impl()
+        assert result["learning"]["learners"] == 0
+        assert result["learning"]["total_observations"] == 0
+
+    def test_stats_feedback_rate_zero_queries(self, configured_server):
+        """When no queries have been served, feedback_rate should be 0.0."""
+        result = mcp_server._stats_impl()
+        assert result["activity"]["feedback_rate"] == 0.0
+
+    def test_stats_counters_reset_on_create_server(self, backend, embedding, vector_index):
+        """create_server() should reset all activity counters to zero."""
+        mcp_server._query_count = 42
+        mcp_server._feedback_count = 10
+        mcp_server._feedback_outcomes = {"accepted": 5, "rejected": 3, "partial": 2}
+
+        mcp_server.create_server(
+            backend=backend, embedding_model=embedding, vector_index=vector_index
+        )
+
+        assert mcp_server._query_count == 0
+        assert mcp_server._feedback_count == 0
+        assert mcp_server._feedback_outcomes == {"accepted": 0, "rejected": 0, "partial": 0}
+
+
+# ===========================================================================
+# _compare_summary (branch coverage)
+# ===========================================================================
+
+
+class TestFeedbackInvalidOutcome:
+    """P0: Invalid outcomes must not increment counters."""
+
+    def test_invalid_outcome_returns_error(self, configured_server):
+        """An unrecognized outcome value should return error, not increment."""
+        result = mcp_server._feedback_impl("q1", {"i1": "bogus"})
+        assert "error" in result
+        assert mcp_server._feedback_count == 0
+        assert mcp_server._feedback_outcomes == {
+            "accepted": 0, "rejected": 0, "partial": 0,
+        }
+
+    def test_valid_outcomes_still_increment(self, configured_server):
+        """Sanity: valid outcomes do increment counters."""
+        mcp_server._feedback_impl("q1", {"i1": "accepted"})
+        assert mcp_server._feedback_count == 1
+        assert mcp_server._feedback_outcomes["accepted"] == 1
+
+
+class TestQueryErrorDoesNotIncrement:
+    """P0: Query error path must not inflate counter."""
+
+    def test_no_adapter_does_not_increment(self):
+        """When no embedding model is available, counter stays at 0."""
+        backend = InMemoryBackend()
+        backend.connect()
+        mcp_server.create_server(backend=backend, embedding_model=None)
+        result = mcp_server._query_impl(context="test")
+        assert "error" in result
+        assert mcp_server._query_count == 0
+
+
+class TestStatsWithLearners:
+    """P0: Stats should report real Learner metrics."""
+
+    def test_stats_with_real_learner(self, configured_server, tmp_path):
+        """Inject a Learner instance and verify stats reflects it."""
+        from qortex.learning.learner import Learner
+        from qortex.learning.types import LearnerConfig
+
+        config = LearnerConfig(name="test-learner", state_dir=str(tmp_path))
+        learner = Learner(config)
+        mcp_server._learners["test-learner"] = learner
+
+        result = mcp_server._stats_impl()
+        assert result["learning"]["learners"] == 1
+        assert "test-learner" in result["learning"]["learner_breakdown"]
+        breakdown = result["learning"]["learner_breakdown"]["test-learner"]
+        assert "total_pulls" in breakdown
+        assert "accuracy" in breakdown
+        assert "arms_tracked" in breakdown
+        assert "exploration_ratio" in breakdown
+
+        # Clean up
+        mcp_server._learners.clear()
+
+
+class TestCompareSummary:
+    def test_summary_no_graph_items(self):
+        """When graph adapter is unavailable, summary says so."""
+        result = mcp_server._compare_summary(
+            vec_items=[{"id": "a"}], graph_items=[], graph_unique=[], rules=[]
+        )
+        assert "Graph adapter not available" in result
+
+    def test_summary_graph_unique_found(self):
+        """When graph finds items cosine missed, summary reports the count."""
+        result = mcp_server._compare_summary(
+            vec_items=[{"id": "a"}],
+            graph_items=[{"id": "a"}, {"id": "b"}],
+            graph_unique=[{"id": "b"}],
+            rules=[],
+        )
+        assert "found 1 item(s) that cosine missed" in result
+
+    def test_summary_rules_surfaced(self):
+        """When rules are surfaced, summary reports the count."""
+        result = mcp_server._compare_summary(
+            vec_items=[{"id": "a"}],
+            graph_items=[{"id": "a"}],
+            graph_unique=[],
+            rules=[{"id": "r1", "text": "rule"}],
+        )
+        assert "surfaced 1 rule(s)" in result
+
+    def test_summary_distractors_replaced(self):
+        """When graph drops cosine results, summary reports replacements."""
+        result = mcp_server._compare_summary(
+            vec_items=[{"id": "a"}, {"id": "b"}],
+            graph_items=[{"id": "a"}, {"id": "c"}],
+            graph_unique=[{"id": "c"}],
+            rules=[],
+        )
+        assert "replaced" in result
+
+    def test_summary_identical_results(self):
+        """When both methods return the same items, summary says so."""
+        items = [{"id": "a"}, {"id": "b"}]
+        result = mcp_server._compare_summary(
+            vec_items=items, graph_items=items, graph_unique=[], rules=[]
+        )
+        assert "similar results" in result
+
+
+# ===========================================================================
+# _get_persistence_info (branch coverage)
+# ===========================================================================
+
+
+class TestGetPersistenceInfo:
+    def test_no_state_dir(self, monkeypatch):
+        """When QORTEX_STATE_DIR is unset, reports in-memory mode."""
+        monkeypatch.delenv("QORTEX_STATE_DIR", raising=False)
+        result = mcp_server._get_persistence_info()
+        assert result["mode"] == "in-memory"
+        assert result["persistent"] is False
+
+    def test_state_dir_missing(self, monkeypatch, tmp_path):
+        """When QORTEX_STATE_DIR points to a nonexistent directory."""
+        monkeypatch.setenv("QORTEX_STATE_DIR", str(tmp_path / "nonexistent"))
+        result = mcp_server._get_persistence_info()
+        assert result["mode"] == "configured"
+        assert result["persistent"] is False
+
+    def test_state_dir_with_db_files(self, monkeypatch, tmp_path):
+        """When QORTEX_STATE_DIR exists and contains .db files."""
+        db_file = tmp_path / "graph.db"
+        db_file.write_bytes(b"x" * (2 * 1024 * 1024))  # 2MB so rounding is visible
+        monkeypatch.setenv("QORTEX_STATE_DIR", str(tmp_path))
+
+        result = mcp_server._get_persistence_info()
+        assert result["mode"] == "sqlite"
+        assert result["persistent"] is True
+        assert result["db_files"] == 1
+        assert result["size_mb"] > 0
