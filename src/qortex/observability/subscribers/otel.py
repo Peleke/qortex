@@ -80,7 +80,8 @@ def register_otel_traces(config: ObservabilityConfig) -> None:
     from opentelemetry import trace
     from opentelemetry.sdk.resources import Resource
     from opentelemetry.sdk.trace import TracerProvider
-    from opentelemetry.sdk.trace.export import BatchSpanProcessor
+
+    from qortex.observability.tracing import SelectiveSpanProcessor
 
     # ── Resource ──────────────────────────────────────────────────────
     resource = Resource.create({"service.name": config.otel_service_name})
@@ -88,9 +89,9 @@ def register_otel_traces(config: ObservabilityConfig) -> None:
     # ── Exporters (gRPC with HTTP fallback) ───────────────────────────
     span_exporter, _ = _get_exporters(config.otel_protocol, config.otel_endpoint)
 
-    # ── Tracer ────────────────────────────────────────────────────────
+    # ── Tracer with selective export ──────────────────────────────────
     provider = TracerProvider(resource=resource)
-    provider.add_span_processor(BatchSpanProcessor(span_exporter))
+    provider.add_span_processor(SelectiveSpanProcessor(span_exporter))
     trace.set_tracer_provider(provider)
 
 

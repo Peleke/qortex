@@ -125,7 +125,9 @@ def configure(config: "ObservabilityConfig | None" = None) -> EventEmitter:
     )
 
     # Always register structured log subscriber (uses configured LogFormatter)
-    from qortex.observability.subscribers import structlog_sub  # noqa: F401
+    from qortex.observability.subscribers.structlog_sub import register_structlog_subscriber
+
+    register_structlog_subscriber()
 
     # Always register JSONL event sink if path configured
     if cfg.jsonl_path:

@@ -53,7 +53,7 @@ from qortex.observability.logging import (
     register_formatter,
 )
 from qortex.observability.metrics_schema import METRICS, MetricDef, MetricType
-from qortex.observability.tracing import OverheadTimer, traced
+from qortex.observability.tracing import OverheadTimer, SelectiveSpanProcessor, traced
 
 __all__ = [
     # Core API
@@ -112,4 +112,5 @@ __all__ = [
     # Tracing
     "traced",
     "OverheadTimer",
+    "SelectiveSpanProcessor",
 ]

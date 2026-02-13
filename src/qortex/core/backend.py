@@ -19,10 +19,33 @@ from typing import Any, Literal, Protocol, runtime_checkable
 
 from qortex.observability import emit
 from qortex.observability.events import ManifestIngested
+from qortex.observability.tracing import traced
 
 from .models import ConceptEdge, ConceptNode, Domain, ExplicitRule, IngestionManifest, RelationType
 
 logger = logging.getLogger(__name__)
+
+
+# ---------------------------------------------------------------------------
+# Cypher span helpers (used by @traced on _run)
+# ---------------------------------------------------------------------------
+
+_CYPHER_OPS = {
+    "MATCH": "query", "CREATE": "create", "DELETE": "delete",
+    "MERGE": "upsert", "CALL": "procedure", "DROP": "drop",
+    "RETURN": "query", "WITH": "query", "UNWIND": "query",
+}
+
+
+def _cypher_op(cypher: str) -> str:
+    """Extract operation name from Cypher query template."""
+    first_word = cypher.strip().split()[0].upper() if cypher.strip() else "UNKNOWN"
+    return _CYPHER_OPS.get(first_word, "other")
+
+
+def _sanitize_cypher(cypher: str, max_len: int = 200) -> str:
+    """Truncate Cypher for span attribute. Never include full param values."""
+    return cypher[:max_len]
 
 
 class GraphPattern:
@@ -354,11 +377,32 @@ class MemgraphBackend:
         except Exception:
             return False
 
+    @traced("cypher.execute", external=True)
     def _run(self, cypher: str, params: dict | None = None) -> list[dict]:
         """Execute a Cypher query and return all records as dicts."""
+        try:
+            from opentelemetry import trace
+
+            span = trace.get_current_span()
+            span.set_attribute("db.system", "memgraph")
+            span.set_attribute("db.operation.name", _cypher_op(cypher))
+            span.set_attribute("db.statement", _sanitize_cypher(cypher))
+        except ImportError:
+            pass
+
         with self._driver.session() as session:
             result = session.run(cypher, params or {})
-            return [dict(record) for record in result]
+            records = [dict(record) for record in result]
+
+        try:
+            from opentelemetry import trace
+
+            span = trace.get_current_span()
+            span.set_attribute("db.result_count", len(records))
+        except ImportError:
+            pass
+
+        return records
 
     def _run_single(self, cypher: str, params: dict | None = None) -> dict | None:
         """Execute a Cypher query and return the first record or None."""
@@ -698,16 +742,25 @@ class MemgraphBackend:
         only supports standard PageRank (no personalization), so we run
         PPR in Python for correctness.
         """
-        from qortex.observability.events import PPRConverged, PPRDiverged, PPRStarted
+        from qortex.observability.events import PPRConverged, PPRDiverged, PPRStarted, QueryFailed
 
         # 1. Fetch nodes in scope
-        if domain:
-            node_records = self._run(
-                "MATCH (n:Concept {domain: $d}) RETURN n.id AS id",
-                {"d": domain},
-            )
-        else:
-            node_records = self._run("MATCH (n:Concept) RETURN n.id AS id")
+        try:
+            if domain:
+                node_records = self._run(
+                    "MATCH (n:Concept {domain: $d}) RETURN n.id AS id",
+                    {"d": domain},
+                )
+            else:
+                node_records = self._run("MATCH (n:Concept) RETURN n.id AS id")
+        except Exception as exc:
+            emit(QueryFailed(
+                query_id=query_id,
+                error=str(exc),
+                stage="ppr",
+                timestamp=datetime.now(UTC).isoformat(),
+            ))
+            raise
 
         node_ids = [r["id"] for r in node_records if r.get("id")]
         node_set = set(node_ids)
@@ -727,19 +780,28 @@ class MemgraphBackend:
         ))
 
         # 2. Fetch edges and build adjacency: node_id → [(neighbor_id, weight)]
-        if domain:
-            edge_records = self._run(
-                "MATCH (a:Concept {domain: $d})-[r]->(b:Concept {domain: $d}) "
-                "RETURN a.id AS src, b.id AS tgt, "
-                "COALESCE(r.confidence, 1.0) AS weight",
-                {"d": domain},
-            )
-        else:
-            edge_records = self._run(
-                "MATCH (a:Concept)-[r]->(b:Concept) "
-                "RETURN a.id AS src, b.id AS tgt, "
-                "COALESCE(r.confidence, 1.0) AS weight",
-            )
+        try:
+            if domain:
+                edge_records = self._run(
+                    "MATCH (a:Concept {domain: $d})-[r]->(b:Concept {domain: $d}) "
+                    "RETURN a.id AS src, b.id AS tgt, "
+                    "COALESCE(r.confidence, 1.0) AS weight",
+                    {"d": domain},
+                )
+            else:
+                edge_records = self._run(
+                    "MATCH (a:Concept)-[r]->(b:Concept) "
+                    "RETURN a.id AS src, b.id AS tgt, "
+                    "COALESCE(r.confidence, 1.0) AS weight",
+                )
+        except Exception as exc:
+            emit(QueryFailed(
+                query_id=query_id,
+                error=str(exc),
+                stage="ppr",
+                timestamp=datetime.now(UTC).isoformat(),
+            ))
+            raise
 
         adjacency: dict[str, list[tuple[str, float]]] = {nid: [] for nid in node_ids}
         for rec in edge_records:

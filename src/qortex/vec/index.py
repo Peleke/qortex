@@ -6,6 +6,8 @@ import logging
 import time
 from typing import Protocol, runtime_checkable
 
+from qortex.observability.tracing import traced
+
 logger = logging.getLogger(__name__)
 
 
@@ -90,6 +92,7 @@ class NumpyVectorIndex:
         # Stacked matrix: (n_vectors, dimensions), normalized for cosine sim
         self._matrix: np.ndarray = np.zeros((0, dimensions), dtype=np.float32)
 
+    @traced("vec.add")
     def add(self, ids: list[str], embeddings: list[list[float]]) -> None:
         """Add vectors. Overwrites if ID already exists."""
         t0 = time.perf_counter()
@@ -123,6 +126,15 @@ class NumpyVectorIndex:
         else:
             self._matrix = np.vstack([self._matrix, new_vecs])
 
+        try:
+            from opentelemetry import trace
+
+            span = trace.get_current_span()
+            span.set_attribute("vec.count_added", len(ids))
+            span.set_attribute("vec.total_size", len(self._ids))
+        except ImportError:
+            pass
+
         from qortex.observability.events import VecIndexUpdated
         _try_emit(VecIndexUpdated(
             count_added=len(ids),
@@ -131,6 +143,7 @@ class NumpyVectorIndex:
             index_type="numpy",
         ))
 
+    @traced("vec.search")
     def search(
         self,
         query_embedding: list[float],
@@ -164,6 +177,18 @@ class NumpyVectorIndex:
         top_scores = scores[top_indices]
 
         results = [(self._ids[idx], float(top_scores[i])) for i, idx in enumerate(top_indices)]
+
+        try:
+            from opentelemetry import trace
+
+            span = trace.get_current_span()
+            span.set_attribute("vec.top_k", top_k)
+            span.set_attribute("vec.threshold", threshold)
+            span.set_attribute("vec.result_count", len(results))
+            if results:
+                span.set_attribute("vec.top_score", results[0][1])
+        except ImportError:
+            pass
 
         # Vec observability: search quality signal
         elapsed = (time.perf_counter() - t0) * 1000

@@ -165,3 +165,58 @@ def traced(name: str, *, external: bool = False) -> Callable[[F], F]:
 def get_overhead_timer() -> OverheadTimer | None:
     """Get the current overhead timer (for passing overhead to events)."""
     return _overhead_timer.get()
+
+
+# ── Selective Span Processor ──────────────────────────────────────────
+
+class SelectiveSpanProcessor:
+    """Export only interesting spans: errors, slow queries, or sampled.
+
+    Wraps a BatchSpanProcessor. Spans are exported if ANY of:
+      - error=True attribute set
+      - duration exceeds latency_threshold_ms
+      - random sample at sample_rate
+
+    This reduces span volume from Cypher instrumentation (5-30 spans
+    per query) while preserving all diagnostic spans.
+    """
+
+    def __init__(
+        self,
+        exporter: Any,
+        sample_rate: float = 0.1,
+        latency_threshold_ms: float = 100.0,
+    ):
+        import random
+
+        from opentelemetry.sdk.trace.export import BatchSpanProcessor
+
+        self._inner = BatchSpanProcessor(exporter)
+        self._sample_rate = sample_rate
+        self._latency_threshold_ms = latency_threshold_ms
+        self._random = random
+
+    def on_start(self, span: Any, parent_context: Any = None) -> None:
+        self._inner.on_start(span, parent_context)
+
+    def on_end(self, span: Any) -> None:
+        attrs = span.attributes or {}
+        # Always export error spans
+        if attrs.get("error"):
+            self._inner.on_end(span)
+            return
+        # Always export slow spans
+        if span.end_time is not None and span.start_time is not None:
+            duration_ms = (span.end_time - span.start_time) / 1_000_000
+            if duration_ms > self._latency_threshold_ms:
+                self._inner.on_end(span)
+                return
+        # Sample the rest
+        if self._random.random() < self._sample_rate:
+            self._inner.on_end(span)
+
+    def shutdown(self) -> None:
+        self._inner.shutdown()
+
+    def force_flush(self, timeout_millis: int = 30000) -> bool:
+        return self._inner.force_flush(timeout_millis)
