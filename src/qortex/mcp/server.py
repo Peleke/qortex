@@ -210,8 +210,7 @@ def _ensure_initialized() -> None:
 
     qortex_dir = Path("~/.qortex").expanduser()
     interoception_config = InteroceptionConfig(
-        factors_path=qortex_dir / "factors.json",
-        buffer_path=qortex_dir / "edge_buffer.json",
+        db_path=qortex_dir / "interoception.db",
     )
     _interoception = LocalInteroceptionProvider(interoception_config)
     _interoception.startup()
