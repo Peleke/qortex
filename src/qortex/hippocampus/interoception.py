@@ -137,8 +137,13 @@ def _teleportation_enabled_default() -> bool:
 
 @dataclass
 class InteroceptionConfig:
-    """Configuration for LocalInteroceptionProvider."""
+    """Configuration for LocalInteroceptionProvider.
 
+    Priority: if db_path is set, SQLite is used for persistence.
+    If only factors_path/buffer_path are set, falls back to JSON files.
+    """
+
+    db_path: Path | None = None
     factors_path: Path | None = None
     buffer_path: Path | None = None
     auto_flush_threshold: int = 50
@@ -169,35 +174,60 @@ class LocalInteroceptionProvider:
         self._buffer = EdgePromotionBuffer()
         self._started = False
         self._backend: Any = None  # Set by adapter for auto-flush
+        self._store: Any = None  # InteroceptionStore when using SQLite
 
     def set_backend(self, backend: Any) -> None:
         """Attach a graph backend for edge promotion auto-flush."""
         self._backend = backend
 
     def startup(self) -> None:
-        """Load persisted state from disk (if paths configured)."""
+        """Load persisted state from disk.
+
+        Priority: SQLite (db_path) > JSON (factors_path/buffer_path) > fresh.
+        """
         from qortex.hippocampus.buffer import EdgePromotionBuffer
         from qortex.hippocampus.factors import TeleportationFactors
 
-        if self._config.factors_path is not None:
-            self._factors = TeleportationFactors.load(self._config.factors_path)
+        if self._config.db_path is not None:
+            from qortex.hippocampus.store import InteroceptionStore
+
+            self._store = InteroceptionStore(self._config.db_path)
+            loaded_factors = self._store.load_factors()
+            self._factors = TeleportationFactors(factors=loaded_factors)
             logger.info(
                 "interoception.factors.loaded",
-                count=len(self._factors.factors),
-                path=str(self._config.factors_path),
+                count=len(loaded_factors),
+                backend="sqlite",
             )
-        else:
-            self._factors = TeleportationFactors()
 
-        if self._config.buffer_path is not None:
-            self._buffer = EdgePromotionBuffer.load(self._config.buffer_path)
+            loaded_edges = self._store.load_edges()
+            self._buffer = EdgePromotionBuffer()
+            self._buffer._buffer = loaded_edges
             logger.info(
                 "interoception.buffer.loaded",
-                count=self._buffer.summary()["buffered_edges"],
-                path=str(self._config.buffer_path),
+                count=len(loaded_edges),
+                backend="sqlite",
             )
         else:
-            self._buffer = EdgePromotionBuffer()
+            if self._config.factors_path is not None:
+                self._factors = TeleportationFactors.load(self._config.factors_path)
+                logger.info(
+                    "interoception.factors.loaded",
+                    count=len(self._factors.factors),
+                    path=str(self._config.factors_path),
+                )
+            else:
+                self._factors = TeleportationFactors()
+
+            if self._config.buffer_path is not None:
+                self._buffer = EdgePromotionBuffer.load(self._config.buffer_path)
+                logger.info(
+                    "interoception.buffer.loaded",
+                    count=self._buffer.summary()["buffered_edges"],
+                    path=str(self._config.buffer_path),
+                )
+            else:
+                self._buffer = EdgePromotionBuffer()
 
         self._started = True
 
@@ -211,13 +241,20 @@ class LocalInteroceptionProvider:
 
     def shutdown(self) -> None:
         """Persist state to disk and log summary."""
-        if self._config.factors_path is not None:
-            self._factors.persist(self._config.factors_path)
-            logger.info("interoception.factors.persisted", path=str(self._config.factors_path))
+        if self._store is not None:
+            self._store.save_factors(self._factors.factors)
+            self._store.save_edges(self._buffer._buffer)
+            self._store.close()
+            self._store = None
+            logger.info("interoception.persisted", backend="sqlite")
+        else:
+            if self._config.factors_path is not None:
+                self._factors.persist(self._config.factors_path)
+                logger.info("interoception.factors.persisted", path=str(self._config.factors_path))
 
-        if self._config.buffer_path is not None:
-            self._buffer.persist(self._config.buffer_path)
-            logger.info("interoception.buffer.persisted", path=str(self._config.buffer_path))
+            if self._config.buffer_path is not None:
+                self._buffer.persist(self._config.buffer_path)
+                logger.info("interoception.buffer.persisted", path=str(self._config.buffer_path))
 
         s = self.summary()
         logger.info("interoception.shutdown", **s)
@@ -247,8 +284,12 @@ class LocalInteroceptionProvider:
     def report_outcome(self, query_id: str, outcomes: dict[str, str]) -> None:
         """Update factors from feedback outcomes and optionally persist."""
         updates = self._factors.update(query_id, outcomes)
-        if updates and self._config.persist_on_update and self._config.factors_path is not None:
-            self._factors.persist(self._config.factors_path)
+        if updates and self._config.persist_on_update:
+            if self._store is not None:
+                for u in updates:
+                    self._store.save_factor(u.node_id, u.new_factor)
+            elif self._config.factors_path is not None:
+                self._factors.persist(self._config.factors_path)
 
     def record_online_edge(self, source_id: str, target_id: str, score: float) -> None:
         """Record an online edge observation in the buffer."""
@@ -283,7 +324,12 @@ class LocalInteroceptionProvider:
         """
         result = self._buffer.flush(backend, **kwargs)
 
-        if self._config.buffer_path is not None:
+        if self._store is not None:
+            # Remove promoted edges, save remaining
+            promoted_keys = [(d["source"], d["target"]) for d in result.details]
+            self._store.remove_edges(promoted_keys)
+            self._store.save_edges(self._buffer._buffer)
+        elif self._config.buffer_path is not None:
             self._buffer.persist(self._config.buffer_path)
 
         return result

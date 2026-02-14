@@ -7,6 +7,7 @@ Coverage:
 - GraphRAGAdapter: full pipeline, online edge gen, combined scoring, feedback routing
 - Mode selection: MCP server + LocalQortexClient mode param
 - InteroceptionProvider: protocol conformance, lifecycle, persistence, adapter integration
+- InteroceptionStore: SQLite CRUD, roundtrip, concurrent, provider integration
 - Property tests: factor clamping invariants, weight normalization
 - Metamorphic tests: outcome order independence, shutdown/startup identity
 """
@@ -33,6 +34,7 @@ from qortex.hippocampus.interoception import (
     Outcome,
     OutcomeSource,
 )
+from qortex.hippocampus.store import InteroceptionStore
 from qortex.vec.index import NumpyVectorIndex
 
 # =============================================================================
@@ -1837,3 +1839,273 @@ class TestFeedbackDrivenRetrievalDelta:
             f"Expected score increase through client feedback loop. "
             f"Baseline: {baseline_alpha}, Post: {post_alpha}"
         )
+
+
+# =============================================================================
+# InteroceptionStore — SQLite CRUD
+# =============================================================================
+
+
+class TestInteroceptionStore:
+    """Tests for SQLite-backed InteroceptionStore."""
+
+    def test_create_and_close(self, tmp_path):
+        store = InteroceptionStore(tmp_path / "test.db")
+        store.close()
+        assert (tmp_path / "test.db").exists()
+
+    def test_save_and_load_factors(self, tmp_path):
+        store = InteroceptionStore(tmp_path / "test.db")
+        store.save_factors({"a": 1.5, "b": 0.8, "c": 1.0})
+        loaded = store.load_factors()
+        assert loaded == {"a": 1.5, "b": 0.8, "c": 1.0}
+        store.close()
+
+    def test_save_single_factor(self, tmp_path):
+        store = InteroceptionStore(tmp_path / "test.db")
+        store.save_factor("node_x", 2.5)
+        loaded = store.load_factors()
+        assert loaded == {"node_x": 2.5}
+        store.close()
+
+    def test_save_factor_upserts(self, tmp_path):
+        store = InteroceptionStore(tmp_path / "test.db")
+        store.save_factor("a", 1.0)
+        store.save_factor("a", 1.5)
+        loaded = store.load_factors()
+        assert loaded == {"a": 1.5}
+        store.close()
+
+    def test_load_factors_empty(self, tmp_path):
+        store = InteroceptionStore(tmp_path / "test.db")
+        assert store.load_factors() == {}
+        store.close()
+
+    def test_save_and_load_edges(self, tmp_path):
+        store = InteroceptionStore(tmp_path / "test.db")
+        edges = {
+            ("a", "b"): EdgeStats(hit_count=3, scores=[0.8, 0.9, 0.85], last_seen="2026-01-01"),
+            ("c", "d"): EdgeStats(hit_count=1, scores=[0.7], last_seen="2026-01-02"),
+        }
+        store.save_edges(edges)
+        loaded = store.load_edges()
+        assert len(loaded) == 2
+        assert loaded[("a", "b")].hit_count == 3
+        assert loaded[("a", "b")].scores == [0.8, 0.9, 0.85]
+        assert loaded[("c", "d")].hit_count == 1
+        store.close()
+
+    def test_load_edges_empty(self, tmp_path):
+        store = InteroceptionStore(tmp_path / "test.db")
+        assert store.load_edges() == {}
+        store.close()
+
+    def test_remove_edges(self, tmp_path):
+        store = InteroceptionStore(tmp_path / "test.db")
+        edges = {
+            ("a", "b"): EdgeStats(hit_count=3, scores=[0.8], last_seen=""),
+            ("c", "d"): EdgeStats(hit_count=1, scores=[0.7], last_seen=""),
+        }
+        store.save_edges(edges)
+        store.remove_edges([("a", "b")])
+        loaded = store.load_edges()
+        assert len(loaded) == 1
+        assert ("c", "d") in loaded
+        store.close()
+
+    def test_remove_edges_empty_list(self, tmp_path):
+        store = InteroceptionStore(tmp_path / "test.db")
+        store.remove_edges([])  # should not raise
+        store.close()
+
+    def test_roundtrip_factors_and_edges(self, tmp_path):
+        """Full roundtrip: save, close, reopen, load."""
+        db_path = tmp_path / "roundtrip.db"
+        store1 = InteroceptionStore(db_path)
+        store1.save_factors({"x": 1.2, "y": 0.9})
+        store1.save_edges({
+            ("x", "y"): EdgeStats(hit_count=5, scores=[0.9, 0.8], last_seen="2026-01-01"),
+        })
+        store1.close()
+
+        store2 = InteroceptionStore(db_path)
+        factors = store2.load_factors()
+        edges = store2.load_edges()
+        assert factors == {"x": 1.2, "y": 0.9}
+        assert len(edges) == 1
+        assert edges[("x", "y")].hit_count == 5
+        store2.close()
+
+    def test_creates_parent_directories(self, tmp_path):
+        db_path = tmp_path / "deep" / "nested" / "dir" / "test.db"
+        store = InteroceptionStore(db_path)
+        store.close()
+        assert db_path.exists()
+
+    def test_concurrent_access_with_threads(self, tmp_path):
+        """Multiple threads can write without corruption."""
+        import threading
+
+        store = InteroceptionStore(tmp_path / "concurrent.db")
+        errors = []
+
+        def write_factor(node_id, weight):
+            try:
+                store.save_factor(node_id, weight)
+            except Exception as e:
+                errors.append(e)
+
+        threads = [
+            threading.Thread(target=write_factor, args=(f"node_{i}", float(i)))
+            for i in range(20)
+        ]
+        for t in threads:
+            t.start()
+        for t in threads:
+            t.join()
+
+        assert errors == []
+        loaded = store.load_factors()
+        assert len(loaded) == 20
+        store.close()
+
+
+# =============================================================================
+# Provider with SQLite — Lifecycle
+# =============================================================================
+
+
+class TestProviderWithSqlite:
+    """LocalInteroceptionProvider lifecycle using SQLite backend."""
+
+    def test_startup_with_db_path(self, tmp_path):
+        config = InteroceptionConfig(db_path=tmp_path / "interoception.db")
+        provider = LocalInteroceptionProvider(config)
+        provider.startup()
+        assert provider._store is not None
+        assert provider.factors.factors == {}
+        provider.shutdown()
+
+    def test_full_lifecycle_roundtrip_sqlite(self, tmp_path):
+        """startup -> report_outcome -> shutdown -> startup -> state survives."""
+        db_path = tmp_path / "interoception.db"
+        config = InteroceptionConfig(db_path=db_path)
+
+        # Phase 1
+        p1 = LocalInteroceptionProvider(config)
+        p1.startup()
+        p1.report_outcome("q1", {"node_a": "accepted", "node_b": "rejected"})
+        p1.record_online_edge("x", "y", 0.85)
+        p1.shutdown()
+
+        # Phase 2: fresh provider, same db -> state survives
+        p2 = LocalInteroceptionProvider(config)
+        p2.startup()
+        assert p2.factors.get("node_a") == 1.1
+        assert p2.factors.get("node_b") == 0.95
+        assert len(p2.buffer._buffer) == 1
+        p2.shutdown()
+
+    def test_persist_on_update_sqlite(self, tmp_path):
+        """Single-row upsert on feedback when using SQLite."""
+        db_path = tmp_path / "interoception.db"
+        config = InteroceptionConfig(db_path=db_path, persist_on_update=True)
+        provider = LocalInteroceptionProvider(config)
+        provider.startup()
+
+        provider.report_outcome("q1", {"node_a": "accepted"})
+
+        # Verify factor persisted to SQLite immediately
+        store2 = InteroceptionStore(db_path)
+        factors = store2.load_factors()
+        assert factors["node_a"] == 1.1
+        store2.close()
+
+        provider.shutdown()
+
+    def test_persist_on_update_disabled_sqlite(self, tmp_path):
+        """No immediate persist when persist_on_update=False."""
+        db_path = tmp_path / "interoception.db"
+        config = InteroceptionConfig(db_path=db_path, persist_on_update=False)
+        provider = LocalInteroceptionProvider(config)
+        provider.startup()
+
+        provider.report_outcome("q1", {"node_a": "accepted"})
+        assert provider.factors.get("node_a") == 1.1
+
+        # Factor not persisted yet (only on shutdown)
+        store2 = InteroceptionStore(db_path)
+        factors = store2.load_factors()
+        assert "node_a" not in factors
+        store2.close()
+
+        provider.shutdown()
+
+    def test_flush_buffer_with_sqlite(self, tmp_path):
+        db_path = tmp_path / "interoception.db"
+        config = InteroceptionConfig(db_path=db_path)
+        provider = LocalInteroceptionProvider(config)
+        provider.startup()
+
+        backend = InMemoryBackend()
+        backend.connect()
+        backend.create_domain("test")
+        backend.add_node(make_node("test", "a"))
+        backend.add_node(make_node("test", "b"))
+
+        for _ in range(3):
+            provider.record_online_edge("test:a", "test:b", 0.9)
+
+        result = provider.flush_buffer(backend, min_hits=3, min_avg_score=0.75)
+        assert result.promoted == 1
+
+        # Promoted edge removed from SQLite, buffer should be empty
+        store2 = InteroceptionStore(db_path)
+        edges = store2.load_edges()
+        assert len(edges) == 0
+        store2.close()
+
+        provider.shutdown()
+
+    def test_double_shutdown_idempotent_sqlite(self, tmp_path):
+        db_path = tmp_path / "interoception.db"
+        config = InteroceptionConfig(db_path=db_path)
+        provider = LocalInteroceptionProvider(config)
+        provider.startup()
+        provider.report_outcome("q1", {"a": "accepted"})
+        provider.shutdown()
+        provider.shutdown()  # second call safe (store already closed)
+
+    def test_db_path_takes_priority_over_json(self, tmp_path):
+        """When both db_path and factors_path are set, SQLite wins."""
+        db_path = tmp_path / "interoception.db"
+        factors_path = tmp_path / "factors.json"
+        config = InteroceptionConfig(db_path=db_path, factors_path=factors_path)
+        provider = LocalInteroceptionProvider(config)
+        provider.startup()
+        assert provider._store is not None
+        provider.report_outcome("q1", {"a": "accepted"})
+        provider.shutdown()
+
+        # Data should be in SQLite, not JSON
+        assert not factors_path.exists()
+        store = InteroceptionStore(db_path)
+        assert store.load_factors()["a"] == 1.1
+        store.close()
+
+    def test_json_fallback_still_works(self, tmp_path):
+        """Without db_path, JSON persistence still works."""
+        factors_path = tmp_path / "factors.json"
+        buffer_path = tmp_path / "buffer.json"
+        config = InteroceptionConfig(factors_path=factors_path, buffer_path=buffer_path)
+
+        provider = LocalInteroceptionProvider(config)
+        provider.startup()
+        provider.report_outcome("q1", {"a": "accepted"})
+        provider.record_online_edge("x", "y", 0.85)
+        provider.shutdown()
+
+        assert factors_path.exists()
+        assert buffer_path.exists()
+        data = json.loads(factors_path.read_text())
+        assert data["a"] == 1.1
