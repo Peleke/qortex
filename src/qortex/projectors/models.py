@@ -18,6 +18,7 @@ class ProjectionFilter:
     min_confidence: float = 0.0
     derivation: Literal["explicit", "derived", "causal", "all"] = "all"
     relation_types: list[RelationType] | None = None
+    include_edge_derived: bool = True
 
 
 @dataclass

@@ -44,8 +44,10 @@ def _run_projection(
     target_obj: Any,
     domain: str | None,
     enrich: bool,
+    include_edge_derived: bool = True,
 ) -> Any:
     """Shared projection logic for all project commands."""
+    from qortex.projectors.models import ProjectionFilter
     from qortex.projectors.projection import Projection
     from qortex.projectors.sources.flat import FlatRuleSource
 
@@ -60,7 +62,8 @@ def _run_projection(
 
     projection = Projection(source=source, enricher=enricher, target=target_obj)
     domains = [domain] if domain else None
-    return projection.project(domains=domains)
+    filters = ProjectionFilter(include_edge_derived=include_edge_derived)
+    return projection.project(domains=domains, filters=filters)
 
 
 def _write_output(result: str, output: Path | None, label: str) -> None:
@@ -80,11 +83,13 @@ def buildlog(
     persona: str = typer.Option("qortex", "--persona", "-p", help="Buildlog persona name"),
     pending: bool = typer.Option(False, "--pending", help="Write to interop pending directory"),
     emit: bool = typer.Option(True, "--emit/--no-emit", help="Emit signal event (with --pending)"),
+    no_edges: bool = typer.Option(False, "--no-edges", help="Exclude edge-derived rules (DAG relationship templates)"),
 ) -> None:
     """Project rules to buildlog seed YAML format.
 
     Use --pending to write to the shared interop directory for consumers.
     Use --output to write to a specific file path.
+    Use --no-edges to exclude auto-generated DAG relationship rules.
     If neither is specified, prints to stdout.
     """
     import yaml
@@ -92,7 +97,7 @@ def buildlog(
     from qortex.projectors.targets.buildlog_seed import BuildlogSeedTarget
 
     target = BuildlogSeedTarget(persona_name=persona)
-    result = _run_projection(target, domain, enrich)
+    result = _run_projection(target, domain, enrich, include_edge_derived=not no_edges)
 
     if pending:
         # Write to interop pending directory
