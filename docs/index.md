@@ -6,19 +6,75 @@ Your AI assistant forgets everything between conversations. qortex adds a knowle
 
 ![qortex pipeline](images/diagrams/pipeline.svg)
 
-## Features
+## Install
 
-- **Graph-Enhanced Retrieval**: Combines vector similarity with structural graph traversal. Related concepts get promoted even if they don't share keywords.
-- **Adaptive Learning**: Every feedback call updates retrieval weights. The system gets smarter the more you use it.
-- **Compare and Prove**: `qortex_compare` runs the same query through cosine-only and graph-enhanced retrieval so you can see the difference on your own data.
-- **Activity Tracking**: `qortex_stats` shows knowledge coverage, learning progress, and query activity at a glance.
-- **Auto-Ingest**: Feed it docs, specs, or code. LLM extraction builds concepts, typed edges, and rules automatically.
-- **Persistent by Default**: SQLite stores the knowledge graph, vector index, and learning state across restarts.
-- **Framework Adapters**: Drop-in for LangChain VectorStore, Mastra MastraVector, and agno KnowledgeProtocol.
-- **Projection Pipeline**: Source, Enricher, Target architecture for rule generation.
-- **Multiple Backends**: InMemory (testing), Memgraph (production), SQLite (default persistent).
+**Claude Code**
+```bash
+claude mcp add qortex -- uvx qortex mcp-serve
+```
 
-## Quick Example
+**Cursor / Windsurf**
+```bash
+uvx qortex mcp-serve  # add as stdio MCP server in settings
+```
+
+**Any MCP client**
+```bash
+pip install qortex[all] && qortex mcp-serve
+```
+
+Once installed, your assistant automatically:
+
+1. **Searches** the knowledge graph before answering architecture questions
+2. **Retrieves** relevant concepts, relationships, and rules -- not just similar text
+3. **Learns** from your feedback: accepted results get boosted, rejected ones get suppressed
+4. **Persists** everything to SQLite so knowledge survives restarts
+
+No config files. No API keys for the knowledge layer. Just start asking questions.
+
+## The difference
+
+| | Vanilla RAG | qortex |
+|---|---|---|
+| **Retrieval** | Cosine similarity (what's textually similar) | Graph-enhanced (what's structurally relevant) |
+| **Context** | Flat chunks | Concepts + typed edges + rules |
+| **Learning** | Static | Adapts from every accept/reject signal |
+| **Cross-references** | None | Traverses REQUIRES, REFINES, USES edges |
+
+## Prove it
+
+Call `qortex_compare` to see the difference on your own data:
+
+```json
+{
+  "summary": "Graph-enhanced retrieval found 2 item(s) that cosine missed, surfaced 1 rule(s), replaced 1 distractor(s).",
+  "diff": {
+    "graph_found_that_cosine_missed": [
+      {"rank": 3, "id": "security:JWTValidation", "score": 0.72}
+    ],
+    "cosine_found_that_graph_dropped": [
+      {"rank": 4, "id": "security:PasswordHashing", "score": 0.68}
+    ],
+    "rank_changes": [
+      {"id": "security:AuthMiddleware", "vec_rank": 3, "graph_rank": 1, "delta": 2}
+    ]
+  }
+}
+```
+
+Graph retrieval promotes structurally connected concepts (AuthMiddleware depends on JWTValidation) and demotes textually similar but unrelated results.
+
+## How it works
+
+- **Graph-enhanced retrieval**: Queries combine vector similarity with structural graph traversal. Related concepts get promoted even if they don't share keywords.
+- **Adaptive learning**: Every `qortex_feedback` call updates retrieval weights via Thompson Sampling. The system gets smarter the more you use it.
+- **Auto-ingest**: Feed it docs, specs, or code. LLM extraction builds concepts, typed edges, and rules automatically.
+- **Persistent by default**: SQLite stores the knowledge graph, vector index, and learning state across restarts.
+- **Activity tracking**: `qortex_stats` shows knowledge coverage, learning progress, and query activity at a glance.
+- **Projection pipeline**: Source, Enricher, Target architecture for projecting knowledge into any format -- buildlog seeds, flat YAML, JSON, or custom targets.
+- **Multiple backends**: InMemory (testing), Memgraph (production with MAGE algorithms), SQLite (default persistent).
+
+## Quick example
 
 ### Search, explore, learn
 
@@ -27,7 +83,7 @@ from qortex.client import LocalQortexClient
 
 client = LocalQortexClient(vector_index, backend, embedding, mode="graph")
 
-# Search: vec + graph combined scoring, rules auto-surfaced
+# Search: vec + graph combined scoring
 result = client.query("OAuth2 authorization", domains=["security"], top_k=5)
 
 # Explore: traverse typed edges from any result
@@ -39,85 +95,68 @@ for edge in explore.edges:
 client.feedback(result.query_id, {result.items[0].id: "accepted"})
 ```
 
-### LangChain VectorStore (drop-in)
+## Framework adapters
+
+Drop-in adapters for the frameworks you already use.
+
+### agno KnowledgeProtocol
 
 ```python
-from qortex.adapters.langchain_vectorstore import QortexVectorStore
+from qortex.adapters.agno import QortexKnowledgeSource
+
+knowledge = QortexKnowledgeSource(domains=["security"])
+agent = Agent(knowledge=knowledge)
+```
+
+### LangChain VectorStore
+
+```python
+from langchain_qortex import QortexVectorStore
 
 vs = QortexVectorStore.from_texts(texts, embedding, domain="security")
-docs = vs.similarity_search("authentication", k=5)
 retriever = vs.as_retriever()
 ```
 
-### Project rules
+See [langchain-qortex](https://github.com/Peleke/langchain-qortex) for the standalone package.
 
-```python
-from qortex.projectors.projection import Projection
-from qortex.projectors.sources.flat import FlatRuleSource
-from qortex.projectors.targets.buildlog_seed import BuildlogSeedTarget
+### Mastra MastraVector
 
-projection = Projection(
-    source=FlatRuleSource(backend=backend),
-    target=BuildlogSeedTarget(persona_name="my_rules"),
-)
-result = projection.project(domains=["my_domain"])
+```typescript
+import { QortexVector } from "@peleke.s/mastra-qortex";
+
+const qortex = new QortexVector({ id: "qortex" });
+await qortex.createIndex({ indexName: "docs", dimension: 384 });
+const results = await qortex.query({ indexName: "docs", queryVector: q, topK: 10 });
 ```
 
-Or use the CLI:
+See [@peleke.s/mastra-qortex](https://github.com/Peleke/mastra-qortex) for the standalone package.
 
-```bash
-qortex project buildlog --domain my_domain --pending
-```
+| Framework | Package | Language | Interface |
+|-----------|---------|----------|-----------|
+| agno | Built-in adapter | Python | `KnowledgeProtocol` |
+| LangChain | [`langchain-qortex`](https://github.com/Peleke/langchain-qortex) | Python | `VectorStore` ABC |
+| Mastra | [`@peleke.s/mastra-qortex`](https://github.com/Peleke/mastra-qortex) | TypeScript | `MastraVector` abstract class |
+| CrewAI | Built-in adapter | Python | `KnowledgeStorage` |
+| AutoGen | Built-in adapter | Python | Async tool interface |
+| Any MCP client | Built-in MCP server | Any | MCP tools (JSON-RPC) |
 
-## Installation
+## Install extras
 
-```bash
-pip install qortex
+| Capability | Install | What you get |
+|-----------|---------|-------------|
+| Core + MCP tools | `pip install qortex` | Knowledge graph, MCP server, vector-level tools. Consumers provide embeddings. |
+| Text-level search | `pip install qortex[vec]` | qortex embeds text with sentence-transformers. Adds ~2GB for PyTorch + model weights. |
+| Persistent vectors | `pip install qortex[vec-sqlite]` | SQLite-backed vector index. Without this, vectors are in-memory only. |
+| Production graph | `pip install qortex[memgraph]` | Memgraph backend for production-scale graph operations. |
+| Everything | `pip install qortex[all]` | All of the above. |
 
-# With Memgraph support
-pip install qortex[memgraph]
+## Next steps
 
-# With all optional dependencies
-pip install qortex[all]
-```
-
-## Next Steps
-
-<div class="grid cards" markdown>
-
--   :material-clock-fast:{ .lg .middle } **Getting Started**
-
-    ---
-
-    Install qortex and project your first rules in under 5 minutes
-
-    [:octicons-arrow-right-24: Quick Start](getting-started/quickstart.md)
-
--   :material-magnify:{ .lg .middle } **Querying**
-
-    ---
-
-    Graph-enhanced search with exploration and feedback
-
-    [:octicons-arrow-right-24: Querying Guide](guides/querying.md)
-
--   :material-graph:{ .lg .middle } **Core Concepts**
-
-    ---
-
-    Understand domains, concepts, edges, and rules
-
-    [:octicons-arrow-right-24: Concepts](getting-started/concepts.md)
-
--   :material-connection:{ .lg .middle } **Framework Adapters**
-
-    ---
-
-    Drop-in for LangChain, Mastra, CrewAI, and Agno
-
-    [:octicons-arrow-right-24: Case Studies](tutorials/case-studies/index.md)
-
-</div>
+- **[Quick Start](getting-started/quickstart.md)** -- Install qortex and run your first query in under 5 minutes
+- **[Querying Guide](guides/querying.md)** -- Graph-enhanced search with exploration and feedback
+- **[Core Concepts](getting-started/concepts.md)** -- Domains, concepts, typed edges, and the learning loop
+- **[Framework Adapters](tutorials/case-studies/index.md)** -- Drop-in for LangChain, Mastra, CrewAI, Agno, and AutoGen
+- **[Theory](tutorials/index.md)** -- Why knowledge graphs, causal reasoning, and the geometry of learning
 
 ## License
 
