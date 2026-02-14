@@ -42,6 +42,7 @@ Learning tools:
 - qortex_learning_metrics: Get aggregate learning metrics
 - qortex_learning_session_start: Start a learning session
 - qortex_learning_session_end: End a learning session
+- qortex_learning_reset: Reset (delete) learned posteriors for a learner
 
 Architecture:
     Each tool has a plain `_<name>_impl()` function with the core logic,
@@ -2423,6 +2424,19 @@ def _learning_session_end_impl(session_id: str) -> dict:
     return {"error": f"Session {session_id} not found in any learner"}
 
 
+def _learning_reset_impl(
+    learner: str,
+    arm_ids: list[str] | None = None,
+    context: dict | None = None,
+) -> dict:
+    """Reset (delete) learned posteriors for a learner."""
+    lrn = _get_or_create_learner(learner)
+    count = lrn.reset(arm_ids=arm_ids, context=context)
+    # Evict from cache so seed boosts re-apply on next use
+    _learners.pop(learner, None)
+    return {"learner": learner, "deleted": count, "status": "reset"}
+
+
 # ---------------------------------------------------------------------------
 # Learning MCP tool wrappers
 # ---------------------------------------------------------------------------
@@ -2539,6 +2553,26 @@ def qortex_learning_session_end(session_id: str) -> dict:
         session_id: The session_id from qortex_learning_session_start.
     """
     return _learning_session_end_impl(session_id)
+
+
+@mcp.tool
+@_mcp_traced
+def qortex_learning_reset(
+    learner: str,
+    arm_ids: list[str] | None = None,
+    context: dict | None = None,
+) -> dict:
+    """Reset learned posteriors for a learner, clearing poisoned or stale data.
+
+    Deletes stored arm states and evicts the learner from cache so seed
+    boosts re-apply on next use. Scope the reset with arm_ids and/or context.
+
+    Args:
+        learner: Learner name.
+        arm_ids: Optional list of arm IDs to delete. None = all arms.
+        context: Optional context dict to scope deletion. None = default context (or all if arm_ids also None).
+    """
+    return _learning_reset_impl(learner, arm_ids, context)
 
 
 # ---------------------------------------------------------------------------

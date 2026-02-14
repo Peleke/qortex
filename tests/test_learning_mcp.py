@@ -158,6 +158,58 @@ class TestLearningSessionMCP:
         assert "error" in result
 
 
+class TestLearningResetMCP:
+    def test_reset_all(self, server):
+        server._learning_observe_impl(learner="test", arm_id="arm:a", outcome="accepted")
+        server._learning_observe_impl(learner="test", arm_id="arm:b", outcome="rejected")
+
+        result = server._learning_reset_impl(learner="test")
+        assert result["learner"] == "test"
+        assert result["deleted"] == 2
+        assert result["status"] == "reset"
+
+        # Posteriors should be empty after reset (new learner instance)
+        posteriors = server._learning_posteriors_impl(learner="test")
+        assert posteriors["posteriors"] == {}
+
+    def test_reset_specific_arms(self, server):
+        server._learning_observe_impl(learner="test", arm_id="arm:a", outcome="accepted")
+        server._learning_observe_impl(learner="test", arm_id="arm:b", outcome="accepted")
+
+        result = server._learning_reset_impl(learner="test", arm_ids=["arm:a"])
+        assert result["deleted"] == 1
+
+        # arm:b still has data
+        posteriors = server._learning_posteriors_impl(learner="test")
+        assert "arm:b" in posteriors["posteriors"]
+        assert "arm:a" not in posteriors["posteriors"]
+
+    def test_reset_by_context(self, server):
+        ctx = {"task": "typing"}
+        server._learning_observe_impl(learner="test", arm_id="arm:a", outcome="accepted")
+        server._learning_observe_impl(
+            learner="test", arm_id="arm:b", outcome="accepted", context=ctx
+        )
+
+        result = server._learning_reset_impl(learner="test", context=ctx)
+        assert result["deleted"] == 1
+
+        # Default context arm survives
+        posteriors = server._learning_posteriors_impl(learner="test")
+        assert "arm:a" in posteriors["posteriors"]
+
+    def test_reset_evicts_learner_cache(self, server):
+        server._learning_observe_impl(learner="test", arm_id="arm:a", outcome="accepted")
+        assert "test" in server._learners
+
+        server._learning_reset_impl(learner="test")
+        assert "test" not in server._learners
+
+        # Next call auto-creates a fresh learner
+        server._learning_observe_impl(learner="test", arm_id="arm:x", outcome="accepted")
+        assert "test" in server._learners
+
+
 class TestLearnerAutoCreation:
     def test_different_learners_independent(self, server):
         server._learning_observe_impl(learner="alpha", arm_id="arm:a", outcome="accepted")

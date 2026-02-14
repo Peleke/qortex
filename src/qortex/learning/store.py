@@ -38,6 +38,7 @@ class LearningStore(Protocol):
     def put(self, arm_id: str, state: ArmState, context: dict | None = None) -> None: ...
     def get_all_contexts(self) -> list[str]: ...
     def get_all_states(self) -> dict[str, dict[str, ArmState]]: ...
+    def delete(self, arm_ids: list[str] | None = None, context: dict | None = None) -> int: ...
     def save(self) -> None: ...
 
 
@@ -91,6 +92,42 @@ class JsonLearningStore:
         if ctx not in self._data:
             self._data[ctx] = {}
         self._data[ctx][arm_id] = state
+
+    def delete(self, arm_ids: list[str] | None = None, context: dict | None = None) -> int:
+        """Delete arm states. Returns number of entries removed."""
+        count = 0
+        if arm_ids is None and context is None:
+            # Full reset
+            for arms in self._data.values():
+                count += len(arms)
+            self._data.clear()
+        elif arm_ids is None:
+            # Delete all arms for a specific context
+            ctx = context_hash(context or {})
+            if ctx in self._data:
+                count = len(self._data[ctx])
+                del self._data[ctx]
+        elif context is None:
+            # Delete specific arms in default context
+            ctx = context_hash({})
+            if ctx in self._data:
+                for arm_id in arm_ids:
+                    if arm_id in self._data[ctx]:
+                        del self._data[ctx][arm_id]
+                        count += 1
+                if not self._data[ctx]:
+                    del self._data[ctx]
+        else:
+            # Delete specific arms in specific context
+            ctx = context_hash(context)
+            if ctx in self._data:
+                for arm_id in arm_ids:
+                    if arm_id in self._data[ctx]:
+                        del self._data[ctx][arm_id]
+                        count += 1
+                if not self._data[ctx]:
+                    del self._data[ctx]
+        return count
 
     def get_all_contexts(self) -> list[str]:
         return list(self._data.keys())
@@ -240,6 +277,34 @@ class SqliteLearningStore:
                     last_updated=row[6],
                 )
             return result
+
+    def delete(self, arm_ids: list[str] | None = None, context: dict | None = None) -> int:
+        """Delete arm states. Returns number of entries removed."""
+        with self._lock:
+            conn = self._ensure_connection()
+            if arm_ids is None and context is None:
+                cursor = conn.execute("DELETE FROM arm_states")
+            elif arm_ids is None:
+                ctx = context_hash(context or {})
+                cursor = conn.execute(
+                    "DELETE FROM arm_states WHERE context_hash = ?", (ctx,)
+                )
+            elif context is None:
+                ctx = context_hash({})
+                placeholders = ",".join("?" for _ in arm_ids)
+                cursor = conn.execute(
+                    f"DELETE FROM arm_states WHERE context_hash = ? AND arm_id IN ({placeholders})",
+                    (ctx, *arm_ids),
+                )
+            else:
+                ctx = context_hash(context)
+                placeholders = ",".join("?" for _ in arm_ids)
+                cursor = conn.execute(
+                    f"DELETE FROM arm_states WHERE context_hash = ? AND arm_id IN ({placeholders})",
+                    (ctx, *arm_ids),
+                )
+            conn.commit()
+            return cursor.rowcount
 
     def save(self) -> None:
         with self._lock:

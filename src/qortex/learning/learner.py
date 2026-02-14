@@ -199,6 +199,19 @@ class Learner:
         self.store.save()
         return results
 
+    def reset(
+        self,
+        arm_ids: list[str] | None = None,
+        context: dict | None = None,
+    ) -> int:
+        """Delete arm states and return count of entries removed.
+
+        Useful for resetting poisoned posteriors or clearing stale data.
+        """
+        count = self.store.delete(arm_ids=arm_ids, context=context)
+        self.store.save()
+        return count
+
     def batch_observe(
         self,
         outcomes: list[ArmOutcome],
