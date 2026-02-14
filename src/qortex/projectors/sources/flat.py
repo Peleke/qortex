@@ -82,6 +82,8 @@ class FlatRuleSource:
         filt: ProjectionFilter,
     ) -> list[Rule]:
         """Derive rules from KG edges using template registry."""
+        if not filt.include_edge_derived:
+            return []
         target_domains = domains or self._all_domain_names()
         rules: list[Rule] = []
 
