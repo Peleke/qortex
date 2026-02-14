@@ -21,6 +21,8 @@ classifiers = [
     "Programming Language :: Python :: 3.12",
 ]
 
+# NOTE: qortex-ingest imports from qortex.core.models (IngestionManifest re-export).
+# In the workspace this resolves via editable install. For standalone use, add "qortex".
 dependencies = []
 
 [project.optional-dependencies]

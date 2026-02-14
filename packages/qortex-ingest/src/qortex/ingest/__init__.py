@@ -1,11 +1,7 @@
 """qortex.ingest: Pluggable ingestors for qortex.
 
-This package is SEPARABLE from qortex core.
-It produces IngestionManifest objects that the KG consumes.
-
-Could become its own package later:
-- qortex: KG + hippocampus + projectors
-- qortex-ingest: PDF, MD, text ingestors
+Separate workspace package under packages/qortex-ingest/.
+Produces IngestionManifest objects that the KG consumes.
 """
 
 from qortex.core.models import IngestionManifest
