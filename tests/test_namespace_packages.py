@@ -5,7 +5,6 @@ all sub-packages break. These tests catch that before 1800+ tests fail
 mysteriously.
 """
 
-import importlib
 from pathlib import Path
 
 
@@ -21,8 +20,9 @@ class TestNamespacePackageResolution:
 
     def test_three_packages_resolve_to_separate_paths(self):
         """observe, ingest, and core live in different filesystem trees."""
-        import qortex.observe
         import qortex.ingest
+        import qortex.observe
+
         import qortex.core
 
         obs_path = Path(qortex.observe.__file__).resolve()
@@ -51,8 +51,9 @@ class TestNamespacePackageResolution:
 
     def test_no_namespace_init_py_on_disk(self):
         """Guard: no qortex/__init__.py in any of the three source trees."""
-        import qortex.observe
         import qortex.ingest
+        import qortex.observe
+
         import qortex.core
 
         for mod in (qortex.observe, qortex.ingest, qortex.core):
@@ -66,6 +67,7 @@ class TestNamespacePackageResolution:
     def test_cross_namespace_import(self):
         """qortex.ingest can import from qortex.core (cross-package)."""
         from qortex.ingest import IngestionManifest
+
         from qortex.core.models import IngestionManifest as CoreManifest
 
         assert IngestionManifest is CoreManifest

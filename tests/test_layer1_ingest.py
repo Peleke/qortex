@@ -509,8 +509,9 @@ class TestReactiveAdapter:
 
 class TestMCPIngestText:
     def _setup_server(self, llm_backend=None):
-        from qortex.mcp import server
         from qortex.ingest.base import StubLLMBackend
+
+        from qortex.mcp import server
 
         vector_index = NumpyVectorIndex(dimensions=DIMS)
         backend = InMemoryBackend(vector_index=vector_index)

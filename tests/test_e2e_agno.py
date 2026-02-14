@@ -53,11 +53,12 @@ def real_backend():
 
     scope=module so we load the model once, not per test.
     """
+    from qortex.ingest.base import StubLLMBackend
+
     from qortex.core.memory import InMemoryBackend
     from qortex.mcp.server import create_server, set_llm_backend
     from qortex.vec.embeddings import SentenceTransformerEmbedding
     from qortex.vec.index import NumpyVectorIndex
-    from qortex.ingest.base import StubLLMBackend
 
     embedding = SentenceTransformerEmbedding()
     vector_index = NumpyVectorIndex(dimensions=embedding.dimensions)
