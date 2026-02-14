@@ -218,7 +218,7 @@ class TestMcpTracedDecorator:
         # FastMCP wraps functions into FunctionTool objects;
         # check the inner fn has __wrapped__ from _mcp_traced
         tools = mcp._tool_manager._tools
-        assert len(tools) == 33, f"Expected 33 tools, got {len(tools)}"
+        assert len(tools) == 34, f"Expected 34 tools, got {len(tools)}"
 
         for name, tool in tools.items():
             fn = tool.fn

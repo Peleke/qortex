@@ -42,6 +42,7 @@ Learning tools:
 - qortex_learning_metrics: Get aggregate learning metrics
 - qortex_learning_session_start: Start a learning session
 - qortex_learning_session_end: End a learning session
+- qortex_learning_reset: Reset (delete) learned posteriors for a learner
 
 Architecture:
     Each tool has a plain `_<name>_impl()` function with the core logic,
@@ -2316,6 +2317,8 @@ def _learning_select_impl(
     k: int = 1,
     token_budget: int = 0,
     min_pulls: int = 0,
+    seed_arms: list[str] | None = None,
+    seed_boost: float | None = None,
 ) -> dict:
     """Select arms from candidates using the learner's strategy."""
     from qortex.learning import Arm
@@ -2329,7 +2332,12 @@ def _learning_select_impl(
         for c in candidates
     ]
 
-    lrn = _get_or_create_learner(learner)
+    create_kwargs: dict = {}
+    if seed_arms is not None:
+        create_kwargs["seed_arms"] = seed_arms
+    if seed_boost is not None:
+        create_kwargs["seed_boost"] = seed_boost
+    lrn = _get_or_create_learner(learner, **create_kwargs)
     if min_pulls > 0:
         lrn.config.min_pulls = min_pulls
     result = lrn.select(arms, context=context, k=k, token_budget=token_budget)
@@ -2423,6 +2431,19 @@ def _learning_session_end_impl(session_id: str) -> dict:
     return {"error": f"Session {session_id} not found in any learner"}
 
 
+def _learning_reset_impl(
+    learner: str,
+    arm_ids: list[str] | None = None,
+    context: dict | None = None,
+) -> dict:
+    """Reset (delete) learned posteriors for a learner."""
+    lrn = _get_or_create_learner(learner)
+    count = lrn.reset(arm_ids=arm_ids, context=context)
+    # Evict from cache so seed boosts re-apply on next use
+    _learners.pop(learner, None)
+    return {"learner": learner, "deleted": count, "status": "reset"}
+
+
 # ---------------------------------------------------------------------------
 # Learning MCP tool wrappers
 # ---------------------------------------------------------------------------
@@ -2437,6 +2458,8 @@ def qortex_learning_select(
     k: int = 1,
     token_budget: int = 0,
     min_pulls: int = 0,
+    seed_arms: list[str] | None = None,
+    seed_boost: float | None = None,
 ) -> dict:
     """Select the best candidates from a pool using adaptive learning.
 
@@ -2451,8 +2474,13 @@ def qortex_learning_select(
         k: Number of arms to select.
         token_budget: Max total token cost. 0 = unlimited.
         min_pulls: Force-explore arms with fewer than this many observations.
+        seed_arms: Arm IDs to boost on first use. Applied when the learner is created.
+        seed_boost: Alpha boost for seed arms (default 2.0 in LearnerConfig).
     """
-    return _learning_select_impl(learner, candidates, context, k, token_budget, min_pulls)
+    return _learning_select_impl(
+        learner, candidates, context, k, token_budget, min_pulls,
+        seed_arms=seed_arms, seed_boost=seed_boost,
+    )
 
 
 @mcp.tool
@@ -2539,6 +2567,26 @@ def qortex_learning_session_end(session_id: str) -> dict:
         session_id: The session_id from qortex_learning_session_start.
     """
     return _learning_session_end_impl(session_id)
+
+
+@mcp.tool
+@_mcp_traced
+def qortex_learning_reset(
+    learner: str,
+    arm_ids: list[str] | None = None,
+    context: dict | None = None,
+) -> dict:
+    """Reset learned posteriors for a learner, clearing poisoned or stale data.
+
+    Deletes stored arm states and evicts the learner from cache so seed
+    boosts re-apply on next use. Scope the reset with arm_ids and/or context.
+
+    Args:
+        learner: Learner name.
+        arm_ids: Optional list of arm IDs to delete. None = all arms.
+        context: Optional context dict to scope deletion. None = default context (or all if arm_ids also None).
+    """
+    return _learning_reset_impl(learner, arm_ids, context)
 
 
 # ---------------------------------------------------------------------------

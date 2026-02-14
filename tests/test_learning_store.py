@@ -254,6 +254,70 @@ class TestNameSanitization:
 
 
 # ---------------------------------------------------------------------------
+# delete() — runs against both backends
+# ---------------------------------------------------------------------------
+
+
+class TestStoreDelete:
+    def test_delete_all(self, store):
+        """arm_ids=None, context=None -> delete everything."""
+        store.put("arm:a", ArmState(alpha=2.0))
+        store.put("arm:b", ArmState(alpha=3.0), context={"task": "x"})
+        count = store.delete()
+        store.save()
+        assert count == 2
+        assert store.get_all() == {}
+        assert store.get_all(context={"task": "x"}) == {}
+
+    def test_delete_by_context(self, store):
+        """arm_ids=None, context=set -> delete all arms for that context."""
+        store.put("arm:a", ArmState(alpha=2.0))
+        store.put("arm:b", ArmState(alpha=3.0), context={"task": "x"})
+        store.put("arm:c", ArmState(alpha=4.0), context={"task": "x"})
+        count = store.delete(context={"task": "x"})
+        store.save()
+        assert count == 2
+        # Default context untouched
+        assert store.get("arm:a").alpha == 2.0
+        assert store.get_all(context={"task": "x"}) == {}
+
+    def test_delete_specific_arms_default_context(self, store):
+        """arm_ids=set, context=None -> delete those arms in default context."""
+        store.put("arm:a", ArmState(alpha=2.0))
+        store.put("arm:b", ArmState(alpha=3.0))
+        store.put("arm:c", ArmState(alpha=4.0))
+        count = store.delete(arm_ids=["arm:a", "arm:b"])
+        store.save()
+        assert count == 2
+        assert store.get("arm:a").pulls == 0  # back to default
+        assert store.get("arm:c").alpha == 4.0  # untouched
+
+    def test_delete_specific_arms_specific_context(self, store):
+        """arm_ids=set, context=set -> delete those arms in that context."""
+        ctx = {"task": "x"}
+        store.put("arm:a", ArmState(alpha=5.0), context=ctx)
+        store.put("arm:b", ArmState(alpha=6.0), context=ctx)
+        store.put("arm:a", ArmState(alpha=9.0))  # default context, untouched
+        count = store.delete(arm_ids=["arm:a"], context=ctx)
+        store.save()
+        assert count == 1
+        assert store.get("arm:a", context=ctx).pulls == 0  # deleted
+        assert store.get("arm:b", context=ctx).alpha == 6.0  # untouched
+        assert store.get("arm:a").alpha == 9.0  # default untouched
+
+    def test_delete_nonexistent_returns_zero(self, store):
+        count = store.delete(arm_ids=["nope"])
+        assert count == 0
+
+    def test_delete_empty_arm_ids_is_noop(self, store):
+        """arm_ids=[] should not crash (especially SQLite IN clause)."""
+        store.put("arm:a", ArmState(alpha=2.0))
+        count = store.delete(arm_ids=[])
+        assert count == 0
+        assert store.get("arm:a").alpha == 2.0
+
+
+# ---------------------------------------------------------------------------
 # Concurrent access (regression for #93)
 # ---------------------------------------------------------------------------
 
