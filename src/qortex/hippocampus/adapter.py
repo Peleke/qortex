@@ -17,8 +17,10 @@ from datetime import UTC, datetime
 from typing import TYPE_CHECKING, Protocol, runtime_checkable
 
 import numpy as np
-from qortex_observe import emit
-from qortex_observe.events import (
+
+from qortex.core.backend import GraphBackend
+from qortex.observe import emit
+from qortex.observe.events import (
     FeedbackReceived,
     KGCoverageComputed,
     OnlineEdgesGenerated,
@@ -28,11 +30,9 @@ from qortex_observe.events import (
     VecSearchCompleted,
     VecSeedYield,
 )
-from qortex_observe.logging import get_logger
-from qortex_observe.snapshot import config_snapshot_hash
-from qortex_observe.tracing import _config_hash, get_overhead_timer, traced
-
-from qortex.core.backend import GraphBackend
+from qortex.observe.logging import get_logger
+from qortex.observe.snapshot import config_snapshot_hash
+from qortex.observe.tracing import _config_hash, get_overhead_timer, traced
 
 if TYPE_CHECKING:
     from qortex.hippocampus.buffer import EdgePromotionBuffer

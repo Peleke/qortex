@@ -66,11 +66,11 @@ from pathlib import Path
 from typing import Any
 
 from fastmcp import FastMCP
-from qortex_observe.logging import get_logger
-from qortex_observe.mcp import mcp_trace_middleware
 
 from qortex.core.memory import InMemoryBackend
 from qortex.hippocampus.adapter import VecOnlyAdapter
+from qortex.observe.logging import get_logger
+from qortex.observe.mcp import mcp_trace_middleware
 from qortex.sources.registry import SourceRegistry
 
 logger = get_logger(__name__)
@@ -148,7 +148,7 @@ def _ensure_initialized() -> None:
         return
 
     # Initialize observability (env-var driven, zero-config by default)
-    from qortex_observe import configure
+    from qortex.observe import configure
 
     configure()
 
@@ -443,8 +443,8 @@ def _maybe_propagate_credit(
     learner.apply_credit_deltas(updates)
 
     # Emit event
-    from qortex_observe import emit
-    from qortex_observe.events import CreditPropagated
+    from qortex.observe import emit
+    from qortex.observe.events import CreditPropagated
 
     direct = sum(1 for a in all_assignments if a.method == "direct")
     ancestor = sum(1 for a in all_assignments if a.method == "ancestor")
@@ -546,7 +546,7 @@ def _ingest_impl(
         }
         source_type = type_map.get(ext, "text")
 
-    from qortex_ingest.base import Source
+    from qortex.ingest.base import Source
 
     source = Source(
         path=path,
@@ -557,15 +557,15 @@ def _ingest_impl(
     llm = _get_llm_backend()
 
     if source_type == "markdown":
-        from qortex_ingest.markdown import MarkdownIngestor
+        from qortex.ingest.markdown import MarkdownIngestor
 
         ingestor = MarkdownIngestor(llm, embedding_model=_embedding_model)
     elif source_type == "pdf":
-        from qortex_ingest.pdf import PDFIngestor
+        from qortex.ingest.pdf import PDFIngestor
 
         ingestor = PDFIngestor(llm, embedding_model=_embedding_model)
     else:
-        from qortex_ingest.text import TextIngestor
+        from qortex.ingest.text import TextIngestor
 
         ingestor = TextIngestor(llm, embedding_model=_embedding_model)
 
@@ -616,7 +616,7 @@ def _ingest_text_impl(
             "warnings": ["Empty text provided"],
         }
 
-    from qortex_ingest.base import Source
+    from qortex.ingest.base import Source
 
     source = Source(
         raw_content=text,
@@ -627,11 +627,11 @@ def _ingest_text_impl(
     llm = _get_llm_backend()
 
     if format == "markdown":
-        from qortex_ingest.markdown import MarkdownIngestor
+        from qortex.ingest.markdown import MarkdownIngestor
 
         ingestor = MarkdownIngestor(llm, embedding_model=_embedding_model)
     else:
-        from qortex_ingest.text import TextIngestor
+        from qortex.ingest.text import TextIngestor
 
         ingestor = TextIngestor(llm, embedding_model=_embedding_model)
 
@@ -2151,7 +2151,7 @@ def qortex_vector_create_index(
     """Create a named vector index for raw vector operations.
 
     Used by MastraVector and other vector-level consumers. Separate from
-    the text-level index used by qortex_query/qortex_ingest.
+    the text-level index used by qortex_query/qortex.ingest.
 
     Args:
         index_name: Unique name for the index.
@@ -2558,7 +2558,7 @@ def _get_llm_backend():
 
     # Try to load real LLM backend
     try:
-        from qortex_ingest.backends.anthropic import AnthropicBackend
+        from qortex.ingest.backends.anthropic import AnthropicBackend
 
         _llm_backend = AnthropicBackend()
         return _llm_backend
@@ -2568,7 +2568,7 @@ def _get_llm_backend():
         logger.warning("anthropic.init.failed", error=str(e))
 
     # Fallback to stub
-    from qortex_ingest.base import StubLLMBackend
+    from qortex.ingest.base import StubLLMBackend
 
     _llm_backend = StubLLMBackend()
     return _llm_backend

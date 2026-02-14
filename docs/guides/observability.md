@@ -376,7 +376,7 @@ These panels track causal credit assignment: feedback propagating backward throu
 
 ## Distributed Tracing
 
-qortex uses the `@traced` decorator from `qortex_observe.tracing` to create OpenTelemetry spans with automatic parent-child hierarchy. When OTel is enabled, every operation produces a trace tree visible in Jaeger.
+qortex uses the `@traced` decorator from `qortex.observe.tracing` to create OpenTelemetry spans with automatic parent-child hierarchy. When OTel is enabled, every operation produces a trace tree visible in Jaeger.
 
 ### Span Hierarchy
 

@@ -19,7 +19,7 @@ os.environ["QORTEX_PROMETHEUS_PORT"] = "9464"
 
 from qortex.learning.learner import Learner
 from qortex.learning.types import Arm, ArmOutcome, LearnerConfig
-from qortex_observe import configure, reset as obs_reset
+from qortex.observe import configure, reset as obs_reset
 
 # ── Setup ─────────────────────────────────────────────────────────
 obs_reset()

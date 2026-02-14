@@ -717,8 +717,8 @@ class TestIngestionEmbedding:
 
     def test_ingest_with_embedding_populates_concept_embeddings(self):
         """Full pipeline: ingest text → concepts should have embeddings."""
-        from qortex_ingest.base import Source, StubLLMBackend
-        from qortex_ingest.text import TextIngestor
+        from qortex.ingest.base import Source, StubLLMBackend
+        from qortex.ingest.text import TextIngestor
 
         stub_llm = StubLLMBackend(
             concepts=[
@@ -743,8 +743,8 @@ class TestIngestionEmbedding:
 
     def test_ingest_without_embedding_model_leaves_none(self):
         """Without embedding model, ConceptNodes should have embedding=None."""
-        from qortex_ingest.base import Source, StubLLMBackend
-        from qortex_ingest.text import TextIngestor
+        from qortex.ingest.base import Source, StubLLMBackend
+        from qortex.ingest.text import TextIngestor
 
         stub_llm = StubLLMBackend(
             concepts=[{"name": "Concept1", "description": "Desc"}],
@@ -760,8 +760,8 @@ class TestIngestionEmbedding:
 
     def test_ingest_to_backend_roundtrip(self):
         """Ingest with embeddings → store in backend → vector_search returns results."""
-        from qortex_ingest.base import Source, StubLLMBackend
-        from qortex_ingest.text import TextIngestor
+        from qortex.ingest.base import Source, StubLLMBackend
+        from qortex.ingest.text import TextIngestor
 
         stub_llm = StubLLMBackend(
             concepts=[
@@ -798,8 +798,8 @@ class TestIngestionEmbedding:
 
     def test_ingest_empty_concepts_with_embedding(self):
         """If LLM returns no concepts, embedding step is skipped gracefully."""
-        from qortex_ingest.base import Source, StubLLMBackend
-        from qortex_ingest.text import TextIngestor
+        from qortex.ingest.base import Source, StubLLMBackend
+        from qortex.ingest.text import TextIngestor
 
         stub_llm = StubLLMBackend(concepts=[], relations=[], rules=[])
         embedding = FakeEmbedding(dims=3)

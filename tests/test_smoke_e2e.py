@@ -86,8 +86,8 @@ def memgraph_backend():
 @pytest.fixture(scope="module")
 def observability():
     """Configure real observability (OTel push + Prometheus HTTP server)."""
-    from qortex_observe.config import ObservabilityConfig
-    from qortex_observe.emitter import configure, reset
+    from qortex.observe.config import ObservabilityConfig
+    from qortex.observe.emitter import configure, reset
 
     # Force env for this test
     os.environ["QORTEX_OTEL_ENABLED"] = "true"

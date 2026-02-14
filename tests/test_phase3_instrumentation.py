@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import pytest
-from qortex_observe.tracing import SelectiveSpanProcessor
+from qortex.observe.tracing import SelectiveSpanProcessor
 
 # ---------------------------------------------------------------------------
 # Cypher helpers
@@ -165,7 +165,7 @@ class TestVecInstrumentation:
         with patch("qortex.vec.index._try_emit") as mock_emit:
             index.search([1, 0, 0], top_k=3)
             assert mock_emit.called
-            from qortex_observe.events import VecSearchResults
+            from qortex.observe.events import VecSearchResults
 
             events = [call.args[0] for call in mock_emit.call_args_list]
             assert any(isinstance(e, VecSearchResults) for e in events)
@@ -333,7 +333,7 @@ class TestQueryFailedWiring:
                 )
 
             # Check QueryFailed was emitted
-            from qortex_observe.events import QueryFailed
+            from qortex.observe.events import QueryFailed
 
             qf_calls = [c for c in mock_emit.call_args_list if isinstance(c.args[0], QueryFailed)]
             assert len(qf_calls) >= 1
@@ -367,7 +367,7 @@ class TestSpanTreeStructure:
         from opentelemetry.sdk.trace import TracerProvider
         from opentelemetry.sdk.trace.export import SimpleSpanProcessor
         from opentelemetry.sdk.trace.export.in_memory_span_exporter import InMemorySpanExporter
-        from qortex_observe.tracing import traced
+        from qortex.observe.tracing import traced
 
         exporter = InMemorySpanExporter()
         provider = TracerProvider()

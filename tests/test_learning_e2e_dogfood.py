@@ -12,9 +12,9 @@ from __future__ import annotations
 import hashlib
 
 import pytest
-from qortex_observe import configure
-from qortex_observe import reset as obs_reset
-from qortex_observe.events import (
+from qortex.observe import configure
+from qortex.observe import reset as obs_reset
+from qortex.observe.events import (
     LearningObservationRecorded,
     LearningPosteriorUpdated,
     LearningSelectionMade,
@@ -22,7 +22,7 @@ from qortex_observe.events import (
     QueryFailed,
     QueryStarted,
 )
-from qortex_observe.linker import QortexEventLinker
+from qortex.observe.linker import QortexEventLinker
 
 from qortex.core.memory import InMemoryBackend
 from qortex.core.models import ConceptEdge, ConceptNode, RelationType

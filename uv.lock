@@ -19,6 +19,7 @@ resolution-markers = [
 [manifest]
 members = [
     "qortex",
+    "qortex-ingest",
     "qortex-observe",
 ]
 
@@ -3315,12 +3316,13 @@ wheels = [
 
 [[package]]
 name = "qortex"
-version = "0.5.0"
+version = "0.5.1"
 source = { editable = "." }
 dependencies = [
     { name = "fastmcp" },
     { name = "numpy" },
     { name = "pyyaml" },
+    { name = "qortex-ingest" },
     { name = "qortex-observe" },
     { name = "typer" },
 ]
@@ -3432,6 +3434,7 @@ requires-dist = [
     { name = "pyyaml", specifier = ">=6.0" },
     { name = "qortex", extras = ["pdf", "vec-sqlite", "mcp", "llm", "memgraph", "causal", "source-postgres", "observability", "dev"], marker = "extra == 'all'" },
     { name = "qortex", extras = ["vec"], marker = "extra == 'vec-sqlite'" },
+    { name = "qortex-ingest", editable = "packages/qortex-ingest" },
     { name = "qortex-observe", editable = "packages/qortex-observe" },
     { name = "qortex-observe", extras = ["otel"], marker = "extra == 'observability'", editable = "packages/qortex-observe" },
     { name = "ruff", marker = "extra == 'dev'", specifier = ">=0.2" },
@@ -3451,6 +3454,39 @@ dev = [
     { name = "pytest-cov", specifier = ">=4.0" },
     { name = "ruff", specifier = ">=0.2" },
 ]
+
+[[package]]
+name = "qortex-ingest"
+version = "0.1.0"
+source = { editable = "packages/qortex-ingest" }
+
+[package.optional-dependencies]
+all = [
+    { name = "anthropic" },
+    { name = "pdfplumber" },
+    { name = "pymupdf" },
+    { name = "pytest" },
+]
+anthropic = [
+    { name = "anthropic" },
+]
+dev = [
+    { name = "pytest" },
+]
+pdf = [
+    { name = "pdfplumber" },
+    { name = "pymupdf" },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "anthropic", marker = "extra == 'anthropic'", specifier = ">=0.18" },
+    { name = "pdfplumber", marker = "extra == 'pdf'", specifier = ">=0.10" },
+    { name = "pymupdf", marker = "extra == 'pdf'", specifier = ">=1.23" },
+    { name = "pytest", marker = "extra == 'dev'", specifier = ">=8.0" },
+    { name = "qortex-ingest", extras = ["anthropic", "pdf", "dev"], marker = "extra == 'all'", editable = "packages/qortex-ingest" },
+]
+provides-extras = ["anthropic", "pdf", "dev", "all"]
 
 [[package]]
 name = "qortex-observe"

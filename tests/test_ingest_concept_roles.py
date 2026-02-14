@@ -8,7 +8,7 @@ Verifies the two-pass concept processing in Ingestor.ingest():
 
 from __future__ import annotations
 
-from qortex_ingest.base import Chunk, Ingestor, Source, StubLLMBackend
+from qortex.ingest.base import Chunk, Ingestor, Source, StubLLMBackend
 
 # ---------------------------------------------------------------------------
 # Helpers

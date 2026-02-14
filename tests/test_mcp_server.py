@@ -309,7 +309,7 @@ class TestQortexFeedback:
 
 
 # ===========================================================================
-# qortex_ingest
+# qortex.ingest
 # ===========================================================================
 
 
@@ -402,7 +402,7 @@ class TestQortexIngest:
 
     def test_ingest_with_custom_llm(self, configured_server):
         """StubLLMBackend with injected concepts shows up in results."""
-        from qortex_ingest.base import StubLLMBackend
+        from qortex.ingest.base import StubLLMBackend
 
         llm = StubLLMBackend(
             concepts=[{"name": "TestConcept", "description": "A test concept", "confidence": 0.9}],
@@ -430,7 +430,7 @@ class TestQortexIngest:
 class TestIngestQueryRoundtrip:
     def test_ingest_then_query_returns_results(self, configured_server, backend, embedding):
         """Full roundtrip: ingest a file, then query for its content."""
-        from qortex_ingest.base import StubLLMBackend
+        from qortex.ingest.base import StubLLMBackend
 
         llm = StubLLMBackend(
             concepts=[
@@ -471,7 +471,7 @@ class TestIngestQueryRoundtrip:
 
     def test_ingest_then_query_with_feedback(self, configured_server, backend, embedding):
         """Full loop: ingest → query → feedback."""
-        from qortex_ingest.base import StubLLMBackend
+        from qortex.ingest.base import StubLLMBackend
 
         llm = StubLLMBackend(
             concepts=[{"name": "TestNode", "description": "Test description"}],
@@ -528,7 +528,7 @@ class TestServerConfiguration:
         assert mcp_server._vector_index is vector_index
 
     def test_set_llm_backend(self, configured_server):
-        from qortex_ingest.base import StubLLMBackend
+        from qortex.ingest.base import StubLLMBackend
 
         llm = StubLLMBackend()
         mcp_server.set_llm_backend(llm)

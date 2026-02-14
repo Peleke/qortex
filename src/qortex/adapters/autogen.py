@@ -25,7 +25,7 @@ IS installed, returns actual autogen types for full compatibility.
 from __future__ import annotations
 
 import asyncio
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from typing import Any
 
 from qortex.client import QortexClient

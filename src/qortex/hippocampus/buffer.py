@@ -22,9 +22,9 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
-from qortex_observe import emit
-from qortex_observe.events import BufferFlushed, EdgePromoted, OnlineEdgeRecorded
-from qortex_observe.logging import get_logger
+from qortex.observe import emit
+from qortex.observe.events import BufferFlushed, EdgePromoted, OnlineEdgeRecorded
+from qortex.observe.logging import get_logger
 
 logger = get_logger(__name__)
 

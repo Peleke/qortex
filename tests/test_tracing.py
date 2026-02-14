@@ -6,7 +6,7 @@ import asyncio
 import time
 
 import pytest
-from qortex_observe.tracing import OverheadTimer, get_overhead_timer, traced
+from qortex.observe.tracing import OverheadTimer, get_overhead_timer, traced
 
 pytest.importorskip("opentelemetry.sdk", reason="OTel SDK required")
 
@@ -312,7 +312,7 @@ class TestTracedDecorator:
 class TestOverheadMetric:
     def test_query_completed_overhead_field(self):
         """QueryCompleted accepts overhead_seconds."""
-        from qortex_observe.events import QueryCompleted
+        from qortex.observe.events import QueryCompleted
 
         event = QueryCompleted(
             query_id="q1",
@@ -328,7 +328,7 @@ class TestOverheadMetric:
 
     def test_query_completed_overhead_defaults_none(self):
         """overhead_seconds defaults to None for backward compat."""
-        from qortex_observe.events import QueryCompleted
+        from qortex.observe.events import QueryCompleted
 
         event = QueryCompleted(
             query_id="q1",
@@ -345,10 +345,10 @@ class TestOverheadMetric:
         """Overhead metric is recorded when QueryCompleted has overhead_seconds."""
         from opentelemetry.sdk.metrics import MeterProvider
         from opentelemetry.sdk.metrics.export import InMemoryMetricReader
-        from qortex_observe.events import QueryCompleted
-        from qortex_observe.linker import QortexEventLinker
-        from qortex_observe.metrics_factory import create_instruments, create_views
-        from qortex_observe.metrics_handlers import register_metric_handlers
+        from qortex.observe.events import QueryCompleted
+        from qortex.observe.linker import QortexEventLinker
+        from qortex.observe.metrics_factory import create_instruments, create_views
+        from qortex.observe.metrics_handlers import register_metric_handlers
 
         reader = InMemoryMetricReader()
         provider = MeterProvider(metric_readers=[reader], views=create_views())
@@ -394,10 +394,10 @@ class TestOverheadMetric:
         """Overhead metric is NOT recorded when overhead_seconds is None."""
         from opentelemetry.sdk.metrics import MeterProvider
         from opentelemetry.sdk.metrics.export import InMemoryMetricReader
-        from qortex_observe.events import QueryCompleted
-        from qortex_observe.linker import QortexEventLinker
-        from qortex_observe.metrics_factory import create_instruments, create_views
-        from qortex_observe.metrics_handlers import register_metric_handlers
+        from qortex.observe.events import QueryCompleted
+        from qortex.observe.linker import QortexEventLinker
+        from qortex.observe.metrics_factory import create_instruments, create_views
+        from qortex.observe.metrics_handlers import register_metric_handlers
 
         reader = InMemoryMetricReader()
         provider = MeterProvider(metric_readers=[reader], views=create_views())

@@ -1,11 +1,11 @@
-"""Tests for qortex_observe.carbon -- calculator, factors, events, GHG exports."""
+"""Tests for qortex.observe.carbon -- calculator, factors, events, GHG exports."""
 
 from __future__ import annotations
 
 from unittest.mock import MagicMock, patch
 
 import pytest
-from qortex_observe.carbon import (
+from qortex.observe.carbon import (
     DEFAULT_CARBON_FACTORS,
     FALLBACK_CARBON_FACTOR,
     CarbonCalculation,
@@ -19,14 +19,14 @@ from qortex_observe.carbon import (
     find_carbon_factor,
     format_confidence,
 )
-from qortex_observe.carbon.ghg import (
+from qortex.observe.carbon.ghg import (
     export_cdp,
     export_ghg_protocol,
     export_iso14064,
     export_tcfd,
 )
-from qortex_observe.carbon.types import ConfidenceLevel
-from qortex_observe.events import CarbonTracked
+from qortex.observe.carbon.types import ConfidenceLevel
+from qortex.observe.events import CarbonTracked
 
 # ── Calculator Tests ──────────────────────────────────────────────
 
@@ -338,8 +338,8 @@ class TestCarbonTrackedEvent:
 
     def test_carbon_metric_handler_registers(self):
         """Verify register_metric_handlers subscribes to CarbonTracked."""
-        from qortex_observe.linker import QortexEventLinker
-        from qortex_observe.metrics_handlers import register_metric_handlers
+        from qortex.observe.linker import QortexEventLinker
+        from qortex.observe.metrics_handlers import register_metric_handlers
 
         mock_instruments = {
             "qortex_carbon_co2_grams": MagicMock(),
@@ -360,7 +360,7 @@ class TestCarbonTrackedEvent:
 
     def test_carbon_metrics_in_schema(self):
         """Verify all 4 carbon metrics are defined in METRICS schema."""
-        from qortex_observe.metrics_schema import METRICS
+        from qortex.observe.metrics_schema import METRICS
 
         metric_names = {m.name for m in METRICS}
         assert "qortex_carbon_co2_grams" in metric_names
@@ -458,18 +458,18 @@ class TestConfigEnvVarValidation:
     """Verify _int_env and _float_env helpers."""
 
     def test_int_env_valid(self):
-        from qortex_observe.config import _int_env
+        from qortex.observe.config import _int_env
 
         with patch.dict("os.environ", {"TEST_PORT": "8080"}):
             assert _int_env("TEST_PORT", "9090") == 8080
 
     def test_int_env_default(self):
-        from qortex_observe.config import _int_env
+        from qortex.observe.config import _int_env
 
         assert _int_env("NONEXISTENT_VAR", "42") == 42
 
     def test_int_env_invalid_raises(self):
-        from qortex_observe.config import _int_env
+        from qortex.observe.config import _int_env
 
         with (
             patch.dict("os.environ", {"BAD_PORT": "abc"}),
@@ -478,7 +478,7 @@ class TestConfigEnvVarValidation:
             _int_env("BAD_PORT", "9090")
 
     def test_int_env_below_min_raises(self):
-        from qortex_observe.config import _int_env
+        from qortex.observe.config import _int_env
 
         with (
             patch.dict("os.environ", {"LOW_PORT": "0"}),
@@ -487,7 +487,7 @@ class TestConfigEnvVarValidation:
             _int_env("LOW_PORT", "9090", min_val=1)
 
     def test_int_env_above_max_raises(self):
-        from qortex_observe.config import _int_env
+        from qortex.observe.config import _int_env
 
         with (
             patch.dict("os.environ", {"HIGH_PORT": "99999"}),

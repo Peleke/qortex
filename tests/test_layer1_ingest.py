@@ -92,7 +92,7 @@ def make_client(
 
 def make_stub_llm(concepts=None, relations=None, rules=None):
     """Create a StubLLMBackend with configurable results."""
-    from qortex_ingest.base import StubLLMBackend
+    from qortex.ingest.base import StubLLMBackend
 
     return StubLLMBackend(
         concepts=concepts or [],
@@ -510,7 +510,7 @@ class TestReactiveAdapter:
 class TestMCPIngestText:
     def _setup_server(self, llm_backend=None):
         from qortex.mcp import server
-        from qortex_ingest.base import StubLLMBackend
+        from qortex.ingest.base import StubLLMBackend
 
         vector_index = NumpyVectorIndex(dimensions=DIMS)
         backend = InMemoryBackend(vector_index=vector_index)
