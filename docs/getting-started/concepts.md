@@ -1,6 +1,6 @@
 # Core Concepts
 
-qortex is built around a knowledge graph model that captures concepts, their relationships, and actionable rules.
+qortex is built around a knowledge graph that stores concepts and typed relationships. The graph also records feedback signals, so retrieval improves over time. Rules are one output format; the graph itself is the persistent layer.
 
 ## The Knowledge Graph
 

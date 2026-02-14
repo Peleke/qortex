@@ -1,6 +1,6 @@
 # Quick Start
 
-This guide walks you through projecting rules from a knowledge graph in under 5 minutes.
+This guide walks you through building a knowledge graph and running your first query in under 5 minutes.
 
 ## 1. Create a Backend
 

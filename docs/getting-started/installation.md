@@ -100,5 +100,5 @@ See [Using Memgraph](../guides/memgraph.md) for detailed setup instructions.
 
 ## Next Steps
 
-- [Quick Start](quickstart.md) - Project your first rules
+- [Quick Start](quickstart.md) - Build a graph and run your first query
 - [Core Concepts](concepts.md) - Understand the data model

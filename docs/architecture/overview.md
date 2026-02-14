@@ -1,6 +1,6 @@
 # Architecture Overview
 
-qortex is a knowledge graph ingestion engine that transforms unstructured content into actionable rules for AI agents.
+qortex is persistent, learning memory for AI agents. It builds a knowledge graph from your content and combines vector similarity with graph traversal so retrieval improves from every feedback signal.
 
 ## High-Level Architecture
 
@@ -16,8 +16,8 @@ Each layer has a single responsibility:
 |-------|----------------|
 | Ingestion | Parse sources, extract concepts, produce manifests |
 | Knowledge Graph | Store concepts/edges/rules, provide queries |
-| Projection | Transform KG into rules, enrich, serialize |
-| Interop | Distribute seeds, coordinate consumers |
+| Projection | Transform KG into consumable formats (rules, seeds, schemas) |
+| Interop | Distribute outputs, coordinate consumers |
 
 ### 2. Protocol-Driven Design
 
