@@ -1,6 +1,6 @@
 # Querying the Knowledge Graph
 
-qortex is both an ingestion engine and a retrieval system. The query layer lets you search your knowledge graph, explore its structure, and improve results through feedback.
+The query layer combines vector similarity with graph traversal to surface structurally relevant results. You can explore the graph from any result and submit feedback that updates retrieval weights.
 
 ## Architecture
 

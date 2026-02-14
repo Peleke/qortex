@@ -1,6 +1,6 @@
 # Consumer Integration
 
-qortex uses a consumer interop protocol that allows ANY system to consume projected rules, not just buildlog.
+qortex uses a consumer interop protocol that allows any system to consume projected knowledge (rules, schemas, seeds), not just buildlog.
 
 ## Architecture
 
