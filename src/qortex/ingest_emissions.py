@@ -323,6 +323,13 @@ def bridge_gauntlet_rules(
                 pass
 
         source_domain = prov.get("domain", "")
+        derivation = prov.get("derivation", "")
+
+        # Skip inactive rules and edge-template derived junk
+        if not active:
+            continue
+        if derivation == "derived":
+            continue
 
         # Skip rules without a known design-pattern domain
         if not source_domain or source_domain in ("", "unknown", "experiential", "buildlog"):

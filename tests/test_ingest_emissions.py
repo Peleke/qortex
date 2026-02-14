@@ -497,7 +497,7 @@ def _create_test_db(db_path: Path) -> None:
         ),
     )
 
-    # Inactive rule with domain (should still create concept)
+    # Inactive rule with domain (should be SKIPPED)
     db.execute(
         "INSERT INTO gauntlet_rules (rule_id, rule, category, provenance, active, seed_filename) VALUES (?, ?, ?, ?, ?, ?)",
         (
@@ -507,6 +507,19 @@ def _create_test_db(db_path: Path) -> None:
             json.dumps({"domain": "implementation_hiding", "confidence": 0.8}),
             0,
             "qortex_impl_hiding.yaml",
+        ),
+    )
+
+    # Derived junk rule (active but derivation="derived" — should be SKIPPED)
+    db.execute(
+        "INSERT INTO gauntlet_rules (rule_id, rule, category, provenance, active, seed_filename) VALUES (?, ?, ?, ?, ?, ?)",
+        (
+            "qortex:junk-001",
+            "BaseballReporter Publisher depends on Method Name Dependency",
+            "architectural",
+            json.dumps({"domain": "observer_pattern", "derivation": "derived", "confidence": 0.91}),
+            1,
+            "qortex_observer.yaml",
         ),
     )
 
@@ -521,11 +534,14 @@ class TestBridgeGauntletRules:
 
         concepts, edges = bridge_gauntlet_rules(db_path=db_path)
 
-        # Should have concepts for both domain-bridged and persona rules
+        # Should have active explicit rules, NOT inactive or derived
         concept_ids = {c.id for c in concepts}
         assert "gauntlet_rule:qortex:obs-001" in concept_ids
-        assert "gauntlet_rule:qortex:impl-001" in concept_ids
         assert "gauntlet_rule:test_terrorist:tt-001" in concept_ids
+        # Inactive rule — SKIPPED
+        assert "gauntlet_rule:qortex:impl-001" not in concept_ids
+        # Derived junk rule — SKIPPED
+        assert "gauntlet_rule:qortex:junk-001" not in concept_ids
 
     def test_bridge_rules_get_source_domain(self, tmp_path):
         db_path = tmp_path / "test.db"
@@ -536,9 +552,6 @@ class TestBridgeGauntletRules:
         obs_concept = next(c for c in concepts if c.id == "gauntlet_rule:qortex:obs-001")
         assert obs_concept.domain == "observer_pattern"  # Cross-domain!
 
-        impl_concept = next(c for c in concepts if c.id == "gauntlet_rule:qortex:impl-001")
-        assert impl_concept.domain == "implementation_hiding"
-
     def test_persona_rules_stay_in_buildlog_domain(self, tmp_path):
         db_path = tmp_path / "test.db"
         _create_test_db(db_path)
@@ -548,6 +561,24 @@ class TestBridgeGauntletRules:
         tt_concept = next(c for c in concepts if c.id == "gauntlet_rule:test_terrorist:tt-001")
         assert tt_concept.domain == "buildlog"
 
+    def test_skips_inactive_rules(self, tmp_path):
+        db_path = tmp_path / "test.db"
+        _create_test_db(db_path)
+
+        concepts, edges = bridge_gauntlet_rules(db_path=db_path)
+
+        concept_ids = {c.id for c in concepts}
+        assert "gauntlet_rule:qortex:impl-001" not in concept_ids
+
+    def test_skips_derived_junk_rules(self, tmp_path):
+        db_path = tmp_path / "test.db"
+        _create_test_db(db_path)
+
+        concepts, edges = bridge_gauntlet_rules(db_path=db_path)
+
+        concept_ids = {c.id for c in concepts}
+        assert "gauntlet_rule:qortex:junk-001" not in concept_ids
+
     def test_creates_domain_anchor_nodes(self, tmp_path):
         db_path = tmp_path / "test.db"
         _create_test_db(db_path)
@@ -556,7 +587,8 @@ class TestBridgeGauntletRules:
 
         concept_ids = {c.id for c in concepts}
         assert "domain:observer_pattern" in concept_ids
-        assert "domain:implementation_hiding" in concept_ids
+        # implementation_hiding should NOT have anchor — its rule was inactive
+        assert "domain:implementation_hiding" not in concept_ids
 
     def test_creates_instance_of_edges(self, tmp_path):
         db_path = tmp_path / "test.db"
@@ -565,7 +597,7 @@ class TestBridgeGauntletRules:
         concepts, edges = bridge_gauntlet_rules(db_path=db_path)
 
         instance_edges = [e for e in edges if e.relation_type == RelationType.INSTANCE_OF]
-        assert len(instance_edges) == 2  # obs-001 and impl-001
+        assert len(instance_edges) == 1  # only obs-001 (impl-001 inactive, junk-001 derived)
 
     def test_creates_belongs_to_edges_for_personas(self, tmp_path):
         db_path = tmp_path / "test.db"
