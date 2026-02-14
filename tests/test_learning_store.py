@@ -309,6 +309,13 @@ class TestStoreDelete:
         count = store.delete(arm_ids=["nope"])
         assert count == 0
 
+    def test_delete_empty_arm_ids_is_noop(self, store):
+        """arm_ids=[] should not crash (especially SQLite IN clause)."""
+        store.put("arm:a", ArmState(alpha=2.0))
+        count = store.delete(arm_ids=[])
+        assert count == 0
+        assert store.get("arm:a").alpha == 2.0
+
 
 # ---------------------------------------------------------------------------
 # Concurrent access (regression for #93)

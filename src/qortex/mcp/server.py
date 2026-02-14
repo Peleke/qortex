@@ -2317,6 +2317,8 @@ def _learning_select_impl(
     k: int = 1,
     token_budget: int = 0,
     min_pulls: int = 0,
+    seed_arms: list[str] | None = None,
+    seed_boost: float | None = None,
 ) -> dict:
     """Select arms from candidates using the learner's strategy."""
     from qortex.learning import Arm
@@ -2330,7 +2332,12 @@ def _learning_select_impl(
         for c in candidates
     ]
 
-    lrn = _get_or_create_learner(learner)
+    create_kwargs: dict = {}
+    if seed_arms is not None:
+        create_kwargs["seed_arms"] = seed_arms
+    if seed_boost is not None:
+        create_kwargs["seed_boost"] = seed_boost
+    lrn = _get_or_create_learner(learner, **create_kwargs)
     if min_pulls > 0:
         lrn.config.min_pulls = min_pulls
     result = lrn.select(arms, context=context, k=k, token_budget=token_budget)
@@ -2451,6 +2458,8 @@ def qortex_learning_select(
     k: int = 1,
     token_budget: int = 0,
     min_pulls: int = 0,
+    seed_arms: list[str] | None = None,
+    seed_boost: float | None = None,
 ) -> dict:
     """Select the best candidates from a pool using adaptive learning.
 
@@ -2465,8 +2474,13 @@ def qortex_learning_select(
         k: Number of arms to select.
         token_budget: Max total token cost. 0 = unlimited.
         min_pulls: Force-explore arms with fewer than this many observations.
+        seed_arms: Arm IDs to boost on first use. Applied when the learner is created.
+        seed_boost: Alpha boost for seed arms (default 2.0 in LearnerConfig).
     """
-    return _learning_select_impl(learner, candidates, context, k, token_budget, min_pulls)
+    return _learning_select_impl(
+        learner, candidates, context, k, token_budget, min_pulls,
+        seed_arms=seed_arms, seed_boost=seed_boost,
+    )
 
 
 @mcp.tool

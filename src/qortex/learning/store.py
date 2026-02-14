@@ -95,6 +95,8 @@ class JsonLearningStore:
 
     def delete(self, arm_ids: list[str] | None = None, context: dict | None = None) -> int:
         """Delete arm states. Returns number of entries removed."""
+        if arm_ids is not None and len(arm_ids) == 0:
+            return 0
         count = 0
         if arm_ids is None and context is None:
             # Full reset
@@ -280,6 +282,8 @@ class SqliteLearningStore:
 
     def delete(self, arm_ids: list[str] | None = None, context: dict | None = None) -> int:
         """Delete arm states. Returns number of entries removed."""
+        if arm_ids is not None and len(arm_ids) == 0:
+            return 0
         with self._lock:
             conn = self._ensure_connection()
             if arm_ids is None and context is None:

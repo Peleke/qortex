@@ -210,6 +210,39 @@ class TestLearningResetMCP:
         assert "test" in server._learners
 
 
+class TestLearningSeedArmsMCP:
+    def test_seed_arms_apply_on_first_use(self, server):
+        """seed_arms/seed_boost should boost priors when learner is first created."""
+        result = server._learning_select_impl(
+            learner="seeded",
+            candidates=[{"id": "arm:a"}, {"id": "arm:b"}],
+            k=1,
+            seed_arms=["arm:a"],
+            seed_boost=5.0,
+        )
+        # arm:a should be selected because it has a boosted prior
+        assert result["selected_arms"][0]["id"] == "arm:a"
+
+        # Verify the boosted posterior
+        posteriors = server._learning_posteriors_impl(learner="seeded")
+        assert posteriors["posteriors"]["arm:a"]["alpha"] == 5.0
+
+    def test_seed_arms_ignored_on_cached_learner(self, server):
+        """seed_arms on a second call should not re-create the learner."""
+        server._learning_observe_impl(learner="cached", arm_id="arm:a", outcome="accepted")
+        # Second call with seed_arms -- learner already cached, seeds ignored
+        server._learning_select_impl(
+            learner="cached",
+            candidates=[{"id": "arm:a"}, {"id": "arm:b"}],
+            k=1,
+            seed_arms=["arm:b"],
+            seed_boost=10.0,
+        )
+        posteriors = server._learning_posteriors_impl(learner="cached")
+        # arm:b should NOT have boosted alpha (learner was cached)
+        assert "arm:b" not in posteriors["posteriors"]
+
+
 class TestLearnerAutoCreation:
     def test_different_learners_independent(self, server):
         server._learning_observe_impl(learner="alpha", arm_id="arm:a", outcome="accepted")

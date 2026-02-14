@@ -166,7 +166,7 @@ from qortex.client import (
 
 ## MCP Tools
 
-qortex runs as an MCP server exposing 33 tools over JSON-RPC, organized by category.
+qortex runs as an MCP server exposing 34 tools over JSON-RPC, organized by category.
 
 ---
 
@@ -544,7 +544,7 @@ Returns: `{status: "deleted", count}`
 
 ---
 
-### Learning Tools (6)
+### Learning Tools (7)
 
 Adaptive learning via Thompson Sampling. Learners are auto-created on first use.
 
@@ -625,6 +625,26 @@ End a learning session and return summary.
 
 Returns: `{session_id, learner, selected_arms, outcomes, started_at, ended_at}`
 
+#### qortex_learning_reset
+
+Reset learned posteriors for a learner, clearing poisoned or stale data.
+
+| Parameter | Type | Required | Default |
+|-----------|------|----------|---------|
+| `learner` | `str` | Yes | -- |
+| `arm_ids` | `list[str]` | No | `None` |
+| `context` | `dict` | No | `None` |
+
+Scoping:
+- `arm_ids=None, context=None`: Full reset (delete all arm states across all contexts)
+- `arm_ids=None, context=set`: Delete all arms in that context partition
+- `arm_ids=set, context=None`: Delete those arms in the default context
+- `arm_ids=set, context=set`: Delete those arms in that context partition
+
+The learner is evicted from cache after reset, so seed boosts (`seed_arms`, `seed_boost`) re-apply on next use.
+
+Returns: `{learner, deleted, status}`
+
 ## Learner (Python API)
 
 Direct Python API for adaptive learning. Used by framework adapters (buildlog `QortexLearner`, etc.).
@@ -648,6 +668,7 @@ learner = Learner(LearnerConfig(name="my-learner", state_dir="/tmp/state"))
 | `posteriors(context, arm_ids)` | Get current posteriors for arms |
 | `metrics()` | Compute aggregate learning metrics |
 | `apply_credit_deltas(deltas, context)` | Apply causal credit deltas to posteriors |
+| `reset(arm_ids, context)` | Delete arm states (scoped by arms and/or context) |
 | `session_start(name)` | Start a named learning session |
 | `session_end(session_id)` | End a session and return summary |
 
