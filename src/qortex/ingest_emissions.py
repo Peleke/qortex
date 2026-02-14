@@ -271,3 +271,141 @@ def build_manifest(
         edges=result.edges,
         rules=result.rules,
     )
+
+
+# =============================================================================
+# Gauntlet Bridge: cross-domain edges from buildlog rules to pattern domains
+# =============================================================================
+
+DEFAULT_BUILDLOG_DB = Path("~/.buildlog/buildlog.db").expanduser()
+
+
+def bridge_gauntlet_rules(
+    db_path: Path = DEFAULT_BUILDLOG_DB,
+) -> tuple[list[ConceptNode], list[ConceptEdge]]:
+    """Read gauntlet rules from buildlog DB and create cross-domain concept nodes.
+
+    Rules with provenance domains (e.g., "observer_pattern", "implementation_hiding")
+    become Concept nodes in their source domain, bridging experiential data to
+    design pattern knowledge.
+
+    Returns:
+        Tuple of (concept_nodes, edges) ready for graph ingestion.
+    """
+    import sqlite3
+
+    if not db_path.exists():
+        return [], []
+
+    db = sqlite3.connect(str(db_path))
+    db.row_factory = sqlite3.Row
+
+    concepts: list[ConceptNode] = []
+    edges: list[ConceptEdge] = []
+    seen_ids: set[str] = set()
+
+    cursor = db.execute(
+        "SELECT rule_id, rule, category, provenance, seed_filename, active FROM gauntlet_rules"
+    )
+    for row in cursor:
+        rule_id = row["rule_id"]
+        rule_text = row["rule"]
+        category = row["category"] or "general"
+        active = bool(row["active"])
+        seed_file = row["seed_filename"] or ""
+
+        # Parse provenance for domain
+        prov = {}
+        if row["provenance"]:
+            try:
+                prov = json.loads(row["provenance"])
+            except json.JSONDecodeError:
+                pass
+
+        source_domain = prov.get("domain", "")
+
+        # Skip rules without a known design-pattern domain
+        if not source_domain or source_domain in ("", "unknown", "experiential", "buildlog"):
+            # Still create a concept for non-domain rules (personas like test_terrorist)
+            persona = rule_id.split(":")[0] if ":" in rule_id else seed_file.replace(".yaml", "")
+            if persona and persona not in seen_ids:
+                seen_ids.add(persona)
+                concepts.append(ConceptNode(
+                    id=f"persona:{persona}",
+                    name=persona,
+                    description=f"Gauntlet reviewer persona from {seed_file}",
+                    domain="buildlog",
+                    source_id="buildlog:gauntlet",
+                    properties={"type": "persona", "seed_file": seed_file},
+                ))
+
+            # Create rule concept
+            if rule_id not in seen_ids:
+                seen_ids.add(rule_id)
+                concepts.append(ConceptNode(
+                    id=f"gauntlet_rule:{rule_id}",
+                    name=rule_text[:80],
+                    description=f"[{category}] {rule_text}",
+                    domain="buildlog",
+                    source_id="buildlog:gauntlet",
+                    properties={
+                        "category": category,
+                        "active": active,
+                        "persona": persona,
+                    },
+                ))
+                # Edge: rule belongs_to persona
+                edges.append(ConceptEdge(
+                    source_id=f"gauntlet_rule:{rule_id}",
+                    target_id=f"persona:{persona}",
+                    relation_type=RelationType.BELONGS_TO,
+                    confidence=1.0,
+                ))
+            continue
+
+        # This rule has a design pattern domain — it's a BRIDGE
+        concept_id = f"gauntlet_rule:{rule_id}"
+        if concept_id in seen_ids:
+            continue
+        seen_ids.add(concept_id)
+
+        # Create concept in the SOURCE domain (design patterns)
+        concepts.append(ConceptNode(
+            id=concept_id,
+            name=rule_text[:80],
+            description=f"[{category}] {rule_text}",
+            domain=source_domain,  # KEY: this goes in the design pattern domain
+            source_id="buildlog:gauntlet",
+            properties={
+                "category": category,
+                "active": active,
+                "source_domain": source_domain,
+                "derivation": prov.get("derivation", "unknown"),
+                "confidence": prov.get("confidence", 0.5),
+                "seed_file": seed_file,
+                "bridge": True,  # marks this as a cross-domain bridge node
+            },
+        ))
+
+        # Edge: rule instance_of its domain (cross-domain bridge)
+        domain_concept_id = f"domain:{source_domain}"
+        if domain_concept_id not in seen_ids:
+            seen_ids.add(domain_concept_id)
+            concepts.append(ConceptNode(
+                id=domain_concept_id,
+                name=source_domain.replace("_", " ").title(),
+                description=f"Design pattern domain: {source_domain}",
+                domain=source_domain,
+                source_id="buildlog:gauntlet",
+                properties={"type": "domain_anchor"},
+            ))
+
+        edges.append(ConceptEdge(
+            source_id=concept_id,
+            target_id=domain_concept_id,
+            relation_type=RelationType.INSTANCE_OF,
+            confidence=1.0,
+        ))
+
+    db.close()
+    return concepts, edges

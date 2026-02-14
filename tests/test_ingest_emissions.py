@@ -1,6 +1,7 @@
 """Tests for buildlog emission artifact ingestion."""
 
 import json
+import sqlite3
 import tempfile
 from pathlib import Path
 
@@ -15,6 +16,7 @@ from qortex.ingest_emissions import (
     _extract_learned_rules,
     _map_relation_type,
     aggregate_emissions,
+    bridge_gauntlet_rules,
     build_manifest,
 )
 
@@ -438,3 +440,146 @@ class TestBuildManifest:
         assert len(manifest.concepts) > 0
         assert len(manifest.edges) == 2
         assert len(manifest.rules) == 2
+
+
+# ---------------------------------------------------------------------------
+# Bridge: gauntlet rules → cross-domain concepts
+# ---------------------------------------------------------------------------
+
+
+def _create_test_db(db_path: Path) -> None:
+    """Create a minimal gauntlet_rules table for testing."""
+    db = sqlite3.connect(str(db_path))
+    db.execute("""
+        CREATE TABLE gauntlet_rules (
+            rule_id TEXT PRIMARY KEY,
+            persona TEXT,
+            rule TEXT,
+            category TEXT,
+            context TEXT,
+            antipattern TEXT,
+            rationale TEXT,
+            tags TEXT,
+            refs TEXT,
+            provenance TEXT,
+            version INTEGER DEFAULT 1,
+            active INTEGER DEFAULT 1,
+            created_at TEXT,
+            updated_at TEXT,
+            seed_file_hash TEXT,
+            seed_filename TEXT
+        )
+    """)
+
+    # Rule WITH design pattern domain (bridge candidate)
+    db.execute(
+        "INSERT INTO gauntlet_rules (rule_id, rule, category, provenance, active, seed_filename) VALUES (?, ?, ?, ?, ?, ?)",
+        (
+            "qortex:obs-001",
+            "Decouple publishers from subscribers",
+            "architectural",
+            json.dumps({"domain": "observer_pattern", "derivation": "explicit", "confidence": 0.9}),
+            1,
+            "qortex_observer.yaml",
+        ),
+    )
+
+    # Rule WITHOUT design pattern domain (persona-only)
+    db.execute(
+        "INSERT INTO gauntlet_rules (rule_id, rule, category, provenance, active, seed_filename) VALUES (?, ?, ?, ?, ?, ?)",
+        (
+            "test_terrorist:tt-001",
+            "Tests must not depend on execution order",
+            "isolation",
+            json.dumps({}),
+            1,
+            "test_terrorist.yaml",
+        ),
+    )
+
+    # Inactive rule with domain (should still create concept)
+    db.execute(
+        "INSERT INTO gauntlet_rules (rule_id, rule, category, provenance, active, seed_filename) VALUES (?, ?, ?, ?, ?, ?)",
+        (
+            "qortex:impl-001",
+            "Hide implementation details behind interfaces",
+            "encapsulation",
+            json.dumps({"domain": "implementation_hiding", "confidence": 0.8}),
+            0,
+            "qortex_impl_hiding.yaml",
+        ),
+    )
+
+    db.commit()
+    db.close()
+
+
+class TestBridgeGauntletRules:
+    def test_creates_cross_domain_concepts(self, tmp_path):
+        db_path = tmp_path / "test.db"
+        _create_test_db(db_path)
+
+        concepts, edges = bridge_gauntlet_rules(db_path=db_path)
+
+        # Should have concepts for both domain-bridged and persona rules
+        concept_ids = {c.id for c in concepts}
+        assert "gauntlet_rule:qortex:obs-001" in concept_ids
+        assert "gauntlet_rule:qortex:impl-001" in concept_ids
+        assert "gauntlet_rule:test_terrorist:tt-001" in concept_ids
+
+    def test_bridge_rules_get_source_domain(self, tmp_path):
+        db_path = tmp_path / "test.db"
+        _create_test_db(db_path)
+
+        concepts, edges = bridge_gauntlet_rules(db_path=db_path)
+
+        obs_concept = next(c for c in concepts if c.id == "gauntlet_rule:qortex:obs-001")
+        assert obs_concept.domain == "observer_pattern"  # Cross-domain!
+
+        impl_concept = next(c for c in concepts if c.id == "gauntlet_rule:qortex:impl-001")
+        assert impl_concept.domain == "implementation_hiding"
+
+    def test_persona_rules_stay_in_buildlog_domain(self, tmp_path):
+        db_path = tmp_path / "test.db"
+        _create_test_db(db_path)
+
+        concepts, edges = bridge_gauntlet_rules(db_path=db_path)
+
+        tt_concept = next(c for c in concepts if c.id == "gauntlet_rule:test_terrorist:tt-001")
+        assert tt_concept.domain == "buildlog"
+
+    def test_creates_domain_anchor_nodes(self, tmp_path):
+        db_path = tmp_path / "test.db"
+        _create_test_db(db_path)
+
+        concepts, edges = bridge_gauntlet_rules(db_path=db_path)
+
+        concept_ids = {c.id for c in concepts}
+        assert "domain:observer_pattern" in concept_ids
+        assert "domain:implementation_hiding" in concept_ids
+
+    def test_creates_instance_of_edges(self, tmp_path):
+        db_path = tmp_path / "test.db"
+        _create_test_db(db_path)
+
+        concepts, edges = bridge_gauntlet_rules(db_path=db_path)
+
+        instance_edges = [e for e in edges if e.relation_type == RelationType.INSTANCE_OF]
+        assert len(instance_edges) == 2  # obs-001 and impl-001
+
+    def test_creates_belongs_to_edges_for_personas(self, tmp_path):
+        db_path = tmp_path / "test.db"
+        _create_test_db(db_path)
+
+        concepts, edges = bridge_gauntlet_rules(db_path=db_path)
+
+        belongs_edges = [e for e in edges if e.relation_type == RelationType.BELONGS_TO]
+        assert len(belongs_edges) >= 1
+        # test_terrorist rule belongs_to test_terrorist persona
+        tt_edge = next(e for e in belongs_edges if "test_terrorist:tt-001" in e.source_id)
+        assert "persona:test_terrorist" in tt_edge.target_id
+
+    def test_missing_db_returns_empty(self, tmp_path):
+        concepts, edges = bridge_gauntlet_rules(db_path=tmp_path / "nonexistent.db")
+        assert concepts == []
+        assert edges == []

@@ -388,6 +388,16 @@ def ingest_emissions(
         "-o",
         help="Save aggregated manifest to JSON file",
     ),
+    bridge: bool = typer.Option(
+        True,
+        "--bridge/--no-bridge",
+        help="Bridge gauntlet rules to design pattern domains (cross-domain edges)",
+    ),
+    buildlog_db: Path = typer.Option(
+        "~/.buildlog/buildlog.db",
+        "--db",
+        help="Path to buildlog SQLite database (for --bridge)",
+    ),
 ) -> None:
     """Ingest buildlog emission artifacts into the knowledge graph.
 
@@ -395,15 +405,19 @@ def ingest_emissions(
     rules from buildlog's emissions directory. Aggregates and deduplicates
     concepts and edges, then loads into Memgraph.
 
+    With --bridge (default), also reads gauntlet rules from buildlog's DB and
+    creates cross-domain edges linking experiential data to design pattern
+    domains (observer_pattern, implementation_hiding, etc.).
+
     No LLM calls required — emission data is already structured.
 
     Examples:
         qortex ingest emissions
         qortex ingest emissions --dry-run
+        qortex ingest emissions --no-bridge  # skip gauntlet bridging
         qortex ingest emissions --dir ~/.buildlog/emissions -o emissions_manifest.json
-        qortex ingest emissions --no-pending  # only processed
     """
-    from qortex.ingest_emissions import aggregate_emissions, build_manifest
+    from qortex.ingest_emissions import aggregate_emissions, bridge_gauntlet_rules, build_manifest
 
     expanded = Path(emissions_dir).expanduser()
     if not expanded.exists():
@@ -432,6 +446,17 @@ def ingest_emissions(
         return
 
     manifest = build_manifest(result, domain=domain)
+
+    # Bridge gauntlet rules to design pattern domains
+    if bridge:
+        db_expanded = Path(buildlog_db).expanduser()
+        bridge_concepts, bridge_edges = bridge_gauntlet_rules(db_path=db_expanded)
+        if bridge_concepts:
+            manifest.concepts.extend(bridge_concepts)
+            manifest.edges.extend(bridge_edges)
+            typer.echo(f"\n  Gauntlet bridge:")
+            typer.echo(f"    Bridge concepts: {len(bridge_concepts)}")
+            typer.echo(f"    Bridge edges:    {len(bridge_edges)}")
 
     # Save manifest if requested
     if save_manifest:
