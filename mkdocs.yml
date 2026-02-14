@@ -1,6 +1,6 @@
 site_name: qortex
 site_url: https://peleke.github.io/qortex/
-site_description: Knowledge graph ingestion engine for automated rule generation
+site_description: Persistent, learning memory for AI agents
 repo_url: https://github.com/Peleke/qortex
 repo_name: Peleke/qortex
 
