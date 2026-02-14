@@ -19,7 +19,7 @@ import hashlib
 import logging
 from collections import OrderedDict
 
-from qortex_observe.tracing import traced
+from qortex.observe.tracing import traced
 
 logger = logging.getLogger(__name__)
 

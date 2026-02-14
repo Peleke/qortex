@@ -1,11 +1,11 @@
-"""Tests for qortex_observe.mcp -- MCP trace context propagation."""
+"""Tests for qortex.observe.mcp -- MCP trace context propagation."""
 
 from __future__ import annotations
 
 from unittest.mock import MagicMock, patch
 
 import pytest
-from qortex_observe.mcp._propagation import extract_mcp_context, mcp_trace_middleware
+from qortex.observe.mcp._propagation import extract_mcp_context, mcp_trace_middleware
 
 # Valid W3C traceparent: version-trace_id-parent_id-flags
 VALID_TRACEPARENT = "00-4bf92f3577b34da6a3ce929d0e0e4736-00f067aa0ba902b7-01"
@@ -64,7 +64,7 @@ class TestExtractMcpContext:
             # Force re-import failure
             import importlib
 
-            from qortex_observe.mcp import _propagation
+            from qortex.observe.mcp import _propagation
 
             importlib.reload(_propagation)
             ctx = _propagation.extract_mcp_context({"_meta": {"traceparent": VALID_TRACEPARENT}})
@@ -195,7 +195,7 @@ class TestMcpTraceMiddleware:
         with patch.dict("sys.modules", {"opentelemetry": None, "opentelemetry.trace": None}):
             import importlib
 
-            from qortex_observe.mcp import _propagation
+            from qortex.observe.mcp import _propagation
 
             importlib.reload(_propagation)
             result = _propagation.mcp_trace_middleware("tool", {}, handler)

@@ -633,7 +633,7 @@ class LocalQortexClient:
     ) -> IngestResult:
         from pathlib import Path
 
-        from qortex_ingest.base import Source
+        from qortex.ingest.base import Source
 
         path = Path(source_path).expanduser().resolve()
         if not path.exists():
@@ -654,15 +654,15 @@ class LocalQortexClient:
         llm = self._get_llm_backend()
 
         if source_type == "markdown":
-            from qortex_ingest.markdown import MarkdownIngestor
+            from qortex.ingest.markdown import MarkdownIngestor
 
             ingestor = MarkdownIngestor(llm, embedding_model=self._embedding_model)
         elif source_type == "pdf":
-            from qortex_ingest.pdf import PDFIngestor
+            from qortex.ingest.pdf import PDFIngestor
 
             ingestor = PDFIngestor(llm, embedding_model=self._embedding_model)
         else:
-            from qortex_ingest.text import TextIngestor
+            from qortex.ingest.text import TextIngestor
 
             ingestor = TextIngestor(llm, embedding_model=self._embedding_model)
 
@@ -711,7 +711,7 @@ class LocalQortexClient:
                 warnings=["Empty text provided"],
             )
 
-        from qortex_ingest.base import Source
+        from qortex.ingest.base import Source
 
         source = Source(
             raw_content=text,
@@ -722,11 +722,11 @@ class LocalQortexClient:
         llm = self._get_llm_backend()
 
         if format == "markdown":
-            from qortex_ingest.markdown import MarkdownIngestor
+            from qortex.ingest.markdown import MarkdownIngestor
 
             ingestor = MarkdownIngestor(llm, embedding_model=self._embedding_model)
         else:
-            from qortex_ingest.text import TextIngestor
+            from qortex.ingest.text import TextIngestor
 
             ingestor = TextIngestor(llm, embedding_model=self._embedding_model)
 
@@ -1088,7 +1088,7 @@ class LocalQortexClient:
             return self._llm_backend
 
         try:
-            from qortex_ingest.backends.anthropic import AnthropicBackend
+            from qortex.ingest.backends.anthropic import AnthropicBackend
 
             self._llm_backend = AnthropicBackend()
             return self._llm_backend
@@ -1100,7 +1100,7 @@ class LocalQortexClient:
                 exc_info=True,
             )
 
-        from qortex_ingest.base import StubLLMBackend
+        from qortex.ingest.base import StubLLMBackend
 
         self._llm_backend = StubLLMBackend()
         return self._llm_backend

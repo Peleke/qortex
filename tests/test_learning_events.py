@@ -3,14 +3,14 @@
 from __future__ import annotations
 
 import pytest
-from qortex_observe import reset as obs_reset
-from qortex_observe.emitter import configure
-from qortex_observe.events import (
+from qortex.observe import reset as obs_reset
+from qortex.observe.emitter import configure
+from qortex.observe.events import (
     LearningObservationRecorded,
     LearningPosteriorUpdated,
     LearningSelectionMade,
 )
-from qortex_observe.linker import QortexEventLinker
+from qortex.observe.linker import QortexEventLinker
 
 from qortex.learning.learner import Learner
 from qortex.learning.types import Arm, ArmOutcome, LearnerConfig

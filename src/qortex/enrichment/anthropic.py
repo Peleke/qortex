@@ -7,11 +7,10 @@ import logging
 from datetime import UTC, datetime
 from typing import Any
 
-from qortex_observe import emit
-from qortex_observe.carbon import calculate_carbon
-from qortex_observe.events import CarbonTracked
-
 from qortex.core.models import Rule
+from qortex.observe import emit
+from qortex.observe.carbon import calculate_carbon
+from qortex.observe.events import CarbonTracked
 from qortex.projectors.models import RuleEnrichment
 
 logger = logging.getLogger(__name__)

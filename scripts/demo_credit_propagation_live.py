@@ -30,8 +30,8 @@ from qortex.causal.dag import CausalDAG
 from qortex.causal.types import CausalDirection, CausalEdge
 from qortex.learning.learner import Learner
 from qortex.learning.types import LearnerConfig
-from qortex_observe import configure, emit, reset as obs_reset
-from qortex_observe.events import CreditPropagated
+from qortex.observe import configure, emit, reset as obs_reset
+from qortex.observe.events import CreditPropagated
 
 # ── Setup ─────────────────────────────────────────────────────────
 obs_reset()

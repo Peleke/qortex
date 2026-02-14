@@ -21,14 +21,14 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
-from qortex_observe import emit
-from qortex_observe.events import (
+from qortex.observe import emit
+from qortex.observe.events import (
     FactorDriftSnapshot,
     FactorsLoaded,
     FactorsPersisted,
     FactorUpdated,
 )
-from qortex_observe.logging import get_logger
+from qortex.observe.logging import get_logger
 
 logger = get_logger(__name__)
 

@@ -27,9 +27,9 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Protocol, runtime_checkable
 
-from qortex_observe import emit
-from qortex_observe.events import InteroceptionShutdown, InteroceptionStarted
-from qortex_observe.logging import get_logger
+from qortex.observe import emit
+from qortex.observe.events import InteroceptionShutdown, InteroceptionStarted
+from qortex.observe.logging import get_logger
 
 if TYPE_CHECKING:
     from qortex.hippocampus.buffer import EdgePromotionBuffer

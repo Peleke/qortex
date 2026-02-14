@@ -88,7 +88,7 @@ def ingest_file(
         handle_error(f"File not found: {path}")
 
     # Get extraction backend
-    from qortex_ingest.backends import get_extraction_backend
+    from qortex.ingest.backends import get_extraction_backend
 
     try:
         prefer = None if backend == "auto" else backend
@@ -110,21 +110,21 @@ def ingest_file(
             raise typer.Exit(0)
 
     # Get appropriate ingestor
-    from qortex_ingest.base import Source
-    from qortex_ingest.text import TextIngestor
+    from qortex.ingest.base import Source
+    from qortex.ingest.text import TextIngestor
 
     suffix = path.suffix.lower()
     if suffix in (".txt", ".text"):
         ingestor = TextIngestor(llm=llm)
         source_type = "text"
     elif suffix in (".md", ".markdown"):
-        from qortex_ingest.markdown import MarkdownIngestor
+        from qortex.ingest.markdown import MarkdownIngestor
 
         ingestor = MarkdownIngestor(llm=llm)
         source_type = "markdown"
     elif suffix == ".pdf":
         try:
-            from qortex_ingest.pdf import PDFIngestor
+            from qortex.ingest.pdf import PDFIngestor
 
             ingestor = PDFIngestor(llm=llm)
             source_type = "pdf"

@@ -62,7 +62,7 @@ This lets us fix past extractions without re-running full LLM extraction.
 
 ```python
 # Test extract_relations directly
-from qortex_ingest.backends.anthropic import AnthropicExtractionBackend
+from qortex.ingest.backends.anthropic import AnthropicExtractionBackend
 from qortex.core.models import ConceptNode
 
 backend = AnthropicExtractionBackend()

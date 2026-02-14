@@ -14,7 +14,7 @@ otel_sdk = pytest.importorskip("opentelemetry.sdk")
 
 from opentelemetry.sdk.metrics import MeterProvider  # noqa: E402
 from opentelemetry.sdk.metrics.export import InMemoryMetricReader  # noqa: E402
-from qortex_observe.events import (  # noqa: E402
+from qortex.observe.events import (  # noqa: E402
     BufferFlushed,
     CreditPropagated,
     EdgePromoted,
@@ -38,14 +38,14 @@ from qortex_observe.events import (  # noqa: E402
     VecSearchResults,
     VecSeedYield,
 )
-from qortex_observe.metrics_factory import create_instruments, create_views  # noqa: E402
-from qortex_observe.metrics_handlers import register_metric_handlers  # noqa: E402
+from qortex.observe.metrics_factory import create_instruments, create_views  # noqa: E402
+from qortex.observe.metrics_handlers import register_metric_handlers  # noqa: E402
 
 
 @pytest.fixture(autouse=True)
 def _reset_linker():
     """Reset QortexEventLinker between tests to avoid duplicate handler registration."""
-    from qortex_observe.linker import QortexEventLinker
+    from qortex.observe.linker import QortexEventLinker
 
     QortexEventLinker.remove_all()
     yield
@@ -125,7 +125,7 @@ def _emit(event) -> None:
     """Invoke all registered handlers for an event synchronously."""
     import asyncio
 
-    from qortex_observe.linker import QortexEventLinker
+    from qortex.observe.linker import QortexEventLinker
 
     event_name = type(event).__name__
     registry = QortexEventLinker.get_registry()

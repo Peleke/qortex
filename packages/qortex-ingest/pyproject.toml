@@ -1,0 +1,48 @@
+[project]
+name = "qortex-ingest"
+version = "0.1.0"
+description = "Pluggable ingestors for qortex (PDF, Markdown, text)."
+requires-python = ">=3.11"
+license = "MIT"
+authors = [
+    { name = "Peleke Sengstacke" }
+]
+keywords = [
+    "ingestion",
+    "pdf",
+    "markdown",
+    "knowledge-graph",
+]
+classifiers = [
+    "Development Status :: 2 - Pre-Alpha",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+]
+
+# NOTE: qortex-ingest imports from qortex.core.models (IngestionManifest re-export).
+# In the workspace this resolves via editable install. For standalone use, add "qortex".
+dependencies = []
+
+[project.optional-dependencies]
+anthropic = [
+    "anthropic>=0.18",
+]
+pdf = [
+    "pymupdf>=1.23",
+    "pdfplumber>=0.10",
+]
+dev = [
+    "pytest>=8.0",
+]
+all = [
+    "qortex-ingest[anthropic,pdf,dev]",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/qortex"]

@@ -417,7 +417,7 @@ class TestLocalQortexClientStatus:
 
 class TestLocalQortexClientRoundtrip:
     def test_ingest_then_query(self, tmp_path):
-        from qortex_ingest.base import StubLLMBackend
+        from qortex.ingest.base import StubLLMBackend
 
         llm = StubLLMBackend(
             concepts=[

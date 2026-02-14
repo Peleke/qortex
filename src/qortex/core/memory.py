@@ -10,8 +10,8 @@ from collections.abc import Iterator
 from datetime import UTC, datetime
 from typing import Literal
 
-from qortex_observe import emit
-from qortex_observe.events import ManifestIngested, PPRConverged, PPRDiverged, PPRStarted
+from qortex.observe import emit
+from qortex.observe.events import ManifestIngested, PPRConverged, PPRDiverged, PPRStarted
 
 from .backend import GraphPattern
 from .models import ConceptEdge, ConceptNode, Domain, ExplicitRule, IngestionManifest

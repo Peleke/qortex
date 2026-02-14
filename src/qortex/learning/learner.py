@@ -11,14 +11,6 @@ import uuid
 from datetime import UTC, datetime
 from typing import Any
 
-from qortex_observe import emit
-from qortex_observe.events import (
-    LearningObservationRecorded,
-    LearningPosteriorUpdated,
-    LearningSelectionMade,
-)
-from qortex_observe.tracing import traced
-
 from qortex.learning.reward import RewardModel, TernaryReward
 from qortex.learning.store import LearningStore, SqliteLearningStore
 from qortex.learning.strategy import LearningStrategy, ThompsonSampling
@@ -31,6 +23,13 @@ from qortex.learning.types import (
     SelectionResult,
     context_hash,
 )
+from qortex.observe import emit
+from qortex.observe.events import (
+    LearningObservationRecorded,
+    LearningPosteriorUpdated,
+    LearningSelectionMade,
+)
+from qortex.observe.tracing import traced
 
 
 class Learner:

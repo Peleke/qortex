@@ -6,7 +6,7 @@ import logging
 import time
 from typing import Protocol, runtime_checkable
 
-from qortex_observe.tracing import traced
+from qortex.observe.tracing import traced
 
 logger = logging.getLogger(__name__)
 
@@ -14,7 +14,7 @@ logger = logging.getLogger(__name__)
 def _try_emit(event) -> None:
     """Emit an observability event if the emitter is configured."""
     try:
-        from qortex_observe import emit
+        from qortex.observe import emit
 
         emit(event)
     except Exception:
@@ -136,7 +136,7 @@ class NumpyVectorIndex:
         except ImportError:
             pass
 
-        from qortex_observe.events import VecIndexUpdated
+        from qortex.observe.events import VecIndexUpdated
 
         _try_emit(
             VecIndexUpdated(
@@ -198,7 +198,7 @@ class NumpyVectorIndex:
         elapsed = (time.perf_counter() - t0) * 1000
         top_score = float(top_scores[0]) if len(top_scores) > 0 else 0.0
         bottom_score = float(top_scores[-1]) if len(top_scores) > 0 else 0.0
-        from qortex_observe.events import VecSearchResults
+        from qortex.observe.events import VecSearchResults
 
         _try_emit(
             VecSearchResults(
@@ -319,7 +319,7 @@ class SqliteVecIndex:
 
         self._conn.commit()
 
-        from qortex_observe.events import VecIndexUpdated
+        from qortex.observe.events import VecIndexUpdated
 
         _try_emit(
             VecIndexUpdated(
@@ -368,7 +368,7 @@ class SqliteVecIndex:
         elapsed = (time.perf_counter() - t0) * 1000
         top_score = results[0][1] if results else 0.0
         bottom_score = results[-1][1] if results else 0.0
-        from qortex_observe.events import VecSearchResults
+        from qortex.observe.events import VecSearchResults
 
         _try_emit(
             VecSearchResults(

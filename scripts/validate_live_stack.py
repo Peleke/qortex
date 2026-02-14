@@ -34,9 +34,9 @@ os.environ["QORTEX_PROMETHEUS_PORT"] = "9464"
 os.environ["QORTEX_OTEL_TRACE_SAMPLE_RATE"] = "1.0"
 os.environ["QORTEX_OTEL_TRACE_LATENCY_THRESHOLD_MS"] = "0.0"
 
-from qortex_observe import configure, emit, reset as obs_reset
-from qortex_observe.config import ObservabilityConfig
-from qortex_observe.events import (
+from qortex.observe import configure, emit, reset as obs_reset
+from qortex.observe.config import ObservabilityConfig
+from qortex.observe.events import (
     CreditPropagated,
     LearningObservationRecorded,
     LearningPosteriorUpdated,

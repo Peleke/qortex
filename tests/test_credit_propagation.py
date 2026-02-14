@@ -5,7 +5,7 @@ from __future__ import annotations
 from unittest.mock import MagicMock, patch
 
 import pytest
-from qortex_observe import reset as obs_reset
+from qortex.observe import reset as obs_reset
 
 from qortex.flags import reset_flags
 
@@ -327,8 +327,8 @@ class TestCreditPropagatedEvent:
     """Verify CreditPropagated event is emitted and captured."""
 
     def test_event_in_jsonl_all_events(self):
-        from qortex_observe.events import CreditPropagated
-        from qortex_observe.subscribers.jsonl import _ALL_EVENTS
+        from qortex.observe.events import CreditPropagated
+        from qortex.observe.subscribers.jsonl import _ALL_EVENTS
 
         assert CreditPropagated in _ALL_EVENTS
 
@@ -337,9 +337,9 @@ class TestCreditPropagatedEvent:
         import logging
         import time
 
-        from qortex_observe.config import ObservabilityConfig
-        from qortex_observe.emitter import configure, emit, reset
-        from qortex_observe.events import CreditPropagated
+        from qortex.observe.config import ObservabilityConfig
+        from qortex.observe.emitter import configure, emit, reset
+        from qortex.observe.events import CreditPropagated
 
         reset()
         configure(
@@ -372,9 +372,9 @@ class TestCreditPropagatedEvent:
     def test_event_written_to_jsonl(self, tmp_path):
         import json
 
-        from qortex_observe.config import ObservabilityConfig
-        from qortex_observe.emitter import configure, emit, reset
-        from qortex_observe.events import CreditPropagated
+        from qortex.observe.config import ObservabilityConfig
+        from qortex.observe.emitter import configure, emit, reset
+        from qortex.observe.events import CreditPropagated
 
         reset()
         cfg = ObservabilityConfig(

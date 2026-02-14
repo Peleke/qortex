@@ -18,7 +18,7 @@ from __future__ import annotations
 import logging
 from typing import Protocol, runtime_checkable
 
-from qortex_observe.tracing import traced
+from qortex.observe.tracing import traced
 
 logger = logging.getLogger(__name__)
 
