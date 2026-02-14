@@ -352,3 +352,185 @@ def load_manifest(
         handle_error(f"Failed to save to graph: {e}")
     finally:
         graph_backend.disconnect()
+
+
+@app.command("emissions")
+def ingest_emissions(
+    emissions_dir: Path = typer.Option(
+        "~/.buildlog/emissions",
+        "--dir",
+        "-d",
+        help="Root emissions directory (contains pending/, processed/)",
+    ),
+    domain: str = typer.Option(
+        "buildlog",
+        "--domain",
+        help="Domain name for the ingested data",
+    ),
+    include_pending: bool = typer.Option(
+        True,
+        "--pending/--no-pending",
+        help="Include pending/ artifacts",
+    ),
+    include_processed: bool = typer.Option(
+        True,
+        "--processed/--no-processed",
+        help="Include processed/ artifacts",
+    ),
+    dry_run: bool = typer.Option(
+        False,
+        "--dry-run",
+        help="Show aggregation stats without loading into graph",
+    ),
+    save_manifest: Path = typer.Option(
+        None,
+        "--save-manifest",
+        "-o",
+        help="Save aggregated manifest to JSON file",
+    ),
+    bridge: bool = typer.Option(
+        True,
+        "--bridge/--no-bridge",
+        help="Bridge gauntlet rules to design pattern domains (cross-domain edges)",
+    ),
+    buildlog_db: Path = typer.Option(
+        "~/.buildlog/buildlog.db",
+        "--db",
+        help="Path to buildlog SQLite database (for --bridge)",
+    ),
+) -> None:
+    """Ingest buildlog emission artifacts into the knowledge graph.
+
+    Reads mistake manifests, reward signals, session summaries, and learned
+    rules from buildlog's emissions directory. Aggregates and deduplicates
+    concepts and edges, then loads into Memgraph.
+
+    With --bridge (default), also reads gauntlet rules from buildlog's DB and
+    creates cross-domain edges linking experiential data to design pattern
+    domains (observer_pattern, implementation_hiding, etc.).
+
+    No LLM calls required — emission data is already structured.
+
+    Examples:
+        qortex ingest emissions
+        qortex ingest emissions --dry-run
+        qortex ingest emissions --no-bridge  # skip gauntlet bridging
+        qortex ingest emissions --dir ~/.buildlog/emissions -o emissions_manifest.json
+    """
+    from qortex.ingest_emissions import aggregate_emissions, bridge_gauntlet_rules, build_manifest
+
+    expanded = Path(emissions_dir).expanduser()
+    if not expanded.exists():
+        handle_error(f"Emissions directory not found: {expanded}")
+
+    typer.echo(f"Scanning emissions in {expanded}...")
+    result = aggregate_emissions(
+        emissions_dir=expanded,
+        include_pending=include_pending,
+        include_processed=include_processed,
+    )
+
+    typer.echo(f"\nAggregation complete:")
+    typer.echo(f"  Files processed: {result.files_processed}")
+    typer.echo(f"  Files failed:    {result.files_failed}")
+    typer.echo(f"  Concepts:        {len(result.concepts)}")
+    typer.echo(f"  Edges:           {len(result.edges)}")
+    typer.echo(f"  Rules:           {len(result.rules)}")
+    typer.echo(f"\n  By type:")
+    for atype, count in sorted(result.by_type.items()):
+        if count > 0:
+            typer.echo(f"    {atype}: {count}")
+
+    if result.files_processed == 0:
+        typer.echo("\nNo emission artifacts found.")
+        return
+
+    manifest = build_manifest(result, domain=domain)
+
+    # Bridge gauntlet rules to design pattern domains
+    if bridge:
+        db_expanded = Path(buildlog_db).expanduser()
+        bridge_concepts, bridge_edges = bridge_gauntlet_rules(db_path=db_expanded)
+        if bridge_concepts:
+            manifest.concepts.extend(bridge_concepts)
+            manifest.edges.extend(bridge_edges)
+            typer.echo(f"\n  Gauntlet bridge:")
+            typer.echo(f"    Bridge concepts: {len(bridge_concepts)}")
+            typer.echo(f"    Bridge edges:    {len(bridge_edges)}")
+
+    # Save manifest if requested
+    if save_manifest:
+        try:
+            _save_manifest_to_file(manifest, save_manifest)
+            typer.echo(f"\nManifest saved to: {save_manifest}")
+        except Exception as e:
+            typer.echo(f"Warning: Failed to save manifest: {e}", err=True)
+
+    if dry_run:
+        typer.echo("\n[Dry run — not loading into graph]")
+        typer.echo("\nSample concepts:")
+        for c in list(result.concepts.values())[:8]:
+            typer.echo(f"  - {c.name}: {c.description[:70]}")
+        if result.edges:
+            typer.echo("\nSample edges:")
+            for e in result.edges[:8]:
+                rel = e.relation_type.value if hasattr(e.relation_type, "value") else e.relation_type
+                typer.echo(f"  - {e.source_id} --{rel}--> {e.target_id}")
+        if result.rules:
+            typer.echo("\nSample rules:")
+            for r in result.rules[:5]:
+                typer.echo(f"  - [{r.category}] {r.text[:70]}...")
+        return
+
+    # Load into Memgraph
+    from qortex.cli._config import get_config
+    from qortex.core.backend import MemgraphBackend, MemgraphCredentials
+
+    config = get_config()
+    try:
+        creds = MemgraphCredentials.from_tuple(config.memgraph_credentials.auth_tuple)
+        graph_backend = MemgraphBackend(
+            uri=config.get_memgraph_uri(),
+            credentials=creds,
+        )
+        graph_backend.connect()
+    except Exception as e:
+        uri = config.get_memgraph_uri()
+        if not save_manifest:
+            fallback = Path(f"emissions_manifest_{domain}.json")
+            try:
+                _save_manifest_to_file(manifest, fallback)
+                typer.echo(f"\nManifest auto-saved to: {fallback}", err=True)
+            except Exception:
+                pass
+        handle_error(
+            f"Could not connect to Memgraph at {uri}.\n"
+            f"Start it with: qortex infra up\n"
+            f"Original error: {e}"
+        )
+
+    try:
+        existing = graph_backend.get_domain(manifest.domain)
+        if not existing:
+            graph_backend.create_domain(
+                manifest.domain,
+                f"Buildlog emission data — mistakes, rewards, sessions, rules",
+            )
+
+        graph_backend.ingest_manifest(manifest)
+
+        typer.echo(f"\nLoaded into graph: {len(manifest.concepts)} concepts, {len(manifest.edges)} edges, {len(manifest.rules)} rules")
+        typer.echo("View with: qortex inspect domains")
+        typer.echo("Visualize: open http://localhost:3000 (Memgraph Lab)")
+
+    except Exception as e:
+        if not save_manifest:
+            fallback = Path(f"emissions_manifest_{domain}.json")
+            try:
+                _save_manifest_to_file(manifest, fallback)
+                typer.echo(f"\nManifest auto-saved to: {fallback}", err=True)
+            except Exception:
+                pass
+        handle_error(f"Failed to save to graph: {e}")
+    finally:
+        graph_backend.disconnect()
