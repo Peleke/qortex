@@ -182,14 +182,11 @@ def register_metric_handlers(instruments: dict[str, Any]) -> None:
 
     @QortexEventLinker.on(LearningPosteriorUpdated)
     def _on_learning_posterior(event: LearningPosteriorUpdated) -> None:
-        instruments["qortex_learning_posterior_mean"].set(event.mean, {
-            "learner": event.learner,
-            "arm_id": event.arm_id,
-        })
-        instruments["qortex_learning_arm_pulls"].add(1, {
-            "learner": event.learner,
-            "arm_id": event.arm_id,
-        })
+        labels = {"learner": event.learner, "arm_id": event.arm_id}
+        instruments["qortex_learning_posterior_mean"].set(event.mean, labels)
+        instruments["qortex_learning_arm_pulls"].add(1, labels)
+        instruments["qortex_learning_arm_alpha"].set(event.alpha, labels)
+        instruments["qortex_learning_arm_beta"].set(event.beta, labels)
 
     # ── Credit propagation ───────────────────────────────────────
 

@@ -17,6 +17,7 @@ Exit code 0 = all checks pass. Non-zero = failures.
 from __future__ import annotations
 
 import os
+import random
 import socket
 import sys
 import time
@@ -34,16 +35,22 @@ os.environ["QORTEX_PROMETHEUS_PORT"] = "9464"
 os.environ["QORTEX_OTEL_TRACE_SAMPLE_RATE"] = "1.0"
 os.environ["QORTEX_OTEL_TRACE_LATENCY_THRESHOLD_MS"] = "0.0"
 
-from qortex.observe import configure, emit, reset as obs_reset
-from qortex.observe.config import ObservabilityConfig
+from qortex.observe import configure, emit
+from qortex.observe import reset as obs_reset
 from qortex.observe.events import (
     CreditPropagated,
-    LearningObservationRecorded,
-    LearningPosteriorUpdated,
-    LearningSelectionMade,
-    PPRConverged,
-    PPRStarted,
 )
+
+from qortex.core.backend import MemgraphBackend, MemgraphCredentials
+from qortex.core.models import (
+    ConceptEdge,
+    ConceptNode,
+    IngestionManifest,
+    RelationType,
+    SourceMetadata,
+)
+from qortex.learning.learner import Learner
+from qortex.learning.types import Arm, ArmOutcome, LearnerConfig
 
 
 def _port_open(host: str, port: int) -> bool:
@@ -112,15 +119,6 @@ def check(name: str, condition: bool, detail: str = "") -> None:
 print()
 print("[1/5] Running PPR against real Memgraph (traced Cypher spans)...")
 
-from qortex.core.backend import MemgraphBackend, MemgraphCredentials
-from qortex.core.models import (
-    ConceptEdge,
-    ConceptNode,
-    IngestionManifest,
-    RelationType,
-    SourceMetadata,
-)
-
 creds = MemgraphCredentials(
     user=os.environ.get("MEMGRAPH_USER", "memgraph"),
     password=os.environ.get("MEMGRAPH_PASSWORD", "memgraph"),
@@ -173,11 +171,6 @@ print(f"       Ran 5 PPR queries: {len(scores)} scored nodes each")
 print()
 print("[2/5] Running learning workload (bandit selections + observations)...")
 
-from qortex.learning.learner import Learner
-from qortex.learning.types import Arm, ArmOutcome, LearnerConfig
-
-import random
-
 learner = Learner(LearnerConfig(
     name="validate-learner",
     baseline_rate=0.1,
@@ -190,7 +183,7 @@ candidates = [
     Arm(id="prompt:fewshot", metadata={"type": "fewshot"}, token_cost=300),
 ]
 
-for i in range(15):
+for _i in range(15):
     result = learner.select(candidates, context={"task": "validate"}, k=2)
     for arm in result.selected:
         outcome = "accepted" if random.random() < (0.8 if arm.id == "prompt:cot" else 0.3) else "rejected"
@@ -258,8 +251,8 @@ print(f"  --- Direct Prometheus /metrics (port {prom_port}) ---")
 try:
     resp = requests.get(f"http://localhost:{prom_port}/metrics", timeout=5)
     body = resp.text
-    qortex_metrics = [l for l in body.splitlines()
-                      if l.startswith("qortex_") and not l.startswith("#")]
+    qortex_metrics = [line for line in body.splitlines()
+                      if line.startswith("qortex_") and not line.startswith("#")]
 
     check("Direct /metrics has qortex_ metrics", len(qortex_metrics) > 0,
           f"{len(qortex_metrics)} metric lines")
@@ -273,13 +266,13 @@ try:
         ("qortex_learning_observations_total", "Learning observations"),
         ("qortex_credit_propagations_total", "Credit propagations"),
     ]:
-        found_lines = [l for l in qortex_metrics
-                       if l.startswith(metric_name)
-                       and not l.startswith(metric_name + "_")]
+        found_lines = [line for line in qortex_metrics
+                       if line.startswith(metric_name)
+                       and not line.startswith(metric_name + "_")]
         has_value = False
-        for l in found_lines:
+        for line in found_lines:
             try:
-                v = float(l.split()[-1])
+                v = float(line.split()[-1])
                 if v > 0:
                     has_value = True
                     break

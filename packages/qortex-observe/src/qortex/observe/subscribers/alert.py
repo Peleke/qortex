@@ -36,11 +36,7 @@ _ALERTABLE_EVENTS = (
 
 def register_alert_subscriber(config: ObservabilityConfig) -> None:
     """Register alert evaluation on alertable events."""
-    sink: AlertSink
-    if config.alert_enabled:
-        sink = LogAlertSink()
-    else:
-        sink = NoOpAlertSink()
+    sink: AlertSink = LogAlertSink() if config.alert_enabled else NoOpAlertSink()
 
     rules = list(BUILTIN_RULES)
 

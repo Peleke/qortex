@@ -18,20 +18,21 @@ from __future__ import annotations
 
 import os
 import random
-import sys
 import time
 
 # Force Prometheus metrics on port 9090
 os.environ["QORTEX_PROMETHEUS_ENABLED"] = "true"
 os.environ["QORTEX_PROMETHEUS_PORT"] = "9464"
 
+from qortex.observe import configure, emit
+from qortex.observe import reset as obs_reset
+from qortex.observe.events import CreditPropagated
+
 from qortex.causal.credit import CreditAssigner
 from qortex.causal.dag import CausalDAG
 from qortex.causal.types import CausalDirection, CausalEdge
 from qortex.learning.learner import Learner
 from qortex.learning.types import LearnerConfig
-from qortex.observe import configure, emit, reset as obs_reset
-from qortex.observe.events import CreditPropagated
 
 # ── Setup ─────────────────────────────────────────────────────────
 obs_reset()

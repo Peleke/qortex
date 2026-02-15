@@ -32,6 +32,7 @@ from qortex.core.models import (
 
 # Default emission directories
 DEFAULT_EMISSIONS_DIR = Path("~/.buildlog/emissions").expanduser()
+DEFAULT_BUILDLOG_DB = Path("~/.buildlog/buildlog.db").expanduser()
 
 # Valid relation type values for mapping
 _VALID_RELATIONS = {r.value for r in RelationType}
@@ -151,11 +152,84 @@ def _extract_learned_rules(data: dict[str, Any]) -> list[ExplicitRule]:
             id=rule_id,
             text=text,
             domain=prov.get("domain", "buildlog"),
-            source_id=f"buildlog:learned_rules",
+            source_id="buildlog:learned_rules",
             category=raw_rule.get("category"),
             confidence=prov.get("confidence", 0.7),
         ))
     return rules
+
+
+def _build_skill_to_gauntlet_map(db_path: Path = DEFAULT_BUILDLOG_DB) -> dict[str, str]:
+    """Build mapping from promoted skill IDs to gauntlet_rule:{rule_id} targets.
+
+    Both IDs are deterministic content hashes of rule text. This enables
+    resolution of historical emission edges that used skill IDs as targets.
+    """
+    import hashlib
+    import sqlite3
+
+    if not db_path.exists():
+        return {}
+
+    mapping: dict[str, str] = {}
+    try:
+        db = sqlite3.connect(str(db_path))
+        db.row_factory = sqlite3.Row
+        cursor = db.execute(
+            "SELECT rule_id, rule, category FROM gauntlet_rules WHERE active = 1"
+        )
+
+        # Replicate buildlog's _generate_skill_id logic
+        prefix_map = {
+            "architectural": "arch",
+            "workflow": "wf",
+            "tool_usage": "tool",
+            "domain_knowledge": "dk",
+        }
+
+        for row in cursor:
+            rule_id = row["rule_id"]
+            rule_text = row["rule"]
+            category = row["category"] or "general"
+
+            prefix = prefix_map.get(category, "sk")
+            rule_hash = hashlib.sha256(rule_text.lower().encode()).hexdigest()[:10]
+            skill_id = f"{prefix}-{rule_hash}"
+            mapping[skill_id] = f"gauntlet_rule:{rule_id}"
+
+        db.close()
+    except Exception:
+        pass
+    return mapping
+
+
+def resolve_historical_targets(
+    result: AggregationResult,
+    db_path: Path = DEFAULT_BUILDLOG_DB,
+) -> int:
+    """Resolve bare skill IDs and stubs in edge targets to gauntlet_rule:{id} format.
+
+    Modifies edges in-place. Returns count of resolved edges.
+    """
+    mapping = _build_skill_to_gauntlet_map(db_path)
+    if not mapping:
+        return 0
+
+    # Known prefixes that are already resolved (don't touch these)
+    _RESOLVED_PREFIXES = ("session:", "mistake:", "reward:", "gauntlet_rule:", "domain:", "persona:", "resolution:", "bl:")
+
+    resolved = 0
+    for edge in result.edges:
+        target = edge.target_id
+        if any(target.startswith(p) for p in _RESOLVED_PREFIXES):
+            continue
+
+        new_target = mapping.get(target)
+        if new_target:
+            edge.target_id = new_target
+            resolved += 1
+
+    return resolved
 
 
 def aggregate_emissions(
@@ -276,8 +350,6 @@ def build_manifest(
 # =============================================================================
 # Gauntlet Bridge: cross-domain edges from buildlog rules to pattern domains
 # =============================================================================
-
-DEFAULT_BUILDLOG_DB = Path("~/.buildlog/buildlog.db").expanduser()
 
 
 def bridge_gauntlet_rules(

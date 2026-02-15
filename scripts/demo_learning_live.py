@@ -10,16 +10,17 @@ The "Learning & Bandits" row at the bottom will light up.
 from __future__ import annotations
 
 import os
-import sys
 import time
 
 # Force Prometheus metrics on port 9090
 os.environ["QORTEX_PROMETHEUS_ENABLED"] = "true"
 os.environ["QORTEX_PROMETHEUS_PORT"] = "9464"
 
+from qortex.observe import configure
+from qortex.observe import reset as obs_reset
+
 from qortex.learning.learner import Learner
 from qortex.learning.types import Arm, ArmOutcome, LearnerConfig
-from qortex.observe import configure, reset as obs_reset
 
 # ── Setup ─────────────────────────────────────────────────────────
 obs_reset()

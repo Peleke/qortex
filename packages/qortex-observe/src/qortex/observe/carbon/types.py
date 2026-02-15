@@ -7,11 +7,11 @@ reporting formats. All emissions in grams CO2-equivalent (gCO2eq).
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from enum import Enum
+from enum import StrEnum
 from typing import Literal
 
 
-class CarbonFactorSource(str, Enum):
+class CarbonFactorSource(StrEnum):
     """Provenance of a carbon emission factor."""
 
     MEASURED = "measured"
@@ -20,7 +20,7 @@ class CarbonFactorSource(str, Enum):
     FALLBACK = "fallback"
 
 
-class ConfidenceLevel(str, Enum):
+class ConfidenceLevel(StrEnum):
     """Human-readable confidence tier."""
 
     HIGH = "high"
@@ -29,7 +29,7 @@ class ConfidenceLevel(str, Enum):
     VERY_LOW = "very_low"
 
 
-class GhgCalculationMethod(str, Enum):
+class GhgCalculationMethod(StrEnum):
     """GHG Protocol calculation methodology."""
 
     SUPPLIER_SPECIFIC = "supplier-specific"

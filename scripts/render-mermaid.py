@@ -72,7 +72,7 @@ def process_file(md_path: Path) -> int:
             img_tag = f"![{slug}]({img_prefix}{svg_name})"
             replacements.append((match.group(0), img_tag))
         else:
-            print(f"  SKIPPED: render failed")
+            print("  SKIPPED: render failed")
 
     # Apply replacements
     for old, new in replacements:

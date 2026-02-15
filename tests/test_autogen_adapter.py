@@ -15,13 +15,11 @@ Run: uv run pytest tests/test_autogen_adapter.py -v
 from __future__ import annotations
 
 import asyncio
-from dataclasses import dataclass, field
-from typing import Any
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import MagicMock
 
 import pytest
 
-from qortex.adapters.autogen import QortexMemory, QortexMemoryConfig, _HAS_AUTOGEN
+from qortex.adapters.autogen import _HAS_AUTOGEN, QortexMemory, QortexMemoryConfig
 from qortex.client import (
     FeedbackResult,
     IngestResult,
@@ -178,7 +176,7 @@ class TestQortexMemoryUnit:
 
     @pytest.mark.asyncio
     async def test_query_calls_client(self, mock_memory, mock_client):
-        result = await mock_memory.query("What is OAuth2?")
+        await mock_memory.query("What is OAuth2?")
         mock_client.query.assert_called_once()
         call_kwargs = mock_client.query.call_args
         assert call_kwargs.kwargs["context"] == "What is OAuth2?"
@@ -262,7 +260,7 @@ class TestQortexMemoryUnit:
             {"role": "system", "content": "You are a helpful assistant."},
             {"role": "user", "content": "How does OAuth2 work?"},
         ]
-        result = await mock_memory.update_context(context)
+        await mock_memory.update_context(context)
         assert mock_memory._client.query.called
         call_kwargs = mock_memory._client.query.call_args
         assert call_kwargs.kwargs["context"] == "How does OAuth2 work?"
@@ -270,7 +268,7 @@ class TestQortexMemoryUnit:
     @pytest.mark.asyncio
     async def test_update_context_empty_messages(self, mock_memory):
         """update_context with empty messages returns empty result."""
-        result = await mock_memory.update_context([])
+        _result = await mock_memory.update_context([])
         mock_memory._client.query.assert_not_called()
 
     def test_config_defaults(self):
@@ -355,7 +353,7 @@ class TestQortexMemoryIntegration:
         messages = [
             {"role": "user", "content": "How should a mobile app handle OAuth2?"},
         ]
-        result = await memory.update_context(messages)
+        _result = await memory.update_context(messages)
         assert memory.last_query_id is not None
 
     @pytest.mark.asyncio
