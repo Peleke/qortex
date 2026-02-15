@@ -2,14 +2,10 @@
 
 import json
 import sqlite3
-import tempfile
 from pathlib import Path
-
-import pytest
 
 from qortex.core.models import RelationType
 from qortex.ingest_emissions import (
-    AggregationResult,
     _classify_artifact,
     _extract_concept,
     _extract_edges,
@@ -19,7 +15,6 @@ from qortex.ingest_emissions import (
     bridge_gauntlet_rules,
     build_manifest,
 )
-
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -93,7 +88,7 @@ def _make_session_summary(session_id: str = "session-test-001") -> dict:
             },
             {
                 "source_id": f"session:{session_id}",
-                "target_id": f"mistake:mistake-test-001",
+                "target_id": "mistake:mistake-test-001",
                 "relation_type": "contains",
                 "properties": {"type": "mistake_in_session"},
                 "confidence": 1.0,

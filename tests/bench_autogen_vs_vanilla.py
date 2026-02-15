@@ -8,15 +8,15 @@ Run: uv run pytest tests/bench_autogen_vs_vanilla.py -v -s
 
 from __future__ import annotations
 
-import asyncio
 import math
 import statistics
 import time
 from dataclasses import dataclass, field
+from typing import Any
 
 import pytest
 
-from qortex.adapters.autogen import QortexMemory, _HAS_AUTOGEN
+from qortex.adapters.autogen import QortexMemory
 from qortex.client import LocalQortexClient
 from qortex.core.memory import InMemoryBackend
 from qortex.vec.embeddings import SentenceTransformerEmbedding

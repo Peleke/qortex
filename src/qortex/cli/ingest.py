@@ -396,7 +396,12 @@ def ingest_emissions(
     buildlog_db: Path = typer.Option(
         "~/.buildlog/buildlog.db",
         "--db",
-        help="Path to buildlog SQLite database (for --bridge)",
+        help="Path to buildlog SQLite database (for --bridge and --resolve-rules)",
+    ),
+    resolve_rules: bool = typer.Option(
+        True,
+        "--resolve-rules/--no-resolve-rules",
+        help="Resolve historical skill ID edge targets to gauntlet_rule:{id} format",
     ),
 ) -> None:
     """Ingest buildlog emission artifacts into the knowledge graph.
@@ -417,7 +422,12 @@ def ingest_emissions(
         qortex ingest emissions --no-bridge  # skip gauntlet bridging
         qortex ingest emissions --dir ~/.buildlog/emissions -o emissions_manifest.json
     """
-    from qortex.ingest_emissions import aggregate_emissions, bridge_gauntlet_rules, build_manifest
+    from qortex.ingest_emissions import (
+        aggregate_emissions,
+        bridge_gauntlet_rules,
+        build_manifest,
+        resolve_historical_targets,
+    )
 
     expanded = Path(emissions_dir).expanduser()
     if not expanded.exists():
@@ -430,16 +440,23 @@ def ingest_emissions(
         include_processed=include_processed,
     )
 
-    typer.echo(f"\nAggregation complete:")
+    typer.echo("\nAggregation complete:")
     typer.echo(f"  Files processed: {result.files_processed}")
     typer.echo(f"  Files failed:    {result.files_failed}")
     typer.echo(f"  Concepts:        {len(result.concepts)}")
     typer.echo(f"  Edges:           {len(result.edges)}")
     typer.echo(f"  Rules:           {len(result.rules)}")
-    typer.echo(f"\n  By type:")
+    typer.echo("\n  By type:")
     for atype, count in sorted(result.by_type.items()):
         if count > 0:
             typer.echo(f"    {atype}: {count}")
+
+    # Resolve historical skill IDs to gauntlet_rule:{id} targets
+    if resolve_rules:
+        db_expanded = Path(buildlog_db).expanduser()
+        resolved_count = resolve_historical_targets(result, db_path=db_expanded)
+        if resolved_count > 0:
+            typer.echo(f"\n  Resolved {resolved_count} historical edge targets to gauntlet_rule:{{id}} format")
 
     if result.files_processed == 0:
         typer.echo("\nNo emission artifacts found.")
@@ -454,7 +471,7 @@ def ingest_emissions(
         if bridge_concepts:
             manifest.concepts.extend(bridge_concepts)
             manifest.edges.extend(bridge_edges)
-            typer.echo(f"\n  Gauntlet bridge:")
+            typer.echo("\n  Gauntlet bridge:")
             typer.echo(f"    Bridge concepts: {len(bridge_concepts)}")
             typer.echo(f"    Bridge edges:    {len(bridge_edges)}")
 
@@ -514,7 +531,7 @@ def ingest_emissions(
         if not existing:
             graph_backend.create_domain(
                 manifest.domain,
-                f"Buildlog emission data — mistakes, rewards, sessions, rules",
+                "Buildlog emission data — mistakes, rewards, sessions, rules",
             )
 
         graph_backend.ingest_manifest(manifest)

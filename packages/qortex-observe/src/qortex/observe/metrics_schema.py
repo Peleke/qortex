@@ -33,7 +33,7 @@ class MetricDef:
     buckets: tuple[float, ...] | None = None  # histograms only
 
 
-# All 42 metrics in one registry.
+# All 44 metrics in one registry.
 # Names follow Prometheus conventions:
 #   Counter:   "qortex_foo"          → exported as "qortex_foo_total"
 #   Histogram: "qortex_bar_seconds"  → exported as "qortex_bar_seconds_bucket" etc.
@@ -193,6 +193,14 @@ METRICS: tuple[MetricDef, ...] = (
         "qortex_learning_token_budget_used", MetricType.HISTOGRAM,
         "Token budget used",
         buckets=(100, 500, 1000, 2000, 4000, 8000, 16000),
+    ),
+    MetricDef(
+        "qortex_learning_arm_alpha", MetricType.GAUGE,
+        "Arm alpha (success count)", ("learner", "arm_id"),
+    ),
+    MetricDef(
+        "qortex_learning_arm_beta", MetricType.GAUGE,
+        "Arm beta (failure count)", ("learner", "arm_id"),
     ),
     # ── Credit propagation ───────────────────────────────────────────
     MetricDef(

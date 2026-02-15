@@ -2321,6 +2321,7 @@ def _learning_select_impl(
     seed_boost: float | None = None,
 ) -> dict:
     """Select arms from candidates using the learner's strategy."""
+    _ensure_initialized()
     from qortex.learning import Arm
 
     arms = [
@@ -2366,6 +2367,7 @@ def _learning_observe_impl(
     context: dict | None = None,
 ) -> dict:
     """Record an observation and update posterior."""
+    _ensure_initialized()
     from qortex.learning import ArmOutcome
 
     lrn = _get_or_create_learner(learner)
@@ -2392,6 +2394,7 @@ def _learning_posteriors_impl(
     arm_ids: list[str] | None = None,
 ) -> dict:
     """Get current posteriors for arms."""
+    _ensure_initialized()
     lrn = _get_or_create_learner(learner)
     posteriors = lrn.posteriors(context=context, arm_ids=arm_ids)
 
@@ -2409,6 +2412,7 @@ def _learning_metrics_impl(
     window: int | None = None,
 ) -> dict:
     """Get learning metrics."""
+    _ensure_initialized()
     lrn = _get_or_create_learner(learner)
     return lrn.metrics(window=window)
 
@@ -2418,6 +2422,7 @@ def _learning_session_start_impl(
     session_name: str,
 ) -> dict:
     """Start a named learning session."""
+    _ensure_initialized()
     lrn = _get_or_create_learner(learner)
     session_id = lrn.session_start(session_name)
     return {"session_id": session_id, "learner": learner}
@@ -2425,6 +2430,7 @@ def _learning_session_start_impl(
 
 def _learning_session_end_impl(session_id: str) -> dict:
     """End a learning session and return summary."""
+    _ensure_initialized()
     for lrn in _learners.values():
         if session_id in lrn._sessions:
             return lrn.session_end(session_id)
@@ -2437,6 +2443,7 @@ def _learning_reset_impl(
     context: dict | None = None,
 ) -> dict:
     """Reset (delete) learned posteriors for a learner."""
+    _ensure_initialized()
     lrn = _get_or_create_learner(learner)
     count = lrn.reset(arm_ids=arm_ids, context=context)
     # Evict from cache so seed boosts re-apply on next use

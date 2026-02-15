@@ -6,7 +6,10 @@ It's a no-op when not configured (zero overhead in tests).
 
 from __future__ import annotations
 
-from typing import Any
+from typing import TYPE_CHECKING, Any
+
+if TYPE_CHECKING:
+    from qortex.observe.config import ObservabilityConfig
 
 from pyventus.events import EventEmitter
 
@@ -60,7 +63,16 @@ def _setup_metrics_pipeline(cfg: ObservabilityConfig) -> None:
             from prometheus_client import start_http_server
 
             readers.append(PrometheusMetricReader())
-            start_http_server(cfg.prometheus_port)
+            try:
+                start_http_server(cfg.prometheus_port)
+            except OSError as e:
+                # Port already bound (e.g. previous process didn't clean up)
+                get_logger().warning(
+                    "prometheus.port_in_use",
+                    port=cfg.prometheus_port,
+                    error=str(e),
+                    hint="Metrics reader registered but /metrics endpoint may serve stale data",
+                )
         except ImportError:
             get_logger().warning(
                 "prometheus_enabled but opentelemetry-exporter-prometheus not installed",

@@ -1,11 +1,9 @@
 """Tests for include_edge_derived filter on ProjectionFilter and FlatRuleSource."""
 
-import pytest
 
-from qortex.core.models import ConceptEdge, ConceptNode, RelationType, Rule
+from qortex.core.models import ConceptEdge, ConceptNode, RelationType
 from qortex.projectors.models import ProjectionFilter
 from qortex.projectors.sources.flat import FlatRuleSource
-
 
 # ---------------------------------------------------------------------------
 # Minimal in-memory backend stub
