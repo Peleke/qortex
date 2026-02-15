@@ -2027,8 +2027,11 @@ def _get_chunker():
     return _chunking_strategy
 
 
-def set_chunking_strategy(strategy) -> None:
-    """Swap the chunking strategy at runtime. Must match ChunkingStrategy protocol."""
+def set_chunking_strategy(strategy: Any) -> None:
+    """Swap the chunking strategy at runtime. Must match ChunkingStrategy protocol.
+
+    Pass None to reset to the default SentenceBoundaryChunker.
+    """
     global _chunking_strategy
     _chunking_strategy = strategy
 

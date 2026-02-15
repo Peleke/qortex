@@ -777,7 +777,7 @@
       }
     },
     {
-      "title": "Vector Index",
+      "title": "Online Indexing",
       "type": "row",
       "gridPos": {
         "h": 1,
@@ -788,13 +788,166 @@
       "collapsed": false
     },
     {
-      "title": "Search Pipeline",
+      "title": "Online Pipeline",
       "type": "jdbranham-diagram-panel",
       "gridPos": {
         "h": 8,
         "w": 8,
         "x": 0,
         "y": 118
+      },
+      "options": {
+        "content": "flowchart LR\n    MSG(\"Message /\\nTool Result\") --> CHK(\"Sentence\\nChunker\")\n    CHK --> EMB(\"Embed\\nBatch\")\n    EMB --> VEC(\"Vec\\nIndex\")\n    VEC --> EDG(\"Co-occurrence\\nEdges\")\n    style MSG fill:#1b4332,stroke:#2d6a4f,color:#d8f3dc,stroke-width:2px\n    style CHK fill:#2d6a4f,stroke:#40916c,color:#d8f3dc,stroke-width:2px\n    style EMB fill:#40916c,stroke:#52b788,color:#d8f3dc,stroke-width:2px\n    style VEC fill:#52b788,stroke:#95d5b2,color:#1b4332,stroke-width:2px\n    style EDG fill:#95d5b2,stroke:#d8f3dc,color:#1b4332,stroke-width:2px",
+        "mermaidThemeVariables": "{\"fontSize\":\"14px\",\"primaryColor\":\"#40916c\",\"lineColor\":\"#52b788\",\"textColor\":\"#d8f3dc\"}"
+      },
+      "transparent": true
+    },
+    {
+      "title": "",
+      "type": "text",
+      "gridPos": {
+        "h": 8,
+        "w": 16,
+        "x": 8,
+        "y": 118
+      },
+      "options": {
+        "mode": "markdown",
+        "content": "## Online Session Indexing\n\nEvery conversation message and tool result is **chunked \u2192 embedded \u2192 indexed** in real-time.\nThe chunker splits text at sentence boundaries (pluggable via `ChunkingStrategy` protocol). Embeddings are added to the vector index; consecutive chunks get co-occurrence edges in the KG.\n\n| Signal | What to watch | Healthy | Investigate |\n|--------|--------------|---------|-------------|\n| **Message Ingest Rate** | Messages/sec by role | Steady during conversation | Zero during active chat = pipeline stalled |\n| **Message Ingest Latency** | End-to-end ingest time | p50 < 50ms, p95 < 200ms | p95 >> p50 = embedding bottleneck |\n| **Tool Result Ingest Rate** | Tool outputs/sec | Spikes after tool calls | Zero after tool calls = results not captured |\n| **Tool Result Ingest Latency** | End-to-end ingest time | p50 < 50ms, p95 < 200ms | High latency = large tool outputs |"
+      },
+      "transparent": true
+    },
+    {
+      "title": "Message Ingest Rate",
+      "description": "Rate of session messages ingested by role (user, assistant, system, tool). Each message is chunked, embedded, and indexed in the vector store. Steady rates during conversation mean the online pipeline is working. Zero during active chat indicates the pipeline is stalled or not wired up.",
+      "type": "timeseries",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${DS_PROMETHEUS}"
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 126
+      },
+      "targets": [
+        {
+          "expr": "rate(qortex_messages_ingested_total[5m])",
+          "legendFormat": "{{role}}"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "cps"
+        }
+      }
+    },
+    {
+      "title": "Message Ingest Latency (p50/p95)",
+      "description": "End-to-end latency for ingesting a message: chunking + embedding + vector index add + co-occurrence edge insertion. Dominated by the embedding model. If p95 is much higher than p50, some messages contain significantly more text (e.g. long assistant responses).",
+      "type": "timeseries",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${DS_PROMETHEUS}"
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 126
+      },
+      "targets": [
+        {
+          "expr": "histogram_quantile(0.50, rate(qortex_message_ingest_duration_seconds_bucket[5m]))",
+          "legendFormat": "p50"
+        },
+        {
+          "expr": "histogram_quantile(0.95, rate(qortex_message_ingest_duration_seconds_bucket[5m]))",
+          "legendFormat": "p95"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s"
+        }
+      }
+    },
+    {
+      "title": "Tool Result Ingest Rate",
+      "description": "Rate of tool result ingestion by tool name (truncated to 64 chars to prevent label cardinality explosion). Each tool output is chunked and indexed independently. Spikes after tool-heavy turns are normal. Zero after tool calls means results aren't being captured.",
+      "type": "timeseries",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${DS_PROMETHEUS}"
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 134
+      },
+      "targets": [
+        {
+          "expr": "rate(qortex_tool_results_ingested_total[5m])",
+          "legendFormat": "{{tool_name}}"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "cps"
+        }
+      }
+    },
+    {
+      "title": "Tool Result Ingest Latency (p50/p95)",
+      "description": "End-to-end latency for ingesting a tool result. Same pipeline as message ingest (chunk \u2192 embed \u2192 index \u2192 edges). Tool outputs vary widely in size (a grep result vs. a file read), so expect more variance than message ingest latency.",
+      "type": "timeseries",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${DS_PROMETHEUS}"
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 134
+      },
+      "targets": [
+        {
+          "expr": "histogram_quantile(0.50, rate(qortex_tool_result_ingest_duration_seconds_bucket[5m]))",
+          "legendFormat": "p50"
+        },
+        {
+          "expr": "histogram_quantile(0.95, rate(qortex_tool_result_ingest_duration_seconds_bucket[5m]))",
+          "legendFormat": "p95"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s"
+        }
+      }
+    },
+    {
+      "title": "Vector Index",
+      "type": "row",
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 142
+      },
+      "collapsed": false
+    },
+    {
+      "title": "Search Pipeline",
+      "type": "jdbranham-diagram-panel",
+      "gridPos": {
+        "h": 8,
+        "w": 8,
+        "x": 0,
+        "y": 143
       },
       "options": {
         "content": "flowchart LR\n    C(\"Concept\") --> EMB(\"Embed\")\n    EMB --> IDX(\"Vector\\nIndex\")\n    IDX -->|\"cosine sim\"| TOP(\"Top-K\\nCandidates\")\n    TOP -->|\"domain filter\"| RES(\"Filtered\\nResults\")\n    style C fill:#003049,stroke:#d62828,color:#fcbf49,stroke-width:2px\n    style EMB fill:#d62828,stroke:#f77f00,color:#fcbf49,stroke-width:2px\n    style IDX fill:#f77f00,stroke:#fcbf49,color:#003049,stroke-width:2px\n    style TOP fill:#fcbf49,stroke:#eae2b7,color:#003049,stroke-width:2px\n    style RES fill:#eae2b7,stroke:#eae2b7,color:#003049,stroke-width:2px",
@@ -809,7 +962,7 @@
         "h": 8,
         "w": 16,
         "x": 8,
-        "y": 118
+        "y": 143
       },
       "options": {
         "mode": "markdown",
@@ -829,7 +982,7 @@
         "h": 8,
         "w": 6,
         "x": 0,
-        "y": 126
+        "y": 151
       },
       "targets": [
         {
@@ -855,7 +1008,7 @@
         "h": 8,
         "w": 9,
         "x": 6,
-        "y": 126
+        "y": 151
       },
       "targets": [
         {
@@ -881,7 +1034,7 @@
         "h": 8,
         "w": 9,
         "x": 15,
-        "y": 126
+        "y": 151
       },
       "targets": [
         {
@@ -911,7 +1064,7 @@
         "h": 8,
         "w": 8,
         "x": 0,
-        "y": 134
+        "y": 159
       },
       "targets": [
         {
@@ -939,7 +1092,7 @@
         "h": 8,
         "w": 8,
         "x": 8,
-        "y": 134
+        "y": 159
       },
       "targets": [
         {
@@ -966,7 +1119,7 @@
         "h": 8,
         "w": 8,
         "x": 16,
-        "y": 134
+        "y": 159
       },
       "targets": [
         {
@@ -1010,7 +1163,7 @@
         "h": 8,
         "w": 12,
         "x": 0,
-        "y": 142
+        "y": 167
       },
       "targets": [
         {
@@ -1026,7 +1179,7 @@
         "h": 1,
         "w": 24,
         "x": 0,
-        "y": 150
+        "y": 175
       },
       "collapsed": false
     },
@@ -1037,7 +1190,7 @@
         "h": 7,
         "w": 8,
         "x": 0,
-        "y": 151
+        "y": 176
       },
       "options": {
         "content": "flowchart LR\n    POOL(\"Arm Pool\\nBeta(\u03b1,\u03b2)\") -->|\"Thompson\\nSample\"| SEL(\"Select\\nArm\")\n    SEL --> ACT(\"Execute\")\n    ACT --> OUT(\"Observe\\nOutcome\")\n    OUT -->|\"\u03b1++ or \u03b2++\"| POOL\n    style POOL fill:#1b4332,stroke:#40916c,color:#d8f3dc,stroke-width:2px\n    style SEL fill:#2d6a4f,stroke:#52b788,color:#d8f3dc,stroke-width:2px\n    style ACT fill:#40916c,stroke:#95d5b2,color:#d8f3dc,stroke-width:2px\n    style OUT fill:#52b788,stroke:#d8f3dc,color:#1b4332,stroke-width:2px",
@@ -1052,7 +1205,7 @@
         "h": 7,
         "w": 16,
         "x": 8,
-        "y": 151
+        "y": 176
       },
       "options": {
         "mode": "markdown",
@@ -1072,7 +1225,7 @@
         "h": 8,
         "w": 24,
         "x": 0,
-        "y": 158
+        "y": 183
       },
       "targets": [
         {
@@ -1140,7 +1293,7 @@
         "h": 8,
         "w": 12,
         "x": 0,
-        "y": 166
+        "y": 191
       },
       "targets": [
         {
@@ -1168,7 +1321,7 @@
         "h": 8,
         "w": 12,
         "x": 12,
-        "y": 166
+        "y": 191
       },
       "targets": [
         {
@@ -1189,7 +1342,7 @@
         "h": 7,
         "w": 12,
         "x": 0,
-        "y": 174
+        "y": 199
       },
       "options": {
         "content": "flowchart LR\n    CT[\"Conversational\\nTurn\"] -->|no tools| SKIP[\"Skip\\nObservation\"]\n    MT[\"Meta-tool\\nOnly\"] -->|no real tools| SKIP\n    RT[\"Real Tool\\nUsage\"] -->|observe| OBS[\"Record\\nOutcome\"]\n    OBS -->|accepted| UP[\"alpha += 1\"]\n    OBS -->|rejected| DOWN[\"beta += 1\"]\n    SKIP -.->|\"POISON FIX\"| X(\" \")\n    style SKIP fill:#2d6a4f,stroke:#40916c,color:#d8f3dc,stroke-width:2px\n    style X fill:none,stroke:none\n    style CT fill:#1b4332,stroke:#40916c,color:#b7e4c7\n    style MT fill:#1b4332,stroke:#40916c,color:#b7e4c7\n    style RT fill:#081c15,stroke:#2d6a4f,color:#95d5b2\n    style UP fill:#2d6a4f,stroke:#40916c,color:#d8f3dc\n    style DOWN fill:#9b2226,stroke:#ae2012,color:#ffddd2\n    style OBS fill:#1b4332,stroke:#40916c,color:#b7e4c7",
@@ -1204,7 +1357,7 @@
         "h": 7,
         "w": 12,
         "x": 12,
-        "y": 174
+        "y": 199
       },
       "options": {
         "mode": "markdown",
@@ -1224,7 +1377,7 @@
         "h": 8,
         "w": 12,
         "x": 0,
-        "y": 181
+        "y": 206
       },
       "targets": [
         {
@@ -1289,7 +1442,7 @@
         "h": 8,
         "w": 12,
         "x": 12,
-        "y": 181
+        "y": 206
       },
       "targets": [
         {
@@ -1324,7 +1477,7 @@
         "h": 4,
         "w": 12,
         "x": 0,
-        "y": 189
+        "y": 214
       },
       "targets": [
         {
@@ -1376,7 +1529,7 @@
         "h": 4,
         "w": 12,
         "x": 12,
-        "y": 189
+        "y": 214
       },
       "targets": [
         {
@@ -1426,7 +1579,7 @@
         "h": 1,
         "w": 24,
         "x": 0,
-        "y": 193
+        "y": 218
       },
       "collapsed": false
     },
@@ -1437,7 +1590,7 @@
         "h": 8,
         "w": 8,
         "x": 0,
-        "y": 194
+        "y": 219
       },
       "options": {
         "content": "flowchart BT\n    F(\"foundations\\nalpha += 0.202\") -->|0.95| A(\"algebra\\nalpha += 0.425\")\n    A -->|0.85| LA(\"linear-algebra\\nalpha += 1.0\")\n    style LA fill:#2d6a4f,stroke:#40916c,color:#d8f3dc,stroke-width:2px\n    style A fill:#1b4332,stroke:#40916c,color:#b7e4c7,stroke-width:2px\n    style F fill:#081c15,stroke:#2d6a4f,color:#95d5b2,stroke-width:2px",
@@ -1452,7 +1605,7 @@
         "h": 8,
         "w": 16,
         "x": 8,
-        "y": 194
+        "y": 219
       },
       "options": {
         "mode": "markdown",
@@ -1472,7 +1625,7 @@
         "h": 8,
         "w": 12,
         "x": 0,
-        "y": 202
+        "y": 227
       },
       "targets": [
         {
@@ -1498,7 +1651,7 @@
         "h": 8,
         "w": 12,
         "x": 12,
-        "y": 202
+        "y": 227
       },
       "targets": [
         {
@@ -1528,7 +1681,7 @@
         "h": 4,
         "w": 8,
         "x": 0,
-        "y": 210
+        "y": 235
       },
       "targets": [
         {
@@ -1554,7 +1707,7 @@
         "h": 8,
         "w": 16,
         "x": 8,
-        "y": 210
+        "y": 235
       },
       "targets": [
         {
