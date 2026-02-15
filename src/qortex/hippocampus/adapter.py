@@ -508,11 +508,23 @@ class GraphRAGAdapter:
         top_k: int,
         kg_coverage: float,
     ) -> list[RetrievalItem]:
-        """Combined scoring: vec_sim x PPR_activation, then build result items."""
+        """Combined scoring: vec_sim x PPR_activation, then build result items.
+
+        PPR returns a probability distribution (sums to ~1) while vec returns
+        cosine similarities in [0,1]. We normalize PPR to [0,1] before blending
+        so both signals contribute equally at the configured weight.
+        """
+        # Normalize PPR scores to [0,1] to match vec score scale
+        max_ppr = max(ppr_scores.values()) if ppr_scores else 1.0
+        if max_ppr > 0:
+            ppr_norm = {k: v / max_ppr for k, v in ppr_scores.items()}
+        else:
+            ppr_norm = ppr_scores
+
         combined: dict[str, float] = {}
-        for node_id in set(list(vec_scores.keys()) + list(ppr_scores.keys())):
+        for node_id in set(list(vec_scores.keys()) + list(ppr_norm.keys())):
             vec_s = vec_scores.get(node_id, 0.0)
-            ppr_s = ppr_scores.get(node_id, 0.0)
+            ppr_s = ppr_norm.get(node_id, 0.0)
             combined[node_id] = vec_s * 0.5 + ppr_s * 0.5
 
         ranked = sorted(combined.items(), key=lambda x: -x[1])
