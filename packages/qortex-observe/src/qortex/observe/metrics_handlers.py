@@ -12,6 +12,8 @@ from __future__ import annotations
 from typing import Any
 
 from qortex.observe.events import (
+    BenchLearningCurveRecorded,
+    BenchRoundCompleted,
     BufferFlushed,
     CarbonTracked,
     CreditPropagated,
@@ -223,3 +225,26 @@ def register_metric_handlers(instruments: dict[str, Any]) -> None:
         total_tokens = event.input_tokens + event.output_tokens + event.cache_read_tokens
         instruments["qortex_carbon_tokens"].add(total_tokens, labels)
         instruments["qortex_carbon_confidence"].set(event.confidence)
+
+    # ── Benchmarks ──────────────────────────────────────────────
+
+    @QortexEventLinker.on(BenchRoundCompleted)
+    def _on_bench_round(event: BenchRoundCompleted) -> None:
+        instruments["qortex_bench_round_accuracy"].set(
+            event.overall_accuracy,
+            {"benchmark": event.benchmark, "round": str(event.round_num)},
+        )
+        if event.accepted > 0:
+            instruments["qortex_bench_round_feedback"].add(
+                event.accepted, {"benchmark": event.benchmark, "outcome": "accepted"},
+            )
+        if event.rejected > 0:
+            instruments["qortex_bench_round_feedback"].add(
+                event.rejected, {"benchmark": event.benchmark, "outcome": "rejected"},
+            )
+
+    @QortexEventLinker.on(BenchLearningCurveRecorded)
+    def _on_bench_curve(event: BenchLearningCurveRecorded) -> None:
+        instruments["qortex_bench_improvement"].set(
+            event.improvement, {"benchmark": event.benchmark},
+        )

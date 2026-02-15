@@ -24,7 +24,11 @@ class LearningStrategy(Protocol):
         config: LearnerConfig,
         token_budget: int = 0,
     ) -> SelectionResult:
-        """Select k arms from candidates using the strategy."""
+        """Select k arms from candidates using the strategy.
+
+        k <= 0 means "no cap on count" — select all candidates that fit
+        within the token budget (or all candidates if no budget is set).
+        """
         ...
 
     def update(
@@ -53,6 +57,9 @@ class ThompsonSampling:
         config: LearnerConfig,
         token_budget: int = 0,
     ) -> SelectionResult:
+        # k <= 0 means "select all within budget" (no cap on count)
+        effective_k = k if k > 0 else len(candidates)
+
         # Partition: arms below min_pulls are force-included (cold-start protection)
         min_pulls = config.min_pulls
         if min_pulls > 0:
@@ -63,7 +70,7 @@ class ThompsonSampling:
             eligible = candidates
 
         # Remaining slots after forced inclusions
-        remaining_k = max(k - len(forced), 0)
+        remaining_k = max(effective_k - len(forced), 0)
 
         # Baseline exploration: uniform random with probability baseline_rate
         is_baseline = random.random() < config.baseline_rate

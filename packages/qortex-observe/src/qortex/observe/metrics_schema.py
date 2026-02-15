@@ -256,4 +256,17 @@ METRICS: tuple[MetricDef, ...] = (
         "qortex_carbon_confidence", MetricType.GAUGE,
         "Latest emission factor confidence",
     ),
+    # ── Benchmarks ──────────────────────────────────────────────────
+    MetricDef(
+        "qortex_bench_round_accuracy", MetricType.GAUGE,
+        "Benchmark round accuracy", ("benchmark", "round"),
+    ),
+    MetricDef(
+        "qortex_bench_round_feedback", MetricType.COUNTER,
+        "Benchmark feedback signals", ("benchmark", "outcome"),
+    ),
+    MetricDef(
+        "qortex_bench_improvement", MetricType.GAUGE,
+        "Benchmark learning curve improvement", ("benchmark",),
+    ),
 )
