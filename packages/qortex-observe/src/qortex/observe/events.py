@@ -349,3 +349,34 @@ class CarbonTracked:
     water_ml: float
     confidence: float
     timestamp: str
+
+
+# ---------------------------------------------------------------------------
+# Benchmarks
+# ---------------------------------------------------------------------------
+
+
+@dataclass(frozen=True)
+class BenchRoundCompleted:
+    """Emitted after a benchmark evaluation round completes."""
+
+    benchmark: str  # "longmemeval", "autogen_tcm", etc.
+    round_num: int
+    overall_accuracy: float
+    task_averaged_accuracy: float
+    feedback_given: int
+    accepted: int
+    rejected: int
+    elapsed_s: float
+
+
+@dataclass(frozen=True)
+class BenchLearningCurveRecorded:
+    """Emitted after the full learning loop finishes."""
+
+    benchmark: str
+    rounds: int
+    initial_accuracy: float
+    final_accuracy: float
+    improvement: float
+    relative_improvement: float

@@ -15,8 +15,8 @@ class TestMetricsSchemaCompleteness:
     """SCHEMA-1: The METRICS tuple contains all expected metrics."""
 
     def test_metrics_count(self):
-        """Exactly 42 metrics defined (38 core + 4 carbon)."""
-        assert len(METRICS) == 42
+        """Exactly 47 metrics defined (38 core + 4 carbon + 2 credit + 3 bench)."""
+        assert len(METRICS) == 47
 
     def test_all_metric_types_represented(self):
         types = {m.type for m in METRICS}
@@ -90,6 +90,12 @@ class TestMetricsSchemaCompleteness:
     def test_expected_feedback_metric_present(self):
         names = {m.name for m in METRICS}
         assert "qortex_feedback" in names
+
+    def test_expected_bench_metrics_present(self):
+        names = {m.name for m in METRICS}
+        assert "qortex_bench_round_accuracy" in names
+        assert "qortex_bench_round_feedback" in names
+        assert "qortex_bench_improvement" in names
 
 
 class TestMetricsSchemaUniqueness:
