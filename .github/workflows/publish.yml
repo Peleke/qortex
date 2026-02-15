@@ -8,6 +8,15 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        package:
+          - name: qortex
+            path: .
+          - name: qortex-observe
+            path: packages/qortex-observe
+          - name: qortex-ingest
+            path: packages/qortex-ingest
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -15,21 +24,25 @@ jobs:
           python-version: "3.12"
       - run: pip install build
       - run: python -m build
+        working-directory: ${{ matrix.package.path }}
       - uses: actions/upload-artifact@v4
         with:
-          name: dist
-          path: dist/
+          name: dist-${{ matrix.package.name }}
+          path: ${{ matrix.package.path }}/dist/
 
   publish:
     if: startsWith(github.ref, 'refs/tags/v')
     needs: build
     runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        package: [qortex, qortex-observe, qortex-ingest]
     environment: pypi
     permissions:
       id-token: write
     steps:
       - uses: actions/download-artifact@v4
         with:
-          name: dist
+          name: dist-${{ matrix.package }}
           path: dist/
       - uses: pypa/gh-action-pypi-publish@release/v1
