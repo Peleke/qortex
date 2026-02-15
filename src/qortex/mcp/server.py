@@ -2012,6 +2012,68 @@ def qortex_stats() -> dict:
 # Online indexing tools (session messages + tool results)
 # ---------------------------------------------------------------------------
 
+_VALID_ROLES = frozenset({"user", "assistant", "system", "tool"})
+
+# Pluggable chunker — swap via set_chunking_strategy() for tiktoken, semantic, etc.
+_chunking_strategy: Any = None
+
+
+def _get_chunker():
+    """Return the active chunking strategy (lazy-loaded default)."""
+    global _chunking_strategy
+    if _chunking_strategy is None:
+        from qortex.online.chunker import default_chunker
+        _chunking_strategy = default_chunker
+    return _chunking_strategy
+
+
+def set_chunking_strategy(strategy) -> None:
+    """Swap the chunking strategy at runtime. Must match ChunkingStrategy protocol."""
+    global _chunking_strategy
+    _chunking_strategy = strategy
+
+
+def _online_index_pipeline(
+    text: str,
+    source_id: str,
+    id_prefix: str,
+    domain: str,
+) -> dict:
+    """Shared pipeline: chunk -> embed -> index -> co-occurrence edges.
+
+    Returns {"chunks": N, "concepts": N, "edges": N, "latency_ms": float}.
+    """
+    import time
+
+    start = time.monotonic()
+
+    chunker = _get_chunker()
+    chunks = chunker(text, source_id=source_id)
+
+    concepts_added = 0
+    edges_added = 0
+
+    if _embedding_model is not None and _vector_index is not None:
+        ids = [f"{id_prefix}:{c.id}" for c in chunks]
+        texts = [c.text for c in chunks]
+        embeddings = _embedding_model.embed_batch(texts)
+        _vector_index.add(ids, embeddings)
+        concepts_added = len(ids)
+
+        if _backend is not None and len(ids) > 1:
+            for i in range(len(ids) - 1):
+                _backend.add_edge(ids[i], ids[i + 1], "co_occurs", domain=domain)
+                edges_added += 1
+
+    latency_ms = (time.monotonic() - start) * 1000
+
+    return {
+        "chunks": len(chunks),
+        "concepts": concepts_added,
+        "edges": edges_added,
+        "latency_ms": latency_ms,
+    }
+
 
 def _ingest_message_impl(
     text: str,
@@ -2021,54 +2083,39 @@ def _ingest_message_impl(
 ) -> dict:
     """Chunk, embed, and index a session message into the vector layer."""
     _ensure_initialized()
-    import time
 
     if not text or not text.strip():
         return {"session_id": session_id, "chunks": 0, "concepts": 0, "edges": 0}
 
-    start = time.monotonic()
+    # Clamp role to allowlist to prevent metric label cardinality explosion
+    safe_role = role if role in _VALID_ROLES else "unknown"
 
-    from qortex.online.chunker import chunk_text
-
-    chunks = chunk_text(text, source_id=f"{session_id}:{role}")
-
-    concepts_added = 0
-    edges_added = 0
-
-    if _embedding_model is not None and _vector_index is not None:
-        ids = [f"{session_id}:{c.id}" for c in chunks]
-        texts = [c.text for c in chunks]
-        embeddings = _embedding_model.embed_batch(texts)
-        _vector_index.add(ids, embeddings)
-        concepts_added = len(ids)
-
-        # Co-occurrence edges between consecutive chunks
-        if _backend is not None and len(ids) > 1:
-            for i in range(len(ids) - 1):
-                _backend.add_edge(ids[i], ids[i + 1], "co_occurs", domain=domain)
-                edges_added += 1
-
-    latency_ms = (time.monotonic() - start) * 1000
+    result = _online_index_pipeline(
+        text=text,
+        source_id=f"{session_id}:{safe_role}",
+        id_prefix=session_id,
+        domain=domain,
+    )
 
     from qortex.observe.emitter import emit
     from qortex.observe.events import MessageIngested
 
     emit(MessageIngested(
         session_id=session_id,
-        role=role,
+        role=safe_role,
         domain=domain,
-        chunk_count=len(chunks),
-        concept_count=concepts_added,
-        edge_count=edges_added,
-        latency_ms=latency_ms,
+        chunk_count=result["chunks"],
+        concept_count=result["concepts"],
+        edge_count=result["edges"],
+        latency_ms=result["latency_ms"],
     ))
 
     return {
         "session_id": session_id,
-        "chunks": len(chunks),
-        "concepts": concepts_added,
-        "edges": edges_added,
-        "latency_ms": round(latency_ms, 2),
+        "chunks": result["chunks"],
+        "concepts": result["concepts"],
+        "edges": result["edges"],
+        "latency_ms": round(result["latency_ms"], 2),
     }
 
 
@@ -2080,52 +2127,38 @@ def _ingest_tool_result_impl(
 ) -> dict:
     """Chunk, embed, and index a tool result into the vector layer."""
     _ensure_initialized()
-    import time
 
     if not result_text or not result_text.strip():
         return {"tool_name": tool_name, "session_id": session_id, "concepts": 0, "edges": 0}
 
-    start = time.monotonic()
+    # Truncate tool_name to prevent metric label cardinality explosion
+    safe_tool = tool_name[:64] if tool_name else "unknown"
 
-    from qortex.online.chunker import chunk_text
-
-    chunks = chunk_text(result_text, source_id=f"{session_id}:tool:{tool_name}")
-
-    concepts_added = 0
-    edges_added = 0
-
-    if _embedding_model is not None and _vector_index is not None:
-        ids = [f"{session_id}:tool:{tool_name}:{c.id}" for c in chunks]
-        texts = [c.text for c in chunks]
-        embeddings = _embedding_model.embed_batch(texts)
-        _vector_index.add(ids, embeddings)
-        concepts_added = len(ids)
-
-        if _backend is not None and len(ids) > 1:
-            for i in range(len(ids) - 1):
-                _backend.add_edge(ids[i], ids[i + 1], "co_occurs", domain=domain)
-                edges_added += 1
-
-    latency_ms = (time.monotonic() - start) * 1000
+    result = _online_index_pipeline(
+        text=result_text,
+        source_id=f"{session_id}:tool:{safe_tool}",
+        id_prefix=f"{session_id}:tool:{safe_tool}",
+        domain=domain,
+    )
 
     from qortex.observe.emitter import emit
     from qortex.observe.events import ToolResultIngested
 
     emit(ToolResultIngested(
-        tool_name=tool_name,
+        tool_name=safe_tool,
         session_id=session_id,
         domain=domain,
-        concept_count=concepts_added,
-        edge_count=edges_added,
-        latency_ms=latency_ms,
+        concept_count=result["concepts"],
+        edge_count=result["edges"],
+        latency_ms=result["latency_ms"],
     ))
 
     return {
-        "tool_name": tool_name,
+        "tool_name": safe_tool,
         "session_id": session_id,
-        "concepts": concepts_added,
-        "edges": edges_added,
-        "latency_ms": round(latency_ms, 2),
+        "concepts": result["concepts"],
+        "edges": result["edges"],
+        "latency_ms": round(result["latency_ms"], 2),
     }
 
 
@@ -2139,8 +2172,9 @@ def qortex_ingest_message(
 ) -> dict:
     """Index a session message into the vector layer for retrieval.
 
-    Lightweight: chunks text, embeds, adds to vec index. No LLM needed.
+    Chunks text, embeds, adds to vec index. No LLM needed.
     Creates co-occurrence edges between consecutive chunks.
+    Chunking strategy is pluggable via set_chunking_strategy().
 
     Args:
         text: The message content.
@@ -2161,8 +2195,8 @@ def qortex_ingest_tool_result(
 ) -> dict:
     """Index a tool's output into the vector layer for retrieval.
 
-    Lightweight: chunks text, embeds, adds to vec index. No LLM needed.
-    Useful for making tool outputs searchable in future queries.
+    Chunks text, embeds, adds to vec index. No LLM needed.
+    Chunking strategy is pluggable via set_chunking_strategy().
 
     Args:
         tool_name: Name of the tool that produced the result.
