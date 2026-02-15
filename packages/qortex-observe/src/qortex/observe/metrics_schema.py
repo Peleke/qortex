@@ -33,7 +33,7 @@ class MetricDef:
     buckets: tuple[float, ...] | None = None  # histograms only
 
 
-# All 44 metrics in one registry.
+# All 48 metrics in one registry.
 # Names follow Prometheus conventions:
 #   Counter:   "qortex_foo"          → exported as "qortex_foo_total"
 #   Histogram: "qortex_bar_seconds"  → exported as "qortex_bar_seconds_bucket" etc.
@@ -171,6 +171,25 @@ METRICS: tuple[MetricDef, ...] = (
         "qortex_ingest_duration_seconds", MetricType.HISTOGRAM,
         "Ingest latency",
         buckets=(0.01, 0.05, 0.1, 0.5, 1.0, 5.0),
+    ),
+    # ── Online indexing ─────────────────────────────────────────────
+    MetricDef(
+        "qortex_messages_ingested", MetricType.COUNTER,
+        "Session messages ingested", ("role",),
+    ),
+    MetricDef(
+        "qortex_message_ingest_duration_seconds", MetricType.HISTOGRAM,
+        "Message ingest latency",
+        buckets=(0.005, 0.01, 0.025, 0.05, 0.1, 0.25, 0.5),
+    ),
+    MetricDef(
+        "qortex_tool_results_ingested", MetricType.COUNTER,
+        "Tool results ingested", ("tool_name",),
+    ),
+    MetricDef(
+        "qortex_tool_result_ingest_duration_seconds", MetricType.HISTOGRAM,
+        "Tool result ingest latency",
+        buckets=(0.005, 0.01, 0.025, 0.05, 0.1, 0.25, 0.5),
     ),
     # ── Learning ─────────────────────────────────────────────────────
     MetricDef(
