@@ -1,6 +1,6 @@
 """MCP server implementation for qortex.
 
-Tools exposed (33 total):
+Tools exposed (35 total):
 
 Core tools:
 - qortex_query: Retrieve relevant knowledge for a question
@@ -8,6 +8,8 @@ Core tools:
 - qortex_ingest: Ingest a file into the knowledge graph
 - qortex_ingest_text: Ingest raw text into a domain
 - qortex_ingest_structured: Ingest structured JSON data
+- qortex_ingest_message: Index a session message (lightweight, no LLM)
+- qortex_ingest_tool_result: Index a tool result (lightweight, no LLM)
 - qortex_domains: List available knowledge domains
 - qortex_status: Server health and backend info
 - qortex_explore: Explore a node's neighborhood in the graph
@@ -2004,6 +2006,171 @@ def qortex_stats() -> dict:
     system health. Call this to understand the value qortex is providing.
     """
     return _stats_impl()
+
+
+# ---------------------------------------------------------------------------
+# Online indexing tools (session messages + tool results)
+# ---------------------------------------------------------------------------
+
+
+def _ingest_message_impl(
+    text: str,
+    session_id: str,
+    role: str = "user",
+    domain: str = "session",
+) -> dict:
+    """Chunk, embed, and index a session message into the vector layer."""
+    _ensure_initialized()
+    import time
+
+    if not text or not text.strip():
+        return {"session_id": session_id, "chunks": 0, "concepts": 0, "edges": 0}
+
+    start = time.monotonic()
+
+    from qortex.online.chunker import chunk_text
+
+    chunks = chunk_text(text, source_id=f"{session_id}:{role}")
+
+    concepts_added = 0
+    edges_added = 0
+
+    if _embedding_model is not None and _vector_index is not None:
+        ids = [f"{session_id}:{c.id}" for c in chunks]
+        texts = [c.text for c in chunks]
+        embeddings = _embedding_model.embed_batch(texts)
+        _vector_index.add(ids, embeddings)
+        concepts_added = len(ids)
+
+        # Co-occurrence edges between consecutive chunks
+        if _backend is not None and len(ids) > 1:
+            for i in range(len(ids) - 1):
+                _backend.add_edge(ids[i], ids[i + 1], "co_occurs", domain=domain)
+                edges_added += 1
+
+    latency_ms = (time.monotonic() - start) * 1000
+
+    from qortex.observe.emitter import emit
+    from qortex.observe.events import MessageIngested
+
+    emit(MessageIngested(
+        session_id=session_id,
+        role=role,
+        domain=domain,
+        chunk_count=len(chunks),
+        concept_count=concepts_added,
+        edge_count=edges_added,
+        latency_ms=latency_ms,
+    ))
+
+    return {
+        "session_id": session_id,
+        "chunks": len(chunks),
+        "concepts": concepts_added,
+        "edges": edges_added,
+        "latency_ms": round(latency_ms, 2),
+    }
+
+
+def _ingest_tool_result_impl(
+    tool_name: str,
+    result_text: str,
+    session_id: str,
+    domain: str = "session",
+) -> dict:
+    """Chunk, embed, and index a tool result into the vector layer."""
+    _ensure_initialized()
+    import time
+
+    if not result_text or not result_text.strip():
+        return {"tool_name": tool_name, "session_id": session_id, "concepts": 0, "edges": 0}
+
+    start = time.monotonic()
+
+    from qortex.online.chunker import chunk_text
+
+    chunks = chunk_text(result_text, source_id=f"{session_id}:tool:{tool_name}")
+
+    concepts_added = 0
+    edges_added = 0
+
+    if _embedding_model is not None and _vector_index is not None:
+        ids = [f"{session_id}:tool:{tool_name}:{c.id}" for c in chunks]
+        texts = [c.text for c in chunks]
+        embeddings = _embedding_model.embed_batch(texts)
+        _vector_index.add(ids, embeddings)
+        concepts_added = len(ids)
+
+        if _backend is not None and len(ids) > 1:
+            for i in range(len(ids) - 1):
+                _backend.add_edge(ids[i], ids[i + 1], "co_occurs", domain=domain)
+                edges_added += 1
+
+    latency_ms = (time.monotonic() - start) * 1000
+
+    from qortex.observe.emitter import emit
+    from qortex.observe.events import ToolResultIngested
+
+    emit(ToolResultIngested(
+        tool_name=tool_name,
+        session_id=session_id,
+        domain=domain,
+        concept_count=concepts_added,
+        edge_count=edges_added,
+        latency_ms=latency_ms,
+    ))
+
+    return {
+        "tool_name": tool_name,
+        "session_id": session_id,
+        "concepts": concepts_added,
+        "edges": edges_added,
+        "latency_ms": round(latency_ms, 2),
+    }
+
+
+@mcp.tool
+@_mcp_traced
+def qortex_ingest_message(
+    text: str,
+    session_id: str,
+    role: str = "user",
+    domain: str = "session",
+) -> dict:
+    """Index a session message into the vector layer for retrieval.
+
+    Lightweight: chunks text, embeds, adds to vec index. No LLM needed.
+    Creates co-occurrence edges between consecutive chunks.
+
+    Args:
+        text: The message content.
+        session_id: Session identifier for grouping.
+        role: Message role ("user", "assistant", "system", "tool").
+        domain: Knowledge domain (default "session").
+    """
+    return _ingest_message_impl(text, session_id, role, domain)
+
+
+@mcp.tool
+@_mcp_traced
+def qortex_ingest_tool_result(
+    tool_name: str,
+    result_text: str,
+    session_id: str,
+    domain: str = "session",
+) -> dict:
+    """Index a tool's output into the vector layer for retrieval.
+
+    Lightweight: chunks text, embeds, adds to vec index. No LLM needed.
+    Useful for making tool outputs searchable in future queries.
+
+    Args:
+        tool_name: Name of the tool that produced the result.
+        result_text: The tool's output text.
+        session_id: Session identifier for grouping.
+        domain: Knowledge domain (default "session").
+    """
+    return _ingest_tool_result_impl(tool_name, result_text, session_id, domain)
 
 
 # ---------------------------------------------------------------------------

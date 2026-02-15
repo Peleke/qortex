@@ -267,6 +267,36 @@ class VecSeedYield:
 
 
 # ---------------------------------------------------------------------------
+# Online Indexing (session messages + tool results)
+# ---------------------------------------------------------------------------
+
+
+@dataclass(frozen=True)
+class MessageIngested:
+    """A session message was chunked, embedded, and added to the vector index."""
+
+    session_id: str
+    role: str  # "user" | "assistant" | "system" | "tool"
+    domain: str
+    chunk_count: int
+    concept_count: int
+    edge_count: int
+    latency_ms: float
+
+
+@dataclass(frozen=True)
+class ToolResultIngested:
+    """A tool's output was processed and added to the knowledge graph."""
+
+    tool_name: str
+    session_id: str
+    domain: str
+    concept_count: int
+    edge_count: int
+    latency_ms: float
+
+
+# ---------------------------------------------------------------------------
 # Ingestion
 # ---------------------------------------------------------------------------
 
