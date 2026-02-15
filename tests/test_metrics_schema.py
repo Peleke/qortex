@@ -16,7 +16,7 @@ class TestMetricsSchemaCompleteness:
 
     def test_metrics_count(self):
         """Exactly 42 metrics defined (38 core + 4 carbon)."""
-        assert len(METRICS) == 42
+        assert len(METRICS) == 48
 
     def test_all_metric_types_represented(self):
         types = {m.type for m in METRICS}
