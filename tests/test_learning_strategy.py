@@ -83,6 +83,49 @@ class TestThompsonSamplingSelect:
         assert selected_count > 80
 
 
+class TestThompsonSamplingKZero:
+    """k <= 0 means 'select all within budget' (no cap on count)."""
+
+    def test_k_zero_selects_all(self, strategy, candidates, config):
+        states = {a.id: ArmState() for a in candidates}
+        result = strategy.select(candidates, states, k=0, config=config)
+
+        assert len(result.selected) == 4
+        assert len(result.excluded) == 0
+
+    def test_k_zero_with_token_budget(self, strategy, candidates, config):
+        states = {a.id: ArmState() for a in candidates}
+        # Budget 300 can't fit all 4 arms (total 500), but fits some
+        result = strategy.select(candidates, states, k=0, config=config, token_budget=300)
+
+        assert result.used_tokens <= 300
+        assert result.token_budget == 300
+        assert len(result.selected) < 4
+
+    def test_k_zero_with_min_pulls(self, strategy, candidates):
+        config = LearnerConfig(name="test", baseline_rate=0.0, min_pulls=5)
+        states = {a.id: ArmState(pulls=0) for a in candidates}
+        result = strategy.select(candidates, states, k=0, config=config)
+
+        # All arms forced (under min_pulls) + k=0 means select all
+        assert len(result.selected) == 4
+
+    def test_k_zero_with_baseline(self, strategy, candidates):
+        config = LearnerConfig(name="test", baseline_rate=1.0)
+        states = {a.id: ArmState() for a in candidates}
+        result = strategy.select(candidates, states, k=0, config=config)
+
+        assert result.is_baseline
+        assert len(result.selected) == 4
+
+    def test_k_negative_treated_as_zero(self, strategy, candidates, config):
+        states = {a.id: ArmState() for a in candidates}
+        result = strategy.select(candidates, states, k=-1, config=config)
+
+        assert len(result.selected) == 4
+        assert len(result.excluded) == 0
+
+
 class TestThompsonSamplingBaseline:
     def test_baseline_uniform_random(self, strategy, candidates):
         config = LearnerConfig(name="test", baseline_rate=1.0)
