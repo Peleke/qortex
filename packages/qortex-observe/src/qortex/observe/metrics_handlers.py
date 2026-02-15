@@ -28,6 +28,7 @@ from qortex.observe.events import (
     LearningPosteriorUpdated,
     LearningSelectionMade,
     ManifestIngested,
+    MessageIngested,
     OnlineEdgeRecorded,
     OnlineEdgesGenerated,
     PPRConverged,
@@ -35,6 +36,7 @@ from qortex.observe.events import (
     PPRStarted,
     QueryCompleted,
     QueryFailed,
+    ToolResultIngested,
     VecIndexUpdated,
     VecSearchCompleted,
     VecSearchResults,
@@ -163,6 +165,18 @@ def register_metric_handlers(instruments: dict[str, Any]) -> None:
     def _on_manifest(event: ManifestIngested) -> None:
         instruments["qortex_manifests_ingested"].add(1, {"domain": event.domain})
         instruments["qortex_ingest_duration_seconds"].record(event.latency_ms / 1000)
+
+    # ── Online indexing ────────────────────────────────────────────
+
+    @QortexEventLinker.on(MessageIngested)
+    def _on_message_ingested(event: MessageIngested) -> None:
+        instruments["qortex_messages_ingested"].add(1, {"role": event.role})
+        instruments["qortex_message_ingest_duration_seconds"].record(event.latency_ms / 1000)
+
+    @QortexEventLinker.on(ToolResultIngested)
+    def _on_tool_result_ingested(event: ToolResultIngested) -> None:
+        instruments["qortex_tool_results_ingested"].add(1, {"tool_name": event.tool_name})
+        instruments["qortex_tool_result_ingest_duration_seconds"].record(event.latency_ms / 1000)
 
     # ── Learning ─────────────────────────────────────────────────
 

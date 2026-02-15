@@ -15,8 +15,8 @@ class TestMetricsSchemaCompleteness:
     """SCHEMA-1: The METRICS tuple contains all expected metrics."""
 
     def test_metrics_count(self):
-        """Exactly 47 metrics defined (38 core + 4 carbon + 2 credit + 3 bench)."""
-        assert len(METRICS) == 47
+        """51 metrics defined (38 core + 4 carbon + 2 credit + 3 bench + 4 online)."""
+        assert len(METRICS) == 51
 
     def test_all_metric_types_represented(self):
         types = {m.type for m in METRICS}

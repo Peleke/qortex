@@ -2,6 +2,7 @@
 name = "qortex-ingest"
 version = "0.1.0"
 description = "Pluggable ingestors for qortex (PDF, Markdown, text)."
+readme = "README.md"
 requires-python = ">=3.11"
 license = "MIT"
 authors = [

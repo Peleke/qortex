@@ -1,6 +1,6 @@
 """MCP server implementation for qortex.
 
-Tools exposed (33 total):
+Tools exposed (35 total):
 
 Core tools:
 - qortex_query: Retrieve relevant knowledge for a question
@@ -8,6 +8,8 @@ Core tools:
 - qortex_ingest: Ingest a file into the knowledge graph
 - qortex_ingest_text: Ingest raw text into a domain
 - qortex_ingest_structured: Ingest structured JSON data
+- qortex_ingest_message: Index a session message (lightweight, no LLM)
+- qortex_ingest_tool_result: Index a tool result (lightweight, no LLM)
 - qortex_domains: List available knowledge domains
 - qortex_status: Server health and backend info
 - qortex_explore: Explore a node's neighborhood in the graph
@@ -2004,6 +2006,208 @@ def qortex_stats() -> dict:
     system health. Call this to understand the value qortex is providing.
     """
     return _stats_impl()
+
+
+# ---------------------------------------------------------------------------
+# Online indexing tools (session messages + tool results)
+# ---------------------------------------------------------------------------
+
+_VALID_ROLES = frozenset({"user", "assistant", "system", "tool"})
+
+# Pluggable chunker — swap via set_chunking_strategy() for tiktoken, semantic, etc.
+_chunking_strategy: Any = None
+
+
+def _get_chunker():
+    """Return the active chunking strategy (lazy-loaded default)."""
+    global _chunking_strategy
+    if _chunking_strategy is None:
+        from qortex.online.chunker import default_chunker
+        _chunking_strategy = default_chunker
+    return _chunking_strategy
+
+
+def set_chunking_strategy(strategy: Any) -> None:
+    """Swap the chunking strategy at runtime. Must match ChunkingStrategy protocol.
+
+    Pass None to reset to the default SentenceBoundaryChunker.
+    """
+    global _chunking_strategy
+    _chunking_strategy = strategy
+
+
+def _online_index_pipeline(
+    text: str,
+    source_id: str,
+    id_prefix: str,
+    domain: str,
+) -> dict:
+    """Shared pipeline: chunk -> embed -> index -> co-occurrence edges.
+
+    Returns {"chunks": N, "concepts": N, "edges": N, "latency_ms": float}.
+    """
+    import time
+
+    start = time.monotonic()
+
+    chunker = _get_chunker()
+    chunks = chunker(text, source_id=source_id)
+
+    concepts_added = 0
+    edges_added = 0
+
+    if _embedding_model is not None and _vector_index is not None:
+        ids = [f"{id_prefix}:{c.id}" for c in chunks]
+        texts = [c.text for c in chunks]
+        embeddings = _embedding_model.embed(texts)
+        _vector_index.add(ids, embeddings)
+        concepts_added = len(ids)
+
+        if _backend is not None and len(ids) > 1:
+            for i in range(len(ids) - 1):
+                _backend.add_edge(ids[i], ids[i + 1], "co_occurs", domain=domain)
+                edges_added += 1
+
+    latency_ms = (time.monotonic() - start) * 1000
+
+    return {
+        "chunks": len(chunks),
+        "concepts": concepts_added,
+        "edges": edges_added,
+        "latency_ms": latency_ms,
+    }
+
+
+def _ingest_message_impl(
+    text: str,
+    session_id: str,
+    role: str = "user",
+    domain: str = "session",
+) -> dict:
+    """Chunk, embed, and index a session message into the vector layer."""
+    _ensure_initialized()
+
+    if not text or not text.strip():
+        return {"session_id": session_id, "chunks": 0, "concepts": 0, "edges": 0}
+
+    # Clamp role to allowlist to prevent metric label cardinality explosion
+    safe_role = role if role in _VALID_ROLES else "unknown"
+
+    result = _online_index_pipeline(
+        text=text,
+        source_id=f"{session_id}:{safe_role}",
+        id_prefix=session_id,
+        domain=domain,
+    )
+
+    from qortex.observe.emitter import emit
+    from qortex.observe.events import MessageIngested
+
+    emit(MessageIngested(
+        session_id=session_id,
+        role=safe_role,
+        domain=domain,
+        chunk_count=result["chunks"],
+        concept_count=result["concepts"],
+        edge_count=result["edges"],
+        latency_ms=result["latency_ms"],
+    ))
+
+    return {
+        "session_id": session_id,
+        "chunks": result["chunks"],
+        "concepts": result["concepts"],
+        "edges": result["edges"],
+        "latency_ms": round(result["latency_ms"], 2),
+    }
+
+
+def _ingest_tool_result_impl(
+    tool_name: str,
+    result_text: str,
+    session_id: str,
+    domain: str = "session",
+) -> dict:
+    """Chunk, embed, and index a tool result into the vector layer."""
+    _ensure_initialized()
+
+    if not result_text or not result_text.strip():
+        return {"tool_name": tool_name, "session_id": session_id, "concepts": 0, "edges": 0}
+
+    # Truncate tool_name to prevent metric label cardinality explosion
+    safe_tool = tool_name[:64] if tool_name else "unknown"
+
+    result = _online_index_pipeline(
+        text=result_text,
+        source_id=f"{session_id}:tool:{safe_tool}",
+        id_prefix=f"{session_id}:tool:{safe_tool}",
+        domain=domain,
+    )
+
+    from qortex.observe.emitter import emit
+    from qortex.observe.events import ToolResultIngested
+
+    emit(ToolResultIngested(
+        tool_name=safe_tool,
+        session_id=session_id,
+        domain=domain,
+        concept_count=result["concepts"],
+        edge_count=result["edges"],
+        latency_ms=result["latency_ms"],
+    ))
+
+    return {
+        "tool_name": safe_tool,
+        "session_id": session_id,
+        "concepts": result["concepts"],
+        "edges": result["edges"],
+        "latency_ms": round(result["latency_ms"], 2),
+    }
+
+
+@mcp.tool
+@_mcp_traced
+def qortex_ingest_message(
+    text: str,
+    session_id: str,
+    role: str = "user",
+    domain: str = "session",
+) -> dict:
+    """Index a session message into the vector layer for retrieval.
+
+    Chunks text, embeds, adds to vec index. No LLM needed.
+    Creates co-occurrence edges between consecutive chunks.
+    Chunking strategy is pluggable via set_chunking_strategy().
+
+    Args:
+        text: The message content.
+        session_id: Session identifier for grouping.
+        role: Message role ("user", "assistant", "system", "tool").
+        domain: Knowledge domain (default "session").
+    """
+    return _ingest_message_impl(text, session_id, role, domain)
+
+
+@mcp.tool
+@_mcp_traced
+def qortex_ingest_tool_result(
+    tool_name: str,
+    result_text: str,
+    session_id: str,
+    domain: str = "session",
+) -> dict:
+    """Index a tool's output into the vector layer for retrieval.
+
+    Chunks text, embeds, adds to vec index. No LLM needed.
+    Chunking strategy is pluggable via set_chunking_strategy().
+
+    Args:
+        tool_name: Name of the tool that produced the result.
+        result_text: The tool's output text.
+        session_id: Session identifier for grouping.
+        domain: Knowledge domain (default "session").
+    """
+    return _ingest_tool_result_impl(tool_name, result_text, session_id, domain)
 
 
 # ---------------------------------------------------------------------------
