@@ -2059,7 +2059,7 @@ def _online_index_pipeline(
     if _embedding_model is not None and _vector_index is not None:
         ids = [f"{id_prefix}:{c.id}" for c in chunks]
         texts = [c.text for c in chunks]
-        embeddings = _embedding_model.embed_batch(texts)
+        embeddings = _embedding_model.embed(texts)
         _vector_index.add(ids, embeddings)
         concepts_added = len(ids)
 

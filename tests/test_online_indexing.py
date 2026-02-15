@@ -208,6 +208,40 @@ class TestIngestToolResult:
         assert "latency_ms" in result
 
 
+class TestIngestWithEmbedding:
+    """Regression: ensure ingest calls EmbeddingModel.embed() (not embed_batch)."""
+
+    def test_ingest_calls_embed_on_model(self, _server):
+        import qortex.mcp.server as srv
+        from qortex.mcp.server import _ingest_message_impl
+
+        embedded_texts: list[list[str]] = []
+
+        class FakeEmbedding:
+            dimensions = 4
+
+            def embed(self, texts: list[str]) -> list[list[float]]:
+                embedded_texts.append(texts)
+                return [[0.1, 0.2, 0.3, 0.4]] * len(texts)
+
+        class FakeVecIndex:
+            added: list[tuple] = []
+
+            def add(self, ids, embeddings):
+                self.added.append((ids, embeddings))
+
+        old_model, old_index = srv._embedding_model, srv._vector_index
+        try:
+            srv._embedding_model = FakeEmbedding()
+            srv._vector_index = FakeVecIndex()
+            result = _ingest_message_impl("Hello world.", session_id="s1", role="user")
+            assert result["concepts"] >= 1
+            assert len(embedded_texts) == 1, "embed() should be called exactly once"
+        finally:
+            srv._embedding_model = old_model
+            srv._vector_index = old_index
+
+
 class TestChunkingStrategyInjection:
     def test_custom_strategy_is_used(self, _server):
         from qortex.mcp.server import _ingest_message_impl, set_chunking_strategy
