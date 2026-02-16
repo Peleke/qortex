@@ -247,41 +247,58 @@ def ingest_file(
         graph_backend.disconnect()
 
 
-def _embed_manifest_concepts(manifest: "IngestionManifest", graph_backend: Any) -> None:
-    """Generate embeddings for manifest concepts and write to vec index + graph backend."""
+def _embed_manifest_concepts(
+    manifest: "IngestionManifest",
+    graph_backend: Any,
+    *,
+    embedding_model: Any = None,
+    vector_index: Any = None,
+) -> int:
+    """Generate embeddings for manifest concepts and write to vec index + graph backend.
+
+    Args:
+        manifest: The ingestion manifest with concepts to embed.
+        graph_backend: Graph backend for storing embeddings alongside nodes.
+        embedding_model: Optional pre-built embedding model (for testing).
+        vector_index: Optional pre-built vec index (for testing).
+
+    Returns:
+        Number of concepts embedded.
+    """
     import os
     from pathlib import Path as _Path
 
-    try:
-        from qortex.vec.embeddings import SentenceTransformerEmbedding
-    except ImportError:
-        typer.echo("  Skipping embed: sentence-transformers not installed (pip install qortex[vec])")
-        return
-
-    model = SentenceTransformerEmbedding()
-
-    # Build vec index (same logic as mcp/server.py _ensure_initialized)
-    vec_backend = os.environ.get("QORTEX_VEC", "sqlite")
-    if vec_backend == "sqlite":
+    if embedding_model is None:
         try:
-            from qortex.vec.index import SqliteVecIndex
+            from qortex.vec.embeddings import SentenceTransformerEmbedding
 
-            vec_path = _Path("~/.qortex/vectors.db").expanduser()
-            vec_index = SqliteVecIndex(db_path=str(vec_path), dimensions=model.dimensions)
+            embedding_model = SentenceTransformerEmbedding()
         except ImportError:
+            typer.echo("  Skipping embed: sentence-transformers not installed (pip install qortex[vec])")
+            return 0
+
+    vec_backend = os.environ.get("QORTEX_VEC", "sqlite")
+    if vector_index is None:
+        if vec_backend == "sqlite":
+            try:
+                from qortex.vec.index import SqliteVecIndex
+
+                vec_path = _Path("~/.qortex/vectors.db").expanduser()
+                vector_index = SqliteVecIndex(db_path=str(vec_path), dimensions=embedding_model.dimensions)
+            except ImportError:
+                from qortex.vec.index import NumpyVectorIndex
+
+                vector_index = NumpyVectorIndex(dimensions=embedding_model.dimensions)
+        else:
             from qortex.vec.index import NumpyVectorIndex
 
-            vec_index = NumpyVectorIndex(dimensions=model.dimensions)
-    else:
-        from qortex.vec.index import NumpyVectorIndex
-
-        vec_index = NumpyVectorIndex(dimensions=model.dimensions)
+            vector_index = NumpyVectorIndex(dimensions=embedding_model.dimensions)
 
     # Embed concept descriptions in batches
     concepts = [c for c in manifest.concepts if c.description]
     if not concepts:
         typer.echo("  No concepts with descriptions to embed.")
-        return
+        return 0
 
     BATCH_SIZE = 64
     total_embedded = 0
@@ -290,8 +307,8 @@ def _embed_manifest_concepts(manifest: "IngestionManifest", graph_backend: Any) 
         texts = [c.description for c in batch]
         ids = [c.id for c in batch]
 
-        embeddings = model.embed(texts)
-        vec_index.add(ids, embeddings)
+        embeddings = embedding_model.embed(texts)
+        vector_index.add(ids, embeddings)
 
         # Also write embeddings to graph backend for PPR node lookups
         for cid, emb in zip(ids, embeddings):
@@ -299,8 +316,9 @@ def _embed_manifest_concepts(manifest: "IngestionManifest", graph_backend: Any) 
 
         total_embedded += len(batch)
 
-    vec_index.persist()
+    vector_index.persist()
     typer.echo(f"  Embedded {total_embedded} concepts into vec index ({vec_backend}).")
+    return total_embedded
 
 
 @app.command("load")
