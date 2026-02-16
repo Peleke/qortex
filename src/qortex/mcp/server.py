@@ -145,7 +145,7 @@ def _shutdown_interoception() -> None:
 
 def _ensure_initialized() -> None:
     """Lazy initialization: set up vec + graph layers from env config."""
-    global _backend, _vector_index, _adapter, _embedding_model, _interoception
+    global _backend, _vector_index, _adapter, _graph_adapter, _embedding_model, _interoception
 
     if _backend is not None:
         return
