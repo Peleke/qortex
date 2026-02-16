@@ -14,6 +14,7 @@ from pathlib import Path
 import yaml
 
 _TRUTHY = {"1", "true", "on", "yes"}
+_FALSY = {"0", "false", "off", "no"}
 _DEFAULT_PATH = Path("~/.qortex/flags.yaml").expanduser()
 
 
@@ -58,7 +59,13 @@ class FeatureFlags:
             env_key = f"QORTEX_{name.upper()}"
 
             if env_key in os.environ:
-                kwargs[name] = os.environ[env_key].lower() in _TRUTHY
+                val = os.environ[env_key].lower()
+                if val in _TRUTHY:
+                    kwargs[name] = True
+                elif val in _FALSY:
+                    kwargs[name] = False
+                # Non-boolean values (e.g. QORTEX_GRAPH=memgraph) are
+                # ignored — avoids collision with backend selector env vars.
             elif name in file_values:
                 kwargs[name] = file_values[name]
             # else: use dataclass default

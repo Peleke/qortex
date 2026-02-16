@@ -150,10 +150,17 @@ class TestEnvVarOverrides:
             assert flags.teleportation is True, f"Expected True for {val!r}"
 
     def test_env_falsy_values(self, monkeypatch):
-        for val in ("0", "false", "off", "no", "anything"):
+        for val in ("0", "false", "off", "no", "False", "OFF", "NO"):
             monkeypatch.setenv("QORTEX_TELEPORTATION", val)
             flags = FeatureFlags.load()
             assert flags.teleportation is False, f"Expected False for {val!r}"
+
+    def test_non_boolean_env_ignored(self, monkeypatch):
+        """Non-boolean env values (e.g. QORTEX_GRAPH=memgraph) must not
+        clobber the boolean flag — keeps the default instead."""
+        monkeypatch.setenv("QORTEX_GRAPH", "memgraph")
+        flags = FeatureFlags.load()
+        assert flags.graph is True  # default preserved, not False
 
     def test_env_can_disable_defaults(self, monkeypatch):
         monkeypatch.setenv("QORTEX_GRAPH", "off")
