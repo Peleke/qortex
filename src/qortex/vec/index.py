@@ -256,6 +256,7 @@ class SqliteVecIndex:
         self._db_path = db_path
         self._dimensions = dimensions
         self._conn = None
+        self._lock = __import__("threading").Lock()
 
     def _ensure_connection(self):
         if self._conn is not None:
@@ -272,7 +273,11 @@ class SqliteVecIndex:
         # Ensure parent directory exists
         Path(self._db_path).parent.mkdir(parents=True, exist_ok=True)
 
-        self._conn = sqlite3.connect(self._db_path)
+        # FastMCP dispatches tool handlers on a thread pool — consecutive
+        # calls may land on different threads.  check_same_thread=False lets
+        # the single connection be used cross-thread; the _lock serialises
+        # access so SQLite never sees concurrent writes.
+        self._conn = sqlite3.connect(self._db_path, check_same_thread=False)
         self._conn.enable_load_extension(True)
         sqlite_vec.load(self._conn)
         self._conn.enable_load_extension(False)
@@ -295,29 +300,30 @@ class SqliteVecIndex:
         import struct
 
         t0 = time.perf_counter()
-        self._ensure_connection()
-        assert self._conn is not None
+        with self._lock:
+            self._ensure_connection()
+            assert self._conn is not None
 
-        # Remove existing first (upsert)
-        existing = []
-        for id_ in ids:
-            row = self._conn.execute("SELECT row_id FROM vec_meta WHERE id = ?", (id_,)).fetchone()
-            if row:
-                existing.append(id_)
-        if existing:
-            self.remove(existing)
+            # Remove existing first (upsert)
+            existing = []
+            for id_ in ids:
+                row = self._conn.execute("SELECT row_id FROM vec_meta WHERE id = ?", (id_,)).fetchone()
+                if row:
+                    existing.append(id_)
+            if existing:
+                self._remove_locked(existing)
 
-        for id_, emb in zip(ids, embeddings):
-            if len(emb) != self._dimensions:
-                raise ValueError(f"Expected {self._dimensions} dims, got {len(emb)}")
+            for id_, emb in zip(ids, embeddings):
+                if len(emb) != self._dimensions:
+                    raise ValueError(f"Expected {self._dimensions} dims, got {len(emb)}")
 
-            # sqlite-vec expects binary float32
-            blob = struct.pack(f"{len(emb)}f", *emb)
-            cursor = self._conn.execute("INSERT INTO vec_index(embedding) VALUES (?)", (blob,))
-            row_id = cursor.lastrowid
-            self._conn.execute("INSERT INTO vec_meta(id, row_id) VALUES (?, ?)", (id_, row_id))
+                # sqlite-vec expects binary float32
+                blob = struct.pack(f"{len(emb)}f", *emb)
+                cursor = self._conn.execute("INSERT INTO vec_index(embedding) VALUES (?)", (blob,))
+                row_id = cursor.lastrowid
+                self._conn.execute("INSERT INTO vec_meta(id, row_id) VALUES (?, ?)", (id_, row_id))
 
-        self._conn.commit()
+            self._conn.commit()
 
         from qortex.observe.events import VecIndexUpdated
 
@@ -340,23 +346,24 @@ class SqliteVecIndex:
         import struct
 
         t0 = time.perf_counter()
-        self._ensure_connection()
-        assert self._conn is not None
+        with self._lock:
+            self._ensure_connection()
+            assert self._conn is not None
 
-        blob = struct.pack(f"{len(query_embedding)}f", *query_embedding)
+            blob = struct.pack(f"{len(query_embedding)}f", *query_embedding)
 
-        # sqlite-vec returns distance (lower = more similar)
-        # We convert to cosine similarity: sim = 1 - distance
-        rows = self._conn.execute(
-            """
-            SELECT vec_meta.id, vec_index.distance
-            FROM vec_index
-            JOIN vec_meta ON vec_meta.row_id = vec_index.rowid
-            WHERE embedding MATCH ?
-            AND k = ?
-            """,
-            (blob, top_k),
-        ).fetchall()
+            # sqlite-vec returns distance (lower = more similar)
+            # We convert to cosine similarity: sim = 1 - distance
+            rows = self._conn.execute(
+                """
+                SELECT vec_meta.id, vec_index.distance
+                FROM vec_index
+                JOIN vec_meta ON vec_meta.row_id = vec_index.rowid
+                WHERE embedding MATCH ?
+                AND k = ?
+                """,
+                (blob, top_k),
+            ).fetchall()
 
         results = []
         for id_, distance in rows:
@@ -382,9 +389,8 @@ class SqliteVecIndex:
 
         return results
 
-    def remove(self, ids: list[str]) -> None:
-        """Remove vectors by ID."""
-        self._ensure_connection()
+    def _remove_locked(self, ids: list[str]) -> None:
+        """Remove vectors by ID (caller holds _lock)."""
         assert self._conn is not None
         for id_ in ids:
             row = self._conn.execute("SELECT row_id FROM vec_meta WHERE id = ?", (id_,)).fetchone()
@@ -393,16 +399,24 @@ class SqliteVecIndex:
                 self._conn.execute("DELETE FROM vec_meta WHERE id = ?", (id_,))
         self._conn.commit()
 
+    def remove(self, ids: list[str]) -> None:
+        """Remove vectors by ID."""
+        with self._lock:
+            self._ensure_connection()
+            self._remove_locked(ids)
+
     def size(self) -> int:
-        self._ensure_connection()
-        assert self._conn is not None
-        row = self._conn.execute("SELECT COUNT(*) FROM vec_meta").fetchone()
-        return row[0] if row else 0
+        with self._lock:
+            self._ensure_connection()
+            assert self._conn is not None
+            row = self._conn.execute("SELECT COUNT(*) FROM vec_meta").fetchone()
+            return row[0] if row else 0
 
     def persist(self) -> None:
         """Commit any pending changes."""
-        if self._conn:
-            self._conn.commit()
+        with self._lock:
+            if self._conn:
+                self._conn.commit()
 
     def close(self) -> None:
         """Close the database connection."""
