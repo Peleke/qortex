@@ -247,17 +247,84 @@ def ingest_file(
         graph_backend.disconnect()
 
 
+def _embed_manifest_concepts(manifest: "IngestionManifest", graph_backend: Any) -> None:
+    """Generate embeddings for manifest concepts and write to vec index + graph backend."""
+    import os
+    from pathlib import Path as _Path
+
+    try:
+        from qortex.vec.embeddings import SentenceTransformerEmbedding
+    except ImportError:
+        typer.echo("  Skipping embed: sentence-transformers not installed (pip install qortex[vec])")
+        return
+
+    model = SentenceTransformerEmbedding()
+
+    # Build vec index (same logic as mcp/server.py _ensure_initialized)
+    vec_backend = os.environ.get("QORTEX_VEC", "sqlite")
+    if vec_backend == "sqlite":
+        try:
+            from qortex.vec.index import SqliteVecIndex
+
+            vec_path = _Path("~/.qortex/vectors.db").expanduser()
+            vec_index = SqliteVecIndex(db_path=str(vec_path), dimensions=model.dimensions)
+        except ImportError:
+            from qortex.vec.index import NumpyVectorIndex
+
+            vec_index = NumpyVectorIndex(dimensions=model.dimensions)
+    else:
+        from qortex.vec.index import NumpyVectorIndex
+
+        vec_index = NumpyVectorIndex(dimensions=model.dimensions)
+
+    # Embed concept descriptions in batches
+    concepts = [c for c in manifest.concepts if c.description]
+    if not concepts:
+        typer.echo("  No concepts with descriptions to embed.")
+        return
+
+    BATCH_SIZE = 64
+    total_embedded = 0
+    for i in range(0, len(concepts), BATCH_SIZE):
+        batch = concepts[i : i + BATCH_SIZE]
+        texts = [c.description for c in batch]
+        ids = [c.id for c in batch]
+
+        embeddings = model.embed(texts)
+        vec_index.add(ids, embeddings)
+
+        # Also write embeddings to graph backend for PPR node lookups
+        for cid, emb in zip(ids, embeddings):
+            graph_backend.add_embedding(cid, emb)
+
+        total_embedded += len(batch)
+
+    vec_index.persist()
+    typer.echo(f"  Embedded {total_embedded} concepts into vec index ({vec_backend}).")
+
+
 @app.command("load")
 def load_manifest(
     manifest_path: Path = typer.Argument(..., help="Path to manifest JSON file"),
+    embed: bool = typer.Option(
+        False,
+        "--embed",
+        help="Generate and store vector embeddings for concepts (requires sentence-transformers).",
+    ),
 ) -> None:
     """Load a previously saved manifest into the graph.
 
     Use this to retry graph ingestion from a saved manifest
     without re-running LLM extraction.
 
+    With --embed, also generates vector embeddings for each concept
+    and writes them to the vec index (sqlite-vec or numpy). This is
+    required for vec search and graph-mode (PPR) retrieval to find
+    seed nodes from these concepts.
+
     Example:
         qortex ingest load manifest.json
+        qortex ingest load manifest.json --embed
     """
     if not manifest_path.exists():
         handle_error(f"Manifest file not found: {manifest_path}")
@@ -346,6 +413,10 @@ def load_manifest(
         graph_backend.ingest_manifest(manifest)
 
         typer.echo("\nSaved to graph backend.")
+
+        if embed:
+            _embed_manifest_concepts(manifest, graph_backend)
+
         typer.echo("View with: qortex inspect domains")
 
     except Exception as e:
