@@ -78,7 +78,7 @@ llm = [
     "anthropic>=0.18",
 ]
 memgraph = [
-    "neo4j>=5.0",
+    "neo4j>=5.0,<6.0",
 ]
 observability = [
     "qortex-observe[otel]",
