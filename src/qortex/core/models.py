@@ -46,6 +46,9 @@ class RelationType(StrEnum):
     SUPPORTS = "supports"  # A provides evidence for B
     CHALLENGES = "challenges"  # A provides counter-evidence for B
 
+    # Temporal/sequential relationships
+    COOCCURS = "co_occurs"  # A and B appear in adjacent context (chunks, turns)
+
     # Database-derived relationships (Layer 3: schema → graph)
     BELONGS_TO = "belongs_to"  # FK ownership (e.g. meal.user_id → user)
     INSTANCE_OF = "instance_of"  # FK to template/catalog (e.g. event.template_id → template)

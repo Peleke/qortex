@@ -2063,10 +2063,31 @@ def _online_index_pipeline(
         _vector_index.add(ids, embeddings)
         concepts_added = len(ids)
 
-        if _backend is not None and len(ids) > 1:
-            for i in range(len(ids) - 1):
-                _backend.add_edge(ids[i], ids[i + 1], "co_occurs", domain=domain)
-                edges_added += 1
+        if _backend is not None:
+            from qortex.core.models import ConceptEdge, ConceptNode, RelationType
+
+            # Register chunks as nodes so edges have valid endpoints
+            for chunk_id, chunk, emb in zip(ids, chunks, embeddings):
+                node = ConceptNode(
+                    id=chunk_id,
+                    name=chunk.text[:80],
+                    description=chunk.text,
+                    domain=domain,
+                    source_id=source_id,
+                    embedding=emb.tolist() if hasattr(emb, "tolist") else list(emb),
+                )
+                _backend.add_node(node)
+
+            # Create co-occurrence edges between sequential chunks
+            if len(ids) > 1:
+                for i in range(len(ids) - 1):
+                    edge = ConceptEdge(
+                        source_id=ids[i],
+                        target_id=ids[i + 1],
+                        relation_type=RelationType.COOCCURS,
+                    )
+                    _backend.add_edge(edge)
+                    edges_added += 1
 
     latency_ms = (time.monotonic() - start) * 1000
 
