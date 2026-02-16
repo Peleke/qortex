@@ -294,8 +294,12 @@ def _embed_manifest_concepts(
 
             vector_index = NumpyVectorIndex(dimensions=embedding_model.dimensions)
 
-    # Embed concept descriptions in batches
-    concepts = [c for c in manifest.concepts if c.description]
+    # Deduplicate by ID (keep last occurrence) and filter empty descriptions
+    seen: dict = {}
+    for c in manifest.concepts:
+        if c.description:
+            seen[c.id] = c
+    concepts = list(seen.values())
     if not concepts:
         typer.echo("  No concepts with descriptions to embed.")
         return 0
