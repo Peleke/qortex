@@ -15,6 +15,7 @@ Run: uv run pytest tests/test_autogen_adapter.py -v
 from __future__ import annotations
 
 import asyncio
+import importlib.util
 from unittest.mock import MagicMock
 
 import pytest
@@ -29,15 +30,13 @@ from qortex.client import (
     RuleItem,
 )
 from qortex.core.memory import InMemoryBackend
+from qortex.vec.embeddings import SentenceTransformerEmbedding
 from qortex.vec.index import NumpyVectorIndex
 
-try:
-    from qortex.vec.embeddings import SentenceTransformerEmbedding
-except ImportError:
-    SentenceTransformerEmbedding = None  # type: ignore[assignment,misc]
+_has_sentence_transformers = importlib.util.find_spec("sentence_transformers") is not None
 
 pytestmark = pytest.mark.skipif(
-    SentenceTransformerEmbedding is None,
+    not _has_sentence_transformers,
     reason="sentence-transformers not installed (pip install qortex[vec])",
 )
 
