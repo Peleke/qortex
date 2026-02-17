@@ -5,6 +5,7 @@ on:
     branches: [main]
     paths:
       - "docs/**"
+      - "packages/*/README.md"
       - "mkdocs.yml"
       - ".github/workflows/docs.yml"
   workflow_dispatch:
@@ -30,6 +31,13 @@ jobs:
 
       - name: Install mkdocs dependencies
         run: pip install mkdocs pymdown-extensions
+
+      - name: Sync package READMEs into docs
+        run: |
+          mkdir -p docs/packages
+          cp packages/qortex-online/README.md docs/packages/online.md
+          cp packages/qortex-observe/README.md docs/packages/observe.md
+          cp packages/qortex-ingest/README.md docs/packages/ingest.md
 
       - name: Build docs
         run: mkdocs build --strict
