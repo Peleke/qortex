@@ -3,19 +3,17 @@
 from __future__ import annotations
 
 import pytest
-
 from qortex.online.extractor import (
-    ExtractionResult,
-    ExtractionStrategy,
     ExtractedConcept,
     ExtractedRelation,
+    ExtractionResult,
+    ExtractionStrategy,
     LLMExtractor,
     NullExtractor,
     SpaCyExtractor,
     _deduplicate_spans,
     _title_case,
 )
-
 
 # ---------------------------------------------------------------------------
 # Data type tests

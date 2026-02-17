@@ -11,12 +11,11 @@ from qortex.observe.events import (
     MessageIngested,
     ToolResultIngested,
 )
-
 from qortex.online.chunker import Chunk, ChunkingStrategy, SentenceBoundaryChunker
 from qortex.online.extractor import (
-    ExtractionResult,
     ExtractedConcept,
     ExtractedRelation,
+    ExtractionResult,
     NullExtractor,
 )
 

@@ -5,8 +5,6 @@ from __future__ import annotations
 import hashlib
 from unittest.mock import MagicMock
 
-import pytest
-
 from qortex.cli.ingest import _embed_manifest_concepts
 from qortex.core.models import ConceptNode, IngestionManifest, SourceMetadata
 from qortex.vec.index import NumpyVectorIndex

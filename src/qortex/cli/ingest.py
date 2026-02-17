@@ -6,7 +6,10 @@ import json
 from dataclasses import asdict
 from datetime import UTC, datetime
 from pathlib import Path
-from typing import Literal
+from typing import TYPE_CHECKING, Any, Literal
+
+if TYPE_CHECKING:
+    from qortex.core.models import IngestionManifest
 
 import typer
 
@@ -248,7 +251,7 @@ def ingest_file(
 
 
 def _embed_manifest_concepts(
-    manifest: "IngestionManifest",
+    manifest: IngestionManifest,
     graph_backend: Any,
     *,
     embedding_model: Any = None,

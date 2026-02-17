@@ -32,7 +32,6 @@ from qortex.hippocampus.factors import TeleportationFactors
 from qortex.hippocampus.interoception import LocalInteroceptionProvider
 from qortex.vec.index import NumpyVectorIndex
 
-
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
@@ -234,7 +233,7 @@ class TestIngestPipeline:
 
     def test_stage4_edges_exist(self, populated_backend):
         backend, _, expected_edges = populated_backend
-        for src, tgt, rel, _ in expected_edges:
+        for src, tgt, _rel, _ in expected_edges:
             edges = backend.get_edges(src, direction="out")
             target_ids = [e.target_id for e in edges]
             assert tgt in target_ids, f"Edge {src} → {tgt} not found"
@@ -302,7 +301,7 @@ class TestGraphRAGRetrieval:
         edges = adapter._build_online_edges(seed_ids)
         # alpha, beta, delta are all similar — should generate edges
         assert len(edges) > 0, "Expected online edges between similar nodes"
-        for src, tgt, weight in edges:
+        for _src, _tgt, weight in edges:
             assert weight >= 0.5, f"Edge weight {weight} below threshold"
 
     def test_stage7_ppr_returns_scores(
@@ -501,7 +500,7 @@ class TestFullPipeline:
         graph_r = graph.retrieve(query, top_k=6)
 
         vec_ids = [it.id for it in vec_r.items]
-        graph_ids = [it.id for it in graph_r.items]
+        graph_ids = [it.id for it in graph_r.items]  # noqa: F841
 
         # zeta is a bridge node — graph should activate both clusters
         # whereas vec-only only sees cosine similarity to zeta's embedding

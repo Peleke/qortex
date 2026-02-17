@@ -6,10 +6,10 @@ qortex workspace.
 
 from qortex.online.chunker import Chunk, ChunkingStrategy, SentenceBoundaryChunker, default_chunker
 from qortex.online.extractor import (
-    ExtractionResult,
-    ExtractionStrategy,
     ExtractedConcept,
     ExtractedRelation,
+    ExtractionResult,
+    ExtractionStrategy,
     LLMExtractor,
     NullExtractor,
     SpaCyExtractor,

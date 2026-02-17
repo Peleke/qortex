@@ -18,6 +18,14 @@ from typing import Any, Protocol, runtime_checkable
 
 logger = logging.getLogger(__name__)
 
+# spaCy 3.x uses pydantic v1 internally; on Python >= 3.14 the v1 compat
+# shim raises ConfigError during import.  Resolve the type once so the
+# except clause in _ensure_loaded is precise.
+try:
+    from pydantic.v1.errors import ConfigError as _PydanticV1ConfigError
+except Exception:  # pydantic not installed or v1 shim absent
+    _PydanticV1ConfigError = None
+
 
 # ---------------------------------------------------------------------------
 # Data types
@@ -144,12 +152,22 @@ class SpaCyExtractor:
         if self._available is not None:
             return self._available
 
+        _import_errors: tuple[type[BaseException], ...] = (ImportError,)
+        if _PydanticV1ConfigError is not None:
+            _import_errors = (ImportError, _PydanticV1ConfigError)
+
         try:
             import spacy
-        except ImportError:
+        except _import_errors as exc:
+            reason = (
+                "not installed"
+                if isinstance(exc, ImportError)
+                else f"pydantic.v1 ConfigError ({exc})"
+            )
             logger.warning(
-                "spaCy not installed — extraction disabled. "
-                "Install with: uv pip install 'qortex-online[nlp]'"
+                "spaCy %s — extraction disabled. "
+                "Install with: uv pip install 'qortex-online[nlp]'",
+                reason,
             )
             self._available = False
             return False

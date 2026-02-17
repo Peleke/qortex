@@ -516,10 +516,7 @@ class GraphRAGAdapter:
         """
         # Normalize PPR scores to [0,1] to match vec score scale
         max_ppr = max(ppr_scores.values()) if ppr_scores else 1.0
-        if max_ppr > 0:
-            ppr_norm = {k: v / max_ppr for k, v in ppr_scores.items()}
-        else:
-            ppr_norm = ppr_scores
+        ppr_norm = {k: v / max_ppr for k, v in ppr_scores.items()} if max_ppr > 0 else ppr_scores
 
         combined: dict[str, float] = {}
         for node_id in set(list(vec_scores.keys()) + list(ppr_norm.keys())):
