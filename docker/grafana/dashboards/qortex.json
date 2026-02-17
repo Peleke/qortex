@@ -1157,8 +1157,8 @@
       }
     },
     {
-      "title": "Node & Edge Creation Rate",
-      "description": "Rate of new nodes and edges being added to the knowledge graph. Shows how actively the graph is growing from conversation ingestion and queries.",
+      "title": "Graph Growth (cumulative)",
+      "description": "Cumulative nodes and edges created in the knowledge graph over time. Shows how the graph grows from conversation ingestion and manifest loads.",
       "type": "timeseries",
       "datasource": {
         "type": "prometheus",
@@ -1172,12 +1172,12 @@
       },
       "targets": [
         {
-          "expr": "sum(rate(qortex_graph_nodes_created_total[5m]))",
-          "legendFormat": "nodes/sec"
+          "expr": "sum(qortex_graph_nodes_created_total)",
+          "legendFormat": "nodes"
         },
         {
-          "expr": "sum(rate(qortex_graph_edges_created_total[5m]))",
-          "legendFormat": "edges/sec"
+          "expr": "sum(qortex_graph_edges_created_total)",
+          "legendFormat": "edges"
         }
       ]
     },
@@ -1265,8 +1265,8 @@
       "transparent": true
     },
     {
-      "title": "PPR Executions / sec",
-      "description": "Rate of Personalized PageRank computations. Each graph-mode query triggers one PPR run, which performs power iteration over the knowledge graph to rank nodes by relevance. More PPR runs = more graph-mode queries being served.",
+      "title": "PPR Executions (total)",
+      "description": "Cumulative count of Personalized PageRank computations. Each graph-mode query triggers one PPR run.",
       "type": "timeseries",
       "datasource": {
         "type": "prometheus",
@@ -1280,8 +1280,8 @@
       },
       "targets": [
         {
-          "expr": "sum(rate(qortex_ppr_started_total[5m]))",
-          "legendFormat": "PPR runs/sec"
+          "expr": "sum(qortex_ppr_started_total)",
+          "legendFormat": "PPR runs"
         }
       ],
       "fieldConfig": {
@@ -1334,7 +1334,7 @@
     },
     {
       "title": "Online Edge Generation",
-      "description": "How many online edges are being generated per query (edges/query) and the overall event rate (events/sec). Online edges are runtime-discovered relationships between concepts, inferred from co-occurrence in query results. More edges per query = richer associative structure being captured.",
+      "description": "Online edges generated per query and cumulative generation events. Online edges are runtime-discovered relationships between co-occurring concepts in query results.",
       "type": "timeseries",
       "datasource": {
         "type": "prometheus",
@@ -1352,8 +1352,8 @@
           "legendFormat": "edges / query"
         },
         {
-          "expr": "sum(rate(qortex_online_edges_generated_total[5m]))",
-          "legendFormat": "generation events / sec"
+          "expr": "sum(qortex_online_edges_generated_total)",
+          "legendFormat": "generation events (total)"
         }
       ]
     },
