@@ -16,10 +16,12 @@ from qortex.observe.events import (
     BenchRoundCompleted,
     BufferFlushed,
     CarbonTracked,
+    ConceptsExtracted,
     CreditPropagated,
     EdgePromoted,
     EnrichmentCompleted,
     EnrichmentFallback,
+    ExtractionPipelineCompleted,
     FactorDriftSnapshot,
     FactorUpdated,
     FeedbackReceived,
@@ -193,6 +195,24 @@ def register_metric_handlers(instruments: dict[str, Any]) -> None:
     def _on_tool_result_ingested(event: ToolResultIngested) -> None:
         instruments["qortex_tool_results_ingested"].add(1, {"tool_name": event.tool_name})
         instruments["qortex_tool_result_ingest_duration_seconds"].record(event.latency_ms / 1000)
+
+    # ── Concept Extraction ──────────────────────────────────────
+
+    @QortexEventLinker.on(ConceptsExtracted)
+    def _on_concepts_extracted(event: ConceptsExtracted) -> None:
+        labels = {"strategy": event.strategy, "domain": event.domain}
+        if event.concept_count > 0:
+            instruments["qortex_concepts_extracted"].add(event.concept_count, labels)
+        if event.relation_count > 0:
+            instruments["qortex_relations_extracted"].add(event.relation_count, labels)
+        instruments["qortex_extraction_duration_seconds"].record(event.latency_ms / 1000)
+        instruments["qortex_extraction_concepts_per_chunk"].record(event.concept_count)
+        instruments["qortex_extraction_relations_per_chunk"].record(event.relation_count)
+
+    @QortexEventLinker.on(ExtractionPipelineCompleted)
+    def _on_extraction_pipeline(event: ExtractionPipelineCompleted) -> None:
+        instruments["qortex_extractions"].add(1, {"strategy": event.strategy})
+        instruments["qortex_extraction_pipeline_duration_seconds"].record(event.latency_ms / 1000)
 
     # ── Learning ─────────────────────────────────────────────────
 

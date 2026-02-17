@@ -83,12 +83,17 @@ class Hippocampus:
         )
 
     def _extract_query_concepts(self, context: str) -> list[str]:
-        """Extract concept keywords from query.
+        """Extract concept keywords from query using the active extraction strategy."""
+        try:
+            from qortex.mcp.server import _get_extractor
 
-        TODO M3: Use NER model for proper extraction.
-        For now: simple keyword extraction.
-        """
-        # Placeholder: split on whitespace, filter short words
+            extractor = _get_extractor()
+            result = extractor(context)
+            if result.concepts:
+                return [c.name.lower() for c in result.concepts]
+        except Exception:
+            pass
+        # Fallback: split on whitespace, filter short words
         words = context.lower().split()
         return [w for w in words if len(w) > 3]
 
