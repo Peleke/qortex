@@ -9,7 +9,7 @@
   "links": [],
   "panels": [
     {
-      "title": "Vector Index",
+      "title": "Embedding Index",
       "type": "row",
       "gridPos": {
         "h": 1,
@@ -41,17 +41,17 @@
         "h": 8,
         "w": 16,
         "x": 8,
-        "y": 1
+        "y": 9
       },
       "options": {
         "mode": "markdown",
-        "content": "## Vector Index\n\nEvery concept is embedded into a vector and stored in the index. Queries are embedded the same way, then matched via **cosine similarity**.\nTop-K candidates are retrieved, then filtered by domain. The **seed yield** measures how many survive domain filtering.\n\n| Signal | What to watch | Healthy | Investigate |\n|--------|--------------|---------|-------------|\n| **Index Size** | Total vectors stored | Growing with ingestion | Flat = no new concepts being added |\n| **Add Rate/Latency** | Insert perf by index type | Sub-ms for numpy (in-memory) | Spikes = index rebuild or backend lag |\n| **Top Score** | Best cosine similarity | > 0.8 for strong matches | Consistently < 0.5 = domain not represented |\n| **Score Spread** | Max − min score gap | Large = good discrimination | Narrow = query too generic or too specific |\n| **Seed Yield** | Survive domain filter | > 80% (green) | < 50% = index dominated by other domains |"
+        "content": "## Vector Index\n\nEvery concept is embedded into a vector and stored in the index. Queries are embedded the same way, then matched via **cosine similarity**.\nTop-K candidates are retrieved, then filtered by domain. The **seed yield** measures how many survive domain filtering.\n\n| Signal | What to watch | Healthy | Investigate |\n|--------|--------------|---------|-------------|\n| **Index Size** | Total vectors stored | Growing with ingestion | Flat = no new concepts being added |\n| **Add Rate/Latency** | Insert perf by index type | Sub-ms for numpy (in-memory) | Spikes = index rebuild or backend lag |\n| **Top Score** | Best cosine similarity | > 0.8 for strong matches | Consistently < 0.5 = domain not represented |\n| **Score Spread** | Max \u2212 min score gap | Large = good discrimination | Narrow = query too generic or too specific |\n| **Seed Yield** | Survive domain filter | > 80% (green) | < 50% = index dominated by other domains |"
       },
       "transparent": true
     },
     {
       "title": "Vec Index Size",
-      "description": "Total number of embedding vectors stored in the index. Each concept in the knowledge graph has one vector. This is the system's 'memory size' — how many concepts it can search over. Growth indicates new concepts being ingested.",
+      "description": "Total number of embedding vectors stored in the index. Each concept in the knowledge graph has one vector. This is the system's 'memory size' \u2014 how many concepts it can search over. Growth indicates new concepts being ingested.",
       "type": "stat",
       "datasource": {
         "type": "prometheus",
@@ -61,7 +61,7 @@
         "h": 8,
         "w": 6,
         "x": 0,
-        "y": 9
+        "y": 17
       },
       "targets": [
         {
@@ -69,6 +69,9 @@
           "legendFormat": "vectors"
         }
       ],
+      "options": {
+        "graphMode": "none"
+      },
       "fieldConfig": {
         "defaults": {
           "unit": "short"
@@ -87,7 +90,7 @@
         "h": 8,
         "w": 9,
         "x": 6,
-        "y": 9
+        "y": 25
       },
       "targets": [
         {
@@ -117,7 +120,7 @@
         "h": 8,
         "w": 9,
         "x": 15,
-        "y": 9
+        "y": 33
       },
       "targets": [
         {
@@ -141,7 +144,7 @@
     },
     {
       "title": "Vec Search Top Score",
-      "description": "Cosine similarity of the best-matching vector in the most recent search. Range 0-1, where 1.0 = exact match. Scores above 0.8 indicate strong semantic matches. Consistently low scores (< 0.5) suggest the query domain isn't well-represented in the index — more relevant concepts may need to be ingested.",
+      "description": "Cosine similarity of the best-matching vector in the most recent search. Range 0-1, where 1.0 = exact match. Scores above 0.8 indicate strong semantic matches. Consistently low scores (< 0.5) suggest the query domain isn't well-represented in the index \u2014 more relevant concepts may need to be ingested.",
       "type": "timeseries",
       "datasource": {
         "type": "prometheus",
@@ -151,7 +154,7 @@
         "h": 8,
         "w": 8,
         "x": 0,
-        "y": 17
+        "y": 41
       },
       "targets": [
         {
@@ -179,7 +182,7 @@
         "h": 8,
         "w": 8,
         "x": 8,
-        "y": 17
+        "y": 49
       },
       "targets": [
         {
@@ -206,7 +209,7 @@
         "h": 8,
         "w": 8,
         "x": 16,
-        "y": 17
+        "y": 57
       },
       "targets": [
         {
@@ -240,7 +243,7 @@
     },
     {
       "title": "Vec Search Candidates Distribution",
-      "description": "Average number of candidate vectors returned per search query. This is the 'recall width' — how many concepts the system considers before ranking. More candidates = broader search but slower; fewer = faster but may miss relevant results. Configured via top_k parameter.",
+      "description": "Average number of candidate vectors returned per search query. This is the 'recall width' \u2014 how many concepts the system considers before ranking. More candidates = broader search but slower; fewer = faster but may miss relevant results. Configured via top_k parameter.",
       "type": "timeseries",
       "datasource": {
         "type": "prometheus",
@@ -250,7 +253,7 @@
         "h": 8,
         "w": 12,
         "x": 0,
-        "y": 25
+        "y": 65
       },
       "targets": [
         {
@@ -260,13 +263,13 @@
       ]
     },
     {
-      "title": "Learning & Bandits",
+      "title": "Bandit Arms & Selections",
       "type": "row",
       "gridPos": {
         "h": 1,
         "w": 24,
         "x": 0,
-        "y": 33
+        "y": 73
       },
       "collapsed": false
     },
@@ -277,10 +280,10 @@
         "h": 7,
         "w": 8,
         "x": 0,
-        "y": 34
+        "y": 74
       },
       "options": {
-        "content": "flowchart LR\n    POOL(\"Arm Pool\\nBeta(α,β)\") -->|\"Thompson\\nSample\"| SEL(\"Select\\nArm\")\n    SEL --> ACT(\"Execute\")\n    ACT --> OUT(\"Observe\\nOutcome\")\n    OUT -->|\"α++ or β++\"| POOL\n    style POOL fill:#1b4332,stroke:#40916c,color:#d8f3dc,stroke-width:2px\n    style SEL fill:#2d6a4f,stroke:#52b788,color:#d8f3dc,stroke-width:2px\n    style ACT fill:#40916c,stroke:#95d5b2,color:#d8f3dc,stroke-width:2px\n    style OUT fill:#52b788,stroke:#d8f3dc,color:#1b4332,stroke-width:2px",
+        "content": "flowchart LR\n    POOL(\"Arm Pool\\nBeta(\u03b1,\u03b2)\") -->|\"Thompson\\nSample\"| SEL(\"Select\\nArm\")\n    SEL --> ACT(\"Execute\")\n    ACT --> OUT(\"Observe\\nOutcome\")\n    OUT -->|\"\u03b1++ or \u03b2++\"| POOL\n    style POOL fill:#1b4332,stroke:#40916c,color:#d8f3dc,stroke-width:2px\n    style SEL fill:#2d6a4f,stroke:#52b788,color:#d8f3dc,stroke-width:2px\n    style ACT fill:#40916c,stroke:#95d5b2,color:#d8f3dc,stroke-width:2px\n    style OUT fill:#52b788,stroke:#d8f3dc,color:#1b4332,stroke-width:2px",
         "mermaidThemeVariables": "{\"fontSize\":\"14px\",\"primaryColor\":\"#2d6a4f\",\"lineColor\":\"#40916c\",\"textColor\":\"#d8f3dc\"}"
       },
       "transparent": true
@@ -292,7 +295,7 @@
         "h": 7,
         "w": 16,
         "x": 8,
-        "y": 34
+        "y": 81
       },
       "options": {
         "mode": "markdown",
@@ -312,7 +315,7 @@
         "h": 8,
         "w": 24,
         "x": 0,
-        "y": 41
+        "y": 88
       },
       "targets": [
         {
@@ -370,7 +373,7 @@
     },
     {
       "title": "Tool Quality (posterior mean)",
-      "description": "The system's confidence in each tool. 1.0 = always works. 0.0 = never works. Watch these separate over time — the system learns which tools produce accepted output and favors them.",
+      "description": "The system's confidence in each tool. 1.0 = always works. 0.0 = never works. Watch these separate over time \u2014 the system learns which tools produce accepted output and favors them.",
       "type": "timeseries",
       "datasource": {
         "type": "prometheus",
@@ -380,7 +383,7 @@
         "h": 8,
         "w": 12,
         "x": 0,
-        "y": 49
+        "y": 96
       },
       "targets": [
         {
@@ -408,7 +411,7 @@
         "h": 8,
         "w": 12,
         "x": 12,
-        "y": 49
+        "y": 104
       },
       "targets": [
         {
@@ -429,7 +432,7 @@
         "h": 7,
         "w": 12,
         "x": 0,
-        "y": 57
+        "y": 112
       },
       "options": {
         "content": "flowchart LR\n    CT[\"Conversational\\nTurn\"] -->|no tools| SKIP[\"Skip\\nObservation\"]\n    MT[\"Meta-tool\\nOnly\"] -->|no real tools| SKIP\n    RT[\"Real Tool\\nUsage\"] -->|observe| OBS[\"Record\\nOutcome\"]\n    OBS -->|accepted| UP[\"alpha += 1\"]\n    OBS -->|rejected| DOWN[\"beta += 1\"]\n    SKIP -.->|\"POISON FIX\"| X(\" \")\n    style SKIP fill:#2d6a4f,stroke:#40916c,color:#d8f3dc,stroke-width:2px\n    style X fill:none,stroke:none\n    style CT fill:#1b4332,stroke:#40916c,color:#b7e4c7\n    style MT fill:#1b4332,stroke:#40916c,color:#b7e4c7\n    style RT fill:#081c15,stroke:#2d6a4f,color:#95d5b2\n    style UP fill:#2d6a4f,stroke:#40916c,color:#d8f3dc\n    style DOWN fill:#9b2226,stroke:#ae2012,color:#ffddd2\n    style OBS fill:#1b4332,stroke:#40916c,color:#b7e4c7",
@@ -444,17 +447,17 @@
         "h": 7,
         "w": 12,
         "x": 12,
-        "y": 57
+        "y": 119
       },
       "options": {
         "mode": "markdown",
-        "content": "## Poisoning Detection & Recovery\n\nThe three-tier observation guard prevents **bandit self-poisoning** — where conversational turns\n(no tool use) were incorrectly recorded as rejection of ALL arms, collapsing posteriors to `Beta(1, N)`.\n\n| Signal | What to watch | Healthy | Poisoned |\n|--------|--------------|---------|----------|\n| **Bottom 10 Posterior** | Worst-performing arms | Gradually separating from 0.5 as real data flows | All arms crushed near 0.0 with low pull count |\n| **Raw Alpha** | Success count per arm | Growing with accepted observations | Stuck at 1 (prior) while beta climbs |\n| **Raw Beta** | Failure count per arm | Growing slower than alpha for good arms | `beta >> alpha` with `pulls < 50` = poisoning signature |\n| **Beta/Alpha Ratio** | Failure-to-success ratio | < 3.0 for most arms | > 10.0 with low pulls = false rejections |\n\n**Poisoning signature**: `beta > 10 * alpha AND pulls < 50` on any arm.\n**Recovery**: Reset bandit state via the `/reward` endpoint, then verify bottom arms climb back toward 0.5."
+        "content": "## Poisoning Detection & Recovery\n\nThe three-tier observation guard prevents **bandit self-poisoning** \u2014 where conversational turns\n(no tool use) were incorrectly recorded as rejection of ALL arms, collapsing posteriors to `Beta(1, N)`.\n\n| Signal | What to watch | Healthy | Poisoned |\n|--------|--------------|---------|----------|\n| **Bottom 10 Posterior** | Worst-performing arms | Gradually separating from 0.5 as real data flows | All arms crushed near 0.0 with low pull count |\n| **Raw Alpha** | Success count per arm | Growing with accepted observations | Stuck at 1 (prior) while beta climbs |\n| **Raw Beta** | Failure count per arm | Growing slower than alpha for good arms | `beta >> alpha` with `pulls < 50` = poisoning signature |\n| **Beta/Alpha Ratio** | Failure-to-success ratio | < 3.0 for most arms | > 10.0 with low pulls = false rejections |\n\n**Poisoning signature**: `beta > 10 * alpha AND pulls < 50` on any arm.\n**Recovery**: Reset bandit state via the `/reward` endpoint, then verify bottom arms climb back toward 0.5."
       },
       "transparent": true
     },
     {
       "title": "Posterior Mean (bottom 10 arms)",
-      "description": "Current posterior mean for the bottom 10 arms — the ones most likely to be poisoned or genuinely bad. During recovery, watch these climb from near-0 back toward 0.5 (uniform prior).",
+      "description": "Current posterior mean for the bottom 10 arms \u2014 the ones most likely to be poisoned or genuinely bad. During recovery, watch these climb from near-0 back toward 0.5 (uniform prior).",
       "type": "timeseries",
       "datasource": {
         "type": "prometheus",
@@ -464,7 +467,7 @@
         "h": 8,
         "w": 12,
         "x": 0,
-        "y": 64
+        "y": 126
       },
       "targets": [
         {
@@ -519,7 +522,7 @@
     },
     {
       "title": "Raw Alpha (top 10 by beta/alpha ratio)",
-      "description": "Raw alpha (success) and beta (failure) for arms with the worst beta/alpha ratio — the poisoning signature. Healthy arms have alpha growing faster than beta.",
+      "description": "Raw alpha (success) and beta (failure) for arms with the worst beta/alpha ratio \u2014 the poisoning signature. Healthy arms have alpha growing faster than beta.",
       "type": "timeseries",
       "datasource": {
         "type": "prometheus",
@@ -529,16 +532,16 @@
         "h": 8,
         "w": 12,
         "x": 12,
-        "y": 64
+        "y": 134
       },
       "targets": [
         {
           "expr": "topk(10, max by (learner, arm_id) (qortex_learning_arm_beta) / max by (learner, arm_id) (qortex_learning_arm_alpha))",
-          "legendFormat": "β/α {{learner}}/{{arm_id}}"
+          "legendFormat": "\u03b2/\u03b1 {{learner}}/{{arm_id}}"
         },
         {
           "expr": "max by (learner, arm_id) (qortex_learning_arm_alpha) * on(learner, arm_id) group_left topk(10, max by (learner, arm_id) (qortex_learning_arm_beta) / max by (learner, arm_id) (qortex_learning_arm_alpha))",
-          "legendFormat": "α {{learner}}/{{arm_id}}",
+          "legendFormat": "\u03b1 {{learner}}/{{arm_id}}",
           "hide": true
         }
       ],
@@ -564,7 +567,7 @@
         "h": 4,
         "w": 12,
         "x": 0,
-        "y": 72
+        "y": 142
       },
       "targets": [
         {
@@ -616,7 +619,7 @@
         "h": 4,
         "w": 12,
         "x": 12,
-        "y": 72
+        "y": 146
       },
       "targets": [
         {
@@ -660,321 +663,13 @@
       }
     },
     {
-      "title": "Retrieval Health",
+      "title": "Knowledge Graph Growth",
       "type": "row",
       "gridPos": {
         "h": 1,
         "w": 24,
         "x": 0,
-        "y": 76
-      },
-      "collapsed": false
-    },
-    {
-      "title": "Query Pipeline",
-      "type": "jdbranham-diagram-panel",
-      "gridPos": {
-        "h": 8,
-        "w": 8,
-        "x": 0,
-        "y": 77
-      },
-      "options": {
-        "content": "flowchart LR\n    Q(\"Query\") --> E(\"Embed\")\n    E --> V(\"Vec Search\")\n    V --> PPR(\"PPR\\n(graph mode)\")\n    V --> R(\"Results\")\n    PPR --> R\n    style Q fill:#1a1a2e,stroke:#16213e,color:#e94560,stroke-width:2px\n    style E fill:#16213e,stroke:#0f3460,color:#e94560,stroke-width:2px\n    style V fill:#0f3460,stroke:#533483,color:#e94560,stroke-width:2px\n    style PPR fill:#533483,stroke:#e94560,color:#e94560,stroke-width:2px\n    style R fill:#e94560,stroke:#e94560,color:#1a1a2e,stroke-width:2px",
-        "mermaidThemeVariables": "{\"fontSize\":\"14px\",\"primaryColor\":\"#0f3460\",\"lineColor\":\"#e94560\",\"textColor\":\"#e94560\"}"
-      },
-      "transparent": true
-    },
-    {
-      "title": "",
-      "type": "text",
-      "gridPos": {
-        "h": 8,
-        "w": 16,
-        "x": 8,
-        "y": 77
-      },
-      "options": {
-        "mode": "markdown",
-        "content": "## Retrieval Pipeline\n\nEvery query follows: **embed → vector search → (optional) PPR re-rank → assemble results**.\n`mode=vec` skips PPR entirely. `mode=graph` adds Personalized PageRank for KG-aware re-ranking.\n\n| Signal | What to watch | Healthy | Investigate |\n|--------|--------------|---------|-------------|\n| **Query Rate** | Queries/sec by mode | Steady throughput, proportional to traffic | Drops = upstream issues or backpressure |\n| **Query Latency** | p50/p95/p99 end-to-end | p50 < 100ms, p99 < 500ms | p99 spikes while p50 flat = subset hitting slow paths |\n| **Vec Search Latency** | Vector-only search time | Sub-millisecond for in-memory | Spikes = index too large or needs rebuild |\n| **Query Errors** | Failures by stage | Zero | Non-zero = queries being dropped |"
-      },
-      "transparent": true
-    },
-    {
-      "title": "Queries (total & recent)",
-      "description": "Retrieval queries by mode (vec = vector-only, graph = GraphRAG with PPR). Shows raw totals (useful at low volume) and per-interval increase. At dev scale, rate/sec is meaningless — watch the totals climb instead.",
-      "type": "timeseries",
-      "datasource": {
-        "type": "prometheus",
-        "uid": "${DS_PROMETHEUS}"
-      },
-      "gridPos": {
-        "h": 8,
-        "w": 12,
-        "x": 0,
-        "y": 85
-      },
-      "targets": [
-        {
-          "expr": "sum by (mode) (qortex_queries_total)",
-          "legendFormat": "total ({{mode}})"
-        },
-        {
-          "expr": "sum by (mode) (increase(qortex_queries_total[$__rate_interval]))",
-          "legendFormat": "recent ({{mode}})"
-        }
-      ],
-      "fieldConfig": {
-        "defaults": {
-          "unit": "short"
-        }
-      }
-    },
-    {
-      "title": "Query Latency (avg / p50 / p95)",
-      "description": "End-to-end query latency. Shows all-time average (always visible if any data exists) plus p50/p95 from a 15m window (needs several queries to populate). At dev scale, the avg line is your friend.",
-      "type": "timeseries",
-      "datasource": {
-        "type": "prometheus",
-        "uid": "${DS_PROMETHEUS}"
-      },
-      "gridPos": {
-        "h": 8,
-        "w": 12,
-        "x": 12,
-        "y": 85
-      },
-      "targets": [
-        {
-          "expr": "sum(qortex_query_duration_seconds_sum) / sum(qortex_query_duration_seconds_count)",
-          "legendFormat": "avg"
-        },
-        {
-          "expr": "histogram_quantile(0.50, sum(increase(qortex_query_duration_seconds_bucket[15m])) by (le))",
-          "legendFormat": "p50"
-        },
-        {
-          "expr": "histogram_quantile(0.95, sum(increase(qortex_query_duration_seconds_bucket[15m])) by (le))",
-          "legendFormat": "p95"
-        }
-      ],
-      "fieldConfig": {
-        "defaults": {
-          "unit": "s"
-        }
-      }
-    },
-    {
-      "title": "Vec Search Latency (avg / p50 / p95)",
-      "description": "Latency of the vector similarity search step alone. Shows avg (always visible) plus quantiles from a 15m window. At dev scale, watch avg; at prod scale, watch p95 for index degradation.",
-      "type": "timeseries",
-      "datasource": {
-        "type": "prometheus",
-        "uid": "${DS_PROMETHEUS}"
-      },
-      "gridPos": {
-        "h": 8,
-        "w": 12,
-        "x": 0,
-        "y": 93
-      },
-      "targets": [
-        {
-          "expr": "sum(qortex_vec_search_duration_seconds_sum) / sum(qortex_vec_search_duration_seconds_count)",
-          "legendFormat": "avg"
-        },
-        {
-          "expr": "histogram_quantile(0.50, sum(increase(qortex_vec_search_duration_seconds_bucket[15m])) by (le))",
-          "legendFormat": "p50"
-        },
-        {
-          "expr": "histogram_quantile(0.95, sum(increase(qortex_vec_search_duration_seconds_bucket[15m])) by (le))",
-          "legendFormat": "p95"
-        }
-      ],
-      "fieldConfig": {
-        "defaults": {
-          "unit": "s"
-        }
-      }
-    },
-    {
-      "title": "Query Errors (total)",
-      "description": "Query failures by pipeline stage. Shows raw totals (useful at dev scale) plus per-interval increase. Non-zero means queries are being dropped — check the stage label.",
-      "type": "timeseries",
-      "datasource": {
-        "type": "prometheus",
-        "uid": "${DS_PROMETHEUS}"
-      },
-      "gridPos": {
-        "h": 8,
-        "w": 12,
-        "x": 12,
-        "y": 93
-      },
-      "targets": [
-        {
-          "expr": "sum by (stage) (qortex_query_errors_total)",
-          "legendFormat": "total ({{stage}})"
-        },
-        {
-          "expr": "sum by (stage) (increase(qortex_query_errors_total[$__rate_interval]))",
-          "legendFormat": "recent ({{stage}})"
-        }
-      ],
-      "fieldConfig": {
-        "defaults": {
-          "unit": "short"
-        }
-      }
-    },
-    {
-      "title": "Learning Dynamics",
-      "type": "row",
-      "gridPos": {
-        "h": 1,
-        "w": 24,
-        "x": 0,
-        "y": 101
-      },
-      "collapsed": false
-    },
-    {
-      "title": "Learning Loop",
-      "type": "jdbranham-diagram-panel",
-      "gridPos": {
-        "h": 8,
-        "w": 8,
-        "x": 0,
-        "y": 102
-      },
-      "options": {
-        "content": "flowchart LR\n    FB(\"Feedback\\naccepted/rejected\") --> TF(\"Teleportation\\nFactors\")\n    TF --> PPR(\"PPR Bias\")\n    PPR --> BQ(\"Better\\nResults\")\n    BQ -.->|\"next cycle\"| FB\n    style FB fill:#3d0066,stroke:#7b2d8e,color:#e0b0ff,stroke-width:2px\n    style TF fill:#7b2d8e,stroke:#9b59b6,color:#e0b0ff,stroke-width:2px\n    style PPR fill:#9b59b6,stroke:#c39bd3,color:#e0b0ff,stroke-width:2px\n    style BQ fill:#c39bd3,stroke:#e0b0ff,color:#3d0066,stroke-width:2px",
-        "mermaidThemeVariables": "{\"fontSize\":\"14px\",\"primaryColor\":\"#7b2d8e\",\"lineColor\":\"#9b59b6\",\"textColor\":\"#e0b0ff\"}"
-      },
-      "transparent": true
-    },
-    {
-      "title": "",
-      "type": "text",
-      "gridPos": {
-        "h": 8,
-        "w": 16,
-        "x": 8,
-        "y": 102
-      },
-      "options": {
-        "mode": "markdown",
-        "content": "## Learning Dynamics\n\nFeedback drives a **virtuous loop**: accepted results reinforce teleportation factors → PPR biases toward good nodes → better results → more accepts.\nFactor **entropy** measures how much the system has learned. High = uniform (no opinion). Low = concentrated (strong preferences).\n\n| Signal | What to watch | Healthy | Investigate |\n|--------|--------------|---------|-------------|\n| **Factor Mean** | Avg teleportation factor | Rising = learning stronger preferences | Falling = conflicting signals |\n| **Factor Entropy** | Distribution spread | Decreasing over time | Flat = no learning happening |\n| **Update Rate** | Factor changes by outcome | Active flow, accepts > rejects over time | Zero = no feedback reaching factors |\n| **Accept/Reject Ratio** | Raw feedback signal | Trending toward more accepts | Sustained high rejection = domain mismatch |"
-      },
-      "transparent": true
-    },
-    {
-      "title": "Factor Mean Over Time",
-      "description": "Average teleportation factor across all nodes in the knowledge graph. Teleportation factors control how strongly PPR biases toward specific nodes during random walks. A rising mean indicates the system is learning stronger preferences from feedback; a falling mean suggests uncertainty or conflicting signals.",
-      "type": "timeseries",
-      "datasource": {
-        "type": "prometheus",
-        "uid": "${DS_PROMETHEUS}"
-      },
-      "gridPos": {
-        "h": 8,
-        "w": 8,
-        "x": 0,
-        "y": 110
-      },
-      "targets": [
-        {
-          "expr": "max(qortex_factor_mean)",
-          "legendFormat": "mean factor"
-        }
-      ]
-    },
-    {
-      "title": "Factor Entropy",
-      "description": "Shannon entropy of the teleportation factor distribution. High entropy = factors are spread evenly (the system hasn't formed strong opinions yet). Low entropy = factors are concentrated on a few nodes (the system has learned clear preferences). Entropy should decrease over time as the system accumulates feedback.",
-      "type": "timeseries",
-      "datasource": {
-        "type": "prometheus",
-        "uid": "${DS_PROMETHEUS}"
-      },
-      "gridPos": {
-        "h": 8,
-        "w": 8,
-        "x": 8,
-        "y": 110
-      },
-      "targets": [
-        {
-          "expr": "max(qortex_factor_entropy)",
-          "legendFormat": "entropy"
-        }
-      ],
-      "fieldConfig": {
-        "defaults": {
-          "unit": "bits"
-        }
-      }
-    },
-    {
-      "title": "Factor Update Rate",
-      "description": "How frequently teleportation factors are being updated, by feedback outcome (accepted/rejected/partial). Each update adjusts how PPR weights specific nodes. High update rates indicate active learning; the balance of accepted vs rejected shows whether the system's suggestions are landing.",
-      "type": "timeseries",
-      "datasource": {
-        "type": "prometheus",
-        "uid": "${DS_PROMETHEUS}"
-      },
-      "gridPos": {
-        "h": 8,
-        "w": 8,
-        "x": 16,
-        "y": 110
-      },
-      "targets": [
-        {
-          "expr": "sum by (outcome) (rate(qortex_factor_updates_total[5m]))",
-          "legendFormat": "{{outcome}}"
-        }
-      ],
-      "fieldConfig": {
-        "defaults": {
-          "unit": "cps"
-        }
-      }
-    },
-    {
-      "title": "Feedback Accept/Reject Ratio",
-      "description": "Rate of user/system feedback events classified as accepted vs rejected. This is the raw signal that drives all learning in qortex — both teleportation factor updates and bandit posterior updates. A healthy system trends toward more accepts over time as learning kicks in. A sustained high rejection rate may indicate poor initial candidates or a domain mismatch.",
-      "type": "timeseries",
-      "datasource": {
-        "type": "prometheus",
-        "uid": "${DS_PROMETHEUS}"
-      },
-      "gridPos": {
-        "h": 8,
-        "w": 12,
-        "x": 0,
-        "y": 118
-      },
-      "targets": [
-        {
-          "expr": "sum(rate(qortex_feedback_total{outcome=\"accepted\"}[5m]))",
-          "legendFormat": "accepted"
-        },
-        {
-          "expr": "sum(rate(qortex_feedback_total{outcome=\"rejected\"}[5m]))",
-          "legendFormat": "rejected"
-        }
-      ]
-    },
-    {
-      "title": "KG Crystallization",
-      "type": "row",
-      "gridPos": {
-        "h": 1,
-        "w": 24,
-        "x": 0,
-        "y": 126
+        "y": 150
       },
       "collapsed": false
     },
@@ -985,7 +680,7 @@
         "h": 8,
         "w": 8,
         "x": 0,
-        "y": 127
+        "y": 151
       },
       "options": {
         "content": "flowchart LR\n    QR(\"Query\\nResults\") --> OE(\"Online\\nEdges\")\n    OE --> BUF(\"Buffer\")\n    BUF -->|\"confidence\\nthreshold\"| KG(\"Persistent\\nKG\")\n    BUF -.->|\"evict\"| X(\"Discard\")\n    style QR fill:#1b2838,stroke:#2a475e,color:#66c0f4,stroke-width:2px\n    style OE fill:#2a475e,stroke:#3d6b8e,color:#66c0f4,stroke-width:2px\n    style BUF fill:#3d6b8e,stroke:#66c0f4,color:#1b2838,stroke-width:2px\n    style KG fill:#66c0f4,stroke:#66c0f4,color:#1b2838,stroke-width:2px\n    style X fill:#4a4a4a,stroke:#666,color:#999,stroke-width:2px",
@@ -1000,13 +695,138 @@
         "h": 8,
         "w": 16,
         "x": 8,
-        "y": 127
+        "y": 159
       },
       "options": {
         "mode": "markdown",
         "content": "## KG Crystallization\n\nRuntime queries discover relationships (**online edges**) between co-occurring concepts. Edges enter a **buffer**\nand graduate to the persistent KG once confidence exceeds the promotion threshold. This is how the graph grows organically from usage.\n\n| Signal | What to watch | Healthy | Investigate |\n|--------|--------------|---------|-------------|\n| **Coverage Ratio** | % of nodes with online edges | > 70% (green) | < 30% = graph barely explored |\n| **Buffer Size** | Edges waiting for promotion | Growing with usage, draining via promotions | Growing with zero promotions = threshold too high |\n| **Promotions** | Edges graduating/hr | Steady flow | Zero = edges never meet confidence threshold |\n| **Total Promoted** | Lifetime crystallized edges | Monotonically increasing | Stuck at 0 = feature not active |"
       },
       "transparent": true
+    },
+    {
+      "title": "Graph Nodes",
+      "description": "Total Concept nodes created in the knowledge graph from online indexing (conversation messages) and manifest ingestion. This is the absolute size of the graph's node set.",
+      "type": "stat",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${DS_PROMETHEUS}"
+      },
+      "gridPos": {
+        "h": 6,
+        "w": 6,
+        "x": 0,
+        "y": 167
+      },
+      "targets": [
+        {
+          "expr": "sum(qortex_graph_nodes_created_total)",
+          "legendFormat": "nodes"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "fixed",
+            "fixedColor": "#66c0f4"
+          }
+        }
+      }
+    },
+    {
+      "title": "Graph Edges",
+      "description": "Total edges created in the knowledge graph from co-occurrence linking and manifest ingestion. This is the absolute size of the graph's edge set.",
+      "type": "stat",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${DS_PROMETHEUS}"
+      },
+      "gridPos": {
+        "h": 6,
+        "w": 6,
+        "x": 6,
+        "y": 173
+      },
+      "targets": [
+        {
+          "expr": "sum(qortex_graph_edges_created_total)",
+          "legendFormat": "edges"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "fixed",
+            "fixedColor": "#a3d977"
+          }
+        }
+      }
+    },
+    {
+      "title": "Graph Growth (cumulative)",
+      "description": "Cumulative nodes and edges created in the knowledge graph over time. Shows how the graph grows from conversation ingestion and manifest loads.",
+      "type": "timeseries",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${DS_PROMETHEUS}"
+      },
+      "gridPos": {
+        "h": 6,
+        "w": 12,
+        "x": 12,
+        "y": 179
+      },
+      "targets": [
+        {
+          "expr": "sum(qortex_graph_nodes_created_total)",
+          "legendFormat": "nodes"
+        },
+        {
+          "expr": "sum(qortex_graph_edges_created_total)",
+          "legendFormat": "edges"
+        }
+      ]
+    },
+    {
+      "title": "Nodes by Origin",
+      "description": "Cumulative node creation broken down by origin: online_index (conversation messages) vs manifest (bulk ingestion).",
+      "type": "timeseries",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${DS_PROMETHEUS}"
+      },
+      "gridPos": {
+        "h": 6,
+        "w": 12,
+        "x": 0,
+        "y": 185
+      },
+      "targets": [
+        {
+          "expr": "sum by (origin) (qortex_graph_nodes_created_total)",
+          "legendFormat": "{{origin}}"
+        }
+      ]
+    },
+    {
+      "title": "Edges by Origin",
+      "description": "Cumulative edge creation broken down by origin: co_occurrence (consecutive chunk linking) vs manifest (bulk ingestion).",
+      "type": "timeseries",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${DS_PROMETHEUS}"
+      },
+      "gridPos": {
+        "h": 6,
+        "w": 12,
+        "x": 12,
+        "y": 191
+      },
+      "targets": [
+        {
+          "expr": "sum by (origin) (qortex_graph_edges_created_total)",
+          "legendFormat": "{{origin}}"
+        }
+      ]
     },
     {
       "title": "KG Coverage Ratio",
@@ -1020,7 +840,7 @@
         "h": 8,
         "w": 8,
         "x": 0,
-        "y": 135
+        "y": 197
       },
       "targets": [
         {
@@ -1064,7 +884,7 @@
         "h": 8,
         "w": 8,
         "x": 8,
-        "y": 135
+        "y": 205
       },
       "targets": [
         {
@@ -1079,7 +899,7 @@
     },
     {
       "title": "Total Promoted (lifetime)",
-      "description": "Cumulative count of online edges that have been promoted from the buffer into the persistent knowledge graph. This is the system's 'crystallized learning' — relationships it discovered at runtime and deemed confident enough to keep permanently.",
+      "description": "Cumulative count of online edges that have been promoted from the buffer into the persistent knowledge graph. This is the system's 'crystallized learning' \u2014 relationships it discovered at runtime and deemed confident enough to keep permanently.",
       "type": "stat",
       "datasource": {
         "type": "prometheus",
@@ -1089,7 +909,7 @@
         "h": 8,
         "w": 8,
         "x": 16,
-        "y": 135
+        "y": 213
       },
       "targets": [
         {
@@ -1099,138 +919,182 @@
       ]
     },
     {
-      "title": "Graph Nodes",
-      "description": "Total Concept nodes created in the knowledge graph from online indexing (conversation messages) and manifest ingestion. This is the absolute size of the graph's node set.",
-      "type": "stat",
-      "datasource": {
-        "type": "prometheus",
-        "uid": "${DS_PROMETHEUS}"
-      },
-      "gridPos": {
-        "h": 6,
-        "w": 6,
-        "x": 0,
-        "y": 143
-      },
-      "targets": [
-        {
-          "expr": "sum(qortex_graph_nodes_created_total)",
-          "legendFormat": "nodes"
-        }
-      ],
-      "fieldConfig": {
-        "defaults": {
-          "color": {
-            "mode": "fixed",
-            "fixedColor": "#66c0f4"
-          }
-        }
-      }
-    },
-    {
-      "title": "Graph Edges",
-      "description": "Total edges created in the knowledge graph from co-occurrence linking and manifest ingestion. This is the absolute size of the graph's edge set.",
-      "type": "stat",
-      "datasource": {
-        "type": "prometheus",
-        "uid": "${DS_PROMETHEUS}"
-      },
-      "gridPos": {
-        "h": 6,
-        "w": 6,
-        "x": 6,
-        "y": 143
-      },
-      "targets": [
-        {
-          "expr": "sum(qortex_graph_edges_created_total)",
-          "legendFormat": "edges"
-        }
-      ],
-      "fieldConfig": {
-        "defaults": {
-          "color": {
-            "mode": "fixed",
-            "fixedColor": "#a3d977"
-          }
-        }
-      }
-    },
-    {
-      "title": "Graph Growth (cumulative)",
-      "description": "Cumulative nodes and edges created in the knowledge graph over time. Shows how the graph grows from conversation ingestion and manifest loads.",
-      "type": "timeseries",
-      "datasource": {
-        "type": "prometheus",
-        "uid": "${DS_PROMETHEUS}"
-      },
-      "gridPos": {
-        "h": 6,
-        "w": 12,
-        "x": 12,
-        "y": 143
-      },
-      "targets": [
-        {
-          "expr": "sum(qortex_graph_nodes_created_total)",
-          "legendFormat": "nodes"
-        },
-        {
-          "expr": "sum(qortex_graph_edges_created_total)",
-          "legendFormat": "edges"
-        }
-      ]
-    },
-    {
-      "title": "Nodes by Origin",
-      "description": "Cumulative node creation broken down by origin: online_index (conversation messages) vs manifest (bulk ingestion).",
-      "type": "timeseries",
-      "datasource": {
-        "type": "prometheus",
-        "uid": "${DS_PROMETHEUS}"
-      },
-      "gridPos": {
-        "h": 6,
-        "w": 12,
-        "x": 0,
-        "y": 149
-      },
-      "targets": [
-        {
-          "expr": "sum by (origin) (qortex_graph_nodes_created_total)",
-          "legendFormat": "{{origin}}"
-        }
-      ]
-    },
-    {
-      "title": "Edges by Origin",
-      "description": "Cumulative edge creation broken down by origin: co_occurrence (consecutive chunk linking) vs manifest (bulk ingestion).",
-      "type": "timeseries",
-      "datasource": {
-        "type": "prometheus",
-        "uid": "${DS_PROMETHEUS}"
-      },
-      "gridPos": {
-        "h": 6,
-        "w": 12,
-        "x": 12,
-        "y": 149
-      },
-      "targets": [
-        {
-          "expr": "sum by (origin) (qortex_graph_edges_created_total)",
-          "legendFormat": "{{origin}}"
-        }
-      ]
-    },
-    {
-      "title": "PPR Performance",
+      "title": "Search & Retrieval",
       "type": "row",
       "gridPos": {
         "h": 1,
         "w": 24,
         "x": 0,
-        "y": 155
+        "y": 221
+      },
+      "collapsed": false
+    },
+    {
+      "title": "Query Pipeline",
+      "type": "jdbranham-diagram-panel",
+      "gridPos": {
+        "h": 8,
+        "w": 8,
+        "x": 0,
+        "y": 222
+      },
+      "options": {
+        "content": "flowchart LR\n    Q(\"Query\") --> E(\"Embed\")\n    E --> V(\"Vec Search\")\n    V --> PPR(\"PPR\\n(graph mode)\")\n    V --> R(\"Results\")\n    PPR --> R\n    style Q fill:#1a1a2e,stroke:#16213e,color:#e94560,stroke-width:2px\n    style E fill:#16213e,stroke:#0f3460,color:#e94560,stroke-width:2px\n    style V fill:#0f3460,stroke:#533483,color:#e94560,stroke-width:2px\n    style PPR fill:#533483,stroke:#e94560,color:#e94560,stroke-width:2px\n    style R fill:#e94560,stroke:#e94560,color:#1a1a2e,stroke-width:2px",
+        "mermaidThemeVariables": "{\"fontSize\":\"14px\",\"primaryColor\":\"#0f3460\",\"lineColor\":\"#e94560\",\"textColor\":\"#e94560\"}"
+      },
+      "transparent": true
+    },
+    {
+      "title": "",
+      "type": "text",
+      "gridPos": {
+        "h": 8,
+        "w": 16,
+        "x": 8,
+        "y": 230
+      },
+      "options": {
+        "mode": "markdown",
+        "content": "## Retrieval Pipeline\n\nEvery query follows: **embed \u2192 vector search \u2192 (optional) PPR re-rank \u2192 assemble results**.\n`mode=vec` skips PPR entirely. `mode=graph` adds Personalized PageRank for KG-aware re-ranking.\n\n| Signal | What to watch | Healthy | Investigate |\n|--------|--------------|---------|-------------|\n| **Query Rate** | Queries/sec by mode | Steady throughput, proportional to traffic | Drops = upstream issues or backpressure |\n| **Query Latency** | p50/p95/p99 end-to-end | p50 < 100ms, p99 < 500ms | p99 spikes while p50 flat = subset hitting slow paths |\n| **Vec Search Latency** | Vector-only search time | Sub-millisecond for in-memory | Spikes = index too large or needs rebuild |\n| **Query Errors** | Failures by stage | Zero | Non-zero = queries being dropped |"
+      },
+      "transparent": true
+    },
+    {
+      "title": "Queries (total & recent)",
+      "description": "Retrieval queries by mode (vec = vector-only, graph = GraphRAG with PPR). Shows raw totals (useful at low volume) and per-interval increase. At dev scale, rate/sec is meaningless \u2014 watch the totals climb instead.",
+      "type": "timeseries",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${DS_PROMETHEUS}"
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 238
+      },
+      "targets": [
+        {
+          "expr": "sum by (mode) (qortex_queries_total)",
+          "legendFormat": "total ({{mode}})"
+        },
+        {
+          "expr": "sum by (mode) (increase(qortex_queries_total[$__rate_interval]))",
+          "legendFormat": "recent ({{mode}})"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short"
+        }
+      }
+    },
+    {
+      "title": "Query Latency (avg / p50 / p95)",
+      "description": "End-to-end query latency. Shows all-time average (always visible if any data exists) plus p50/p95 from a 15m window (needs several queries to populate). At dev scale, the avg line is your friend.",
+      "type": "timeseries",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${DS_PROMETHEUS}"
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 246
+      },
+      "targets": [
+        {
+          "expr": "sum(qortex_query_duration_seconds_sum) / sum(qortex_query_duration_seconds_count)",
+          "legendFormat": "avg"
+        },
+        {
+          "expr": "histogram_quantile(0.50, sum(increase(qortex_query_duration_seconds_bucket[15m])) by (le))",
+          "legendFormat": "p50"
+        },
+        {
+          "expr": "histogram_quantile(0.95, sum(increase(qortex_query_duration_seconds_bucket[15m])) by (le))",
+          "legendFormat": "p95"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s"
+        }
+      }
+    },
+    {
+      "title": "Vec Search Latency (avg / p50 / p95)",
+      "description": "Latency of the vector similarity search step alone. Shows avg (always visible) plus quantiles from a 15m window. At dev scale, watch avg; at prod scale, watch p95 for index degradation.",
+      "type": "timeseries",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${DS_PROMETHEUS}"
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 254
+      },
+      "targets": [
+        {
+          "expr": "sum(qortex_vec_search_duration_seconds_sum) / sum(qortex_vec_search_duration_seconds_count)",
+          "legendFormat": "avg"
+        },
+        {
+          "expr": "histogram_quantile(0.50, sum(increase(qortex_vec_search_duration_seconds_bucket[15m])) by (le))",
+          "legendFormat": "p50"
+        },
+        {
+          "expr": "histogram_quantile(0.95, sum(increase(qortex_vec_search_duration_seconds_bucket[15m])) by (le))",
+          "legendFormat": "p95"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s"
+        }
+      }
+    },
+    {
+      "title": "Query Errors (total)",
+      "description": "Query failures by pipeline stage. Shows raw totals (useful at dev scale) plus per-interval increase. Non-zero means queries are being dropped \u2014 check the stage label.",
+      "type": "timeseries",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${DS_PROMETHEUS}"
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 262
+      },
+      "targets": [
+        {
+          "expr": "sum by (stage) (qortex_query_errors_total)",
+          "legendFormat": "total ({{stage}})"
+        },
+        {
+          "expr": "sum by (stage) (increase(qortex_query_errors_total[$__rate_interval]))",
+          "legendFormat": "recent ({{stage}})"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short"
+        }
+      }
+    },
+    {
+      "title": "PageRank Convergence",
+      "type": "row",
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 270
       },
       "collapsed": false
     },
@@ -1241,7 +1105,7 @@
         "h": 8,
         "w": 8,
         "x": 0,
-        "y": 144
+        "y": 271
       },
       "options": {
         "content": "flowchart BT\n    TV(\"Teleportation\\nVector\") --> PI(\"Power\\nIteration\")\n    PI -->|\"converge?\"| PI\n    PI --> S(\"Score\\nVector\")\n    S --> R(\"Ranked\\nNodes\")\n    style TV fill:#0d1b2a,stroke:#1b263b,color:#e0e1dd,stroke-width:2px\n    style PI fill:#1b263b,stroke:#415a77,color:#e0e1dd,stroke-width:2px\n    style S fill:#415a77,stroke:#778da9,color:#e0e1dd,stroke-width:2px\n    style R fill:#778da9,stroke:#e0e1dd,color:#0d1b2a,stroke-width:2px",
@@ -1256,7 +1120,7 @@
         "h": 8,
         "w": 16,
         "x": 8,
-        "y": 144
+        "y": 279
       },
       "options": {
         "mode": "markdown",
@@ -1276,7 +1140,7 @@
         "h": 8,
         "w": 8,
         "x": 0,
-        "y": 152
+        "y": 287
       },
       "targets": [
         {
@@ -1302,7 +1166,7 @@
         "h": 8,
         "w": 8,
         "x": 8,
-        "y": 152
+        "y": 295
       },
       "targets": [
         {
@@ -1323,7 +1187,7 @@
         "h": 8,
         "w": 8,
         "x": 16,
-        "y": 152
+        "y": 303
       },
       "targets": [
         {
@@ -1344,7 +1208,7 @@
         "h": 8,
         "w": 12,
         "x": 0,
-        "y": 160
+        "y": 311
       },
       "targets": [
         {
@@ -1369,7 +1233,7 @@
         "h": 8,
         "w": 12,
         "x": 12,
-        "y": 160
+        "y": 319
       },
       "targets": [
         {
@@ -1386,13 +1250,152 @@
       }
     },
     {
-      "title": "Enrichment & Ingestion",
+      "title": "Learning Feedback Loop",
       "type": "row",
       "gridPos": {
         "h": 1,
         "w": 24,
         "x": 0,
-        "y": 168
+        "y": 327
+      },
+      "collapsed": false
+    },
+    {
+      "title": "Learning Loop",
+      "type": "jdbranham-diagram-panel",
+      "gridPos": {
+        "h": 8,
+        "w": 8,
+        "x": 0,
+        "y": 328
+      },
+      "options": {
+        "content": "flowchart LR\n    FB(\"Feedback\\naccepted/rejected\") --> TF(\"Teleportation\\nFactors\")\n    TF --> PPR(\"PPR Bias\")\n    PPR --> BQ(\"Better\\nResults\")\n    BQ -.->|\"next cycle\"| FB\n    style FB fill:#3d0066,stroke:#7b2d8e,color:#e0b0ff,stroke-width:2px\n    style TF fill:#7b2d8e,stroke:#9b59b6,color:#e0b0ff,stroke-width:2px\n    style PPR fill:#9b59b6,stroke:#c39bd3,color:#e0b0ff,stroke-width:2px\n    style BQ fill:#c39bd3,stroke:#e0b0ff,color:#3d0066,stroke-width:2px",
+        "mermaidThemeVariables": "{\"fontSize\":\"14px\",\"primaryColor\":\"#7b2d8e\",\"lineColor\":\"#9b59b6\",\"textColor\":\"#e0b0ff\"}"
+      },
+      "transparent": true
+    },
+    {
+      "title": "",
+      "type": "text",
+      "gridPos": {
+        "h": 8,
+        "w": 16,
+        "x": 8,
+        "y": 336
+      },
+      "options": {
+        "mode": "markdown",
+        "content": "## Learning Dynamics\n\nFeedback drives a **virtuous loop**: accepted results reinforce teleportation factors \u2192 PPR biases toward good nodes \u2192 better results \u2192 more accepts.\nFactor **entropy** measures how much the system has learned. High = uniform (no opinion). Low = concentrated (strong preferences).\n\n| Signal | What to watch | Healthy | Investigate |\n|--------|--------------|---------|-------------|\n| **Factor Mean** | Avg teleportation factor | Rising = learning stronger preferences | Falling = conflicting signals |\n| **Factor Entropy** | Distribution spread | Decreasing over time | Flat = no learning happening |\n| **Update Rate** | Factor changes by outcome | Active flow, accepts > rejects over time | Zero = no feedback reaching factors |\n| **Accept/Reject Ratio** | Raw feedback signal | Trending toward more accepts | Sustained high rejection = domain mismatch |"
+      },
+      "transparent": true
+    },
+    {
+      "title": "Factor Mean Over Time",
+      "description": "Average teleportation factor across all nodes in the knowledge graph. Teleportation factors control how strongly PPR biases toward specific nodes during random walks. A rising mean indicates the system is learning stronger preferences from feedback; a falling mean suggests uncertainty or conflicting signals.",
+      "type": "timeseries",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${DS_PROMETHEUS}"
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 8,
+        "x": 0,
+        "y": 344
+      },
+      "targets": [
+        {
+          "expr": "max(qortex_factor_mean) or vector(1)",
+          "legendFormat": "mean factor"
+        }
+      ]
+    },
+    {
+      "title": "Factor Entropy",
+      "description": "Shannon entropy of the teleportation factor distribution. High entropy = factors are spread evenly (the system hasn't formed strong opinions yet). Low entropy = factors are concentrated on a few nodes (the system has learned clear preferences). Entropy should decrease over time as the system accumulates feedback.",
+      "type": "timeseries",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${DS_PROMETHEUS}"
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 8,
+        "x": 8,
+        "y": 352
+      },
+      "targets": [
+        {
+          "expr": "max(qortex_factor_entropy) or vector(0)",
+          "legendFormat": "entropy"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "bits"
+        }
+      }
+    },
+    {
+      "title": "Factor Updates",
+      "description": "How frequently teleportation factors are being updated, by feedback outcome (accepted/rejected/partial). Each update adjusts how PPR weights specific nodes. High update rates indicate active learning; the balance of accepted vs rejected shows whether the system's suggestions are landing.",
+      "type": "timeseries",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${DS_PROMETHEUS}"
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 8,
+        "x": 16,
+        "y": 360
+      },
+      "targets": [
+        {
+          "expr": "sum by (outcome) (qortex_factor_updates_total) or vector(0)",
+          "legendFormat": "{{outcome}}"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "cps"
+        }
+      }
+    },
+    {
+      "title": "Feedback (cumulative)",
+      "description": "Rate of user/system feedback events classified as accepted vs rejected. This is the raw signal that drives all learning in qortex \u2014 both teleportation factor updates and bandit posterior updates. A healthy system trends toward more accepts over time as learning kicks in. A sustained high rejection rate may indicate poor initial candidates or a domain mismatch.",
+      "type": "timeseries",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${DS_PROMETHEUS}"
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 368
+      },
+      "targets": [
+        {
+          "expr": "sum(qortex_feedback_total{outcome=\"accepted\"}) or vector(0)",
+          "legendFormat": "accepted"
+        },
+        {
+          "expr": "sum(qortex_feedback_total{outcome=\"rejected\"}) or vector(0)",
+          "legendFormat": "rejected"
+        }
+      ]
+    },
+    {
+      "title": "Ingestion Pipeline",
+      "type": "row",
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 376
       },
       "collapsed": false
     },
@@ -1403,7 +1406,7 @@
         "h": 8,
         "w": 8,
         "x": 0,
-        "y": 169
+        "y": 377
       },
       "options": {
         "content": "flowchart LR\n    TXT(\"Raw Text\") --> LLM(\"LLM\\nEnrichment\")\n    LLM --> TR(\"Structured\\nTriples\")\n    TR --> KG(\"KG Insert\")\n    LLM -.->|\"fail\"| FB(\"Fallback\\nExtraction\")\n    FB --> TR\n    style TXT fill:#3c1518,stroke:#69140e,color:#f2f4f3,stroke-width:2px\n    style LLM fill:#69140e,stroke:#a44200,color:#f2f4f3,stroke-width:2px\n    style TR fill:#a44200,stroke:#d58936,color:#f2f4f3,stroke-width:2px\n    style KG fill:#d58936,stroke:#f2f3ae,color:#3c1518,stroke-width:2px\n    style FB fill:#4a4a4a,stroke:#666,color:#f2f4f3,stroke-width:2px",
@@ -1418,95 +1421,13 @@
         "h": 8,
         "w": 16,
         "x": 8,
-        "y": 169
+        "y": 385
       },
       "options": {
         "mode": "markdown",
-        "content": "## Enrichment & Ingestion Pipeline\n\nNew concepts flow: **raw text → LLM enrichment → structured triples → KG insertion**. The LLM extracts entity-relationship triples.\nIf the primary LLM fails, a simpler fallback extractor kicks in. Manifests are batches of concepts grouped by domain.\n\n| Signal | What to watch | Healthy | Investigate |\n|--------|--------------|---------|-------------|\n| **Enrichment Rate** | LLM calls/sec by backend | Steady during ingestion | Zero during active ingestion = LLM down |\n| **Enrichment Latency** | LLM response time | p50 < 2s, p95 < 5s | p95 >> p50 = some docs very hard to enrich |\n| **Fallbacks** | Fallback extraction rate | Zero (primary LLM works) | Non-zero = LLM unreliable, consider switching |\n| **Ingestion Rate** | Manifests/sec by domain | Spikes on bulk import, steady otherwise | Zero = no new content entering the system |"
+        "content": "## Enrichment & Ingestion Pipeline\n\nNew concepts flow: **raw text \u2192 LLM enrichment \u2192 structured triples \u2192 KG insertion**. The LLM extracts entity-relationship triples.\nIf the primary LLM fails, a simpler fallback extractor kicks in. Manifests are batches of concepts grouped by domain.\n\n| Signal | What to watch | Healthy | Investigate |\n|--------|--------------|---------|-------------|\n| **Enrichment Rate** | LLM calls/sec by backend | Steady during ingestion | Zero during active ingestion = LLM down |\n| **Enrichment Latency** | LLM response time | p50 < 2s, p95 < 5s | p95 >> p50 = some docs very hard to enrich |\n| **Fallbacks** | Fallback extraction rate | Zero (primary LLM works) | Non-zero = LLM unreliable, consider switching |\n| **Ingestion Rate** | Manifests/sec by domain | Spikes on bulk import, steady otherwise | Zero = no new content entering the system |"
       },
       "transparent": true
-    },
-    {
-      "title": "Enrichment Rate",
-      "description": "Rate of LLM enrichment calls by backend type. Enrichment uses an LLM to extract structured relationships from raw text when ingesting new concepts. Higher rates mean more content is being processed. The backend_type label distinguishes different LLM providers (openai, anthropic, local).",
-      "type": "timeseries",
-      "datasource": {
-        "type": "prometheus",
-        "uid": "${DS_PROMETHEUS}"
-      },
-      "gridPos": {
-        "h": 8,
-        "w": 8,
-        "x": 0,
-        "y": 177
-      },
-      "targets": [
-        {
-          "expr": "sum by (backend_type) (rate(qortex_enrichment_total[5m]))",
-          "legendFormat": "{{backend_type}}"
-        }
-      ],
-      "fieldConfig": {
-        "defaults": {
-          "unit": "cps"
-        }
-      }
-    },
-    {
-      "title": "Enrichment Latency (p50/p95)",
-      "description": "How long LLM enrichment calls take. This is dominated by the LLM's response time. p50 is the typical call; p95 captures retries and long-context extractions. If p95 is significantly higher than p50, some documents are much harder to enrich than others.",
-      "type": "timeseries",
-      "datasource": {
-        "type": "prometheus",
-        "uid": "${DS_PROMETHEUS}"
-      },
-      "gridPos": {
-        "h": 8,
-        "w": 8,
-        "x": 8,
-        "y": 177
-      },
-      "targets": [
-        {
-          "expr": "histogram_quantile(0.50, rate(qortex_enrichment_duration_seconds_bucket[5m]))",
-          "legendFormat": "p50"
-        },
-        {
-          "expr": "histogram_quantile(0.95, rate(qortex_enrichment_duration_seconds_bucket[5m]))",
-          "legendFormat": "p95"
-        }
-      ],
-      "fieldConfig": {
-        "defaults": {
-          "unit": "s"
-        }
-      }
-    },
-    {
-      "title": "Enrichment Fallbacks",
-      "description": "Rate of enrichment fallbacks — when the primary LLM backend fails and the system falls back to a simpler extraction method. Non-zero rates here mean the LLM is unreliable; consistently high rates may warrant switching providers or increasing timeouts.",
-      "type": "timeseries",
-      "datasource": {
-        "type": "prometheus",
-        "uid": "${DS_PROMETHEUS}"
-      },
-      "gridPos": {
-        "h": 8,
-        "w": 8,
-        "x": 16,
-        "y": 177
-      },
-      "targets": [
-        {
-          "expr": "sum(rate(qortex_enrichment_fallbacks_total[5m]))",
-          "legendFormat": "fallbacks/sec"
-        }
-      ],
-      "fieldConfig": {
-        "defaults": {
-          "unit": "cps"
-        }
-      }
     },
     {
       "title": "Ingestion Rate",
@@ -1520,7 +1441,7 @@
         "h": 8,
         "w": 12,
         "x": 0,
-        "y": 185
+        "y": 393
       },
       "targets": [
         {
@@ -1535,8 +1456,8 @@
       }
     },
     {
-      "title": "Ingest Latency (p50/p95)",
-      "description": "Time taken to ingest a manifest (create nodes, generate embeddings, add to vector index, insert edges). Includes all backend writes. Latency depends on manifest size and backend type (InMemory is fast, Memgraph adds network round-trips).",
+      "title": "Ingest Latency",
+      "description": "Time taken to ingest a manifest. Shows p50 and p95 quantiles.",
       "type": "timeseries",
       "datasource": {
         "type": "prometheus",
@@ -1546,7 +1467,7 @@
         "h": 8,
         "w": 12,
         "x": 12,
-        "y": 185
+        "y": 401
       },
       "targets": [
         {
@@ -1571,7 +1492,7 @@
         "h": 1,
         "w": 24,
         "x": 0,
-        "y": 193
+        "y": 409
       },
       "collapsed": false
     },
@@ -1582,7 +1503,7 @@
         "h": 8,
         "w": 8,
         "x": 0,
-        "y": 194
+        "y": 410
       },
       "options": {
         "content": "flowchart BT\n    F(\"foundations\\nalpha += 0.202\") -->|0.95| A(\"algebra\\nalpha += 0.425\")\n    A -->|0.85| LA(\"linear-algebra\\nalpha += 1.0\")\n    style LA fill:#2d6a4f,stroke:#40916c,color:#d8f3dc,stroke-width:2px\n    style A fill:#1b4332,stroke:#40916c,color:#b7e4c7,stroke-width:2px\n    style F fill:#081c15,stroke:#2d6a4f,color:#95d5b2,stroke-width:2px",
@@ -1597,7 +1518,7 @@
         "h": 8,
         "w": 16,
         "x": 8,
-        "y": 194
+        "y": 418
       },
       "options": {
         "mode": "markdown",
@@ -1606,7 +1527,7 @@
       "transparent": true
     },
     {
-      "title": "Credit Propagation Rate",
+      "title": "Credit Propagations",
       "description": "Propagations/sec through the causal DAG, by learner.",
       "type": "timeseries",
       "datasource": {
@@ -1617,11 +1538,11 @@
         "h": 8,
         "w": 12,
         "x": 0,
-        "y": 202
+        "y": 426
       },
       "targets": [
         {
-          "expr": "sum by (learner) (rate(qortex_credit_propagations_total[5m]))",
+          "expr": "sum by (learner) (qortex_credit_propagations_total) or vector(0)",
           "legendFormat": "{{learner}}"
         }
       ],
@@ -1632,7 +1553,7 @@
       }
     },
     {
-      "title": "Concepts per Propagation (p50 / p95)",
+      "title": "Concepts per Propagation",
       "description": "How many concepts receive credit per event. Direct + ancestors. Higher = deeper DAG activation.",
       "type": "timeseries",
       "datasource": {
@@ -1643,7 +1564,7 @@
         "h": 8,
         "w": 12,
         "x": 12,
-        "y": 202
+        "y": 434
       },
       "targets": [
         {
@@ -1657,7 +1578,8 @@
       ],
       "fieldConfig": {
         "defaults": {
-          "unit": "short"
+          "unit": "short",
+          "noValue": "0"
         }
       }
     },
@@ -1673,17 +1595,18 @@
         "h": 4,
         "w": 8,
         "x": 0,
-        "y": 210
+        "y": 442
       },
       "targets": [
         {
-          "expr": "sum by (learner) (qortex_credit_propagations_total)",
+          "expr": "sum(qortex_credit_propagations_total) or vector(0)",
           "legendFormat": "{{learner}}"
         }
       ],
       "fieldConfig": {
         "defaults": {
-          "unit": "short"
+          "unit": "short",
+          "noValue": "0"
         }
       }
     },
@@ -1699,15 +1622,15 @@
         "h": 8,
         "w": 16,
         "x": 8,
-        "y": 210
+        "y": 446
       },
       "targets": [
         {
-          "expr": "sum(qortex_credit_alpha_delta_total)",
+          "expr": "sum(qortex_credit_alpha_delta_total) or vector(0)",
           "legendFormat": "alpha (success)"
         },
         {
-          "expr": "sum(qortex_credit_beta_delta_total)",
+          "expr": "sum(qortex_credit_beta_delta_total) or vector(0)",
           "legendFormat": "beta (failure)"
         }
       ],
