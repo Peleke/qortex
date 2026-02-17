@@ -1,7 +1,11 @@
 services:
+  # Memgraph + Lab: only needed for local-only dev (no sandbox).
+  # When using the sandbox, Lima auto-forwards these ports from the VM.
+  # Start with: docker compose --profile local-graph up -d
   memgraph:
     image: memgraph/memgraph-mage:latest
     container_name: qortex-memgraph
+    profiles: ["local-graph"]
     ports:
       - "7687:7687"  # Bolt protocol
       - "7444:7444"  # Monitoring
@@ -22,18 +26,16 @@ services:
   memgraph-lab:
     image: memgraph/lab:latest
     container_name: qortex-lab
+    profiles: ["local-graph"]
     ports:
       - "3000:3000"
     depends_on:
       memgraph:
         condition: service_healthy
     environment:
-      # Quick Connect settings (host is Docker service name, not localhost)
       - QUICK_CONNECT_MG_HOST=memgraph
       - QUICK_CONNECT_MG_PORT=7687
       - QUICK_CONNECT_MG_IS_ENCRYPTED=false
-      # Note: Lab Quick Connect doesn't support auth via env vars
-      # Users must manually enter credentials or use saved connections
 
   # --- Observability Stack ---
 
