@@ -2042,11 +2042,13 @@ def _online_index_pipeline(
     id_prefix: str,
     domain: str,
 ) -> dict:
-    """Shared pipeline: chunk -> embed -> index -> co-occurrence edges.
+    """Shared pipeline: chunk -> embed -> create graph nodes -> index -> co-occurrence edges.
 
     Returns {"chunks": N, "concepts": N, "edges": N, "latency_ms": float}.
     """
     import time
+
+    from qortex.core.models import ConceptEdge, ConceptNode, RelationType
 
     start = time.monotonic()
 
@@ -2063,12 +2065,45 @@ def _online_index_pipeline(
         _vector_index.add(ids, embeddings)
         concepts_added = len(ids)
 
-        if _backend is not None and len(ids) > 1:
-            for i in range(len(ids) - 1):
-                _backend.add_edge(ids[i], ids[i + 1], "co_occurs", domain=domain)
-                edges_added += 1
+        # Create Concept nodes in the graph backend so get_node() can resolve them
+        if _backend is not None:
+            for chunk_id, chunk in zip(ids, chunks):
+                _backend.add_node(ConceptNode(
+                    id=chunk_id,
+                    name=chunk.text[:80],
+                    description=chunk.text,
+                    domain=domain,
+                    source_id=source_id,
+                    confidence=1.0,
+                ))
+
+            # Co-occurrence edges between consecutive chunks
+            if len(ids) > 1:
+                for i in range(len(ids) - 1):
+                    _backend.add_edge(ConceptEdge(
+                        source_id=ids[i],
+                        target_id=ids[i + 1],
+                        relation_type=RelationType.REQUIRES,
+                        confidence=0.8,
+                        properties={"origin": "co_occurrence"},
+                    ))
+                    edges_added += 1
 
     latency_ms = (time.monotonic() - start) * 1000
+
+    # Emit graph creation events for observability
+    if concepts_added > 0 or edges_added > 0:
+        from qortex.observe.emitter import emit
+        from qortex.observe.events import GraphEdgesCreated, GraphNodesCreated
+
+        if concepts_added > 0:
+            emit(GraphNodesCreated(
+                count=concepts_added, domain=domain, origin="online_index",
+            ))
+        if edges_added > 0:
+            emit(GraphEdgesCreated(
+                count=edges_added, domain=domain, origin="co_occurrence",
+            ))
 
     return {
         "chunks": len(chunks),

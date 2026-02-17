@@ -23,6 +23,8 @@ from qortex.observe.events import (
     FactorDriftSnapshot,
     FactorUpdated,
     FeedbackReceived,
+    GraphEdgesCreated,
+    GraphNodesCreated,
     KGCoverageComputed,
     LearningObservationRecorded,
     LearningPosteriorUpdated,
@@ -90,6 +92,20 @@ def register_metric_handlers(instruments: dict[str, Any]) -> None:
         instruments["qortex_factors_active"].set(event.count)
         instruments["qortex_factor_mean"].set(event.mean)
         instruments["qortex_factor_entropy"].set(event.entropy)
+
+    # ── Graph node/edge creation ──────────────────────────────────
+
+    @QortexEventLinker.on(GraphNodesCreated)
+    def _on_graph_nodes_created(event: GraphNodesCreated) -> None:
+        instruments["qortex_graph_nodes_created"].add(
+            event.count, {"domain": event.domain, "origin": event.origin},
+        )
+
+    @QortexEventLinker.on(GraphEdgesCreated)
+    def _on_graph_edges_created(event: GraphEdgesCreated) -> None:
+        instruments["qortex_graph_edges_created"].add(
+            event.count, {"domain": event.domain, "origin": event.origin},
+        )
 
     # ── Edge promotion ───────────────────────────────────────────
 

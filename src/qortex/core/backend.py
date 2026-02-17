@@ -735,6 +735,21 @@ class MemgraphBackend:
                 latency_ms=elapsed,
             )
         )
+        # Emit graph creation events for KG Crystallization metrics
+        from qortex.observe.events import GraphEdgesCreated, GraphNodesCreated
+
+        if manifest.concepts:
+            emit(GraphNodesCreated(
+                count=len(manifest.concepts),
+                domain=manifest.domain,
+                origin="manifest",
+            ))
+        if manifest.edges:
+            emit(GraphEdgesCreated(
+                count=len(manifest.edges),
+                domain=manifest.domain,
+                origin="manifest",
+            ))
 
     # -------------------------------------------------------------------------
     # Query

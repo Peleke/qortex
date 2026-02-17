@@ -302,6 +302,24 @@ class ToolResultIngested:
 
 
 @dataclass(frozen=True)
+class GraphNodesCreated:
+    """Emitted when Concept nodes are added to the graph backend."""
+
+    count: int
+    domain: str
+    origin: str  # "online_index" | "manifest" | "ingest_load"
+
+
+@dataclass(frozen=True)
+class GraphEdgesCreated:
+    """Emitted when edges are added to the graph backend."""
+
+    count: int
+    domain: str
+    origin: str  # "online_index" | "manifest" | "co_occurrence"
+
+
+@dataclass(frozen=True)
 class ManifestIngested:
     domain: str
     node_count: int

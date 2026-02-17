@@ -1099,13 +1099,138 @@
       ]
     },
     {
+      "title": "Graph Nodes",
+      "description": "Total Concept nodes created in the knowledge graph from online indexing (conversation messages) and manifest ingestion. This is the absolute size of the graph's node set.",
+      "type": "stat",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${DS_PROMETHEUS}"
+      },
+      "gridPos": {
+        "h": 6,
+        "w": 6,
+        "x": 0,
+        "y": 143
+      },
+      "targets": [
+        {
+          "expr": "sum(qortex_graph_nodes_created_total)",
+          "legendFormat": "nodes"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "fixed",
+            "fixedColor": "#66c0f4"
+          }
+        }
+      }
+    },
+    {
+      "title": "Graph Edges",
+      "description": "Total edges created in the knowledge graph from co-occurrence linking and manifest ingestion. This is the absolute size of the graph's edge set.",
+      "type": "stat",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${DS_PROMETHEUS}"
+      },
+      "gridPos": {
+        "h": 6,
+        "w": 6,
+        "x": 6,
+        "y": 143
+      },
+      "targets": [
+        {
+          "expr": "sum(qortex_graph_edges_created_total)",
+          "legendFormat": "edges"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "fixed",
+            "fixedColor": "#a3d977"
+          }
+        }
+      }
+    },
+    {
+      "title": "Node & Edge Creation Rate",
+      "description": "Rate of new nodes and edges being added to the knowledge graph. Shows how actively the graph is growing from conversation ingestion and queries.",
+      "type": "timeseries",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${DS_PROMETHEUS}"
+      },
+      "gridPos": {
+        "h": 6,
+        "w": 12,
+        "x": 12,
+        "y": 143
+      },
+      "targets": [
+        {
+          "expr": "sum(rate(qortex_graph_nodes_created_total[5m]))",
+          "legendFormat": "nodes/sec"
+        },
+        {
+          "expr": "sum(rate(qortex_graph_edges_created_total[5m]))",
+          "legendFormat": "edges/sec"
+        }
+      ]
+    },
+    {
+      "title": "Nodes by Origin",
+      "description": "Cumulative node creation broken down by origin: online_index (conversation messages) vs manifest (bulk ingestion).",
+      "type": "timeseries",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${DS_PROMETHEUS}"
+      },
+      "gridPos": {
+        "h": 6,
+        "w": 12,
+        "x": 0,
+        "y": 149
+      },
+      "targets": [
+        {
+          "expr": "sum by (origin) (qortex_graph_nodes_created_total)",
+          "legendFormat": "{{origin}}"
+        }
+      ]
+    },
+    {
+      "title": "Edges by Origin",
+      "description": "Cumulative edge creation broken down by origin: co_occurrence (consecutive chunk linking) vs manifest (bulk ingestion).",
+      "type": "timeseries",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${DS_PROMETHEUS}"
+      },
+      "gridPos": {
+        "h": 6,
+        "w": 12,
+        "x": 12,
+        "y": 149
+      },
+      "targets": [
+        {
+          "expr": "sum by (origin) (qortex_graph_edges_created_total)",
+          "legendFormat": "{{origin}}"
+        }
+      ]
+    },
+    {
       "title": "PPR Performance",
       "type": "row",
       "gridPos": {
         "h": 1,
         "w": 24,
         "x": 0,
-        "y": 143
+        "y": 155
       },
       "collapsed": false
     },

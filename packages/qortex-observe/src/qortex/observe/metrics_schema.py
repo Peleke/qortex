@@ -85,6 +85,23 @@ METRICS: tuple[MetricDef, ...] = (
         "qortex_factors_active", MetricType.GAUGE,
         "Active teleportation factors",
     ),
+    # ── Graph node/edge counts ────────────────────────────────────────
+    MetricDef(
+        "qortex_graph_nodes_created", MetricType.COUNTER,
+        "Graph nodes created", ("domain", "origin"),
+    ),
+    MetricDef(
+        "qortex_graph_edges_created", MetricType.COUNTER,
+        "Graph edges created", ("domain", "origin"),
+    ),
+    MetricDef(
+        "qortex_graph_node_count", MetricType.GAUGE,
+        "Total nodes in graph",
+    ),
+    MetricDef(
+        "qortex_graph_edge_count", MetricType.GAUGE,
+        "Total edges in graph",
+    ),
     # ── Edges ────────────────────────────────────────────────────────
     MetricDef(
         "qortex_buffer_edges", MetricType.GAUGE,
