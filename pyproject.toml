@@ -1,6 +1,6 @@
 [project]
 name = "qortex"
-version = "0.7.5"
+version = "0.7.6"
 description = "Knowledge graph that learns from every interaction. MCP server, graph retrieval, adaptive learning."
 readme = "README.md"
 requires-python = ">=3.11"
