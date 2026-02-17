@@ -12,6 +12,16 @@ from urllib.request import Request, urlopen
 if TYPE_CHECKING:
     from qortex.core.models import ConceptNode
 
+try:
+    from qortex.observe.tracing import traced
+except ImportError:
+
+    def traced(name: str, *, external: bool = False):  # type: ignore[misc]
+        def _identity(fn):
+            return fn
+
+        return _identity
+
 
 RELATION_TYPES = [
     "REQUIRES",
@@ -52,6 +62,7 @@ class OllamaExtractionBackend:
         except (URLError, TimeoutError, OSError):
             return False
 
+    @traced("llm.ollama.call", external=True)
     def _call(self, prompt: str) -> str:
         """Make API call to Ollama and return response."""
         payload = json.dumps(

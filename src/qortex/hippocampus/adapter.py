@@ -107,6 +107,7 @@ class VecOnlyAdapter:
         self.backend = backend  # GraphBackend: node metadata lookup
         self.embedding_model = embedding_model
 
+    @traced("retrieval.vec_only.query")
     def retrieve(
         self,
         query: str,
@@ -128,7 +129,56 @@ class VecOnlyAdapter:
             )
         )
 
-        # 1. Embed query
+        # 1. Embed + search
+        seed_ids, vec_scores, vec_results_count = self._vec_search(
+            query,
+            top_k,
+            min_confidence,
+            domains,
+            query_id,
+        )
+
+        if seed_ids is None:
+            return RetrievalResult(items=[], query_id=query_id)
+
+        # 2. Resolve node metadata and build result items
+        items = self._resolve_nodes(seed_ids, vec_scores, domains, top_k)
+
+        elapsed = (time.perf_counter() - t0) * 1000
+        activated = [item.node_id for item in items if item.node_id]
+
+        emit(
+            QueryCompleted(
+                query_id=query_id,
+                latency_ms=elapsed,
+                seed_count=vec_results_count,
+                result_count=len(items),
+                activated_nodes=len(activated),
+                mode="vec",
+                timestamp=datetime.now(UTC).isoformat(),
+            )
+        )
+
+        return RetrievalResult(
+            items=items,
+            query_id=query_id,
+            activated_nodes=activated,
+        )
+
+    @traced("retrieval.vec_only.vec_search")
+    def _vec_search(
+        self,
+        query: str,
+        top_k: int,
+        min_confidence: float,
+        domains: list[str] | None,
+        query_id: str,
+    ) -> tuple[list[str] | None, dict[str, float], int]:
+        """Embed query and search vector index.
+
+        Returns (seed_ids, vec_scores, vec_results_count).
+        Returns (None, {}, 0) if no results.
+        """
         try:
             query_embedding = self.embedding_model.embed([query])[0]
         except Exception as exc:
@@ -142,8 +192,6 @@ class VecOnlyAdapter:
             )
             raise
 
-        # 2. Search VectorIndex directly (not backend.vector_search)
-        # Over-fetch to allow for domain filtering
         fetch_k = top_k * 2 if domains else top_k
         try:
             vec_results = self.vector_index.search(
@@ -160,9 +208,24 @@ class VecOnlyAdapter:
             )
             raise
 
-        # 3. Resolve node metadata from backend and filter by domain
+        if not vec_results:
+            return None, {}, 0
+
+        seed_ids = [nid for nid, _ in vec_results]
+        vec_scores = dict(vec_results)
+        return seed_ids, vec_scores, len(vec_results)
+
+    @traced("retrieval.vec_only.resolve")
+    def _resolve_nodes(
+        self,
+        seed_ids: list[str],
+        vec_scores: dict[str, float],
+        domains: list[str] | None,
+        top_k: int,
+    ) -> list[RetrievalItem]:
+        """Resolve node metadata from backend and filter by domain."""
         items: list[RetrievalItem] = []
-        for node_id, score in vec_results:
+        for node_id in seed_ids:
             node = self.backend.get_node(node_id)
             if node is None:
                 continue
@@ -172,7 +235,7 @@ class VecOnlyAdapter:
                 RetrievalItem(
                     id=node.id,
                     content=f"{node.name}: {node.description}",
-                    score=score,
+                    score=vec_scores.get(node_id, 0.0),
                     domain=node.domain,
                     node_id=node.id,
                     metadata=node.properties,
@@ -180,27 +243,7 @@ class VecOnlyAdapter:
             )
             if len(items) >= top_k:
                 break
-
-        elapsed = (time.perf_counter() - t0) * 1000
-        activated = [item.node_id for item in items if item.node_id]
-
-        emit(
-            QueryCompleted(
-                query_id=query_id,
-                latency_ms=elapsed,
-                seed_count=len(vec_results),
-                result_count=len(items),
-                activated_nodes=len(activated),
-                mode="vec",
-                timestamp=datetime.now(UTC).isoformat(),
-            )
-        )
-
-        return RetrievalResult(
-            items=items,
-            query_id=query_id,
-            activated_nodes=activated,
-        )
+        return items
 
     def feedback(self, query_id: str, outcomes: dict[str, str]) -> None:
         """No-op for vec-only — no teleportation factors to update."""
