@@ -83,16 +83,31 @@ class ExtractionStrategy(Protocol):
 # ---------------------------------------------------------------------------
 
 # Entity labels we care about for concept extraction
-_CONCEPT_LABELS = frozenset({
-    "PERSON", "ORG", "PRODUCT", "GPE", "WORK_OF_ART", "EVENT",
-    "FAC", "LAW", "LANGUAGE", "NORP",
-})
+_CONCEPT_LABELS = frozenset(
+    {
+        "PERSON",
+        "ORG",
+        "PRODUCT",
+        "GPE",
+        "WORK_OF_ART",
+        "EVENT",
+        "FAC",
+        "LAW",
+        "LANGUAGE",
+        "NORP",
+    }
+)
 
 # Dependency-parse relation inference patterns
 _VERB_USES = frozenset({"use", "utilize", "call", "invoke"})
-_VERB_REQUIRES = frozenset({
-    "require", "need", "depend", "import",
-})
+_VERB_REQUIRES = frozenset(
+    {
+        "require",
+        "need",
+        "depend",
+        "import",
+    }
+)
 
 
 def _title_case(text: str) -> str:
@@ -112,11 +127,13 @@ def _deduplicate_spans(
         name = _title_case(text)
         if not name or len(name) < 2:
             continue
-        concepts.append(ExtractedConcept(
-            name=name,
-            description=f"{label.title()} entity: {text.strip()}",
-            confidence=0.9,
-        ))
+        concepts.append(
+            ExtractedConcept(
+                name=name,
+                description=f"{label.title()} entity: {text.strip()}",
+                confidence=0.9,
+            )
+        )
         occupied.update(range(start, end))
 
     seen_names: set[str] = {c.name.lower() for c in concepts}
@@ -126,11 +143,13 @@ def _deduplicate_spans(
             continue
         if any(i in occupied for i in range(start, end)):
             continue
-        concepts.append(ExtractedConcept(
-            name=name,
-            description=f"Noun phrase: {text.strip()}",
-            confidence=0.7,
-        ))
+        concepts.append(
+            ExtractedConcept(
+                name=name,
+                description=f"Noun phrase: {text.strip()}",
+                confidence=0.7,
+            )
+        )
         seen_names.add(name.lower())
 
     return concepts
@@ -165,8 +184,7 @@ class SpaCyExtractor:
                 else f"pydantic.v1 ConfigError ({exc})"
             )
             logger.warning(
-                "spaCy %s — extraction disabled. "
-                "Install with: uv pip install 'qortex-online[nlp]'",
+                "spaCy %s — extraction disabled. Install with: uv pip install 'qortex-online[nlp]'",
                 reason,
             )
             self._available = False
@@ -224,12 +242,14 @@ class SpaCyExtractor:
         """Inner extraction: NER + noun chunks + dependency relations."""
         try:
             from qortex.observe.tracing import traced
+
             _traced = traced
         except ImportError:
             # No tracing available — run without spans
             def _traced(name: str, **kw):  # type: ignore[assignment]
                 def dec(fn):  # type: ignore[no-untyped-def]
                     return fn
+
                 return dec
 
         # --- Span: NLP processing ---
@@ -313,12 +333,14 @@ class SpaCyExtractor:
                                 rel_type = self._verb_to_relation(verb.lemma_)
                                 key = (subj, obj_text, rel_type)
                                 if key not in seen:
-                                    relations.append(ExtractedRelation(
-                                        source_name=subj,
-                                        target_name=obj_text,
-                                        relation_type=rel_type,
-                                        confidence=0.6,
-                                    ))
+                                    relations.append(
+                                        ExtractedRelation(
+                                            source_name=subj,
+                                            target_name=obj_text,
+                                            relation_type=rel_type,
+                                            confidence=0.6,
+                                        )
+                                    )
                                     seen.add(key)
                             break
 
@@ -327,18 +349,17 @@ class SpaCyExtractor:
                 if token.dep_ == "conj" and token.head:
                     head_text = _title_case(token.head.text)
                     conj_text = _title_case(token.text)
-                    if (
-                        head_text.lower() in concept_names
-                        and conj_text.lower() in concept_names
-                    ):
+                    if head_text.lower() in concept_names and conj_text.lower() in concept_names:
                         key = (head_text, conj_text, "SIMILAR_TO")
                         if key not in seen:
-                            relations.append(ExtractedRelation(
-                                source_name=head_text,
-                                target_name=conj_text,
-                                relation_type="SIMILAR_TO",
-                                confidence=0.5,
-                            ))
+                            relations.append(
+                                ExtractedRelation(
+                                    source_name=head_text,
+                                    target_name=conj_text,
+                                    relation_type="SIMILAR_TO",
+                                    confidence=0.5,
+                                )
+                            )
                             seen.add(key)
 
         return relations
@@ -402,11 +423,14 @@ class LLMExtractor:
         """Call LLMBackend methods with per-step tracing."""
         try:
             from qortex.observe.tracing import traced
+
             _traced = traced
         except ImportError:
+
             def _traced(name: str, **kw):  # type: ignore[assignment]
                 def dec(fn):  # type: ignore[no-untyped-def]
                     return fn
+
                 return dec
 
         # --- Span: Concept extraction ---

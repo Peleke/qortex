@@ -39,9 +39,7 @@ def _float_env(name: str, default: str, *, min_val: float = 0.0) -> float:
     try:
         val = float(raw)
     except ValueError:
-        raise ValueError(
-            f"Invalid float for {name}: {raw!r}. Expected a number."
-        ) from None
+        raise ValueError(f"Invalid float for {name}: {raw!r}. Expected a number.") from None
     if val < min_val:
         raise ValueError(f"{name}={val} is below minimum {min_val}.")
     return val
@@ -60,9 +58,7 @@ class ObservabilityConfig:
         default_factory=lambda: os.environ.get("QORTEX_LOG_DESTINATION", "stderr")
     )  # "stderr" | "victorialogs" | "jsonl"
 
-    log_level: str = field(
-        default_factory=lambda: os.environ.get("QORTEX_LOG_LEVEL", "INFO")
-    )
+    log_level: str = field(default_factory=lambda: os.environ.get("QORTEX_LOG_LEVEL", "INFO"))
 
     log_format: str = field(
         default_factory=lambda: os.environ.get("QORTEX_LOG_FORMAT", "json")
@@ -81,20 +77,17 @@ class ObservabilityConfig:
         )
     )
     victorialogs_flush_interval: float = field(
-        default_factory=lambda: _float_env(
-            "QORTEX_VICTORIALOGS_FLUSH_INTERVAL", "5.0", min_val=0.1
-        )
+        default_factory=lambda: _float_env("QORTEX_VICTORIALOGS_FLUSH_INTERVAL", "5.0", min_val=0.1)
     )
 
     # JSONL file destination (also used as event sink path)
-    jsonl_path: str | None = field(
-        default_factory=lambda: os.environ.get("QORTEX_LOG_PATH")
-    )
+    jsonl_path: str | None = field(default_factory=lambda: os.environ.get("QORTEX_LOG_PATH"))
 
     # --- OpenTelemetry ---
     otel_enabled: bool = field(
-        default_factory=lambda: os.environ.get("QORTEX_OTEL_ENABLED", "").lower()
-        in ("1", "true", "on")
+        default_factory=lambda: (
+            os.environ.get("QORTEX_OTEL_ENABLED", "").lower() in ("1", "true", "on")
+        )
     )
     otel_endpoint: str = field(
         default_factory=lambda: os.environ.get(
@@ -105,17 +98,13 @@ class ObservabilityConfig:
         default_factory=lambda: os.environ.get("OTEL_SERVICE_NAME", "qortex")
     )
     otel_protocol: str = field(
-        default_factory=lambda: os.environ.get(
-            "OTEL_EXPORTER_OTLP_PROTOCOL", "grpc"
-        )
+        default_factory=lambda: os.environ.get("OTEL_EXPORTER_OTLP_PROTOCOL", "grpc")
     )  # "grpc" | "http/protobuf"
 
     # Trace sampling: fraction of non-error, non-slow spans to export.
     # 1.0 = export everything (demos/debugging), 0.1 = 10% sample (production).
     otel_trace_sample_rate: float = field(
-        default_factory=lambda: _float_env(
-            "QORTEX_OTEL_TRACE_SAMPLE_RATE", "0.1", min_val=0.0
-        )
+        default_factory=lambda: _float_env("QORTEX_OTEL_TRACE_SAMPLE_RATE", "0.1", min_val=0.0)
     )
     otel_trace_latency_threshold_ms: float = field(
         default_factory=lambda: _float_env(
@@ -125,17 +114,17 @@ class ObservabilityConfig:
 
     # --- Prometheus ---
     prometheus_enabled: bool = field(
-        default_factory=lambda: os.environ.get("QORTEX_PROMETHEUS_ENABLED", "").lower()
-        in ("1", "true", "on")
+        default_factory=lambda: (
+            os.environ.get("QORTEX_PROMETHEUS_ENABLED", "").lower() in ("1", "true", "on")
+        )
     )
     prometheus_port: int = field(
-        default_factory=lambda: _int_env(
-            "QORTEX_PROMETHEUS_PORT", "9464", min_val=1, max_val=65535
-        )
+        default_factory=lambda: _int_env("QORTEX_PROMETHEUS_PORT", "9464", min_val=1, max_val=65535)
     )
 
     # --- Alerting ---
     alert_enabled: bool = field(
-        default_factory=lambda: os.environ.get("QORTEX_ALERTS_ENABLED", "").lower()
-        in ("1", "true", "on")
+        default_factory=lambda: (
+            os.environ.get("QORTEX_ALERTS_ENABLED", "").lower() in ("1", "true", "on")
+        )
     )

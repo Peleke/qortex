@@ -1923,9 +1923,11 @@ class TestInteroceptionStore:
         db_path = tmp_path / "roundtrip.db"
         store1 = InteroceptionStore(db_path)
         store1.save_factors({"x": 1.2, "y": 0.9})
-        store1.save_edges({
-            ("x", "y"): EdgeStats(hit_count=5, scores=[0.9, 0.8], last_seen="2026-01-01"),
-        })
+        store1.save_edges(
+            {
+                ("x", "y"): EdgeStats(hit_count=5, scores=[0.9, 0.8], last_seen="2026-01-01"),
+            }
+        )
         store1.close()
 
         store2 = InteroceptionStore(db_path)
@@ -1956,8 +1958,7 @@ class TestInteroceptionStore:
                 errors.append(e)
 
         threads = [
-            threading.Thread(target=write_factor, args=(f"node_{i}", float(i)))
-            for i in range(20)
+            threading.Thread(target=write_factor, args=(f"node_{i}", float(i))) for i in range(20)
         ]
         for t in threads:
             t.start()

@@ -261,8 +261,20 @@ class TestExtractConcept:
 class TestExtractEdges:
     def test_valid_edges(self):
         raw = [
-            {"source_id": "a", "target_id": "b", "relation_type": "uses", "confidence": 0.9, "properties": {}},
-            {"source_id": "c", "target_id": "d", "relation_type": "supports", "confidence": 1.0, "properties": {"note": "x"}},
+            {
+                "source_id": "a",
+                "target_id": "b",
+                "relation_type": "uses",
+                "confidence": 0.9,
+                "properties": {},
+            },
+            {
+                "source_id": "c",
+                "target_id": "d",
+                "relation_type": "supports",
+                "confidence": 1.0,
+                "properties": {"note": "x"},
+            },
         ]
         edges = _extract_edges(raw, "session_summary")
         assert len(edges) == 2
@@ -384,11 +396,15 @@ class TestAggregateEmissions:
         _write_emission(pending, "reward_signal_abc_001.json", _make_reward_signal())
 
         # Default: no pending
-        result = aggregate_emissions(emissions_dir=tmp_path, include_processed=False, include_pending=False)
+        result = aggregate_emissions(
+            emissions_dir=tmp_path, include_processed=False, include_pending=False
+        )
         assert result.files_processed == 0
 
         # With pending
-        result = aggregate_emissions(emissions_dir=tmp_path, include_processed=False, include_pending=True)
+        result = aggregate_emissions(
+            emissions_dir=tmp_path, include_processed=False, include_pending=True
+        )
         assert result.files_processed == 1
 
     def test_stub_nodes_created_for_edge_targets(self, tmp_path):
@@ -405,9 +421,16 @@ class TestAggregateEmissions:
     def test_edges_with_invalid_relation_skipped(self, tmp_path):
         processed = tmp_path / "processed"
         processed.mkdir()
-        manifest = _make_mistake_manifest(edges=[
-            {"source_id": "a", "target_id": "b", "relation_type": "invented_rel", "confidence": 1.0},
-        ])
+        manifest = _make_mistake_manifest(
+            edges=[
+                {
+                    "source_id": "a",
+                    "target_id": "b",
+                    "relation_type": "invented_rel",
+                    "confidence": 1.0,
+                },
+            ]
+        )
         _write_emission(processed, "mistake_manifest_abc_001.json", manifest)
 
         result = aggregate_emissions(emissions_dir=tmp_path)

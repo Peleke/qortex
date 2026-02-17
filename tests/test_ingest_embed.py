@@ -66,8 +66,10 @@ class TestEmbedManifestConcepts:
         vec_index = NumpyVectorIndex(dimensions=DIMS)
 
         count = _embed_manifest_concepts(
-            manifest, graph_backend,
-            embedding_model=fake_model, vector_index=vec_index,
+            manifest,
+            graph_backend,
+            embedding_model=fake_model,
+            vector_index=vec_index,
         )
 
         assert count == 10
@@ -89,8 +91,10 @@ class TestEmbedManifestConcepts:
         vec_index = NumpyVectorIndex(dimensions=DIMS)
 
         count = _embed_manifest_concepts(
-            manifest, graph_backend,
-            embedding_model=fake_model, vector_index=vec_index,
+            manifest,
+            graph_backend,
+            embedding_model=fake_model,
+            vector_index=vec_index,
         )
 
         assert count == 2
@@ -105,8 +109,10 @@ class TestEmbedManifestConcepts:
         vec_index = NumpyVectorIndex(dimensions=DIMS)
 
         count = _embed_manifest_concepts(
-            manifest, graph_backend,
-            embedding_model=fake_model, vector_index=vec_index,
+            manifest,
+            graph_backend,
+            embedding_model=fake_model,
+            vector_index=vec_index,
         )
 
         assert count == 150
@@ -121,8 +127,10 @@ class TestEmbedManifestConcepts:
         vec_index = NumpyVectorIndex(dimensions=DIMS)
 
         _embed_manifest_concepts(
-            manifest, graph_backend,
-            embedding_model=fake_model, vector_index=vec_index,
+            manifest,
+            graph_backend,
+            embedding_model=fake_model,
+            vector_index=vec_index,
         )
 
         # Search with the same text as concept 0 — should be top hit
@@ -143,8 +151,10 @@ class TestEmbedManifestConcepts:
         vec_index = NumpyVectorIndex(dimensions=DIMS)
 
         count = _embed_manifest_concepts(
-            manifest, graph_backend,
-            embedding_model=fake_model, vector_index=vec_index,
+            manifest,
+            graph_backend,
+            embedding_model=fake_model,
+            vector_index=vec_index,
         )
 
         assert count == 0

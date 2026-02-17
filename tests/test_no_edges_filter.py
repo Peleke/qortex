@@ -1,6 +1,5 @@
 """Tests for include_edge_derived filter on ProjectionFilter and FlatRuleSource."""
 
-
 from qortex.core.models import ConceptEdge, ConceptNode, RelationType
 from qortex.projectors.models import ProjectionFilter
 from qortex.projectors.sources.flat import FlatRuleSource
@@ -66,12 +65,18 @@ def _make_backend_with_edges():
     """Backend with 2 explicit rules and 2 edge-derivable pairs."""
     domain = "test_domain"
     n1 = ConceptNode(
-        id=f"{domain}:Publisher", name="Publisher",
-        description="A publisher component", domain=domain, source_id="test",
+        id=f"{domain}:Publisher",
+        name="Publisher",
+        description="A publisher component",
+        domain=domain,
+        source_id="test",
     )
     n2 = ConceptNode(
-        id=f"{domain}:Subscriber", name="Subscriber",
-        description="A subscriber component", domain=domain, source_id="test",
+        id=f"{domain}:Subscriber",
+        name="Subscriber",
+        description="A subscriber component",
+        domain=domain,
+        source_id="test",
     )
 
     edge = ConceptEdge(

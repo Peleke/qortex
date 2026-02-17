@@ -117,15 +117,17 @@ class QortexSimilarityMap:
         # Ingest input_text as a concept node
         self._client.ingest_structured(
             domain=_DOMAIN,
-            concepts=[{
-                "id": f"{_DOMAIN}:pair_{pair_id}",
-                "name": input_text[:80],
-                "description": input_text,
-                "properties": {
-                    "pair_id": pair_id,
-                    "output_text": output_text,
-                },
-            }],
+            concepts=[
+                {
+                    "id": f"{_DOMAIN}:pair_{pair_id}",
+                    "name": input_text[:80],
+                    "description": input_text,
+                    "properties": {
+                        "pair_id": pair_id,
+                        "output_text": output_text,
+                    },
+                }
+            ],
         )
 
     def build_edges(self, sim_threshold: float = 0.5) -> int:
@@ -159,12 +161,14 @@ class QortexSimilarityMap:
         for i in range(len(pair_ids)):
             for j in range(i + 1, len(pair_ids)):
                 if sim_matrix[i, j] >= sim_threshold:
-                    self._backend.add_edge(ConceptEdge(
-                        source_id=f"{_DOMAIN}:pair_{pair_ids[i]}",
-                        target_id=f"{_DOMAIN}:pair_{pair_ids[j]}",
-                        relation_type=RelationType.SIMILAR_TO,
-                        confidence=float(sim_matrix[i, j]),
-                    ))
+                    self._backend.add_edge(
+                        ConceptEdge(
+                            source_id=f"{_DOMAIN}:pair_{pair_ids[i]}",
+                            target_id=f"{_DOMAIN}:pair_{pair_ids[j]}",
+                            relation_type=RelationType.SIMILAR_TO,
+                            confidence=float(sim_matrix[i, j]),
+                        )
+                    )
                     edge_count += 1
 
         # No adapter upgrade needed -- initialized with mode="graph"
@@ -240,22 +244,22 @@ class QortexSimilarityMap:
             with open(self._pairs_path) as f:
                 data = json.load(f)
             self._next_id = data.get("next_id", 0)
-            self._pairs = {
-                k: tuple(v) for k, v in data.get("pairs", {}).items()
-            }
+            self._pairs = {k: tuple(v) for k, v in data.get("pairs", {}).items()}
             # Re-ingest all pairs
             for pair_id, (input_text, output_text) in self._pairs.items():
                 self._client.ingest_structured(
                     domain=_DOMAIN,
-                    concepts=[{
-                        "id": f"{_DOMAIN}:pair_{pair_id}",
-                        "name": input_text[:80],
-                        "description": input_text,
-                        "properties": {
-                            "pair_id": pair_id,
-                            "output_text": output_text,
-                        },
-                    }],
+                    concepts=[
+                        {
+                            "id": f"{_DOMAIN}:pair_{pair_id}",
+                            "name": input_text[:80],
+                            "description": input_text,
+                            "properties": {
+                                "pair_id": pair_id,
+                                "output_text": output_text,
+                            },
+                        }
+                    ],
                 )
 
     # -- Qortex-specific: feedback for learning loop --

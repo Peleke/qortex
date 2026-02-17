@@ -89,7 +89,9 @@ def _setup_metrics_pipeline(cfg: ObservabilityConfig) -> None:
 
     views = create_views()
     meter_provider = MeterProvider(
-        resource=resource, metric_readers=readers, views=views,
+        resource=resource,
+        metric_readers=readers,
+        views=views,
     )
 
     # Set as global so force_flush() and get_meter_provider() work everywhere

@@ -83,7 +83,9 @@ def buildlog(
     persona: str = typer.Option("qortex", "--persona", "-p", help="Buildlog persona name"),
     pending: bool = typer.Option(False, "--pending", help="Write to interop pending directory"),
     emit: bool = typer.Option(True, "--emit/--no-emit", help="Emit signal event (with --pending)"),
-    no_edges: bool = typer.Option(False, "--no-edges", help="Exclude edge-derived rules (DAG relationship templates)"),
+    no_edges: bool = typer.Option(
+        False, "--no-edges", help="Exclude edge-derived rules (DAG relationship templates)"
+    ),
 ) -> None:
     """Project rules to buildlog seed YAML format.
 

@@ -2023,6 +2023,7 @@ def _get_chunker():
     global _chunking_strategy
     if _chunking_strategy is None:
         from qortex.online.chunker import default_chunker
+
         _chunking_strategy = default_chunker
     return _chunking_strategy
 
@@ -2066,12 +2067,12 @@ def _configure_extraction() -> None:
             _extraction_strategy = LLMExtractor(backend)
             _extraction_strategy_name = "llm"
             import logging
+
             logging.getLogger(__name__).info("Extraction strategy: LLM")
         except Exception:
             import logging
-            logging.getLogger(__name__).warning(
-                "LLM extraction unavailable, falling back to spaCy"
-            )
+
+            logging.getLogger(__name__).warning("LLM extraction unavailable, falling back to spaCy")
             _configure_spacy_fallback()
     elif mode == "none":
         from qortex.online.extractor import NullExtractor
@@ -2090,6 +2091,7 @@ def _configure_spacy_fallback() -> None:
     _extraction_strategy = SpaCyExtractor()
     _extraction_strategy_name = "spacy"
     import logging
+
     logging.getLogger(__name__).info("Extraction strategy: spaCy")
 
 
@@ -2110,6 +2112,7 @@ def set_extraction_strategy(strategy: Any, name: str = "custom") -> None:
 def _slugify(name: str) -> str:
     """Turn a concept name into a safe ID slug."""
     import re
+
     return re.sub(r"[^a-z0-9]+", "_", name.lower()).strip("_")[:64]
 
 
@@ -2180,14 +2183,16 @@ def _online_index_pipeline(
                     # --- Span: Create chunk node (vec bridge) ---
                     @traced("online_index.add_chunk_node")
                     def _add_chunk_node(cid=chunk_id, ch=chunk):
-                        _backend.add_node(ConceptNode(
-                            id=cid,
-                            name=ch.text[:80],
-                            description=ch.text,
-                            domain=domain,
-                            source_id=source_id,
-                            confidence=1.0,
-                        ))
+                        _backend.add_node(
+                            ConceptNode(
+                                id=cid,
+                                name=ch.text[:80],
+                                description=ch.text,
+                                domain=domain,
+                                source_id=source_id,
+                                confidence=1.0,
+                            )
+                        )
 
                     _add_chunk_node()
 
@@ -2209,23 +2214,27 @@ def _online_index_pipeline(
                             local_edges = 0
                             for concept in er.concepts:
                                 concept_id = f"{id_prefix}:concept:{_slugify(concept.name)}"
-                                _backend.add_node(ConceptNode(
-                                    id=concept_id,
-                                    name=concept.name,
-                                    description=concept.description,
-                                    domain=domain,
-                                    source_id=source_id,
-                                    confidence=concept.confidence,
-                                ))
+                                _backend.add_node(
+                                    ConceptNode(
+                                        id=concept_id,
+                                        name=concept.name,
+                                        description=concept.description,
+                                        domain=domain,
+                                        source_id=source_id,
+                                        confidence=concept.confidence,
+                                    )
+                                )
                                 local_concepts += 1
                                 # Link chunk -> concept via CONTAINS
-                                _backend.add_edge(ConceptEdge(
-                                    source_id=cid,
-                                    target_id=concept_id,
-                                    relation_type=RelationType.CONTAINS,
-                                    confidence=concept.confidence,
-                                    properties={"origin": "extraction"},
-                                ))
+                                _backend.add_edge(
+                                    ConceptEdge(
+                                        source_id=cid,
+                                        target_id=concept_id,
+                                        relation_type=RelationType.CONTAINS,
+                                        confidence=concept.confidence,
+                                        properties={"origin": "extraction"},
+                                    )
+                                )
                                 local_edges += 1
                             return local_concepts, local_edges
 
@@ -2241,13 +2250,15 @@ def _online_index_pipeline(
                                 src_id = f"{id_prefix}:concept:{_slugify(rel.source_name)}"
                                 tgt_id = f"{id_prefix}:concept:{_slugify(rel.target_name)}"
                                 rel_type = _safe_relation_type(rel.relation_type)
-                                _backend.add_edge(ConceptEdge(
-                                    source_id=src_id,
-                                    target_id=tgt_id,
-                                    relation_type=rel_type,
-                                    confidence=rel.confidence,
-                                    properties={"origin": "extraction"},
-                                ))
+                                _backend.add_edge(
+                                    ConceptEdge(
+                                        source_id=src_id,
+                                        target_id=tgt_id,
+                                        relation_type=rel_type,
+                                        confidence=rel.confidence,
+                                        properties={"origin": "extraction"},
+                                    )
+                                )
                                 local_edges += 1
                             return local_edges
 
@@ -2257,15 +2268,17 @@ def _online_index_pipeline(
                         total_extracted_relations += len(extraction_result.relations)
 
                     # Emit per-chunk extraction event
-                    emit(ConceptsExtracted(
-                        concept_count=len(extraction_result.concepts),
-                        relation_count=len(extraction_result.relations),
-                        domain=domain,
-                        strategy=_extraction_strategy_name,
-                        latency_ms=chunk_extract_ms,
-                        chunk_index=chunk_idx,
-                        source_id=source_id,
-                    ))
+                    emit(
+                        ConceptsExtracted(
+                            concept_count=len(extraction_result.concepts),
+                            relation_count=len(extraction_result.relations),
+                            domain=domain,
+                            strategy=_extraction_strategy_name,
+                            latency_ms=chunk_extract_ms,
+                            chunk_index=chunk_idx,
+                            source_id=source_id,
+                        )
+                    )
 
                 # Co-occurrence edges between consecutive chunks (preserved)
                 @traced("online_index.co_occurrence_edges")
@@ -2273,40 +2286,52 @@ def _online_index_pipeline(
                     added = 0
                     if len(ids) > 1:
                         for i in range(len(ids) - 1):
-                            _backend.add_edge(ConceptEdge(
-                                source_id=ids[i],
-                                target_id=ids[i + 1],
-                                relation_type=RelationType.REQUIRES,
-                                confidence=0.8,
-                                properties={"origin": "co_occurrence"},
-                            ))
+                            _backend.add_edge(
+                                ConceptEdge(
+                                    source_id=ids[i],
+                                    target_id=ids[i + 1],
+                                    relation_type=RelationType.REQUIRES,
+                                    confidence=0.8,
+                                    properties={"origin": "co_occurrence"},
+                                )
+                            )
                             added += 1
                     return added
 
                 edges_added += _co_occur()
 
                 extraction_ms = (time.monotonic() - extraction_start) * 1000
-                emit(ExtractionPipelineCompleted(
-                    total_concepts=total_extracted_concepts,
-                    total_relations=total_extracted_relations,
-                    total_chunks=len(chunks),
-                    domain=domain,
-                    strategy=_extraction_strategy_name,
-                    latency_ms=extraction_ms,
-                    source_id=source_id,
-                ))
+                emit(
+                    ExtractionPipelineCompleted(
+                        total_concepts=total_extracted_concepts,
+                        total_relations=total_extracted_relations,
+                        total_chunks=len(chunks),
+                        domain=domain,
+                        strategy=_extraction_strategy_name,
+                        latency_ms=extraction_ms,
+                        source_id=source_id,
+                    )
+                )
 
         latency_ms = (time.monotonic() - pipeline_start) * 1000
 
         total_nodes = chunk_nodes_added + concept_nodes_added
         if total_nodes > 0:
-            emit(GraphNodesCreated(
-                count=total_nodes, domain=domain, origin="online_index",
-            ))
+            emit(
+                GraphNodesCreated(
+                    count=total_nodes,
+                    domain=domain,
+                    origin="online_index",
+                )
+            )
         if edges_added > 0:
-            emit(GraphEdgesCreated(
-                count=edges_added, domain=domain, origin="online_index",
-            ))
+            emit(
+                GraphEdgesCreated(
+                    count=edges_added,
+                    domain=domain,
+                    origin="online_index",
+                )
+            )
 
         return {
             "chunks": len(chunks),
@@ -2358,15 +2383,17 @@ def _ingest_message_impl(
     from qortex.observe.emitter import emit
     from qortex.observe.events import MessageIngested
 
-    emit(MessageIngested(
-        session_id=session_id,
-        role=safe_role,
-        domain=domain,
-        chunk_count=result["chunks"],
-        concept_count=result["concepts"],
-        edge_count=result["edges"],
-        latency_ms=result["latency_ms"],
-    ))
+    emit(
+        MessageIngested(
+            session_id=session_id,
+            role=safe_role,
+            domain=domain,
+            chunk_count=result["chunks"],
+            concept_count=result["concepts"],
+            edge_count=result["edges"],
+            latency_ms=result["latency_ms"],
+        )
+    )
 
     return {
         "session_id": session_id,
@@ -2403,14 +2430,16 @@ def _ingest_tool_result_impl(
     from qortex.observe.emitter import emit
     from qortex.observe.events import ToolResultIngested
 
-    emit(ToolResultIngested(
-        tool_name=safe_tool,
-        session_id=session_id,
-        domain=domain,
-        concept_count=result["concepts"],
-        edge_count=result["edges"],
-        latency_ms=result["latency_ms"],
-    ))
+    emit(
+        ToolResultIngested(
+            tool_name=safe_tool,
+            session_id=session_id,
+            domain=domain,
+            concept_count=result["concepts"],
+            edge_count=result["edges"],
+            latency_ms=result["latency_ms"],
+        )
+    )
 
     return {
         "tool_name": safe_tool,
@@ -2946,8 +2975,14 @@ def qortex_learning_select(
         seed_boost: Alpha boost for seed arms (default 2.0 in LearnerConfig).
     """
     return _learning_select_impl(
-        learner, candidates, context, k, token_budget, min_pulls,
-        seed_arms=seed_arms, seed_boost=seed_boost,
+        learner,
+        candidates,
+        context,
+        k,
+        token_budget,
+        min_pulls,
+        seed_arms=seed_arms,
+        seed_boost=seed_boost,
     )
 
 

@@ -307,7 +307,9 @@ class SqliteVecIndex:
             # Remove existing first (upsert)
             existing = []
             for id_ in ids:
-                row = self._conn.execute("SELECT row_id FROM vec_meta WHERE id = ?", (id_,)).fetchone()
+                row = self._conn.execute(
+                    "SELECT row_id FROM vec_meta WHERE id = ?", (id_,)
+                ).fetchone()
                 if row:
                     existing.append(id_)
             if existing:

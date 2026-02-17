@@ -22,15 +22,18 @@ def create_instruments(meter: Any) -> dict[str, Any]:
     for m in METRICS:
         if m.type == MetricType.COUNTER:
             instruments[m.name] = meter.create_counter(
-                m.name, description=m.description,
+                m.name,
+                description=m.description,
             )
         elif m.type == MetricType.HISTOGRAM:
             instruments[m.name] = meter.create_histogram(
-                m.name, description=m.description,
+                m.name,
+                description=m.description,
             )
         elif m.type == MetricType.GAUGE:
             instruments[m.name] = meter.create_gauge(
-                m.name, description=m.description,
+                m.name,
+                description=m.description,
             )
 
     return instruments

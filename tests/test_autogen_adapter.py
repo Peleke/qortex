@@ -29,8 +29,17 @@ from qortex.client import (
     RuleItem,
 )
 from qortex.core.memory import InMemoryBackend
-from qortex.vec.embeddings import SentenceTransformerEmbedding
 from qortex.vec.index import NumpyVectorIndex
+
+try:
+    from qortex.vec.embeddings import SentenceTransformerEmbedding
+except ImportError:
+    SentenceTransformerEmbedding = None  # type: ignore[assignment,misc]
+
+pytestmark = pytest.mark.skipif(
+    SentenceTransformerEmbedding is None,
+    reason="sentence-transformers not installed (pip install qortex[vec])",
+)
 
 # ---------------------------------------------------------------------------
 # Auth corpus (same as crewai/agno tests for consistency)
@@ -330,7 +339,9 @@ class TestQortexMemoryIntegration:
         result = await memory.query("OAuth2")
         results = result.results if hasattr(result, "results") else result["results"]
         if results:
-            meta = results[0].metadata if hasattr(results[0], "metadata") else results[0]["metadata"]
+            meta = (
+                results[0].metadata if hasattr(results[0], "metadata") else results[0]["metadata"]
+            )
             assert "domain" in meta
             assert "node_id" in meta
             assert meta["domain"] == "auth"
@@ -361,7 +372,9 @@ class TestQortexMemoryIntegration:
         result = await memory.query("OAuth2 PKCE")
         results = result.results if hasattr(result, "results") else result["results"]
         if results:
-            meta = results[0].metadata if hasattr(results[0], "metadata") else results[0]["metadata"]
+            meta = (
+                results[0].metadata if hasattr(results[0], "metadata") else results[0]["metadata"]
+            )
             node_id = meta["node_id"]
             await memory.feedback({node_id: "accepted"})
             # Should not raise

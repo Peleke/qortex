@@ -93,9 +93,7 @@ def export_tcfd(
     base_change = None
     if base_year is not None and base_year_emissions_grams and base_year_emissions_grams > 0:
         base_change = (
-            (summary.total_co2_grams - base_year_emissions_grams)
-            / base_year_emissions_grams
-            * 100
+            (summary.total_co2_grams - base_year_emissions_grams) / base_year_emissions_grams * 100
         )
 
     return TcfdExport(
@@ -132,9 +130,7 @@ def export_iso14064(
     base_change = None
     if base_year is not None and base_year_emissions_grams and base_year_emissions_grams > 0:
         base_change = (
-            (summary.total_co2_grams - base_year_emissions_grams)
-            / base_year_emissions_grams
-            * 100
+            (summary.total_co2_grams - base_year_emissions_grams) / base_year_emissions_grams * 100
         )
 
     return Iso14064Summary(

@@ -277,7 +277,9 @@ def _embed_manifest_concepts(
 
             embedding_model = SentenceTransformerEmbedding()
         except ImportError:
-            typer.echo("  Skipping embed: sentence-transformers not installed (pip install qortex[vec])")
+            typer.echo(
+                "  Skipping embed: sentence-transformers not installed (pip install qortex[vec])"
+            )
             return 0
 
     vec_backend = os.environ.get("QORTEX_VEC", "sqlite")
@@ -287,7 +289,9 @@ def _embed_manifest_concepts(
                 from qortex.vec.index import SqliteVecIndex
 
                 vec_path = _Path("~/.qortex/vectors.db").expanduser()
-                vector_index = SqliteVecIndex(db_path=str(vec_path), dimensions=embedding_model.dimensions)
+                vector_index = SqliteVecIndex(
+                    db_path=str(vec_path), dimensions=embedding_model.dimensions
+                )
             except ImportError:
                 from qortex.vec.index import NumpyVectorIndex
 
@@ -552,7 +556,9 @@ def ingest_emissions(
         db_expanded = Path(buildlog_db).expanduser()
         resolved_count = resolve_historical_targets(result, db_path=db_expanded)
         if resolved_count > 0:
-            typer.echo(f"\n  Resolved {resolved_count} historical edge targets to gauntlet_rule:{{id}} format")
+            typer.echo(
+                f"\n  Resolved {resolved_count} historical edge targets to gauntlet_rule:{{id}} format"
+            )
 
     if result.files_processed == 0:
         typer.echo("\nNo emission artifacts found.")
@@ -587,7 +593,9 @@ def ingest_emissions(
         if result.edges:
             typer.echo("\nSample edges:")
             for e in result.edges[:8]:
-                rel = e.relation_type.value if hasattr(e.relation_type, "value") else e.relation_type
+                rel = (
+                    e.relation_type.value if hasattr(e.relation_type, "value") else e.relation_type
+                )
                 typer.echo(f"  - {e.source_id} --{rel}--> {e.target_id}")
         if result.rules:
             typer.echo("\nSample rules:")
@@ -632,7 +640,9 @@ def ingest_emissions(
 
         graph_backend.ingest_manifest(manifest)
 
-        typer.echo(f"\nLoaded into graph: {len(manifest.concepts)} concepts, {len(manifest.edges)} edges, {len(manifest.rules)} rules")
+        typer.echo(
+            f"\nLoaded into graph: {len(manifest.concepts)} concepts, {len(manifest.edges)} edges, {len(manifest.rules)} rules"
+        )
         typer.echo("View with: qortex inspect domains")
         typer.echo("Visualize: open http://localhost:3000 (Memgraph Lab)")
 
