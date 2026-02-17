@@ -2036,81 +2036,301 @@ def set_chunking_strategy(strategy: Any) -> None:
     _chunking_strategy = strategy
 
 
+# Pluggable extraction — swap via set_extraction_strategy().
+_extraction_strategy: Any = None
+_extraction_strategy_name: str = "none"
+
+
+def _get_extractor():
+    """Return the active extraction strategy (lazy-loaded default)."""
+    global _extraction_strategy, _extraction_strategy_name
+    if _extraction_strategy is None:
+        _configure_extraction()
+    return _extraction_strategy
+
+
+def _configure_extraction() -> None:
+    """Auto-configure extraction from QORTEX_EXTRACTION env var."""
+    import os
+
+    global _extraction_strategy, _extraction_strategy_name
+
+    mode = os.environ.get("QORTEX_EXTRACTION", "spacy").lower()
+
+    if mode == "llm":
+        try:
+            from qortex.ingest.backends import get_extraction_backend
+            from qortex.online.extractor import LLMExtractor
+
+            backend = get_extraction_backend()
+            _extraction_strategy = LLMExtractor(backend)
+            _extraction_strategy_name = "llm"
+            import logging
+            logging.getLogger(__name__).info("Extraction strategy: LLM")
+        except Exception:
+            import logging
+            logging.getLogger(__name__).warning(
+                "LLM extraction unavailable, falling back to spaCy"
+            )
+            _configure_spacy_fallback()
+    elif mode == "none":
+        from qortex.online.extractor import NullExtractor
+
+        _extraction_strategy = NullExtractor()
+        _extraction_strategy_name = "none"
+    else:
+        _configure_spacy_fallback()
+
+
+def _configure_spacy_fallback() -> None:
+    """Set up spaCy extractor (default) with fallback to NullExtractor."""
+    global _extraction_strategy, _extraction_strategy_name
+    from qortex.online.extractor import SpaCyExtractor
+
+    _extraction_strategy = SpaCyExtractor()
+    _extraction_strategy_name = "spacy"
+    import logging
+    logging.getLogger(__name__).info("Extraction strategy: spaCy")
+
+
+def set_extraction_strategy(strategy: Any, name: str = "custom") -> None:
+    """Swap the extraction strategy at runtime.
+
+    Pass None to reset to env-var-based auto-detection.
+    """
+    global _extraction_strategy, _extraction_strategy_name
+    if strategy is None:
+        _extraction_strategy = None
+        _extraction_strategy_name = "none"
+    else:
+        _extraction_strategy = strategy
+        _extraction_strategy_name = name
+
+
+def _slugify(name: str) -> str:
+    """Turn a concept name into a safe ID slug."""
+    import re
+    return re.sub(r"[^a-z0-9]+", "_", name.lower()).strip("_")[:64]
+
+
 def _online_index_pipeline(
     text: str,
     source_id: str,
     id_prefix: str,
     domain: str,
 ) -> dict:
-    """Shared pipeline: chunk -> embed -> create graph nodes -> index -> co-occurrence edges.
+    """Shared pipeline: chunk -> embed -> extract -> graph nodes -> index -> edges.
 
-    Returns {"chunks": N, "concepts": N, "edges": N, "latency_ms": float}.
+    Returns {"chunks": N, "concepts": N, "edges": N, "extracted_concepts": N, "latency_ms": float}.
     """
     import time
 
     from qortex.core.models import ConceptEdge, ConceptNode, RelationType
+    from qortex.observe.emitter import emit
+    from qortex.observe.events import (
+        ConceptsExtracted,
+        ExtractionPipelineCompleted,
+        GraphEdgesCreated,
+        GraphNodesCreated,
+    )
+    from qortex.observe.tracing import traced
 
-    start = time.monotonic()
+    @traced("online_index.pipeline")
+    def _run_pipeline() -> dict:
+        pipeline_start = time.monotonic()
 
-    chunker = _get_chunker()
-    chunks = chunker(text, source_id=source_id)
+        # --- Span: Chunking ---
+        @traced("online_index.chunk")
+        def _chunk():
+            chunker = _get_chunker()
+            return chunker(text, source_id=source_id)
 
-    concepts_added = 0
-    edges_added = 0
+        chunks = _chunk()
 
-    if _embedding_model is not None and _vector_index is not None:
-        ids = [f"{id_prefix}:{c.id}" for c in chunks]
-        texts = [c.text for c in chunks]
-        embeddings = _embedding_model.embed(texts)
-        _vector_index.add(ids, embeddings)
-        concepts_added = len(ids)
+        chunk_nodes_added = 0
+        concept_nodes_added = 0
+        edges_added = 0
+        total_extracted_concepts = 0
+        total_extracted_relations = 0
 
-        # Create Concept nodes in the graph backend so get_node() can resolve them
-        if _backend is not None:
-            for chunk_id, chunk in zip(ids, chunks):
-                _backend.add_node(ConceptNode(
-                    id=chunk_id,
-                    name=chunk.text[:80],
-                    description=chunk.text,
+        if _embedding_model is not None and _vector_index is not None:
+            ids = [f"{id_prefix}:{c.id}" for c in chunks]
+            texts = [c.text for c in chunks]
+
+            # --- Span: Embedding ---
+            @traced("online_index.embed", external=True)
+            def _embed():
+                return _embedding_model.embed(texts)
+
+            embeddings = _embed()
+
+            # --- Span: Vec index add ---
+            @traced("online_index.vec_add", external=True)
+            def _vec_add():
+                _vector_index.add(ids, embeddings)
+
+            _vec_add()
+            chunk_nodes_added = len(ids)
+
+            if _backend is not None:
+                extractor = _get_extractor()
+                extraction_start = time.monotonic()
+
+                for chunk_idx, (chunk_id, chunk) in enumerate(zip(ids, chunks)):
+                    # --- Span: Create chunk node (vec bridge) ---
+                    @traced("online_index.add_chunk_node")
+                    def _add_chunk_node(cid=chunk_id, ch=chunk):
+                        _backend.add_node(ConceptNode(
+                            id=cid,
+                            name=ch.text[:80],
+                            description=ch.text,
+                            domain=domain,
+                            source_id=source_id,
+                            confidence=1.0,
+                        ))
+
+                    _add_chunk_node()
+
+                    # --- Span: Extract concepts from chunk ---
+                    chunk_extract_start = time.monotonic()
+
+                    @traced("online_index.extract_chunk")
+                    def _extract_chunk(ch=chunk):
+                        return extractor(ch.text, domain)
+
+                    extraction_result = _extract_chunk()
+                    chunk_extract_ms = (time.monotonic() - chunk_extract_start) * 1000
+
+                    if not extraction_result.empty:
+                        # --- Span: Create concept nodes + CONTAINS edges ---
+                        @traced("online_index.add_concept_nodes")
+                        def _add_concept_nodes(cid=chunk_id, er=extraction_result):
+                            local_concepts = 0
+                            local_edges = 0
+                            for concept in er.concepts:
+                                concept_id = f"{id_prefix}:concept:{_slugify(concept.name)}"
+                                _backend.add_node(ConceptNode(
+                                    id=concept_id,
+                                    name=concept.name,
+                                    description=concept.description,
+                                    domain=domain,
+                                    source_id=source_id,
+                                    confidence=concept.confidence,
+                                ))
+                                local_concepts += 1
+                                # Link chunk -> concept via CONTAINS
+                                _backend.add_edge(ConceptEdge(
+                                    source_id=cid,
+                                    target_id=concept_id,
+                                    relation_type=RelationType.CONTAINS,
+                                    confidence=concept.confidence,
+                                    properties={"origin": "extraction"},
+                                ))
+                                local_edges += 1
+                            return local_concepts, local_edges
+
+                        n_concepts, n_edges = _add_concept_nodes()
+                        concept_nodes_added += n_concepts
+                        edges_added += n_edges
+
+                        # --- Span: Create typed edges between concepts ---
+                        @traced("online_index.add_relation_edges")
+                        def _add_relation_edges(er=extraction_result):
+                            local_edges = 0
+                            for rel in er.relations:
+                                src_id = f"{id_prefix}:concept:{_slugify(rel.source_name)}"
+                                tgt_id = f"{id_prefix}:concept:{_slugify(rel.target_name)}"
+                                rel_type = _safe_relation_type(rel.relation_type)
+                                _backend.add_edge(ConceptEdge(
+                                    source_id=src_id,
+                                    target_id=tgt_id,
+                                    relation_type=rel_type,
+                                    confidence=rel.confidence,
+                                    properties={"origin": "extraction"},
+                                ))
+                                local_edges += 1
+                            return local_edges
+
+                        edges_added += _add_relation_edges()
+
+                        total_extracted_concepts += len(extraction_result.concepts)
+                        total_extracted_relations += len(extraction_result.relations)
+
+                    # Emit per-chunk extraction event
+                    emit(ConceptsExtracted(
+                        concept_count=len(extraction_result.concepts),
+                        relation_count=len(extraction_result.relations),
+                        domain=domain,
+                        strategy=_extraction_strategy_name,
+                        latency_ms=chunk_extract_ms,
+                        chunk_index=chunk_idx,
+                        source_id=source_id,
+                    ))
+
+                # Co-occurrence edges between consecutive chunks (preserved)
+                @traced("online_index.co_occurrence_edges")
+                def _co_occur():
+                    added = 0
+                    if len(ids) > 1:
+                        for i in range(len(ids) - 1):
+                            _backend.add_edge(ConceptEdge(
+                                source_id=ids[i],
+                                target_id=ids[i + 1],
+                                relation_type=RelationType.REQUIRES,
+                                confidence=0.8,
+                                properties={"origin": "co_occurrence"},
+                            ))
+                            added += 1
+                    return added
+
+                edges_added += _co_occur()
+
+                extraction_ms = (time.monotonic() - extraction_start) * 1000
+                emit(ExtractionPipelineCompleted(
+                    total_concepts=total_extracted_concepts,
+                    total_relations=total_extracted_relations,
+                    total_chunks=len(chunks),
                     domain=domain,
+                    strategy=_extraction_strategy_name,
+                    latency_ms=extraction_ms,
                     source_id=source_id,
-                    confidence=1.0,
                 ))
 
-            # Co-occurrence edges between consecutive chunks
-            if len(ids) > 1:
-                for i in range(len(ids) - 1):
-                    _backend.add_edge(ConceptEdge(
-                        source_id=ids[i],
-                        target_id=ids[i + 1],
-                        relation_type=RelationType.REQUIRES,
-                        confidence=0.8,
-                        properties={"origin": "co_occurrence"},
-                    ))
-                    edges_added += 1
+        latency_ms = (time.monotonic() - pipeline_start) * 1000
 
-    latency_ms = (time.monotonic() - start) * 1000
-
-    # Emit graph creation events for observability
-    if concepts_added > 0 or edges_added > 0:
-        from qortex.observe.emitter import emit
-        from qortex.observe.events import GraphEdgesCreated, GraphNodesCreated
-
-        if concepts_added > 0:
+        total_nodes = chunk_nodes_added + concept_nodes_added
+        if total_nodes > 0:
             emit(GraphNodesCreated(
-                count=concepts_added, domain=domain, origin="online_index",
+                count=total_nodes, domain=domain, origin="online_index",
             ))
         if edges_added > 0:
             emit(GraphEdgesCreated(
-                count=edges_added, domain=domain, origin="co_occurrence",
+                count=edges_added, domain=domain, origin="online_index",
             ))
 
-    return {
-        "chunks": len(chunks),
-        "concepts": concepts_added,
-        "edges": edges_added,
-        "latency_ms": latency_ms,
-    }
+        return {
+            "chunks": len(chunks),
+            "concepts": chunk_nodes_added + concept_nodes_added,
+            "edges": edges_added,
+            "extracted_concepts": total_extracted_concepts,
+            "latency_ms": latency_ms,
+        }
+
+    return _run_pipeline()
+
+
+def _safe_relation_type(type_str: str) -> Any:
+    """Map extraction relation type string to RelationType enum, with fallback."""
+    from qortex.core.models import RelationType
+
+    try:
+        return RelationType(type_str.lower())
+    except ValueError:
+        # Try upper-case member name lookup
+        member = type_str.upper().replace(" ", "_")
+        if hasattr(RelationType, member):
+            return getattr(RelationType, member)
+        return RelationType.SIMILAR_TO
 
 
 def _ingest_message_impl(
@@ -2153,6 +2373,7 @@ def _ingest_message_impl(
         "chunks": result["chunks"],
         "concepts": result["concepts"],
         "edges": result["edges"],
+        "extracted_concepts": result.get("extracted_concepts", 0),
         "latency_ms": round(result["latency_ms"], 2),
     }
 
@@ -2196,6 +2417,7 @@ def _ingest_tool_result_impl(
         "session_id": session_id,
         "concepts": result["concepts"],
         "edges": result["edges"],
+        "extracted_concepts": result.get("extracted_concepts", 0),
         "latency_ms": round(result["latency_ms"], 2),
     }
 

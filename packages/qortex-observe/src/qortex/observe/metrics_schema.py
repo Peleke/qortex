@@ -208,6 +208,39 @@ METRICS: tuple[MetricDef, ...] = (
         "Tool result ingest latency",
         buckets=(0.005, 0.01, 0.025, 0.05, 0.1, 0.25, 0.5),
     ),
+    # ── Concept Extraction ──────────────────────────────────────────
+    MetricDef(
+        "qortex_concepts_extracted", MetricType.COUNTER,
+        "Concepts extracted from chunks", ("strategy", "domain"),
+    ),
+    MetricDef(
+        "qortex_relations_extracted", MetricType.COUNTER,
+        "Relations extracted from chunks", ("strategy", "domain"),
+    ),
+    MetricDef(
+        "qortex_extraction_duration_seconds", MetricType.HISTOGRAM,
+        "Per-chunk extraction latency",
+        buckets=(0.005, 0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1.0, 2.5),
+    ),
+    MetricDef(
+        "qortex_extraction_pipeline_duration_seconds", MetricType.HISTOGRAM,
+        "Full extraction pipeline latency (all chunks)",
+        buckets=(0.01, 0.05, 0.1, 0.25, 0.5, 1.0, 2.5, 5.0, 10.0),
+    ),
+    MetricDef(
+        "qortex_extraction_concepts_per_chunk", MetricType.HISTOGRAM,
+        "Concepts extracted per chunk",
+        buckets=(0, 1, 2, 5, 10, 20, 50),
+    ),
+    MetricDef(
+        "qortex_extraction_relations_per_chunk", MetricType.HISTOGRAM,
+        "Relations extracted per chunk",
+        buckets=(0, 1, 2, 5, 10, 20),
+    ),
+    MetricDef(
+        "qortex_extractions", MetricType.COUNTER,
+        "Extraction pipeline runs", ("strategy",),
+    ),
     # ── Learning ─────────────────────────────────────────────────────
     MetricDef(
         "qortex_learning_selections", MetricType.COUNTER,

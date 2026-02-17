@@ -297,6 +297,37 @@ class ToolResultIngested:
 
 
 # ---------------------------------------------------------------------------
+# Concept Extraction
+# ---------------------------------------------------------------------------
+
+
+@dataclass(frozen=True)
+class ConceptsExtracted:
+    """Emitted after extraction runs on a chunk."""
+
+    concept_count: int
+    relation_count: int
+    domain: str
+    strategy: str  # "spacy" | "llm" | "none"
+    latency_ms: float
+    chunk_index: int  # which chunk in the pipeline
+    source_id: str
+
+
+@dataclass(frozen=True)
+class ExtractionPipelineCompleted:
+    """Emitted after all chunks in a message have been extracted."""
+
+    total_concepts: int
+    total_relations: int
+    total_chunks: int
+    domain: str
+    strategy: str
+    latency_ms: float
+    source_id: str
+
+
+# ---------------------------------------------------------------------------
 # Ingestion
 # ---------------------------------------------------------------------------
 

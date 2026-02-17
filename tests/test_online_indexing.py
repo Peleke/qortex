@@ -1,13 +1,24 @@
-"""Tests for online session indexing: chunker, events, and MCP tools."""
+"""Tests for online session indexing: chunker, extraction, events, and MCP tools."""
 
 from __future__ import annotations
 
 import pytest
 from hypothesis import given, settings
 from hypothesis import strategies as st
-from qortex.observe.events import MessageIngested, ToolResultIngested
+from qortex.observe.events import (
+    ConceptsExtracted,
+    ExtractionPipelineCompleted,
+    MessageIngested,
+    ToolResultIngested,
+)
 
 from qortex.online.chunker import Chunk, ChunkingStrategy, SentenceBoundaryChunker
+from qortex.online.extractor import (
+    ExtractionResult,
+    ExtractedConcept,
+    ExtractedRelation,
+    NullExtractor,
+)
 
 # ---------------------------------------------------------------------------
 # Chunker unit tests
@@ -261,3 +272,163 @@ class TestChunkingStrategyInjection:
 
         # Reset to default
         set_chunking_strategy(None)
+
+
+# ---------------------------------------------------------------------------
+# Extraction integration tests
+# ---------------------------------------------------------------------------
+
+
+class TestExtractionStrategyInjection:
+    def test_custom_extraction_strategy_is_used(self, _server):
+        import qortex.mcp.server as srv
+        from qortex.mcp.server import (
+            _ingest_message_impl,
+            set_extraction_strategy,
+        )
+
+        call_count = 0
+
+        class TrackingExtractor:
+            def __call__(self, text, domain=""):
+                nonlocal call_count
+                call_count += 1
+                return ExtractionResult(concepts=[
+                    ExtractedConcept(name="TestConcept", description="from test"),
+                ])
+
+        old_model, old_index = srv._embedding_model, srv._vector_index
+
+        class FakeEmbedding:
+            dimensions = 4
+            def embed(self, texts):
+                return [[0.1, 0.2, 0.3, 0.4]] * len(texts)
+
+        class FakeVecIndex:
+            def add(self, ids, embeddings):
+                pass
+
+        try:
+            srv._embedding_model = FakeEmbedding()
+            srv._vector_index = FakeVecIndex()
+            set_extraction_strategy(TrackingExtractor(), name="test")
+
+            result = _ingest_message_impl(
+                "The auth module handles JWT tokens.", session_id="s1",
+            )
+            assert call_count >= 1
+            assert result["extracted_concepts"] >= 1
+        finally:
+            srv._embedding_model = old_model
+            srv._vector_index = old_index
+            set_extraction_strategy(None)
+
+
+class TestPipelineWithExtraction:
+    def test_creates_chunk_and_concept_nodes(self, _server):
+        """Verify both chunk nodes (vec bridge) and concept nodes are created."""
+        import qortex.mcp.server as srv
+        from qortex.mcp.server import (
+            _ingest_message_impl,
+            set_extraction_strategy,
+        )
+
+        class FixedExtractor:
+            def __call__(self, text, domain=""):
+                return ExtractionResult(
+                    concepts=[
+                        ExtractedConcept(name="Auth Module", description="handles auth"),
+                        ExtractedConcept(name="JWT Tokens", description="token format"),
+                    ],
+                    relations=[
+                        ExtractedRelation(
+                            source_name="Auth Module", target_name="JWT Tokens",
+                            relation_type="USES", confidence=0.8,
+                        ),
+                    ],
+                )
+
+        class FakeEmbedding:
+            dimensions = 4
+            def embed(self, texts):
+                return [[0.1, 0.2, 0.3, 0.4]] * len(texts)
+
+        class FakeVecIndex:
+            def add(self, ids, embeddings):
+                pass
+
+        old_model, old_index = srv._embedding_model, srv._vector_index
+        try:
+            srv._embedding_model = FakeEmbedding()
+            srv._vector_index = FakeVecIndex()
+            set_extraction_strategy(FixedExtractor(), name="test")
+
+            result = _ingest_message_impl(
+                "The auth module handles JWT tokens.", session_id="s1",
+            )
+            # chunk nodes + concept nodes
+            assert result["concepts"] >= 3  # at least 1 chunk + 2 concepts
+            assert result["edges"] >= 3  # CONTAINS x2 + USES x1 + co_occur
+            assert result["extracted_concepts"] == 2
+        finally:
+            srv._embedding_model = old_model
+            srv._vector_index = old_index
+            set_extraction_strategy(None)
+
+
+class TestExtractionFallback:
+    def test_raw_text_fallback_when_extractor_returns_empty(self, _server):
+        """When extraction returns empty, chunk nodes still created with raw text."""
+        import qortex.mcp.server as srv
+        from qortex.mcp.server import (
+            _ingest_message_impl,
+            set_extraction_strategy,
+        )
+
+        set_extraction_strategy(NullExtractor(), name="none")
+
+        class FakeEmbedding:
+            dimensions = 4
+            def embed(self, texts):
+                return [[0.1, 0.2, 0.3, 0.4]] * len(texts)
+
+        class FakeVecIndex:
+            def add(self, ids, embeddings):
+                pass
+
+        old_model, old_index = srv._embedding_model, srv._vector_index
+        try:
+            srv._embedding_model = FakeEmbedding()
+            srv._vector_index = FakeVecIndex()
+
+            result = _ingest_message_impl(
+                "The auth module handles JWT tokens.", session_id="s1",
+            )
+            # Chunk nodes still created
+            assert result["chunks"] >= 1
+            assert result["concepts"] >= 1
+            # No extracted concepts
+            assert result["extracted_concepts"] == 0
+        finally:
+            srv._embedding_model = old_model
+            srv._vector_index = old_index
+            set_extraction_strategy(None)
+
+
+class TestExtractionEvents:
+    def test_concepts_extracted_event_frozen(self):
+        evt = ConceptsExtracted(
+            concept_count=3, relation_count=1, domain="test",
+            strategy="spacy", latency_ms=5.0, chunk_index=0, source_id="s1",
+        )
+        assert evt.concept_count == 3
+        assert evt.strategy == "spacy"
+        with pytest.raises(AttributeError):
+            evt.strategy = "llm"  # type: ignore[misc]
+
+    def test_extraction_pipeline_completed_frozen(self):
+        evt = ExtractionPipelineCompleted(
+            total_concepts=5, total_relations=2, total_chunks=3,
+            domain="test", strategy="llm", latency_ms=150.0, source_id="s1",
+        )
+        assert evt.total_concepts == 5
