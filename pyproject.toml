@@ -74,6 +74,7 @@ dev = [
     "types-PyYAML>=6.0",
     "networkx>=3.0",
     "langchain-core>=0.2",
+    "typer>=0.15",
 ]
 llm = [
     "anthropic>=0.18",

@@ -3551,7 +3551,7 @@ wheels = [
 
 [[package]]
 name = "qortex"
-version = "0.7.6"
+version = "0.7.7"
 source = { editable = "." }
 dependencies = [
     { name = "fastmcp" },
@@ -3583,6 +3583,7 @@ all = [
     { name = "ruff" },
     { name = "sentence-transformers" },
     { name = "sqlite-vec" },
+    { name = "typer" },
     { name = "types-pyyaml" },
 ]
 causal = [
@@ -3606,6 +3607,7 @@ dev = [
     { name = "pytest-asyncio" },
     { name = "pytest-cov" },
     { name = "ruff" },
+    { name = "typer" },
     { name = "types-pyyaml" },
 ]
 llm = [
@@ -3683,6 +3685,7 @@ requires-dist = [
     { name = "sentence-transformers", marker = "extra == 'vec'", specifier = ">=2.2" },
     { name = "sqlite-vec", marker = "extra == 'vec-sqlite'", specifier = ">=0.1" },
     { name = "typer", specifier = ">=0.9" },
+    { name = "typer", marker = "extra == 'dev'", specifier = ">=0.15" },
     { name = "types-pyyaml", marker = "extra == 'dev'", specifier = ">=6.0" },
 ]
 provides-extras = ["pdf", "vec", "vec-sqlite", "source-postgres", "mcp", "causal", "causal-dowhy", "causal-full", "dev", "llm", "memgraph", "observability", "nlp", "all"]

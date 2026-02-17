@@ -68,9 +68,9 @@ class SentenceBoundaryChunker:
 
         for sentence in sentences:
             if len(current) + len(sentence) > max_chars and current:
-                chunk_id = hashlib.sha256(
-                    f"{source_id}:{idx}:{current[:64]}".encode()
-                ).hexdigest()[:16]
+                chunk_id = hashlib.sha256(f"{source_id}:{idx}:{current[:64]}".encode()).hexdigest()[
+                    :16
+                ]
                 chunks.append(Chunk(id=chunk_id, text=current.strip(), index=idx))
                 idx += 1
                 current = current[-overlap_chars:] + " " + sentence if overlap_chars else sentence
@@ -78,9 +78,7 @@ class SentenceBoundaryChunker:
                 current = (current + " " + sentence).strip() if current else sentence
 
         if current.strip():
-            chunk_id = hashlib.sha256(
-                f"{source_id}:{idx}:{current[:64]}".encode()
-            ).hexdigest()[:16]
+            chunk_id = hashlib.sha256(f"{source_id}:{idx}:{current[:64]}".encode()).hexdigest()[:16]
             chunks.append(Chunk(id=chunk_id, text=current.strip(), index=idx))
 
         return chunks

@@ -290,9 +290,7 @@ class SqliteLearningStore:
                 cursor = conn.execute("DELETE FROM arm_states")
             elif arm_ids is None:
                 ctx = context_hash(context or {})
-                cursor = conn.execute(
-                    "DELETE FROM arm_states WHERE context_hash = ?", (ctx,)
-                )
+                cursor = conn.execute("DELETE FROM arm_states WHERE context_hash = ?", (ctx,))
             elif context is None:
                 ctx = context_hash({})
                 placeholders = ",".join("?" for _ in arm_ids)

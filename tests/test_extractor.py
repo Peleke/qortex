@@ -3,19 +3,17 @@
 from __future__ import annotations
 
 import pytest
-
 from qortex.online.extractor import (
-    ExtractionResult,
-    ExtractionStrategy,
     ExtractedConcept,
     ExtractedRelation,
+    ExtractionResult,
+    ExtractionStrategy,
     LLMExtractor,
     NullExtractor,
     SpaCyExtractor,
     _deduplicate_spans,
     _title_case,
 )
-
 
 # ---------------------------------------------------------------------------
 # Data type tests
@@ -30,9 +28,11 @@ class TestExtractionResult:
         assert r.relations == []
 
     def test_not_empty_with_concepts(self):
-        r = ExtractionResult(concepts=[
-            ExtractedConcept(name="JWT", description="token format"),
-        ])
+        r = ExtractionResult(
+            concepts=[
+                ExtractedConcept(name="JWT", description="token format"),
+            ]
+        )
         assert not r.empty
 
     def test_frozen(self):
@@ -47,8 +47,10 @@ class TestExtractionResult:
 
     def test_relation_frozen(self):
         r = ExtractedRelation(
-            source_name="A", target_name="B",
-            relation_type="USES", confidence=0.7,
+            source_name="A",
+            target_name="B",
+            relation_type="USES",
+            confidence=0.7,
         )
         with pytest.raises(AttributeError):
             r.relation_type = "REQUIRES"  # type: ignore[misc]
@@ -187,8 +189,12 @@ class TestLLMExtractor:
 
             def extract_relations(self, concepts, text, chunk_location=None):
                 return [
-                    {"source": "Auth Module", "target": "JWT Tokens",
-                     "relation_type": "USES", "confidence": 0.8},
+                    {
+                        "source": "Auth Module",
+                        "target": "JWT Tokens",
+                        "relation_type": "USES",
+                        "confidence": 0.8,
+                    },
                 ]
 
         ext = LLMExtractor(MockBackend())
@@ -254,9 +260,11 @@ class TestExtractionStrategyInjection:
             def __call__(self, text, domain=""):
                 nonlocal call_count
                 call_count += 1
-                return ExtractionResult(concepts=[
-                    ExtractedConcept(name="Test", description="test"),
-                ])
+                return ExtractionResult(
+                    concepts=[
+                        ExtractedConcept(name="Test", description="test"),
+                    ]
+                )
 
         set_extraction_strategy(CountingExtractor(), name="test")
 

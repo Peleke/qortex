@@ -99,6 +99,11 @@ class EdgePromotionBuffer:
             except Exception:
                 logger.debug("buffer.hook.failed", hook_event="on_record")
 
+    def get_edge_stats(self, source_id: str, target_id: str) -> EdgeStats | None:
+        """Return stats for a buffered edge, or None if not recorded."""
+        key = (min(source_id, target_id), max(source_id, target_id))
+        return self._buffer.get(key)
+
     def flush(
         self,
         backend: Any,

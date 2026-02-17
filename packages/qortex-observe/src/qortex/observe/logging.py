@@ -302,9 +302,7 @@ class VictoriaLogsDestination:
 class _VictoriaLogsHandler(logging.Handler):
     """Handler that ships formatted records to VictoriaLogs."""
 
-    def __init__(
-        self, destination: VictoriaLogsDestination, fmt: logging.Formatter
-    ) -> None:
+    def __init__(self, destination: VictoriaLogsDestination, fmt: logging.Formatter) -> None:
         super().__init__()
         self.setFormatter(fmt)
         self._destination = destination
@@ -426,8 +424,7 @@ def setup_logging(config: ObservabilityConfig) -> None:
     handler._qortex_managed = True  # type: ignore[attr-defined]
     root_logger = logging.getLogger()
     root_logger.handlers = [
-        h for h in root_logger.handlers
-        if not getattr(h, "_qortex_managed", False)
+        h for h in root_logger.handlers if not getattr(h, "_qortex_managed", False)
     ]
     root_logger.addHandler(handler)
     root_logger.setLevel(getattr(logging, config.log_level.upper(), logging.INFO))

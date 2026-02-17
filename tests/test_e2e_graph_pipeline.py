@@ -32,7 +32,6 @@ from qortex.hippocampus.factors import TeleportationFactors
 from qortex.hippocampus.interoception import LocalInteroceptionProvider
 from qortex.vec.index import NumpyVectorIndex
 
-
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
@@ -167,8 +166,10 @@ def populated_backend(backend, embeddings, dims):
     for src, tgt, rel, conf in edges:
         backend.add_edge(
             ConceptEdge(
-                source_id=src, target_id=tgt,
-                relation_type=rel, confidence=conf,
+                source_id=src,
+                target_id=tgt,
+                relation_type=rel,
+                confidence=conf,
             )
         )
 
@@ -234,7 +235,7 @@ class TestIngestPipeline:
 
     def test_stage4_edges_exist(self, populated_backend):
         backend, _, expected_edges = populated_backend
-        for src, tgt, rel, _ in expected_edges:
+        for src, tgt, _rel, _ in expected_edges:
             edges = backend.get_edges(src, direction="out")
             target_ids = [e.target_id for e in edges]
             assert tgt in target_ids, f"Edge {src} → {tgt} not found"
@@ -248,9 +249,7 @@ class TestIngestPipeline:
 class TestVecOnlyRetrieval:
     """Stage 5: VecOnlyAdapter returns ranked results from vector similarity."""
 
-    def test_vec_retrieval_returns_results(
-        self, populated_backend, vector_index, embedding_model
-    ):
+    def test_vec_retrieval_returns_results(self, populated_backend, vector_index, embedding_model):
         backend = populated_backend[0]
         adapter = VecOnlyAdapter(vector_index, backend, embedding_model)
 
@@ -258,9 +257,7 @@ class TestVecOnlyRetrieval:
         assert len(result.items) > 0
         assert result.query_id
 
-    def test_vec_ranking_by_cosine_sim(
-        self, populated_backend, vector_index, embedding_model
-    ):
+    def test_vec_ranking_by_cosine_sim(self, populated_backend, vector_index, embedding_model):
         backend = populated_backend[0]
         adapter = VecOnlyAdapter(vector_index, backend, embedding_model)
 
@@ -271,9 +268,9 @@ class TestVecOnlyRetrieval:
         # beta and delta (both in cluster A) should appear before gamma/epsilon
         alpha_cluster = {"e2e:alpha", "e2e:beta", "e2e:delta"}
         top_3_ids = set(ids[:3])
-        assert top_3_ids.issubset(
-            alpha_cluster | {"e2e:zeta"}
-        ), f"Top 3 should be cluster A + bridge, got {top_3_ids}"
+        assert top_3_ids.issubset(alpha_cluster | {"e2e:zeta"}), (
+            f"Top 3 should be cluster A + bridge, got {top_3_ids}"
+        )
 
 
 # ===========================================================================
@@ -286,14 +283,14 @@ class TestGraphRAGRetrieval:
 
     def _make_adapter(self, vector_index, backend, embedding_model):
         return GraphRAGAdapter(
-            vector_index, backend, embedding_model,
+            vector_index,
+            backend,
+            embedding_model,
             online_sim_threshold=0.5,
             kg_weight_bonus=0.3,
         )
 
-    def test_stage6_online_edges_generated(
-        self, populated_backend, vector_index, embedding_model
-    ):
+    def test_stage6_online_edges_generated(self, populated_backend, vector_index, embedding_model):
         backend = populated_backend[0]
         adapter = self._make_adapter(vector_index, backend, embedding_model)
 
@@ -302,12 +299,10 @@ class TestGraphRAGRetrieval:
         edges = adapter._build_online_edges(seed_ids)
         # alpha, beta, delta are all similar — should generate edges
         assert len(edges) > 0, "Expected online edges between similar nodes"
-        for src, tgt, weight in edges:
+        for _src, _tgt, weight in edges:
             assert weight >= 0.5, f"Edge weight {weight} below threshold"
 
-    def test_stage7_ppr_returns_scores(
-        self, populated_backend, vector_index, embedding_model
-    ):
+    def test_stage7_ppr_returns_scores(self, populated_backend, vector_index, embedding_model):
         backend = populated_backend[0]
         adapter = self._make_adapter(vector_index, backend, embedding_model)
 
@@ -371,13 +366,13 @@ class TestGraphRAGRetrieval:
 class TestTeleportationFactors:
     """Stage 9: Feedback updates factors, shifting PPR seed weights."""
 
-    def test_factors_change_after_feedback(
-        self, populated_backend, vector_index, embedding_model
-    ):
+    def test_factors_change_after_feedback(self, populated_backend, vector_index, embedding_model):
         backend = populated_backend[0]
         factors = TeleportationFactors()
         adapter = GraphRAGAdapter(
-            vector_index, backend, embedding_model,
+            vector_index,
+            backend,
+            embedding_model,
             factors=factors,
             online_sim_threshold=0.5,
         )
@@ -387,20 +382,19 @@ class TestTeleportationFactors:
         query_id = result.query_id
 
         # Get initial factors
-        initial_weights = factors.weight_seeds(
-            ["e2e:alpha", "e2e:beta"]
-        )
+        initial_weights = factors.weight_seeds(["e2e:alpha", "e2e:beta"])
 
         # Report feedback: alpha was useful, gamma was not
-        adapter.feedback(query_id, {
-            "e2e:alpha": "accepted",
-            "e2e:gamma": "rejected",
-        })
+        adapter.feedback(
+            query_id,
+            {
+                "e2e:alpha": "accepted",
+                "e2e:gamma": "rejected",
+            },
+        )
 
         # Factors should have changed
-        updated_weights = factors.weight_seeds(
-            ["e2e:alpha", "e2e:beta"]
-        )
+        updated_weights = factors.weight_seeds(["e2e:alpha", "e2e:beta"])
         # Alpha's factor should have increased (accepted)
         alpha_initial = initial_weights.get("e2e:alpha", 1.0)
         alpha_updated = updated_weights.get("e2e:alpha", 1.0)
@@ -461,7 +455,9 @@ class TestFullPipeline:
 
         interoception = LocalInteroceptionProvider()
         adapter = GraphRAGAdapter(
-            vector_index, backend, embedding_model,
+            vector_index,
+            backend,
+            embedding_model,
             interoception=interoception,
             online_sim_threshold=0.5,
         )
@@ -471,11 +467,14 @@ class TestFullPipeline:
         assert len(r1.items) > 0
 
         # Feedback: boost alpha, penalize others
-        adapter.feedback(r1.query_id, {
-            "e2e:alpha": "accepted",
-            "e2e:beta": "accepted",
-            "e2e:gamma": "rejected",
-        })
+        adapter.feedback(
+            r1.query_id,
+            {
+                "e2e:alpha": "accepted",
+                "e2e:beta": "accepted",
+                "e2e:gamma": "rejected",
+            },
+        )
 
         # Second query — factors should influence ranking
         r2 = adapter.retrieve("find alpha things", top_k=5)
@@ -485,14 +484,14 @@ class TestFullPipeline:
         top_2_ids = {it.id for it in r2.items[:2]}
         assert "e2e:alpha" in top_2_ids, f"Alpha should be in top 2, got {top_2_ids}"
 
-    def test_compare_shows_graph_delta(
-        self, populated_backend, vector_index, embedding_model
-    ):
+    def test_compare_shows_graph_delta(self, populated_backend, vector_index, embedding_model):
         """The compare tool's logic: graph vs vec should show differences."""
         backend = populated_backend[0]
         vec = VecOnlyAdapter(vector_index, backend, embedding_model)
         graph = GraphRAGAdapter(
-            vector_index, backend, embedding_model,
+            vector_index,
+            backend,
+            embedding_model,
             online_sim_threshold=0.5,
         )
 
@@ -501,7 +500,7 @@ class TestFullPipeline:
         graph_r = graph.retrieve(query, top_k=6)
 
         vec_ids = [it.id for it in vec_r.items]
-        graph_ids = [it.id for it in graph_r.items]
+        graph_ids = [it.id for it in graph_r.items]  # noqa: F841
 
         # zeta is a bridge node — graph should activate both clusters
         # whereas vec-only only sees cosine similarity to zeta's embedding

@@ -11,12 +11,11 @@ from qortex.observe.events import (
     MessageIngested,
     ToolResultIngested,
 )
-
 from qortex.online.chunker import Chunk, ChunkingStrategy, SentenceBoundaryChunker
 from qortex.online.extractor import (
-    ExtractionResult,
     ExtractedConcept,
     ExtractedRelation,
+    ExtractionResult,
     NullExtractor,
 )
 
@@ -94,7 +93,8 @@ class TestSentenceBoundaryChunker:
 # Strategy: text with sentence-like structure
 sentence_text = st.text(
     alphabet=st.sampled_from("abcdefghij .!\n"),
-    min_size=1, max_size=2000,
+    min_size=1,
+    max_size=2000,
 ).filter(lambda t: t.strip())
 
 
@@ -136,8 +136,13 @@ class TestChunkerProperties:
 class TestEvents:
     def test_message_ingested_frozen(self):
         evt = MessageIngested(
-            session_id="s1", role="user", domain="test",
-            chunk_count=3, concept_count=3, edge_count=2, latency_ms=12.5,
+            session_id="s1",
+            role="user",
+            domain="test",
+            chunk_count=3,
+            concept_count=3,
+            edge_count=2,
+            latency_ms=12.5,
         )
         assert evt.session_id == "s1"
         assert evt.role == "user"
@@ -146,8 +151,12 @@ class TestEvents:
 
     def test_tool_result_ingested_frozen(self):
         evt = ToolResultIngested(
-            tool_name="search", session_id="s1", domain="test",
-            concept_count=5, edge_count=4, latency_ms=8.3,
+            tool_name="search",
+            session_id="s1",
+            domain="test",
+            concept_count=5,
+            edge_count=4,
+            latency_ms=8.3,
         )
         assert evt.tool_name == "search"
         with pytest.raises(AttributeError):
@@ -293,14 +302,17 @@ class TestExtractionStrategyInjection:
             def __call__(self, text, domain=""):
                 nonlocal call_count
                 call_count += 1
-                return ExtractionResult(concepts=[
-                    ExtractedConcept(name="TestConcept", description="from test"),
-                ])
+                return ExtractionResult(
+                    concepts=[
+                        ExtractedConcept(name="TestConcept", description="from test"),
+                    ]
+                )
 
         old_model, old_index = srv._embedding_model, srv._vector_index
 
         class FakeEmbedding:
             dimensions = 4
+
             def embed(self, texts):
                 return [[0.1, 0.2, 0.3, 0.4]] * len(texts)
 
@@ -314,7 +326,8 @@ class TestExtractionStrategyInjection:
             set_extraction_strategy(TrackingExtractor(), name="test")
 
             result = _ingest_message_impl(
-                "The auth module handles JWT tokens.", session_id="s1",
+                "The auth module handles JWT tokens.",
+                session_id="s1",
             )
             assert call_count >= 1
             assert result["extracted_concepts"] >= 1
@@ -342,14 +355,17 @@ class TestPipelineWithExtraction:
                     ],
                     relations=[
                         ExtractedRelation(
-                            source_name="Auth Module", target_name="JWT Tokens",
-                            relation_type="USES", confidence=0.8,
+                            source_name="Auth Module",
+                            target_name="JWT Tokens",
+                            relation_type="USES",
+                            confidence=0.8,
                         ),
                     ],
                 )
 
         class FakeEmbedding:
             dimensions = 4
+
             def embed(self, texts):
                 return [[0.1, 0.2, 0.3, 0.4]] * len(texts)
 
@@ -364,7 +380,8 @@ class TestPipelineWithExtraction:
             set_extraction_strategy(FixedExtractor(), name="test")
 
             result = _ingest_message_impl(
-                "The auth module handles JWT tokens.", session_id="s1",
+                "The auth module handles JWT tokens.",
+                session_id="s1",
             )
             # chunk nodes + concept nodes
             assert result["concepts"] >= 3  # at least 1 chunk + 2 concepts
@@ -389,6 +406,7 @@ class TestExtractionFallback:
 
         class FakeEmbedding:
             dimensions = 4
+
             def embed(self, texts):
                 return [[0.1, 0.2, 0.3, 0.4]] * len(texts)
 
@@ -402,7 +420,8 @@ class TestExtractionFallback:
             srv._vector_index = FakeVecIndex()
 
             result = _ingest_message_impl(
-                "The auth module handles JWT tokens.", session_id="s1",
+                "The auth module handles JWT tokens.",
+                session_id="s1",
             )
             # Chunk nodes still created
             assert result["chunks"] >= 1
@@ -418,8 +437,13 @@ class TestExtractionFallback:
 class TestExtractionEvents:
     def test_concepts_extracted_event_frozen(self):
         evt = ConceptsExtracted(
-            concept_count=3, relation_count=1, domain="test",
-            strategy="spacy", latency_ms=5.0, chunk_index=0, source_id="s1",
+            concept_count=3,
+            relation_count=1,
+            domain="test",
+            strategy="spacy",
+            latency_ms=5.0,
+            chunk_index=0,
+            source_id="s1",
         )
         assert evt.concept_count == 3
         assert evt.strategy == "spacy"
@@ -428,7 +452,12 @@ class TestExtractionEvents:
 
     def test_extraction_pipeline_completed_frozen(self):
         evt = ExtractionPipelineCompleted(
-            total_concepts=5, total_relations=2, total_chunks=3,
-            domain="test", strategy="llm", latency_ms=150.0, source_id="s1",
+            total_concepts=5,
+            total_relations=2,
+            total_chunks=3,
+            domain="test",
+            strategy="llm",
+            latency_ms=150.0,
+            source_id="s1",
         )
         assert evt.total_concepts == 5

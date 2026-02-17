@@ -100,13 +100,15 @@ def register_metric_handlers(instruments: dict[str, Any]) -> None:
     @QortexEventLinker.on(GraphNodesCreated)
     def _on_graph_nodes_created(event: GraphNodesCreated) -> None:
         instruments["qortex_graph_nodes_created"].add(
-            event.count, {"domain": event.domain, "origin": event.origin},
+            event.count,
+            {"domain": event.domain, "origin": event.origin},
         )
 
     @QortexEventLinker.on(GraphEdgesCreated)
     def _on_graph_edges_created(event: GraphEdgesCreated) -> None:
         instruments["qortex_graph_edges_created"].add(
-            event.count, {"domain": event.domain, "origin": event.origin},
+            event.count,
+            {"domain": event.domain, "origin": event.origin},
         )
 
     # ── Edge promotion ───────────────────────────────────────────
@@ -218,19 +220,25 @@ def register_metric_handlers(instruments: dict[str, Any]) -> None:
 
     @QortexEventLinker.on(LearningSelectionMade)
     def _on_learning_selection(event: LearningSelectionMade) -> None:
-        instruments["qortex_learning_selections"].add(1, {
-            "learner": event.learner,
-            "baseline": str(event.is_baseline),
-        })
+        instruments["qortex_learning_selections"].add(
+            1,
+            {
+                "learner": event.learner,
+                "baseline": str(event.is_baseline),
+            },
+        )
         if event.token_budget > 0:
             instruments["qortex_learning_token_budget_used"].record(event.used_tokens)
 
     @QortexEventLinker.on(LearningObservationRecorded)
     def _on_learning_observation(event: LearningObservationRecorded) -> None:
-        instruments["qortex_learning_observations"].add(1, {
-            "learner": event.learner,
-            "outcome": event.outcome,
-        })
+        instruments["qortex_learning_observations"].add(
+            1,
+            {
+                "learner": event.learner,
+                "outcome": event.outcome,
+            },
+        )
 
     @QortexEventLinker.on(LearningPosteriorUpdated)
     def _on_learning_posterior(event: LearningPosteriorUpdated) -> None:
@@ -272,15 +280,18 @@ def register_metric_handlers(instruments: dict[str, Any]) -> None:
         )
         if event.accepted > 0:
             instruments["qortex_bench_round_feedback"].add(
-                event.accepted, {"benchmark": event.benchmark, "outcome": "accepted"},
+                event.accepted,
+                {"benchmark": event.benchmark, "outcome": "accepted"},
             )
         if event.rejected > 0:
             instruments["qortex_bench_round_feedback"].add(
-                event.rejected, {"benchmark": event.benchmark, "outcome": "rejected"},
+                event.rejected,
+                {"benchmark": event.benchmark, "outcome": "rejected"},
             )
 
     @QortexEventLinker.on(BenchLearningCurveRecorded)
     def _on_bench_curve(event: BenchLearningCurveRecorded) -> None:
         instruments["qortex_bench_improvement"].set(
-            event.improvement, {"benchmark": event.benchmark},
+            event.improvement,
+            {"benchmark": event.benchmark},
         )

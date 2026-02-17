@@ -38,9 +38,15 @@ AUTH_CONCEPTS = [
     ("Session Cookie", "Server-side session tracked via HTTP cookie, stateful"),
     ("CORS", "Cross-Origin Resource Sharing — browser security policy for cross-domain requests"),
     # Distractors
-    ("OAuth1", "Legacy authorization protocol using request signing and nonces, predecessor to OAuth2"),
+    (
+        "OAuth1",
+        "Legacy authorization protocol using request signing and nonces, predecessor to OAuth2",
+    ),
     ("HTTP Basic Auth", "Simple username/password authentication sent as base64 in HTTP header"),
-    ("Kerberos", "Network authentication protocol using ticket-granting tickets and symmetric keys"),
+    (
+        "Kerberos",
+        "Network authentication protocol using ticket-granting tickets and symmetric keys",
+    ),
     ("LDAP", "Lightweight Directory Access Protocol for directory services and user lookup"),
     ("RADIUS", "Remote Authentication Dial-In User Service for network access control"),
     ("X.509 Certificate", "Public key certificate standard for identity verification in PKI"),
@@ -110,9 +116,7 @@ class VanillaVectorSearch:
         embeddings = self.embedding.embed(texts)
         self._ids = [f"vanilla:{i}" for i in range(len(texts))]
         self.index.add(self._ids, embeddings)
-        self._name_map = {
-            self._ids[i]: self.concepts[i][0] for i in range(len(self.concepts))
-        }
+        self._name_map = {self._ids[i]: self.concepts[i][0] for i in range(len(self.concepts))}
 
     def search(self, query: str, top_k: int = 5) -> list[str]:
         q_emb = self.embedding.embed([query])[0]

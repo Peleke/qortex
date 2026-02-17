@@ -49,9 +49,7 @@ def _get_exporters(protocol: str, endpoint: str):
             OTLPSpanExporter,
         )
 
-        return OTLPSpanExporter(endpoint=endpoint), OTLPMetricExporter(
-            endpoint=endpoint
-        )
+        return OTLPSpanExporter(endpoint=endpoint), OTLPMetricExporter(endpoint=endpoint)
     except ImportError:
         from qortex.observe.logging import get_logger
 
@@ -66,9 +64,9 @@ def _get_exporters(protocol: str, endpoint: str):
             OTLPSpanExporter,
         )
 
-        return OTLPSpanExporter(
-            endpoint=endpoint + "/v1/traces"
-        ), OTLPMetricExporter(endpoint=endpoint + "/v1/metrics")
+        return OTLPSpanExporter(endpoint=endpoint + "/v1/traces"), OTLPMetricExporter(
+            endpoint=endpoint + "/v1/metrics"
+        )
 
 
 def register_otel_traces(config: ObservabilityConfig) -> None:
@@ -91,11 +89,13 @@ def register_otel_traces(config: ObservabilityConfig) -> None:
 
     # ── Tracer with selective export ──────────────────────────────────
     provider = TracerProvider(resource=resource)
-    provider.add_span_processor(SelectiveSpanProcessor(
-        span_exporter,
-        sample_rate=config.otel_trace_sample_rate,
-        latency_threshold_ms=config.otel_trace_latency_threshold_ms,
-    ))
+    provider.add_span_processor(
+        SelectiveSpanProcessor(
+            span_exporter,
+            sample_rate=config.otel_trace_sample_rate,
+            latency_threshold_ms=config.otel_trace_latency_threshold_ms,
+        )
+    )
     trace.set_tracer_provider(provider)
 
 

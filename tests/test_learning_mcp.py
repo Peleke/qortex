@@ -218,14 +218,14 @@ class TestLearningSeedArmsMCP:
             candidates=[{"id": "arm:a"}, {"id": "arm:b"}],
             k=1,
             seed_arms=["arm:a"],
-            seed_boost=5.0,
+            seed_boost=100.0,  # large boost makes Beta(100,1) vs Beta(1,1) deterministic
         )
-        # arm:a should be selected because it has a boosted prior
+        # arm:a should be selected because it has a heavily boosted prior
         assert result["selected_arms"][0]["id"] == "arm:a"
 
         # Verify the boosted posterior
         posteriors = server._learning_posteriors_impl(learner="seeded")
-        assert posteriors["posteriors"]["arm:a"]["alpha"] == 5.0
+        assert posteriors["posteriors"]["arm:a"]["alpha"] == 100.0
 
     def test_seed_arms_ignored_on_cached_learner(self, server):
         """seed_arms on a second call should not re-create the learner."""

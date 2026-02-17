@@ -184,10 +184,7 @@ class QortexMemory:
                 content = mc.content if hasattr(mc, "content") else mc.get("content", "")
                 memory_strings.append(str(content))
 
-            memory_text = (
-                "Relevant knowledge from memory:\n"
-                + "\n---\n".join(memory_strings)
-            )
+            memory_text = "Relevant knowledge from memory:\n" + "\n---\n".join(memory_strings)
 
             # Try to inject via autogen's message types
             try:

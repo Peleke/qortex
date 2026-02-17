@@ -51,13 +51,15 @@ class AggregationResult:
     files_processed: int = 0
     files_skipped: int = 0
     files_failed: int = 0
-    by_type: dict[str, int] = field(default_factory=lambda: {
-        "mistake_manifest": 0,
-        "reward_signal": 0,
-        "session_summary": 0,
-        "learned_rules": 0,
-        "unknown": 0,
-    })
+    by_type: dict[str, int] = field(
+        default_factory=lambda: {
+            "mistake_manifest": 0,
+            "reward_signal": 0,
+            "session_summary": 0,
+            "learned_rules": 0,
+            "unknown": 0,
+        }
+    )
 
 
 def _classify_artifact(filename: str) -> str:
@@ -118,7 +120,9 @@ def _extract_concept(raw: dict[str, Any], artifact_type: str) -> ConceptNode | N
     )
 
 
-def _extract_edges(raw_edges: list[dict], artifact_type: str) -> list[tuple[str, str, str, float, dict]]:
+def _extract_edges(
+    raw_edges: list[dict], artifact_type: str
+) -> list[tuple[str, str, str, float, dict]]:
     """Extract edge tuples from emission edge data.
 
     Returns list of (source_id, target_id, relation_type, confidence, properties).
@@ -148,14 +152,16 @@ def _extract_learned_rules(data: dict[str, Any]) -> list[ExplicitRule]:
         if not text:
             continue
 
-        rules.append(ExplicitRule(
-            id=rule_id,
-            text=text,
-            domain=prov.get("domain", "buildlog"),
-            source_id="buildlog:learned_rules",
-            category=raw_rule.get("category"),
-            confidence=prov.get("confidence", 0.7),
-        ))
+        rules.append(
+            ExplicitRule(
+                id=rule_id,
+                text=text,
+                domain=prov.get("domain", "buildlog"),
+                source_id="buildlog:learned_rules",
+                category=raw_rule.get("category"),
+                confidence=prov.get("confidence", 0.7),
+            )
+        )
     return rules
 
 
@@ -175,9 +181,7 @@ def _build_skill_to_gauntlet_map(db_path: Path = DEFAULT_BUILDLOG_DB) -> dict[st
     try:
         db = sqlite3.connect(str(db_path))
         db.row_factory = sqlite3.Row
-        cursor = db.execute(
-            "SELECT rule_id, rule, category FROM gauntlet_rules WHERE active = 1"
-        )
+        cursor = db.execute("SELECT rule_id, rule, category FROM gauntlet_rules WHERE active = 1")
 
         # Replicate buildlog's _generate_skill_id logic
         prefix_map = {
@@ -216,7 +220,16 @@ def resolve_historical_targets(
         return 0
 
     # Known prefixes that are already resolved (don't touch these)
-    _RESOLVED_PREFIXES = ("session:", "mistake:", "reward:", "gauntlet_rule:", "domain:", "persona:", "resolution:", "bl:")
+    _RESOLVED_PREFIXES = (
+        "session:",
+        "mistake:",
+        "reward:",
+        "gauntlet_rule:",
+        "domain:",
+        "persona:",
+        "resolution:",
+        "bl:",
+    )
 
     resolved = 0
     for edge in result.edges:
@@ -282,7 +295,9 @@ def aggregate_emissions(
                 if concept and concept.id not in result.concepts:
                     result.concepts[concept.id] = concept
 
-            for source_id, target_id, rel_str, confidence, props in _extract_edges(data.get("edges", []), artifact_type):
+            for source_id, target_id, rel_str, confidence, props in _extract_edges(
+                data.get("edges", []), artifact_type
+            ):
                 rel_type = _map_relation_type(rel_str)
                 if rel_type is None:
                     continue
@@ -304,13 +319,15 @@ def aggregate_emissions(
                             source_id=f"buildlog:{artifact_type}",
                         )
 
-                result.edges.append(ConceptEdge(
-                    source_id=source_id,
-                    target_id=target_id,
-                    relation_type=rel_type,
-                    confidence=confidence,
-                    properties=props,
-                ))
+                result.edges.append(
+                    ConceptEdge(
+                        source_id=source_id,
+                        target_id=target_id,
+                        relation_type=rel_type,
+                        confidence=confidence,
+                        properties=props,
+                    )
+                )
 
     return result
 
@@ -409,37 +426,43 @@ def bridge_gauntlet_rules(
             persona = rule_id.split(":")[0] if ":" in rule_id else seed_file.replace(".yaml", "")
             if persona and persona not in seen_ids:
                 seen_ids.add(persona)
-                concepts.append(ConceptNode(
-                    id=f"persona:{persona}",
-                    name=persona,
-                    description=f"Gauntlet reviewer persona from {seed_file}",
-                    domain="buildlog",
-                    source_id="buildlog:gauntlet",
-                    properties={"type": "persona", "seed_file": seed_file},
-                ))
+                concepts.append(
+                    ConceptNode(
+                        id=f"persona:{persona}",
+                        name=persona,
+                        description=f"Gauntlet reviewer persona from {seed_file}",
+                        domain="buildlog",
+                        source_id="buildlog:gauntlet",
+                        properties={"type": "persona", "seed_file": seed_file},
+                    )
+                )
 
             # Create rule concept
             if rule_id not in seen_ids:
                 seen_ids.add(rule_id)
-                concepts.append(ConceptNode(
-                    id=f"gauntlet_rule:{rule_id}",
-                    name=rule_text[:80],
-                    description=f"[{category}] {rule_text}",
-                    domain="buildlog",
-                    source_id="buildlog:gauntlet",
-                    properties={
-                        "category": category,
-                        "active": active,
-                        "persona": persona,
-                    },
-                ))
+                concepts.append(
+                    ConceptNode(
+                        id=f"gauntlet_rule:{rule_id}",
+                        name=rule_text[:80],
+                        description=f"[{category}] {rule_text}",
+                        domain="buildlog",
+                        source_id="buildlog:gauntlet",
+                        properties={
+                            "category": category,
+                            "active": active,
+                            "persona": persona,
+                        },
+                    )
+                )
                 # Edge: rule belongs_to persona
-                edges.append(ConceptEdge(
-                    source_id=f"gauntlet_rule:{rule_id}",
-                    target_id=f"persona:{persona}",
-                    relation_type=RelationType.BELONGS_TO,
-                    confidence=1.0,
-                ))
+                edges.append(
+                    ConceptEdge(
+                        source_id=f"gauntlet_rule:{rule_id}",
+                        target_id=f"persona:{persona}",
+                        relation_type=RelationType.BELONGS_TO,
+                        confidence=1.0,
+                    )
+                )
             continue
 
         # This rule has a design pattern domain — it's a BRIDGE
@@ -449,42 +472,48 @@ def bridge_gauntlet_rules(
         seen_ids.add(concept_id)
 
         # Create concept in the SOURCE domain (design patterns)
-        concepts.append(ConceptNode(
-            id=concept_id,
-            name=rule_text[:80],
-            description=f"[{category}] {rule_text}",
-            domain=source_domain,  # KEY: this goes in the design pattern domain
-            source_id="buildlog:gauntlet",
-            properties={
-                "category": category,
-                "active": active,
-                "source_domain": source_domain,
-                "derivation": prov.get("derivation", "unknown"),
-                "confidence": prov.get("confidence", 0.5),
-                "seed_file": seed_file,
-                "bridge": True,  # marks this as a cross-domain bridge node
-            },
-        ))
+        concepts.append(
+            ConceptNode(
+                id=concept_id,
+                name=rule_text[:80],
+                description=f"[{category}] {rule_text}",
+                domain=source_domain,  # KEY: this goes in the design pattern domain
+                source_id="buildlog:gauntlet",
+                properties={
+                    "category": category,
+                    "active": active,
+                    "source_domain": source_domain,
+                    "derivation": prov.get("derivation", "unknown"),
+                    "confidence": prov.get("confidence", 0.5),
+                    "seed_file": seed_file,
+                    "bridge": True,  # marks this as a cross-domain bridge node
+                },
+            )
+        )
 
         # Edge: rule instance_of its domain (cross-domain bridge)
         domain_concept_id = f"domain:{source_domain}"
         if domain_concept_id not in seen_ids:
             seen_ids.add(domain_concept_id)
-            concepts.append(ConceptNode(
-                id=domain_concept_id,
-                name=source_domain.replace("_", " ").title(),
-                description=f"Design pattern domain: {source_domain}",
-                domain=source_domain,
-                source_id="buildlog:gauntlet",
-                properties={"type": "domain_anchor"},
-            ))
+            concepts.append(
+                ConceptNode(
+                    id=domain_concept_id,
+                    name=source_domain.replace("_", " ").title(),
+                    description=f"Design pattern domain: {source_domain}",
+                    domain=source_domain,
+                    source_id="buildlog:gauntlet",
+                    properties={"type": "domain_anchor"},
+                )
+            )
 
-        edges.append(ConceptEdge(
-            source_id=concept_id,
-            target_id=domain_concept_id,
-            relation_type=RelationType.INSTANCE_OF,
-            confidence=1.0,
-        ))
+        edges.append(
+            ConceptEdge(
+                source_id=concept_id,
+                target_id=domain_concept_id,
+                relation_type=RelationType.INSTANCE_OF,
+                confidence=1.0,
+            )
+        )
 
     db.close()
     return concepts, edges

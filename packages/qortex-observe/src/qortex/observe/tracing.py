@@ -182,6 +182,7 @@ def get_overhead_timer() -> OverheadTimer | None:
 
 # ── Selective Span Processor ──────────────────────────────────────────
 
+
 class SelectiveSpanProcessor:
     """Export only interesting spans: errors, slow queries, or sampled.
 

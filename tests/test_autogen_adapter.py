@@ -15,6 +15,7 @@ Run: uv run pytest tests/test_autogen_adapter.py -v
 from __future__ import annotations
 
 import asyncio
+import importlib.util
 from unittest.mock import MagicMock
 
 import pytest
@@ -31,6 +32,13 @@ from qortex.client import (
 from qortex.core.memory import InMemoryBackend
 from qortex.vec.embeddings import SentenceTransformerEmbedding
 from qortex.vec.index import NumpyVectorIndex
+
+_has_sentence_transformers = importlib.util.find_spec("sentence_transformers") is not None
+
+pytestmark = pytest.mark.skipif(
+    not _has_sentence_transformers,
+    reason="sentence-transformers not installed (pip install qortex[vec])",
+)
 
 # ---------------------------------------------------------------------------
 # Auth corpus (same as crewai/agno tests for consistency)
@@ -330,7 +338,9 @@ class TestQortexMemoryIntegration:
         result = await memory.query("OAuth2")
         results = result.results if hasattr(result, "results") else result["results"]
         if results:
-            meta = results[0].metadata if hasattr(results[0], "metadata") else results[0]["metadata"]
+            meta = (
+                results[0].metadata if hasattr(results[0], "metadata") else results[0]["metadata"]
+            )
             assert "domain" in meta
             assert "node_id" in meta
             assert meta["domain"] == "auth"
@@ -361,7 +371,9 @@ class TestQortexMemoryIntegration:
         result = await memory.query("OAuth2 PKCE")
         results = result.results if hasattr(result, "results") else result["results"]
         if results:
-            meta = results[0].metadata if hasattr(results[0], "metadata") else results[0]["metadata"]
+            meta = (
+                results[0].metadata if hasattr(results[0], "metadata") else results[0]["metadata"]
+            )
             node_id = meta["node_id"]
             await memory.feedback({node_id: "accepted"})
             # Should not raise
