@@ -19,9 +19,9 @@ qortex process
   └─ @traced decorator         → automatic parent-child span hierarchy
 ```
 
-All 36 metrics are defined in a single declarative schema (`metrics_schema.py`). OTel is the sole metric backend; `PrometheusMetricReader` serves the `/metrics` endpoint for Prometheus scraping. The old `prometheus.py` subscriber has been removed.
+All 62 metrics are defined in a single declarative schema (`metrics_schema.py`). OTel is the sole metric backend; `PrometheusMetricReader` serves the `/metrics` endpoint for Prometheus scraping. The old `prometheus.py` subscriber has been removed.
 
-Events are emitted at every stage of the pipeline: ingestion, vector index operations (add/search), retrieval (vec search, online edge generation, PPR), feedback (factor updates), enrichment, learning (bandit selection/observation), credit propagation, and buffer promotion. A single set of event handlers in `metrics_handlers.py` translates events into OTel instruments.
+Events are emitted at every stage of the pipeline: ingestion, concept extraction, vector index operations (add/search), retrieval (vec search, online edge generation, PPR), feedback (factor updates), enrichment, learning (bandit selection/observation), credit propagation, and buffer promotion. A single set of event handlers in `metrics_handlers.py` translates events into OTel instruments.
 
 ## Quick Start
 
@@ -57,6 +57,7 @@ open http://localhost:3010/d/qortex-main/qortex-observability
 | `QORTEX_PROMETHEUS_PORT` | `9464` | Port for the local `/metrics` endpoint |
 | `QORTEX_OTEL_TRACE_SAMPLE_RATE` | `0.1` | Fraction of normal traces to export (0.0-1.0). Errors and slow traces are always exported. |
 | `QORTEX_OTEL_TRACE_LATENCY_THRESHOLD_MS` | `100.0` | Spans slower than this are always exported regardless of sample rate. |
+| `QORTEX_EXTRACTION` | `spacy` | Concept extraction strategy: `spacy` (default, local NER), `llm` (API-based), `none` (disabled) |
 | `MEMGRAPH_USER` | — | Memgraph Bolt auth username |
 | `MEMGRAPH_PASSWORD` | — | Memgraph Bolt auth password |
 
@@ -304,6 +305,41 @@ These panels track the Thompson Sampling bandit that learns which retrieval stra
 - **Source event:** `LearningSelectionMade`
 - **What it tells you:** How much of the token budget each selection consumes. Empty if no `token_budget` constraint is configured. If p95 consistently hits the budget cap, arms are too expensive.
 
+### Concept Extraction
+
+These panels track the extraction pipeline that converts raw text chunks into named concepts with typed relationships.
+
+#### Extractions Total / Concepts Extracted / Relations Extracted
+
+- **Metrics:** `qortex_extractions_total`, `qortex_concepts_extracted_total`, `qortex_relations_extracted_total`
+- **Display:** Stat panels (lifetime counts)
+- **Source events:** `ExtractionPipelineCompleted`, `ConceptsExtracted`
+- **What it tells you:** How much extraction has happened since startup. If concepts are zero but extractions are positive, the extraction strategy is returning empty results (check spaCy model installation).
+
+#### Concepts per Chunk (p50/p95)
+
+- **Metric:** `histogram_quantile(0.50|0.95, rate(qortex_extraction_concepts_per_chunk_bucket[5m]))`
+- **Source event:** `ConceptsExtracted`
+- **What it tells you:** How many concepts each chunk produces. p50 of 2-5 is typical for spaCy. Zero means extraction is not working.
+
+#### Extraction Latency per chunk (p50/p95/p99)
+
+- **Metric:** `histogram_quantile(0.50|0.95|0.99, rate(qortex_extraction_duration_seconds_bucket[5m]))`
+- **Source event:** `ConceptsExtracted`
+- **What it tells you:** Per-chunk extraction time. spaCy is typically sub-50ms. LLM extraction can be seconds. Watch p99 for outliers.
+
+#### Pipeline Latency (p50/p95)
+
+- **Metric:** `histogram_quantile(0.50|0.95, rate(qortex_extraction_pipeline_duration_seconds_bucket[5m]))`
+- **Source event:** `ExtractionPipelineCompleted`
+- **What it tells you:** Total extraction time across all chunks in a single ingest call. Scales with chunk count.
+
+#### Concepts by Strategy & Domain
+
+- **Metric:** `sum by (strategy, domain) (rate(qortex_concepts_extracted_total[5m]))`
+- **Source event:** `ConceptsExtracted`
+- **What it tells you:** Extraction rate broken down by strategy (`spacy`, `llm`, `none`) and domain. Useful for comparing strategies.
+
 ### Credit Propagation
 
 These panels track causal credit assignment: feedback propagating backward through the causal DAG to update ancestor concept posteriors. Requires `QORTEX_CREDIT_PROPAGATION=on`.
@@ -373,6 +409,13 @@ These panels track causal credit assignment: feedback propagating backward throu
 | `qortex_credit_concepts_per_propagation` | Histogram | `CreditPropagated` | — |
 | `qortex_credit_alpha_delta_total` | Counter | `CreditPropagated` | — |
 | `qortex_credit_beta_delta_total` | Counter | `CreditPropagated` | — |
+| `qortex_concepts_extracted` | Counter | `ConceptsExtracted` | `strategy`, `domain` |
+| `qortex_relations_extracted` | Counter | `ConceptsExtracted` | `strategy`, `domain` |
+| `qortex_extraction_duration_seconds` | Histogram | `ConceptsExtracted` | — |
+| `qortex_extraction_pipeline_duration_seconds` | Histogram | `ExtractionPipelineCompleted` | — |
+| `qortex_extraction_concepts_per_chunk` | Histogram | `ConceptsExtracted` | — |
+| `qortex_extraction_relations_per_chunk` | Histogram | `ConceptsExtracted` | — |
+| `qortex_extractions` | Counter | `ExtractionPipelineCompleted` | `strategy` |
 
 ## Distributed Tracing
 
@@ -422,6 +465,24 @@ All major subsystems are traced:
 | | `memgraph.get_node`, `get_edges`, `get_rules` | — |
 | | `memgraph.query_cypher`, `vector_search` | — |
 | | `memgraph.add_embedding`, `get_embedding` | — |
+| **Online Index** | `online_index.pipeline` | — |
+| | `online_index.chunk` | — |
+| | `online_index.embed` | — |
+| | `online_index.vec_add` | — |
+| | `online_index.add_chunk_node` | — |
+| | `online_index.extract_chunk` | — |
+| | `online_index.add_concept_nodes` | — |
+| | `online_index.add_relation_edges` | — |
+| | `online_index.co_occurrence_edges` | — |
+| **Extraction** | `extraction.spacy` | — |
+| | `extraction.spacy.nlp_process` | — |
+| | `extraction.spacy.extract_entities` | — |
+| | `extraction.spacy.extract_noun_chunks` | — |
+| | `extraction.spacy.deduplicate` | — |
+| | `extraction.spacy.infer_relations` | — |
+| | `extraction.llm` | — |
+| | `extraction.llm.extract_concepts` | — |
+| | `extraction.llm.extract_relations` | — |
 | **Vec Embeddings** | `vec.embed.sentence_transformer` | `embed.model`, `embed.batch_size`, `embed.backend` |
 | | `vec.embed.openai` | `embed.model`, `embed.batch_size` |
 | | `vec.embed.ollama` | `embed.model`, `embed.batch_size` |
