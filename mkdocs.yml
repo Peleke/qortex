@@ -42,6 +42,7 @@ nav:
     - Rule Enrichment: guides/enrichment.md
     - Consumer Integration: guides/consumer-integration.md
     - Using Memgraph: guides/memgraph.md
+    - Online Indexing: guides/online-indexing.md
     - Visualizing Your Graph: guides/visualization.md
   - Theory:
     - Overview: tutorials/index.md
