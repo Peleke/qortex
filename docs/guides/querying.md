@@ -229,7 +229,7 @@ Configure qortex as an MCP server:
 
 Then any MCP client (Claude Desktop, Mastra TS, custom agents) can use the full query pipeline.
 
-See [MCP Tools Reference](../reference/mcp-tools.md) for detailed tool schemas.
+See [API Reference](../reference/api.md) for detailed tool schemas.
 
 ## Framework Adapters
 
