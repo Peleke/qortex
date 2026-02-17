@@ -100,6 +100,10 @@ nav:
     - CLI Commands: reference/cli.md
     - Data Models: reference/models.md
     - Interop Schema: reference/interop-schema.md
+  - Packages:
+    - qortex-online: packages/online.md
+    - qortex-observe: packages/observe.md
+    - qortex-ingest: packages/ingest.md
   - Architecture:
     - Overview: architecture/overview.md
     - Projection Pipeline: architecture/projection-pipeline.md
