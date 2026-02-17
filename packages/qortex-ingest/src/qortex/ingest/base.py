@@ -14,6 +14,19 @@ from typing import TYPE_CHECKING, Literal, Protocol, runtime_checkable
 if TYPE_CHECKING:
     from qortex.core.pruning import PruningConfig
 
+try:
+    from qortex.observe.tracing import traced
+except ImportError:
+
+    def traced(name: str, *, external: bool = False):  # type: ignore[misc]
+        """No-op decorator when qortex-observe is not installed."""
+
+        def _identity(fn):
+            return fn
+
+        return _identity
+
+
 from qortex.core.models import (
     CodeExample,
     ConceptEdge,
@@ -122,6 +135,7 @@ class Ingestor(ABC):
         """
         ...
 
+    @traced("ingest.pipeline")
     def ingest(
         self,
         source: Source,

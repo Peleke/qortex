@@ -9,6 +9,17 @@ from typing import TYPE_CHECKING
 if TYPE_CHECKING:
     from qortex.core.models import ConceptNode
 
+try:
+    from qortex.observe.tracing import traced
+except ImportError:
+
+    def traced(name: str, *, external: bool = False):  # type: ignore[misc]
+        def _identity(fn):
+            return fn
+
+        return _identity
+
+
 # Lazy import to avoid hard dependency
 try:
     import anthropic
@@ -53,6 +64,7 @@ class AnthropicExtractionBackend:
         self.model = model or "claude-sonnet-4-20250514"
         self.max_concepts_per_call = max_concepts_per_call
 
+    @traced("llm.anthropic.call", external=True)
     def _call(self, system: str, user: str, max_tokens: int = 4096) -> str:
         """Make API call with rate limit retry."""
         import time
