@@ -80,7 +80,25 @@ logger = get_logger(__name__)
 
 
 def _mcp_traced(fn):
-    """Wrap an MCP tool handler with distributed trace middleware."""
+    """Wrap an MCP tool handler with distributed trace middleware.
+
+    Preserves async-ness: if ``fn`` is a coroutine function the wrapper
+    is also ``async def`` so that FastMCP (which dispatches based on
+    ``asyncio.iscoroutinefunction``) correctly awaits the result.
+    """
+    import asyncio
+    import inspect
+
+    if inspect.iscoroutinefunction(fn):
+
+        @functools.wraps(fn)
+        async def async_wrapper(**kwargs):
+            result = mcp_trace_middleware(fn.__name__, kwargs, lambda p: fn(**p))
+            if asyncio.iscoroutine(result):
+                return await result
+            return result
+
+        return async_wrapper
 
     @functools.wraps(fn)
     def wrapper(**kwargs):
@@ -389,7 +407,7 @@ _ALLOWED_OUTCOMES = {"accepted", "rejected", "partial"}
 _OUTCOME_REWARD = {"accepted": 1.0, "rejected": -1.0, "partial": 0.3}
 
 
-def _maybe_propagate_credit(
+async def _maybe_propagate_credit(
     query_id: str,
     outcomes: dict[str, str],
 ) -> dict | None:
@@ -441,8 +459,8 @@ def _maybe_propagate_credit(
 
     # Convert to posterior updates and apply
     updates = CreditAssigner.to_posterior_updates(all_assignments)
-    learner = _get_or_create_learner("credit")
-    learner.apply_credit_deltas(updates)
+    learner = await _get_or_create_learner("credit")
+    await learner.apply_credit_deltas(updates)
 
     # Emit event
     from qortex.observe import emit
@@ -472,7 +490,7 @@ def _maybe_propagate_credit(
     }
 
 
-def _feedback_impl(
+async def _feedback_impl(
     query_id: str,
     outcomes: dict[str, str],
     source: str = "unknown",
@@ -500,7 +518,7 @@ def _feedback_impl(
             _feedback_outcomes[outcome] += 1
 
     # Credit propagation (if enabled)
-    credit_summary = _maybe_propagate_credit(query_id, outcomes)
+    credit_summary = await _maybe_propagate_credit(query_id, outcomes)
 
     result: dict = {
         "status": "recorded",
@@ -947,7 +965,7 @@ def _compare_summary(vec_items, graph_items, graph_unique, rules) -> str:
     return "Graph-enhanced retrieval " + ", ".join(parts) + "."
 
 
-def _stats_impl() -> dict:
+async def _stats_impl() -> dict:
     _ensure_initialized()
 
     # Knowledge coverage
@@ -968,7 +986,7 @@ def _stats_impl() -> dict:
     learner_breakdown = {}
     total_observations = 0
     for name, lrn in _learners.items():
-        m = lrn.metrics()
+        m = await lrn.metrics()
         learner_breakdown[name] = {
             "total_pulls": m.get("total_pulls", 0),
             "accuracy": round(m.get("accuracy", 0.0), 3),
@@ -1820,7 +1838,7 @@ def qortex_query(
 
 @mcp.tool
 @_mcp_traced
-def qortex_feedback(
+async def qortex_feedback(
     query_id: str,
     outcomes: dict[str, str],
     source: str = "unknown",
@@ -1837,7 +1855,7 @@ def qortex_feedback(
             Only include items you actually used or considered.
         source: Your identifier (e.g. "claude-code", "cursor").
     """
-    return _feedback_impl(query_id, outcomes, source)
+    return await _feedback_impl(query_id, outcomes, source)
 
 
 @mcp.tool
@@ -1999,13 +2017,13 @@ def qortex_compare(
 
 @mcp.tool
 @_mcp_traced
-def qortex_stats() -> dict:
+async def qortex_stats() -> dict:
     """See how the knowledge system has improved over time.
 
     Shows knowledge coverage, learning progress, query activity, and
     system health. Call this to understand the value qortex is providing.
     """
-    return _stats_impl()
+    return await _stats_impl()
 
 
 # ---------------------------------------------------------------------------
@@ -2790,17 +2808,17 @@ def qortex_vector_delete_many(
 # ---------------------------------------------------------------------------
 
 
-def _get_or_create_learner(name: str, **kwargs) -> Any:
+async def _get_or_create_learner(name: str, **kwargs) -> Any:
     """Lazy-create a Learner on first use."""
     if name not in _learners:
         from qortex.learning import Learner, LearnerConfig
 
         config = LearnerConfig(name=name, state_dir=_learning_state_dir, **kwargs)
-        _learners[name] = Learner(config)
+        _learners[name] = await Learner.create(config)
     return _learners[name]
 
 
-def _learning_select_impl(
+async def _learning_select_impl(
     learner: str,
     candidates: list[dict],
     context: dict | None = None,
@@ -2828,10 +2846,10 @@ def _learning_select_impl(
         create_kwargs["seed_arms"] = seed_arms
     if seed_boost is not None:
         create_kwargs["seed_boost"] = seed_boost
-    lrn = _get_or_create_learner(learner, **create_kwargs)
+    lrn = await _get_or_create_learner(learner, **create_kwargs)
     if min_pulls > 0:
         lrn.config.min_pulls = min_pulls
-    result = lrn.select(arms, context=context, k=k, token_budget=token_budget)
+    result = await lrn.select(arms, context=context, k=k, token_budget=token_budget)
 
     return {
         "selected_arms": [
@@ -2849,7 +2867,7 @@ def _learning_select_impl(
     }
 
 
-def _learning_observe_impl(
+async def _learning_observe_impl(
     learner: str,
     arm_id: str,
     outcome: str = "",
@@ -2860,14 +2878,14 @@ def _learning_observe_impl(
     _ensure_initialized()
     from qortex.learning import ArmOutcome
 
-    lrn = _get_or_create_learner(learner)
+    lrn = await _get_or_create_learner(learner)
     obs = ArmOutcome(
         arm_id=arm_id,
         reward=reward,
         outcome=outcome,
         context=context or {},
     )
-    state = lrn.observe(obs, context=context)
+    state = await lrn.observe(obs, context=context)
 
     return {
         "arm_id": arm_id,
@@ -2878,15 +2896,15 @@ def _learning_observe_impl(
     }
 
 
-def _learning_posteriors_impl(
+async def _learning_posteriors_impl(
     learner: str,
     context: dict | None = None,
     arm_ids: list[str] | None = None,
 ) -> dict:
     """Get current posteriors for arms."""
     _ensure_initialized()
-    lrn = _get_or_create_learner(learner)
-    posteriors = lrn.posteriors(context=context, arm_ids=arm_ids)
+    lrn = await _get_or_create_learner(learner)
+    posteriors = await lrn.posteriors(context=context, arm_ids=arm_ids)
 
     return {
         "learner": learner,
@@ -2897,28 +2915,28 @@ def _learning_posteriors_impl(
     }
 
 
-def _learning_metrics_impl(
+async def _learning_metrics_impl(
     learner: str,
     window: int | None = None,
 ) -> dict:
     """Get learning metrics."""
     _ensure_initialized()
-    lrn = _get_or_create_learner(learner)
-    return lrn.metrics(window=window)
+    lrn = await _get_or_create_learner(learner)
+    return await lrn.metrics(window=window)
 
 
-def _learning_session_start_impl(
+async def _learning_session_start_impl(
     learner: str,
     session_name: str,
 ) -> dict:
     """Start a named learning session."""
     _ensure_initialized()
-    lrn = _get_or_create_learner(learner)
+    lrn = await _get_or_create_learner(learner)
     session_id = lrn.session_start(session_name)
     return {"session_id": session_id, "learner": learner}
 
 
-def _learning_session_end_impl(session_id: str) -> dict:
+async def _learning_session_end_impl(session_id: str) -> dict:
     """End a learning session and return summary."""
     _ensure_initialized()
     for lrn in _learners.values():
@@ -2927,15 +2945,15 @@ def _learning_session_end_impl(session_id: str) -> dict:
     return {"error": f"Session {session_id} not found in any learner"}
 
 
-def _learning_reset_impl(
+async def _learning_reset_impl(
     learner: str,
     arm_ids: list[str] | None = None,
     context: dict | None = None,
 ) -> dict:
     """Reset (delete) learned posteriors for a learner."""
     _ensure_initialized()
-    lrn = _get_or_create_learner(learner)
-    count = lrn.reset(arm_ids=arm_ids, context=context)
+    lrn = await _get_or_create_learner(learner)
+    count = await lrn.reset(arm_ids=arm_ids, context=context)
     # Evict from cache so seed boosts re-apply on next use
     _learners.pop(learner, None)
     return {"learner": learner, "deleted": count, "status": "reset"}
@@ -2948,7 +2966,7 @@ def _learning_reset_impl(
 
 @mcp.tool
 @_mcp_traced
-def qortex_learning_select(
+async def qortex_learning_select(
     learner: str,
     candidates: list[dict],
     context: dict | None = None,
@@ -2974,7 +2992,7 @@ def qortex_learning_select(
         seed_arms: Arm IDs to boost on first use. Applied when the learner is created.
         seed_boost: Alpha boost for seed arms (default 2.0 in LearnerConfig).
     """
-    return _learning_select_impl(
+    return await _learning_select_impl(
         learner,
         candidates,
         context,
@@ -2988,7 +3006,7 @@ def qortex_learning_select(
 
 @mcp.tool
 @_mcp_traced
-def qortex_learning_observe(
+async def qortex_learning_observe(
     learner: str,
     arm_id: str,
     outcome: str = "",
@@ -3007,12 +3025,12 @@ def qortex_learning_observe(
         reward: Direct reward 0.0-1.0. Overrides outcome if both given.
         context: Context dict matching the select call.
     """
-    return _learning_observe_impl(learner, arm_id, outcome, reward, context)
+    return await _learning_observe_impl(learner, arm_id, outcome, reward, context)
 
 
 @mcp.tool
 @_mcp_traced
-def qortex_learning_posteriors(
+async def qortex_learning_posteriors(
     learner: str,
     context: dict | None = None,
     arm_ids: list[str] | None = None,
@@ -3026,12 +3044,12 @@ def qortex_learning_posteriors(
         context: Optional context filter.
         arm_ids: Optional list of arm IDs to filter. None = all.
     """
-    return _learning_posteriors_impl(learner, context, arm_ids)
+    return await _learning_posteriors_impl(learner, context, arm_ids)
 
 
 @mcp.tool
 @_mcp_traced
-def qortex_learning_metrics(
+async def qortex_learning_metrics(
     learner: str,
     window: int | None = None,
 ) -> dict:
@@ -3043,12 +3061,12 @@ def qortex_learning_metrics(
         learner: Learner name.
         window: Optional window size (not yet implemented, reserved).
     """
-    return _learning_metrics_impl(learner, window)
+    return await _learning_metrics_impl(learner, window)
 
 
 @mcp.tool
 @_mcp_traced
-def qortex_learning_session_start(
+async def qortex_learning_session_start(
     learner: str,
     session_name: str,
 ) -> dict:
@@ -3058,23 +3076,23 @@ def qortex_learning_session_start(
         learner: Learner name.
         session_name: Human-readable session name.
     """
-    return _learning_session_start_impl(learner, session_name)
+    return await _learning_session_start_impl(learner, session_name)
 
 
 @mcp.tool
 @_mcp_traced
-def qortex_learning_session_end(session_id: str) -> dict:
+async def qortex_learning_session_end(session_id: str) -> dict:
     """End a learning session and return summary.
 
     Args:
         session_id: The session_id from qortex_learning_session_start.
     """
-    return _learning_session_end_impl(session_id)
+    return await _learning_session_end_impl(session_id)
 
 
 @mcp.tool
 @_mcp_traced
-def qortex_learning_reset(
+async def qortex_learning_reset(
     learner: str,
     arm_ids: list[str] | None = None,
     context: dict | None = None,
@@ -3089,7 +3107,7 @@ def qortex_learning_reset(
         arm_ids: Optional list of arm IDs to delete. None = all arms.
         context: Optional context dict to scope deletion. None = default context (or all if arm_ids also None).
     """
-    return _learning_reset_impl(learner, arm_ids, context)
+    return await _learning_reset_impl(learner, arm_ids, context)
 
 
 # ---------------------------------------------------------------------------

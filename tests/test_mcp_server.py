@@ -283,8 +283,8 @@ class TestQortexQuery:
 
 
 class TestQortexFeedback:
-    def test_feedback_returns_recorded(self, configured_server):
-        result = mcp_server._feedback_impl(
+    async def test_feedback_returns_recorded(self, configured_server):
+        result = await mcp_server._feedback_impl(
             query_id="test-qid",
             outcomes={"item1": "accepted", "item2": "rejected"},
             source="test",
@@ -293,15 +293,15 @@ class TestQortexFeedback:
         assert result["outcome_count"] == 2
         assert result["source"] == "test"
 
-    def test_feedback_with_default_source(self, configured_server):
-        result = mcp_server._feedback_impl(
+    async def test_feedback_with_default_source(self, configured_server):
+        result = await mcp_server._feedback_impl(
             query_id="test-qid",
             outcomes={"item1": "accepted"},
         )
         assert result["source"] == "unknown"
 
-    def test_feedback_empty_outcomes(self, configured_server):
-        result = mcp_server._feedback_impl(
+    async def test_feedback_empty_outcomes(self, configured_server):
+        result = await mcp_server._feedback_impl(
             query_id="test-qid",
             outcomes={},
         )
@@ -469,7 +469,7 @@ class TestIngestQueryRoundtrip:
 
         Path(path).unlink()
 
-    def test_ingest_then_query_with_feedback(self, configured_server, backend, embedding):
+    async def test_ingest_then_query_with_feedback(self, configured_server, backend, embedding):
         """Full loop: ingest → query → feedback."""
         from qortex.ingest.base import StubLLMBackend
 
@@ -487,7 +487,7 @@ class TestIngestQueryRoundtrip:
         query_result = mcp_server._query_impl(context="Test description")
         query_id = query_result["query_id"]
 
-        feedback_result = mcp_server._feedback_impl(
+        feedback_result = await mcp_server._feedback_impl(
             query_id=query_id,
             outcomes={"test:TestNode": "accepted"},
             source="test-harness",
@@ -600,20 +600,20 @@ class TestQortexCompare:
 
 
 class TestQortexStats:
-    def test_stats_returns_structure(self, configured_server):
+    async def test_stats_returns_structure(self, configured_server):
         """Stats should return all 4 top-level sections."""
-        result = mcp_server._stats_impl()
+        result = await mcp_server._stats_impl()
         assert "knowledge" in result
         assert "learning" in result
         assert "activity" in result
         assert "health" in result
 
-    def test_stats_knowledge_defaults(self, configured_server):
-        result = mcp_server._stats_impl()
+    async def test_stats_knowledge_defaults(self, configured_server):
+        result = await mcp_server._stats_impl()
         assert result["knowledge"]["domains"] >= 0
         assert result["knowledge"]["concepts"] >= 0
 
-    def test_stats_counts_domains(self, configured_server, backend, embedding):
+    async def test_stats_counts_domains(self, configured_server, backend, embedding):
         backend.create_domain("alpha", description="Alpha domain")
         backend.create_domain("beta", description="Beta domain")
         nodes = [
@@ -622,12 +622,12 @@ class TestQortexStats:
         ]
         _add_nodes_with_embeddings(backend, embedding, nodes)
 
-        result = mcp_server._stats_impl()
+        result = await mcp_server._stats_impl()
         assert result["knowledge"]["domains"] == 2
         assert "alpha" in result["knowledge"]["domain_breakdown"]
         assert "beta" in result["knowledge"]["domain_breakdown"]
 
-    def test_stats_tracks_queries(self, configured_server, backend, embedding):
+    async def test_stats_tracks_queries(self, configured_server, backend, embedding):
         """Query counter should increment after _query_impl calls."""
         nodes = [_make_node("n1", "Auth", "Authentication system")]
         _add_nodes_with_embeddings(backend, embedding, nodes)
@@ -638,44 +638,44 @@ class TestQortexStats:
         mcp_server._query_impl(context="auth again")
         assert mcp_server._query_count == 2
 
-        result = mcp_server._stats_impl()
+        result = await mcp_server._stats_impl()
         assert result["activity"]["queries_served"] == 2
 
-    def test_stats_tracks_feedback(self, configured_server):
+    async def test_stats_tracks_feedback(self, configured_server):
         """Feedback counter should increment with per-outcome tracking."""
-        mcp_server._feedback_impl("q1", {"i1": "accepted", "i2": "rejected"})
-        mcp_server._feedback_impl("q2", {"i3": "accepted"})
+        await mcp_server._feedback_impl("q1", {"i1": "accepted", "i2": "rejected"})
+        await mcp_server._feedback_impl("q2", {"i3": "accepted"})
 
-        result = mcp_server._stats_impl()
+        result = await mcp_server._stats_impl()
         assert result["activity"]["feedback_given"] == 2
         assert result["activity"]["outcomes"]["accepted"] == 2
         assert result["activity"]["outcomes"]["rejected"] == 1
 
-    def test_stats_feedback_rate(self, configured_server, backend, embedding):
+    async def test_stats_feedback_rate(self, configured_server, backend, embedding):
         """Feedback rate = feedback_count / query_count."""
         nodes = [_make_node("n1", "Auth", "Auth system")]
         _add_nodes_with_embeddings(backend, embedding, nodes)
 
         mcp_server._query_impl(context="auth")
         mcp_server._query_impl(context="auth2")
-        mcp_server._feedback_impl("q1", {"i1": "accepted"})
+        await mcp_server._feedback_impl("q1", {"i1": "accepted"})
 
-        result = mcp_server._stats_impl()
+        result = await mcp_server._stats_impl()
         assert result["activity"]["feedback_rate"] == 0.5
 
-    def test_stats_health_section(self, configured_server):
-        result = mcp_server._stats_impl()
+    async def test_stats_health_section(self, configured_server):
+        result = await mcp_server._stats_impl()
         assert result["health"]["backend"] == "InMemoryBackend"
         assert result["health"]["persistence"]["persistent"] is False
 
-    def test_stats_no_learners(self, configured_server):
-        result = mcp_server._stats_impl()
+    async def test_stats_no_learners(self, configured_server):
+        result = await mcp_server._stats_impl()
         assert result["learning"]["learners"] == 0
         assert result["learning"]["total_observations"] == 0
 
-    def test_stats_feedback_rate_zero_queries(self, configured_server):
+    async def test_stats_feedback_rate_zero_queries(self, configured_server):
         """When no queries have been served, feedback_rate should be 0.0."""
-        result = mcp_server._stats_impl()
+        result = await mcp_server._stats_impl()
         assert result["activity"]["feedback_rate"] == 0.0
 
     def test_stats_counters_reset_on_create_server(self, backend, embedding, vector_index):
@@ -701,9 +701,9 @@ class TestQortexStats:
 class TestFeedbackInvalidOutcome:
     """P0: Invalid outcomes must not increment counters."""
 
-    def test_invalid_outcome_returns_error(self, configured_server):
+    async def test_invalid_outcome_returns_error(self, configured_server):
         """An unrecognized outcome value should return error, not increment."""
-        result = mcp_server._feedback_impl("q1", {"i1": "bogus"})
+        result = await mcp_server._feedback_impl("q1", {"i1": "bogus"})
         assert "error" in result
         assert mcp_server._feedback_count == 0
         assert mcp_server._feedback_outcomes == {
@@ -712,9 +712,9 @@ class TestFeedbackInvalidOutcome:
             "partial": 0,
         }
 
-    def test_valid_outcomes_still_increment(self, configured_server):
+    async def test_valid_outcomes_still_increment(self, configured_server):
         """Sanity: valid outcomes do increment counters."""
-        mcp_server._feedback_impl("q1", {"i1": "accepted"})
+        await mcp_server._feedback_impl("q1", {"i1": "accepted"})
         assert mcp_server._feedback_count == 1
         assert mcp_server._feedback_outcomes["accepted"] == 1
 
@@ -735,7 +735,7 @@ class TestQueryErrorDoesNotIncrement:
 class TestStatsWithLearners:
     """P0: Stats should report real Learner metrics."""
 
-    def test_stats_with_real_learner(self, configured_server, tmp_path):
+    async def test_stats_with_real_learner(self, configured_server, tmp_path):
         """Inject a Learner instance and verify stats reflects it."""
         from qortex.learning.learner import Learner
         from qortex.learning.types import LearnerConfig
@@ -744,7 +744,7 @@ class TestStatsWithLearners:
         learner = Learner(config)
         mcp_server._learners["test-learner"] = learner
 
-        result = mcp_server._stats_impl()
+        result = await mcp_server._stats_impl()
         assert result["learning"]["learners"] == 1
         assert "test-learner" in result["learning"]["learner_breakdown"]
         breakdown = result["learning"]["learner_breakdown"]["test-learner"]
