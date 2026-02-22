@@ -107,7 +107,9 @@ class TestLearningObserveMCP:
     async def test_observe_multiple(self, server):
         await server._learning_observe_impl(learner="test", arm_id="arm:a", outcome="accepted")
         await server._learning_observe_impl(learner="test", arm_id="arm:a", outcome="accepted")
-        result = await server._learning_observe_impl(learner="test", arm_id="arm:a", outcome="rejected")
+        result = await server._learning_observe_impl(
+            learner="test", arm_id="arm:a", outcome="rejected"
+        )
 
         assert result["pulls"] == 3
         assert result["alpha"] == 3.0
