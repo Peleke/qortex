@@ -5,7 +5,6 @@ from __future__ import annotations
 import asyncio
 
 import pytest
-
 from qortex.learning.store import (
     JsonLearningStore,
     LearningStore,
@@ -18,10 +17,10 @@ from qortex.learning.types import ArmState
 async def store(request, tmp_path) -> LearningStore:
     if request.param == "sqlite":
         s = SqliteLearningStore("test-store", str(tmp_path))
-        yield s
-        await s.close()
     else:
-        yield JsonLearningStore("test-store", str(tmp_path))
+        s = JsonLearningStore("test-store", str(tmp_path))
+    yield s
+    await s.close()
 
 
 @pytest.fixture

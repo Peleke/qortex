@@ -215,16 +215,15 @@ class TestMcpTracedDecorator:
         """Every @mcp.tool wrapper should also have @_mcp_traced."""
         from qortex.mcp.server import mcp
 
-        # Use the public FastMCP API to list registered tools.
+        # Use public API to list tools (avoids private _tool_manager._tools)
         tools = await mcp.get_tools()
-        assert len(tools) >= 36, f"Expected >= 36 tools, got {len(tools)}"
+        assert len(tools) >= 36, f"Expected >=36 tools, got {len(tools)}"
 
-        for name, tool in tools.items():
-            # FunctionTool stores the decorated fn; check __wrapped__ from _mcp_traced
+        for tool in tools:
             if hasattr(tool, "fn"):
                 fn = tool.fn
                 assert hasattr(fn, "__wrapped__"), (
-                    f"{name} missing __wrapped__ -- not decorated with @_mcp_traced"
+                    f"{tool.name} missing __wrapped__ -- not decorated with @_mcp_traced"
                 )
 
     def test_traced_decorator_creates_span(self):

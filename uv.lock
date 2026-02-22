@@ -3763,6 +3763,7 @@ vec-sqlite = [
 dev = [
     { name = "hypothesis" },
     { name = "mypy" },
+    { name = "opentelemetry-sdk" },
     { name = "pytest" },
     { name = "pytest-asyncio" },
     { name = "pytest-cov" },
@@ -3818,6 +3819,7 @@ provides-extras = ["pdf", "vec", "vec-sqlite", "source-postgres", "mcp", "causal
 dev = [
     { name = "hypothesis", specifier = ">=6.151.5" },
     { name = "mypy", specifier = ">=1.8" },
+    { name = "opentelemetry-sdk", specifier = ">=1.20" },
     { name = "pytest", specifier = ">=8.0" },
     { name = "pytest-asyncio", specifier = ">=0.23" },
     { name = "pytest-cov", specifier = ">=4.0" },

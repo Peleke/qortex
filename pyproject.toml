@@ -156,9 +156,7 @@ pythonpath = ["src", "packages/qortex-observe/src", "packages/qortex-ingest/src"
 markers = [
     "integration: requires Docker Compose services",
 ]
-filterwarnings = [
-    "ignore::RuntimeWarning:aiosqlite",
-]
+filterwarnings = ["ignore::RuntimeWarning:aiosqlite"]
 
 [dependency-groups]
 dev = [
@@ -168,6 +166,7 @@ dev = [
     "hypothesis>=6.151.5",
     "ruff>=0.2",
     "mypy>=1.8",
+    "opentelemetry-sdk>=1.20",
 ]
 
 [tool.uv.workspace]

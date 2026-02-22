@@ -3,11 +3,10 @@
 from __future__ import annotations
 
 import pytest
-from qortex.observe import reset as obs_reset
-
 from qortex.learning.learner import Learner
 from qortex.learning.store import JsonLearningStore, SqliteLearningStore
 from qortex.learning.types import Arm, ArmOutcome, LearnerConfig
+from qortex.observe import reset as obs_reset
 
 
 @pytest.fixture(autouse=True)
@@ -42,10 +41,8 @@ def config(state_dir):
 @pytest.fixture
 async def learner(config, store_backend):
     store = store_backend(config.name)
-    l = Learner(config, store=store)
-    yield l
-    if hasattr(store, "close"):
-        await store.close()
+    yield Learner(config, store=store)
+    await store.close()
 
 
 class TestLearnerSelect:

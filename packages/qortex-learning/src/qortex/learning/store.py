@@ -142,6 +142,9 @@ class JsonLearningStore:
     async def get_all_states(self) -> dict[str, dict[str, ArmState]]:
         return {ctx: dict(arms) for ctx, arms in self._data.items()}
 
+    async def close(self) -> None:
+        """No-op for JSON backend (interface consistency)."""
+
 
 # ---------------------------------------------------------------------------
 # SQLite backend
@@ -153,7 +156,8 @@ class SqliteLearningStore:
 
     File layout: {state_dir}/{learner_name}.db
     Context partitioning via composite primary key (context_hash, arm_id).
-    Fully async — no threading.Lock needed, aiosqlite serializes internally.
+    Fully async. Uses asyncio.Lock to prevent connection init races and
+    serialize write operations (put/save/delete/close).
     """
 
     def __init__(self, learner_name: str, state_dir: str = "") -> None:
@@ -165,30 +169,42 @@ class SqliteLearningStore:
         self._dir.mkdir(parents=True, exist_ok=True)
         self._db_path = self._dir / f"{self._name}.db"
         self._conn: aiosqlite.Connection | None = None
+        self._lock = asyncio.Lock()
+
+    async def close(self) -> None:
+        """Close the aiosqlite connection to prevent event loop race."""
+        async with self._lock:
+            if self._conn is not None:
+                await self._conn.close()
+                self._conn = None
 
     async def _ensure_connection(self) -> aiosqlite.Connection:
         if self._conn is not None:
             return self._conn
-        self._conn = await aiosqlite.connect(str(self._db_path))
-        await self._conn.execute("PRAGMA journal_mode = WAL")
-        await self._conn.execute("PRAGMA busy_timeout = 3000")
-        await self._conn.execute("""
-            CREATE TABLE IF NOT EXISTS arm_states (
-                context_hash TEXT NOT NULL,
-                arm_id TEXT NOT NULL,
-                alpha REAL NOT NULL DEFAULT 1.0,
-                beta REAL NOT NULL DEFAULT 1.0,
-                pulls INTEGER NOT NULL DEFAULT 0,
-                total_reward REAL NOT NULL DEFAULT 0.0,
-                last_updated TEXT NOT NULL DEFAULT '',
-                PRIMARY KEY (context_hash, arm_id)
+        async with self._lock:
+            # Double-check after acquiring lock
+            if self._conn is not None:
+                return self._conn
+            self._conn = await aiosqlite.connect(str(self._db_path))
+            await self._conn.execute("PRAGMA journal_mode = WAL")
+            await self._conn.execute("PRAGMA busy_timeout = 5000")
+            await self._conn.execute("""
+                CREATE TABLE IF NOT EXISTS arm_states (
+                    context_hash TEXT NOT NULL,
+                    arm_id TEXT NOT NULL,
+                    alpha REAL NOT NULL DEFAULT 1.0,
+                    beta REAL NOT NULL DEFAULT 1.0,
+                    pulls INTEGER NOT NULL DEFAULT 0,
+                    total_reward REAL NOT NULL DEFAULT 0.0,
+                    last_updated TEXT NOT NULL DEFAULT '',
+                    PRIMARY KEY (context_hash, arm_id)
+                )
+            """)
+            await self._conn.execute(
+                "CREATE INDEX IF NOT EXISTS idx_arm_states_context ON arm_states(context_hash)"
             )
-        """)
-        await self._conn.execute(
-            "CREATE INDEX IF NOT EXISTS idx_arm_states_context ON arm_states(context_hash)"
-        )
-        await self._conn.commit()
-        return self._conn
+            await self._conn.commit()
+            return self._conn
 
     async def get(self, arm_id: str, context: dict | None = None) -> ArmState:
         conn = await self._ensure_connection()
@@ -246,7 +262,6 @@ class SqliteLearningStore:
                 state.last_updated,
             ),
         )
-        await conn.commit()
 
     async def get_all_contexts(self) -> list[str]:
         conn = await self._ensure_connection()
@@ -282,29 +297,30 @@ class SqliteLearningStore:
         if arm_ids is not None and len(arm_ids) == 0:
             return 0
         conn = await self._ensure_connection()
-        if arm_ids is None and context is None:
-            cursor = await conn.execute("DELETE FROM arm_states")
-        elif arm_ids is None:
-            ctx = context_hash(context or {})
-            cursor = await conn.execute(
-                "DELETE FROM arm_states WHERE context_hash = ?", (ctx,)
-            )
-        elif context is None:
-            ctx = context_hash({})
-            placeholders = ",".join("?" for _ in arm_ids)
-            cursor = await conn.execute(
-                f"DELETE FROM arm_states WHERE context_hash = ? AND arm_id IN ({placeholders})",
-                (ctx, *arm_ids),
-            )
-        else:
-            ctx = context_hash(context)
-            placeholders = ",".join("?" for _ in arm_ids)
-            cursor = await conn.execute(
-                f"DELETE FROM arm_states WHERE context_hash = ? AND arm_id IN ({placeholders})",
-                (ctx, *arm_ids),
-            )
-        await conn.commit()
-        return cursor.rowcount
+        async with self._lock:
+            if arm_ids is None and context is None:
+                cursor = await conn.execute("DELETE FROM arm_states")
+            elif arm_ids is None:
+                ctx = context_hash(context or {})
+                cursor = await conn.execute(
+                    "DELETE FROM arm_states WHERE context_hash = ?", (ctx,)
+                )
+            elif context is None:
+                ctx = context_hash({})
+                placeholders = ",".join("?" for _ in arm_ids)
+                cursor = await conn.execute(
+                    f"DELETE FROM arm_states WHERE context_hash = ? AND arm_id IN ({placeholders})",
+                    (ctx, *arm_ids),
+                )
+            else:
+                ctx = context_hash(context)
+                placeholders = ",".join("?" for _ in arm_ids)
+                cursor = await conn.execute(
+                    f"DELETE FROM arm_states WHERE context_hash = ? AND arm_id IN ({placeholders})",
+                    (ctx, *arm_ids),
+                )
+            await conn.commit()
+            return cursor.rowcount
 
     async def close(self) -> None:
         """Close the underlying aiosqlite connection.
@@ -320,5 +336,6 @@ class SqliteLearningStore:
             self._conn = None
 
     async def save(self) -> None:
-        if self._conn is not None:
-            await self._conn.commit()
+        async with self._lock:
+            if self._conn is not None:
+                await self._conn.commit()
