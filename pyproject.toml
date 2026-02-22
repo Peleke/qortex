@@ -89,8 +89,14 @@ observability = [
 nlp = [
     "qortex-online[nlp]",
 ]
+adapters = [
+    "sentence-transformers>=2.2",
+    "langchain-core>=0.2",
+    "autogen-core>=0.4",
+    "agno>=1.0",
+]
 all = [
-    "qortex[pdf,vec-sqlite,mcp,llm,memgraph,causal,source-postgres,observability,nlp,dev]",
+    "qortex[pdf,vec-sqlite,mcp,llm,memgraph,causal,source-postgres,observability,nlp,dev,adapters]",
 ]
 
 [project.scripts]

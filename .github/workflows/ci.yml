@@ -81,3 +81,53 @@ jobs:
           files: coverage.xml
           fail_ci_if_error: false
           token: ${{ secrets.CODECOV_TOKEN }}
+
+  adapters:
+    name: Adapter Regression (latest frameworks)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v4
+
+      - name: Install with all adapter deps (latest versions)
+        run: |
+          uv pip install --system -e ".[dev,llm,mcp,observability,adapters]"
+          # Upgrade adapter frameworks to absolute latest (override pins)
+          uv pip install --system --upgrade \
+            langchain-core \
+            autogen-core \
+            agno \
+            sentence-transformers
+
+      - name: Run adapter tests
+        run: |
+          pytest tests/test_e2e_agno.py \
+                 tests/test_e2e_mastra.py \
+                 tests/test_autogen_adapter.py \
+                 tests/test_dropin_dogfood.py \
+                 tests/test_framework_compat.py \
+                 tests/test_mastra_mcp_dogfood.py \
+                 tests/test_mastra_vector_dogfood.py \
+                 tests/test_langchain_vectorstore.py \
+                 tests/test_langchain_e2e_dogfood.py \
+                 tests/test_client.py \
+                 -v --tb=short
+
+      - name: Verify zero skipped adapter tests
+        run: |
+          # Run adapter E2E tests and fail if any are skipped
+          # (sentence-transformers must be installed, so no skips expected)
+          result=$(pytest tests/test_e2e_agno.py tests/test_e2e_mastra.py \
+                         tests/test_autogen_adapter.py \
+                         -v --tb=short 2>&1)
+          echo "$result"
+          if echo "$result" | grep -q "skipped"; then
+            echo "ERROR: Adapter tests were skipped — missing dependencies in CI"
+            exit 1
+          fi
