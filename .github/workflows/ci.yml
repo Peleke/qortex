@@ -97,7 +97,7 @@ jobs:
 
       - name: Install with all adapter deps (latest versions)
         run: |
-          uv pip install --system -e ".[dev,llm,mcp,observability,adapters]"
+          uv pip install --system -e ".[dev,llm,mcp,observability,adapters,vec]"
           # Upgrade adapter frameworks to absolute latest (override pins)
           uv pip install --system --upgrade \
             langchain-core \

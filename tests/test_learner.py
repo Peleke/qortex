@@ -40,8 +40,12 @@ def config(state_dir):
 
 
 @pytest.fixture
-def learner(config, store_backend):
-    return Learner(config, store=store_backend(config.name))
+async def learner(config, store_backend):
+    store = store_backend(config.name)
+    l = Learner(config, store=store)
+    yield l
+    if hasattr(store, "close"):
+        await store.close()
 
 
 class TestLearnerSelect:

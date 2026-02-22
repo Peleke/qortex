@@ -132,6 +132,10 @@ class JsonLearningStore:
                     del self._data[ctx]
         return count
 
+    async def close(self) -> None:
+        """No-op for JSON backend (no connection to close)."""
+        pass
+
     async def get_all_contexts(self) -> list[str]:
         return list(self._data.keys())
 
@@ -301,6 +305,19 @@ class SqliteLearningStore:
             )
         await conn.commit()
         return cursor.rowcount
+
+    async def close(self) -> None:
+        """Close the underlying aiosqlite connection.
+
+        Call this during teardown to avoid RuntimeError('Event loop is closed')
+        from aiosqlite's background thread.
+        """
+        if self._conn is not None:
+            try:
+                await self._conn.close()
+            except Exception:
+                pass
+            self._conn = None
 
     async def save(self) -> None:
         if self._conn is not None:

@@ -15,10 +15,13 @@ from qortex.learning.types import ArmState
 
 
 @pytest.fixture(params=["sqlite", "json"], ids=["sqlite", "json"])
-def store(request, tmp_path) -> LearningStore:
+async def store(request, tmp_path) -> LearningStore:
     if request.param == "sqlite":
-        return SqliteLearningStore("test-store", str(tmp_path))
-    return JsonLearningStore("test-store", str(tmp_path))
+        s = SqliteLearningStore("test-store", str(tmp_path))
+        yield s
+        await s.close()
+    else:
+        yield JsonLearningStore("test-store", str(tmp_path))
 
 
 @pytest.fixture
@@ -174,7 +177,7 @@ class TestSqlitePersistence:
         store1 = SqliteLearningStore("persist-test", state_dir)
         await store1.put("arm:a", ArmState(alpha=7.0, beta=2.0, pulls=10, total_reward=7.0))
         await store1.save()
-        del store1
+        await store1.close()
 
         # New instance, same path
         store2 = SqliteLearningStore("persist-test", state_dir)
@@ -183,17 +186,19 @@ class TestSqlitePersistence:
         assert got.beta == 2.0
         assert got.pulls == 10
         assert got.total_reward == 7.0
+        await store2.close()
 
     async def test_context_partitioning_persists(self, state_dir):
         store1 = SqliteLearningStore("ctx-persist", state_dir)
         await store1.put("arm:a", ArmState(alpha=5.0), context={"task": "x"})
         await store1.put("arm:a", ArmState(alpha=9.0), context={"task": "y"})
         await store1.save()
-        del store1
+        await store1.close()
 
         store2 = SqliteLearningStore("ctx-persist", state_dir)
         assert (await store2.get("arm:a", context={"task": "x"})).alpha == 5.0
         assert (await store2.get("arm:a", context={"task": "y"})).alpha == 9.0
+        await store2.close()
 
     async def test_lazy_connection(self, state_dir):
         store = SqliteLearningStore("lazy-test", state_dir)
@@ -204,6 +209,7 @@ class TestSqlitePersistence:
         assert not os.path.exists(db_path)
         await store.get("arm:a")
         assert os.path.exists(db_path)
+        await store.close()
 
 
 # ---------------------------------------------------------------------------
@@ -351,6 +357,7 @@ class TestSqliteConcurrency:
         # All 50 arms persisted
         all_states = await store.get_all()
         assert len(all_states) == 50
+        await store.close()
 
     async def test_concurrent_same_arm_no_crash(self, tmp_path):
         """Multiple async tasks updating the same arm must not raise."""
@@ -372,3 +379,4 @@ class TestSqliteConcurrency:
 
         final = await store.get("arm:shared")
         assert final.pulls >= 1  # at least some updates landed
+        await store.close()

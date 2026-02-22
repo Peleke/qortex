@@ -339,7 +339,6 @@ class TestCreditPropagatedEvent:
 
         from qortex.observe.config import ObservabilityConfig
         from qortex.observe.emitter import configure, emit, reset
-
         from qortex.observe.events import CreditPropagated
 
         reset()
