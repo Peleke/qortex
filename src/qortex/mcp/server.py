@@ -80,7 +80,25 @@ logger = get_logger(__name__)
 
 
 def _mcp_traced(fn):
-    """Wrap an MCP tool handler with distributed trace middleware."""
+    """Wrap an MCP tool handler with distributed trace middleware.
+
+    Preserves async-ness: if ``fn`` is a coroutine function the wrapper
+    is also ``async def`` so that FastMCP (which dispatches based on
+    ``asyncio.iscoroutinefunction``) correctly awaits the result.
+    """
+    import asyncio
+    import inspect
+
+    if inspect.iscoroutinefunction(fn):
+
+        @functools.wraps(fn)
+        async def async_wrapper(**kwargs):
+            result = mcp_trace_middleware(fn.__name__, kwargs, lambda p: fn(**p))
+            if asyncio.iscoroutine(result):
+                return await result
+            return result
+
+        return async_wrapper
 
     @functools.wraps(fn)
     def wrapper(**kwargs):

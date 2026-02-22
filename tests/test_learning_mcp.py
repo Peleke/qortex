@@ -253,3 +253,65 @@ class TestLearnerAutoCreation:
 
         assert alpha_p["posteriors"]["arm:a"]["alpha"] == 2.0
         assert beta_p["posteriors"]["arm:a"]["alpha"] == 1.0
+
+
+class TestAsyncMCPDispatch:
+    """Verify async tools work through FastMCP's actual dispatch path.
+
+    Uses FunctionTool.run() — the same path FastMCP uses for JSON-RPC
+    dispatch — to ensure _mcp_traced preserves async-ness.
+    """
+
+    async def test_async_select_through_fastmcp_dispatch(self, server):
+        """FunctionTool.run() must return a ToolResult with structured_content."""
+        import inspect
+
+        tool = mcp_server.qortex_learning_select
+        # Verify the wrapped fn is recognized as async
+        assert inspect.iscoroutinefunction(tool.fn)
+
+        result = await tool.run(
+            arguments={
+                "learner": "dispatch-test",
+                "candidates": [{"id": "arm:a"}, {"id": "arm:b"}],
+                "k": 1,
+            }
+        )
+        # ToolResult.structured_content holds the dict returned by the tool
+        data = result.structured_content or result.content
+        assert data is not None
+        # Must be a real result, not a coroutine object
+        assert not inspect.iscoroutine(data)
+
+    async def test_async_observe_through_fastmcp_dispatch(self, server):
+        import inspect
+
+        tool = mcp_server.qortex_learning_observe
+        result = await tool.run(
+            arguments={
+                "learner": "dispatch-test",
+                "arm_id": "arm:a",
+                "outcome": "accepted",
+            }
+        )
+        data = result.structured_content or result.content
+        assert data is not None
+        assert not inspect.iscoroutine(data)
+
+    async def test_async_posteriors_through_fastmcp_dispatch(self, server):
+        import inspect
+
+        # Observe first so there's data
+        await mcp_server.qortex_learning_observe.run(
+            arguments={
+                "learner": "dispatch-test",
+                "arm_id": "arm:a",
+                "outcome": "accepted",
+            }
+        )
+        result = await mcp_server.qortex_learning_posteriors.run(
+            arguments={"learner": "dispatch-test"}
+        )
+        data = result.structured_content or result.content
+        assert data is not None
+        assert not inspect.iscoroutine(data)
