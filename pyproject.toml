@@ -32,6 +32,7 @@ dependencies = [
     "qortex-observe",
     "qortex-ingest",
     "qortex-online",
+    "qortex-learning",
 ]
 
 [project.optional-dependencies]
@@ -110,7 +111,7 @@ packages = ["src/qortex"]
 [tool.ruff]
 line-length = 100
 target-version = "py311"
-namespace-packages = ["src/qortex", "packages/qortex-observe/src/qortex", "packages/qortex-ingest/src/qortex", "packages/qortex-online/src/qortex"]
+namespace-packages = ["src/qortex", "packages/qortex-observe/src/qortex", "packages/qortex-ingest/src/qortex", "packages/qortex-online/src/qortex", "packages/qortex-learning/src/qortex"]
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "UP", "B", "SIM"]
@@ -130,7 +131,7 @@ warn_unused_configs = true
 ignore_missing_imports = true
 namespace_packages = true
 explicit_package_bases = true
-mypy_path = "src:packages/qortex-observe/src:packages/qortex-ingest/src:packages/qortex-online/src"
+mypy_path = "src:packages/qortex-observe/src:packages/qortex-ingest/src:packages/qortex-online/src:packages/qortex-learning/src"
 # Temporarily disable error codes pending proper type fixes (Phase 2)
 disable_error_code = [
     "var-annotated",   # Type annotation hints
@@ -145,7 +146,7 @@ disable_error_code = [
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
 testpaths = ["tests"]
-pythonpath = ["src", "packages/qortex-observe/src", "packages/qortex-ingest/src", "packages/qortex-online/src"]
+pythonpath = ["src", "packages/qortex-observe/src", "packages/qortex-ingest/src", "packages/qortex-online/src", "packages/qortex-learning/src"]
 markers = [
     "integration: requires Docker Compose services",
 ]
@@ -167,3 +168,4 @@ members = ["packages/*"]
 qortex-observe = { workspace = true }
 qortex-ingest = { workspace = true }
 qortex-online = { workspace = true }
+qortex-learning = { workspace = true }
