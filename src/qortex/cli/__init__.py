@@ -46,6 +46,32 @@ def mcp_serve(
     serve(transport=transport)
 
 
+@app.command("serve")
+def serve(
+    host: str = typer.Option("127.0.0.1", help="Bind host."),
+    port: int = typer.Option(8400, help="Bind port."),
+    workers: int = typer.Option(1, help="Number of workers."),
+    reload: bool = typer.Option(False, help="Auto-reload on code changes."),
+) -> None:
+    """Start the qortex REST API server.
+
+    Serves the knowledge graph over HTTP. All framework adapters
+    (Agno, AutoGen, LangChain, Mastra, CrewAI) can connect via
+    HttpQortexClient.
+    """
+    import uvicorn
+
+    from qortex.api.app import create_app
+
+    uvicorn.run(
+        create_app(),
+        host=host,
+        port=port,
+        workers=workers,
+        reload=reload,
+    )
+
+
 def main() -> None:
     """Entry point for the qortex CLI."""
     app()

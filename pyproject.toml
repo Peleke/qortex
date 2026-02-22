@@ -76,6 +76,8 @@ dev = [
     "networkx>=3.0",
     "langchain-core>=0.2",
     "typer>=0.15",
+    "starlette>=0.36",
+    "httpx>=0.27",
 ]
 llm = [
     "anthropic>=0.18",
@@ -89,6 +91,13 @@ observability = [
 nlp = [
     "qortex-online[nlp]",
 ]
+server = [
+    "starlette>=0.36",
+    "uvicorn[standard]>=0.25",
+]
+http-client = [
+    "httpx>=0.27",
+]
 adapters = [
     "sentence-transformers>=2.2",
     "langchain-core>=0.2",
@@ -96,7 +105,7 @@ adapters = [
     "agno>=1.0",
 ]
 all = [
-    "qortex[pdf,vec-sqlite,mcp,llm,memgraph,causal,source-postgres,observability,nlp,dev,adapters]",
+    "qortex[pdf,vec-sqlite,mcp,llm,memgraph,causal,source-postgres,observability,nlp,dev,adapters,server,http-client]",
 ]
 
 [project.scripts]
