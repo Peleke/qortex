@@ -1,8 +1,8 @@
-"""HttpQortexClient: QortexClient implementation that talks to a remote server.
+"""HttpQortexClient: async HTTP client for the qortex REST API.
 
-Drop-in replacement for LocalQortexClient. All framework adapters
-(Agno, AutoGen, LangChain, Mastra, CrewAI) work transparently because
-they accept QortexClient in their constructors.
+Uses httpx.AsyncClient for native async I/O. No threadpool overhead.
+All framework adapters (Agno, AutoGen, LangChain, Mastra, CrewAI) can
+use this directly in their async methods.
 
 Install: pip install qortex[http-client]
 """
@@ -27,7 +27,7 @@ from qortex.client import (
 
 
 class HttpQortexClient:
-    """QortexClient that talks to a qortex REST API server via HTTP.
+    """Async HTTP client for the qortex REST API.
 
     Auth modes (mutually exclusive):
     - ``api_key``: sent as ``Authorization: Bearer <key>``
@@ -55,14 +55,14 @@ class HttpQortexClient:
         if self._hmac_secret:
             event_hooks["request"] = [self._sign_request]
 
-        self._client = httpx.Client(
+        self._client = httpx.AsyncClient(
             base_url=base_url,
             headers=headers,
             timeout=timeout,
             event_hooks=event_hooks,
         )
 
-    def _sign_request(self, request: Any) -> None:
+    async def _sign_request(self, request: Any) -> None:
         """Add HMAC-SHA256 signature headers to outgoing requests."""
         import hashlib
         import hmac
@@ -81,27 +81,27 @@ class HttpQortexClient:
         request.headers["X-Qortex-Timestamp"] = timestamp
         request.headers["X-Qortex-Signature"] = signature
 
-    def close(self) -> None:
-        self._client.close()
+    async def close(self) -> None:
+        await self._client.aclose()
 
-    def __enter__(self):
+    async def __aenter__(self):
         return self
 
-    def __exit__(self, *args):
-        self.close()
+    async def __aexit__(self, *args):
+        await self.close()
 
     # ------------------------------------------------------------------
-    # QortexClient protocol methods
+    # QortexClient protocol methods (async)
     # ------------------------------------------------------------------
 
-    def query(
+    async def query(
         self,
         context: str,
         domains: list[str] | None = None,
         top_k: int = 20,
         min_confidence: float = 0.0,
     ) -> QueryResult:
-        resp = self._client.post(
+        resp = await self._client.post(
             "/v1/query",
             json={
                 "context": context,
@@ -118,13 +118,13 @@ class HttpQortexClient:
             rules=[RuleItem(**r) for r in data.get("rules", [])],
         )
 
-    def feedback(
+    async def feedback(
         self,
         query_id: str,
         outcomes: dict[str, str],
         source: str = "unknown",
     ) -> FeedbackResult:
-        resp = self._client.post(
+        resp = await self._client.post(
             "/v1/feedback",
             json={
                 "query_id": query_id,
@@ -141,7 +141,7 @@ class HttpQortexClient:
             source=data.get("source", ""),
         )
 
-    def ingest(
+    async def ingest(
         self,
         source_path: str,
         domain: str,
@@ -154,7 +154,7 @@ class HttpQortexClient:
         if source_type is not None:
             payload["source_type"] = source_type
 
-        resp = self._client.post("/v1/ingest", json=payload)
+        resp = await self._client.post("/v1/ingest", json=payload)
         resp.raise_for_status()
         data = resp.json()
         return IngestResult(
@@ -166,7 +166,7 @@ class HttpQortexClient:
             warnings=data.get("warnings", []),
         )
 
-    def ingest_text(
+    async def ingest_text(
         self,
         text: str,
         domain: str,
@@ -181,7 +181,7 @@ class HttpQortexClient:
         if name is not None:
             payload["name"] = name
 
-        resp = self._client.post("/v1/ingest/text", json=payload)
+        resp = await self._client.post("/v1/ingest/text", json=payload)
         resp.raise_for_status()
         data = resp.json()
         return IngestResult(
@@ -193,7 +193,7 @@ class HttpQortexClient:
             warnings=data.get("warnings", []),
         )
 
-    def ingest_structured(
+    async def ingest_structured(
         self,
         concepts: list[dict[str, Any]],
         domain: str,
@@ -209,7 +209,7 @@ class HttpQortexClient:
         if rules is not None:
             payload["rules"] = rules
 
-        resp = self._client.post("/v1/ingest/structured", json=payload)
+        resp = await self._client.post("/v1/ingest/structured", json=payload)
         resp.raise_for_status()
         data = resp.json()
         return IngestResult(
@@ -221,14 +221,14 @@ class HttpQortexClient:
             warnings=data.get("warnings", []),
         )
 
-    def domains(self) -> list[DomainInfo]:
-        resp = self._client.get("/v1/domains")
+    async def domains(self) -> list[DomainInfo]:
+        resp = await self._client.get("/v1/domains")
         resp.raise_for_status()
         data = resp.json()
         return [DomainInfo(**d) for d in data.get("domains", [])]
 
-    def status(self) -> StatusResult:
-        resp = self._client.get("/v1/status")
+    async def status(self) -> StatusResult:
+        resp = await self._client.get("/v1/status")
         resp.raise_for_status()
         data = resp.json()
         return StatusResult(
@@ -241,12 +241,12 @@ class HttpQortexClient:
             embedding_model=data.get("embedding_model"),
         )
 
-    def explore(
+    async def explore(
         self,
         node_id: str,
         depth: int = 1,
     ) -> ExploreResult | None:
-        resp = self._client.post(
+        resp = await self._client.post(
             "/v1/explore",
             json={"node_id": node_id, "depth": depth},
         )
@@ -263,7 +263,7 @@ class HttpQortexClient:
             neighbors=[NodeItem(**n) for n in data.get("neighbors", [])],
         )
 
-    def rules(
+    async def rules(
         self,
         domains: list[str] | None = None,
         concept_ids: list[str] | None = None,
@@ -271,7 +271,7 @@ class HttpQortexClient:
         include_derived: bool = True,
         min_confidence: float = 0.0,
     ) -> RulesResult:
-        resp = self._client.post(
+        resp = await self._client.post(
             "/v1/rules",
             json={
                 "domains": domains,

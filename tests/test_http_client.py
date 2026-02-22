@@ -1,16 +1,16 @@
-"""Tests for HttpQortexClient.
+"""Tests for HttpQortexClient (async).
 
-Uses Starlette TestClient as the backing server — no real HTTP needed.
-Verifies that HttpQortexClient correctly deserializes responses into
-protocol result types (QueryResult, DomainInfo, etc.).
+Uses httpx.AsyncClient with ASGITransport as the backing server —
+no real HTTP needed. Verifies that HttpQortexClient correctly
+deserializes responses into protocol result types.
 """
 
 from __future__ import annotations
 
 import hashlib
 
+import httpx
 import pytest
-from starlette.testclient import TestClient
 
 from qortex.api.app import create_app
 from qortex.api.middleware import AuthConfig
@@ -59,20 +59,23 @@ def service() -> QortexService:
 
 
 @pytest.fixture
-def http_client(service) -> HttpQortexClient:
-    """HttpQortexClient backed by a Starlette TestClient."""
-    # Disable auth for HTTP client tests
+async def http_client(service) -> HttpQortexClient:
+    """HttpQortexClient backed by httpx ASGITransport — no real HTTP."""
     auth_config = AuthConfig.__new__(AuthConfig)
     auth_config.enabled = False
     auth_config._key_hashes = set()
     auth_config._hmac_secret = None
     auth_config._hmac_max_age = 300
     app = create_app(service=service, auth_config=auth_config)
-    test_client = TestClient(app)
 
+    transport = httpx.ASGITransport(app=app)
     client = HttpQortexClient.__new__(HttpQortexClient)
-    client._client = test_client
-    return client
+    client._hmac_secret = None
+    client._client = httpx.AsyncClient(
+        transport=transport, base_url="http://testserver"
+    )
+    yield client
+    await client.close()
 
 
 def _seed(service: QortexService):
@@ -86,22 +89,22 @@ def _seed(service: QortexService):
 
 
 class TestHttpClientQuery:
-    def test_query_empty(self, http_client):
-        result = http_client.query("hello")
+    async def test_query_empty(self, http_client):
+        result = await http_client.query("hello")
         assert isinstance(result, QueryResult)
         assert result.items == []
 
-    def test_query_with_data(self, http_client, service):
+    async def test_query_with_data(self, http_client, service):
         _seed(service)
-        result = http_client.query("python programming")
+        result = await http_client.query("python programming")
         assert isinstance(result, QueryResult)
         assert len(result.items) > 0
         assert result.items[0].content
 
 
 class TestHttpClientStatus:
-    def test_status(self, http_client):
-        result = http_client.status()
+    async def test_status(self, http_client):
+        result = await http_client.status()
         assert isinstance(result, StatusResult)
         assert result.status == "ok"
         assert result.backend == "InMemoryBackend"
@@ -109,30 +112,30 @@ class TestHttpClientStatus:
 
 
 class TestHttpClientDomains:
-    def test_domains_empty(self, http_client):
-        result = http_client.domains()
+    async def test_domains_empty(self, http_client):
+        result = await http_client.domains()
         assert isinstance(result, list)
         assert result == []
 
-    def test_domains_after_ingest(self, http_client, service):
+    async def test_domains_after_ingest(self, http_client, service):
         _seed(service)
-        result = http_client.domains()
+        result = await http_client.domains()
         assert len(result) > 0
         assert isinstance(result[0], DomainInfo)
         assert result[0].name == "languages"
 
 
 class TestHttpClientIngest:
-    def test_ingest_text(self, http_client):
-        result = http_client.ingest_text(
+    async def test_ingest_text(self, http_client):
+        result = await http_client.ingest_text(
             text="Machine learning overview",
             domain="ml",
         )
         assert isinstance(result, IngestResult)
         assert result.domain == "ml"
 
-    def test_ingest_structured(self, http_client):
-        result = http_client.ingest_structured(
+    async def test_ingest_structured(self, http_client):
+        result = await http_client.ingest_structured(
             concepts=[{"name": "Test", "description": "A test"}],
             domain="test",
         )
@@ -141,8 +144,8 @@ class TestHttpClientIngest:
 
 
 class TestHttpClientFeedback:
-    def test_feedback(self, http_client):
-        result = http_client.feedback(
+    async def test_feedback(self, http_client):
+        result = await http_client.feedback(
             query_id="q1",
             outcomes={"item1": "accepted"},
             source="test",
@@ -153,21 +156,21 @@ class TestHttpClientFeedback:
 
 
 class TestHttpClientExplore:
-    def test_explore_not_found(self, http_client):
-        result = http_client.explore("nonexistent")
+    async def test_explore_not_found(self, http_client):
+        result = await http_client.explore("nonexistent")
         assert result is None
 
-    def test_explore_found(self, http_client, service):
+    async def test_explore_found(self, http_client, service):
         _seed(service)
         nodes = list(service.backend._nodes.values())
         if nodes:
-            result = http_client.explore(nodes[0].id)
+            result = await http_client.explore(nodes[0].id)
             assert isinstance(result, ExploreResult)
             assert result.node.id == nodes[0].id
 
 
 class TestHttpClientRules:
-    def test_rules_empty(self, http_client):
-        result = http_client.rules()
+    async def test_rules_empty(self, http_client):
+        result = await http_client.rules()
         assert isinstance(result, RulesResult)
         assert result.rules == []
