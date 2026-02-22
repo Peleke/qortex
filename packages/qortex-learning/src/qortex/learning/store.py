@@ -41,6 +41,7 @@ class LearningStore(Protocol):
     async def get_all_states(self) -> dict[str, dict[str, ArmState]]: ...
     async def delete(self, arm_ids: list[str] | None = None, context: dict | None = None) -> int: ...
     async def save(self) -> None: ...
+    async def close(self) -> None: ...
 
 
 # ---------------------------------------------------------------------------
@@ -132,10 +133,6 @@ class JsonLearningStore:
                     del self._data[ctx]
         return count
 
-    async def close(self) -> None:
-        """No-op for JSON backend (no connection to close)."""
-        pass
-
     async def get_all_contexts(self) -> list[str]:
         return list(self._data.keys())
 
@@ -143,7 +140,7 @@ class JsonLearningStore:
         return {ctx: dict(arms) for ctx, arms in self._data.items()}
 
     async def close(self) -> None:
-        """No-op for JSON backend (interface consistency)."""
+        """No-op for JSON backend (no connection to close)."""
 
 
 # ---------------------------------------------------------------------------
@@ -157,7 +154,8 @@ class SqliteLearningStore:
     File layout: {state_dir}/{learner_name}.db
     Context partitioning via composite primary key (context_hash, arm_id).
     Fully async. Uses asyncio.Lock to prevent connection init races and
-    serialize write operations (put/save/delete/close).
+    serialize connection setup, save, delete, and close. Individual put()
+    calls rely on aiosqlite's internal thread serialization.
     """
 
     def __init__(self, learner_name: str, state_dir: str = "") -> None:
@@ -321,19 +319,6 @@ class SqliteLearningStore:
                 )
             await conn.commit()
             return cursor.rowcount
-
-    async def close(self) -> None:
-        """Close the underlying aiosqlite connection.
-
-        Call this during teardown to avoid RuntimeError('Event loop is closed')
-        from aiosqlite's background thread.
-        """
-        if self._conn is not None:
-            try:
-                await self._conn.close()
-            except Exception:
-                pass
-            self._conn = None
 
     async def save(self) -> None:
         async with self._lock:
