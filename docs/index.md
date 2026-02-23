@@ -67,7 +67,7 @@ Graph retrieval promotes structurally connected concepts (AuthMiddleware depends
 ## How it works
 
 - **Graph-enhanced retrieval**: Queries combine vector similarity with structural graph traversal. Related concepts get promoted even if they don't share keywords.
-- **Adaptive learning**: Every `qortex_feedback` call updates retrieval weights via Thompson Sampling. The system gets smarter the more you use it.
+- **Adaptive learning**: Every `qortex_feedback` call updates retrieval weights via [Thompson Sampling](packages/learning.md). The system gets smarter the more you use it.
 - **Auto-ingest**: Feed it docs, specs, or code. LLM extraction builds concepts, typed edges, and rules automatically.
 - **Persistent by default**: SQLite stores the knowledge graph, vector index, and learning state across restarts.
 - **Activity tracking**: `qortex_stats` shows knowledge coverage, learning progress, and query activity at a glance.

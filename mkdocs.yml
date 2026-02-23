@@ -104,6 +104,7 @@ nav:
     - qortex-online: packages/online.md
     - qortex-observe: packages/observe.md
     - qortex-ingest: packages/ingest.md
+    - qortex-learning: packages/learning.md
   - Architecture:
     - Overview: architecture/overview.md
     - Projection Pipeline: architecture/projection-pipeline.md
