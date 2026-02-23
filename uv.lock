@@ -3990,6 +3990,10 @@ server = [
 source-postgres = [
     { name = "asyncpg" },
 ]
+stores-postgres = [
+    { name = "asyncpg" },
+    { name = "pgvector" },
+]
 vec = [
     { name = "sentence-transformers" },
 ]
@@ -4019,6 +4023,7 @@ requires-dist = [
     { name = "agno", marker = "extra == 'adapters'", specifier = ">=1.0" },
     { name = "anthropic", marker = "extra == 'llm'", specifier = ">=0.18" },
     { name = "asyncpg", marker = "extra == 'source-postgres'", specifier = ">=0.29" },
+    { name = "asyncpg", marker = "extra == 'stores-postgres'", specifier = ">=0.29" },
     { name = "asyncpg", marker = "extra == 'vec-pgvector'", specifier = ">=0.29" },
     { name = "autogen-core", marker = "extra == 'adapters'", specifier = ">=0.4" },
     { name = "chirho", marker = "extra == 'causal-full'", specifier = ">=0.2" },
@@ -4039,6 +4044,7 @@ requires-dist = [
     { name = "networkx", marker = "extra == 'dev'", specifier = ">=3.0" },
     { name = "numpy", specifier = ">=1.24" },
     { name = "pdfplumber", marker = "extra == 'pdf'", specifier = ">=0.10" },
+    { name = "pgvector", marker = "extra == 'stores-postgres'", specifier = ">=0.3" },
     { name = "pgvector", marker = "extra == 'vec-pgvector'", specifier = ">=0.3" },
     { name = "pymupdf", marker = "extra == 'pdf'", specifier = ">=1.23" },
     { name = "pyro-ppl", marker = "extra == 'causal-full'", specifier = ">=1.8" },
@@ -4047,7 +4053,7 @@ requires-dist = [
     { name = "pytest-cov", marker = "extra == 'dev'", specifier = ">=4.0" },
     { name = "pytest-timeout", marker = "extra == 'dev'", specifier = ">=2.3" },
     { name = "pyyaml", specifier = ">=6.0" },
-    { name = "qortex", extras = ["pdf", "vec-sqlite", "vec-pgvector", "mcp", "llm", "memgraph", "causal", "source-postgres", "observability", "nlp", "dev", "adapters", "server", "http-client"], marker = "extra == 'all'" },
+    { name = "qortex", extras = ["pdf", "vec-sqlite", "vec-pgvector", "mcp", "llm", "memgraph", "causal", "source-postgres", "stores-postgres", "observability", "nlp", "dev", "adapters", "server", "http-client"], marker = "extra == 'all'" },
     { name = "qortex", extras = ["vec"], marker = "extra == 'vec-pgvector'" },
     { name = "qortex", extras = ["vec"], marker = "extra == 'vec-sqlite'" },
     { name = "qortex-ingest", editable = "packages/qortex-ingest" },
@@ -4069,7 +4075,7 @@ requires-dist = [
     { name = "types-pyyaml", marker = "extra == 'dev'", specifier = ">=6.0" },
     { name = "uvicorn", extras = ["standard"], marker = "extra == 'server'", specifier = ">=0.25" },
 ]
-provides-extras = ["pdf", "vec", "vec-sqlite", "vec-pgvector", "source-postgres", "mcp", "causal", "causal-dowhy", "causal-full", "dev", "llm", "memgraph", "observability", "nlp", "server", "http-client", "e2e", "adapters", "all"]
+provides-extras = ["pdf", "vec", "vec-sqlite", "vec-pgvector", "source-postgres", "stores-postgres", "mcp", "causal", "causal-dowhy", "causal-full", "dev", "llm", "memgraph", "observability", "nlp", "server", "http-client", "e2e", "adapters", "all"]
 
 [package.metadata.requires-dev]
 dev = [

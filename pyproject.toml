@@ -55,6 +55,10 @@ vec-pgvector = [
 source-postgres = [
     "asyncpg>=0.29",
 ]
+stores-postgres = [
+    "asyncpg>=0.29",
+    "pgvector>=0.3",
+]
 mcp = [
     "fastmcp>=2.0",
 ]
@@ -116,7 +120,7 @@ adapters = [
     "agno>=1.0",
 ]
 all = [
-    "qortex[pdf,vec-sqlite,vec-pgvector,mcp,llm,memgraph,causal,source-postgres,observability,nlp,dev,adapters,server,http-client]",
+    "qortex[pdf,vec-sqlite,vec-pgvector,mcp,llm,memgraph,causal,source-postgres,stores-postgres,observability,nlp,dev,adapters,server,http-client]",
 ]
 
 [project.scripts]

@@ -57,6 +57,19 @@ def create_vec_index(type_str: str, dimensions: int = 384) -> Any:
         )
 
 
+def _build_dsn() -> str:
+    """Construct postgres DSN from PGVECTOR_* env vars."""
+    dsn = os.environ.get("PGVECTOR_DSN")
+    if dsn is not None:
+        return dsn
+    host = os.environ.get("PGVECTOR_HOST", "localhost")
+    port = os.environ.get("PGVECTOR_PORT", "5432")
+    user = os.environ.get("PGVECTOR_USER", "qortex")
+    password = os.environ.get("PGVECTOR_PASSWORD", "qortex")
+    db = os.environ.get("PGVECTOR_DB", "qortex")
+    return f"postgresql://{user}:{password}@{host}:{port}/{db}"
+
+
 class QortexService:
     """Encapsulates qortex backend state and operations.
 
@@ -72,6 +85,7 @@ class QortexService:
         interoception: Any = None,
         llm_backend: Any = None,
         learning_state_dir: str = "",
+        pg_pool: Any = None,
     ) -> None:
         from qortex.sources.registry import SourceRegistry
 
@@ -81,6 +95,7 @@ class QortexService:
         self.interoception = interoception
         self.llm_backend = llm_backend
         self.learning_state_dir = learning_state_dir
+        self.pg_pool = pg_pool
 
         # Adapters (composed from vec + graph layers)
         self.adapter: Any = None  # VecOnlyAdapter
@@ -259,6 +274,125 @@ class QortexService:
                 logger.warning("interoception.shutdown.failed", exc_info=True)
 
         atexit.register(_shutdown)
+
+        return service
+
+    @classmethod
+    async def async_from_env(cls) -> QortexService:
+        """Create from env vars with async postgres stores.
+
+        When QORTEX_STORE=postgres, uses shared asyncpg pool for:
+        - PgVectorIndex (if QORTEX_VEC=pgvector)
+        - AsyncLocalInteroceptionProvider
+        - PostgresLearningStore (via pg_pool passed to learner creation)
+
+        Falls back to from_env() when QORTEX_STORE != postgres.
+        """
+        store_backend = os.environ.get("QORTEX_STORE", "sqlite")
+        if store_backend != "postgres":
+            return cls.from_env()
+
+        from qortex.core.memory import InMemoryBackend
+        from qortex.core.pool import get_shared_pool
+        from qortex.observe import configure
+
+        configure()
+
+        # --- Shared pool ---
+        dsn = _build_dsn()
+
+        async def _init_connection(conn):
+            try:
+                from pgvector.asyncpg import register_vector
+
+                await register_vector(conn)
+            except ImportError:
+                pass
+
+        pool = await get_shared_pool(dsn, init=_init_connection)
+
+        # --- Embedding model ---
+        embedding_model = None
+        try:
+            from qortex.vec.embeddings import SentenceTransformerEmbedding
+
+            embedding_model = SentenceTransformerEmbedding()
+            _ = embedding_model.dimensions
+        except (ImportError, Exception) as e:
+            logger.warning("vec.unavailable", error=str(e))
+            embedding_model = None
+
+        # --- Vec layer (shared pool) ---
+        vector_index = None
+        if embedding_model is not None:
+            vec_backend = os.environ.get("QORTEX_VEC", "pgvector")
+            if vec_backend == "pgvector":
+                try:
+                    from qortex.vec.pgvector import PgVectorIndex
+
+                    vector_index = PgVectorIndex(
+                        dsn=dsn,
+                        dimensions=embedding_model.dimensions,
+                        pool=pool,
+                    )
+                except ImportError:
+                    logger.warning("pgvector.unavailable", fallback="NumpyVectorIndex")
+                    from qortex.vec.index import NumpyVectorIndex
+
+                    vector_index = NumpyVectorIndex(dimensions=embedding_model.dimensions)
+            elif vec_backend == "sqlite":
+                from qortex.vec.index import SqliteVecIndex
+
+                vec_path = Path("~/.qortex/vectors.db").expanduser()
+                vector_index = SqliteVecIndex(
+                    db_path=str(vec_path), dimensions=embedding_model.dimensions
+                )
+            else:
+                from qortex.vec.index import NumpyVectorIndex
+
+                vector_index = NumpyVectorIndex(dimensions=embedding_model.dimensions)
+
+        # --- Graph layer ---
+        backend = None
+        graph_backend = os.environ.get("QORTEX_GRAPH", "memory")
+        if graph_backend == "memgraph":
+            try:
+                from qortex.core.backend import MemgraphBackend, MemgraphCredentials
+
+                host = os.environ.get("MEMGRAPH_HOST", "localhost")
+                port = int(os.environ.get("MEMGRAPH_PORT", "7687"))
+                user = os.environ.get("MEMGRAPH_USER", "")
+                password = os.environ.get("MEMGRAPH_PASSWORD", "")
+                creds = MemgraphCredentials(user=user, password=password) if user else None
+                backend = MemgraphBackend(host=host, port=port, credentials=creds)
+                backend.connect()
+            except (ImportError, Exception) as e:
+                logger.warning(
+                    "memgraph.unavailable", error=str(e), fallback="InMemoryBackend"
+                )
+                backend = InMemoryBackend(vector_index=vector_index)
+                backend.connect()
+        else:
+            backend = InMemoryBackend(vector_index=vector_index)
+            backend.connect()
+
+        # --- Interoception (postgres) ---
+        from qortex.hippocampus.interoception import (
+            AsyncLocalInteroceptionProvider,
+            InteroceptionConfig,
+        )
+
+        interoception_config = InteroceptionConfig(postgres_pool=pool)
+        interoception = AsyncLocalInteroceptionProvider(interoception_config)
+        await interoception.startup()
+
+        service = cls(
+            backend=backend,
+            vector_index=vector_index,
+            embedding_model=embedding_model,
+            interoception=interoception,
+            pg_pool=pool,
+        )
 
         return service
 
@@ -1119,7 +1253,12 @@ class QortexService:
             config = LearnerConfig(
                 name=name, state_dir=self.learning_state_dir, **kwargs
             )
-            self.learners[name] = await Learner.create(config)
+            store = None
+            if self.pg_pool is not None:
+                from qortex.learning.pg_store import PostgresLearningStore
+
+                store = PostgresLearningStore(name, self.pg_pool)
+            self.learners[name] = await Learner.create(config, store=store)
         return self.learners[name]
 
     async def learning_select(

@@ -14,6 +14,11 @@ Public API:
 from qortex.learning.learner import Learner
 from qortex.learning.reward import BinaryReward, RewardModel, TernaryReward
 from qortex.learning.store import JsonLearningStore, LearningStore, SqliteLearningStore
+
+try:
+    from qortex.learning.pg_store import PostgresLearningStore
+except ImportError:
+    PostgresLearningStore = None  # type: ignore[assignment,misc]
 from qortex.learning.strategy import LearningStrategy, ThompsonSampling
 from qortex.learning.types import (
     Arm,
@@ -31,6 +36,7 @@ __all__ = [
     "LearningStore",
     "JsonLearningStore",
     "SqliteLearningStore",
+    "PostgresLearningStore",
     "LearningStrategy",
     "ThompsonSampling",
     "RewardModel",
