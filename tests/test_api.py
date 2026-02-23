@@ -350,3 +350,28 @@ class TestSources:
         resp = client.get("/v1/sources")
         assert resp.status_code == 200
         assert resp.json()["sources"] == []
+
+
+class TestMigrateVec:
+    def test_migrate_vec_missing_source(self, client):
+        resp = client.post("/v1/admin/migrate-vec", json={})
+        assert resp.status_code == 400
+        assert "source" in resp.json()["error"].lower()
+
+    def test_migrate_vec_numpy_dry_run(self, client):
+        resp = client.post(
+            "/v1/admin/migrate-vec",
+            json={"source": "numpy", "dry_run": True},
+        )
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data["vectors_read"] == 0
+        assert data["dry_run"] is True
+
+    def test_migrate_vec_invalid_source(self, client):
+        resp = client.post(
+            "/v1/admin/migrate-vec",
+            json={"source": "nonexistent"},
+        )
+        assert resp.status_code == 400
+        assert "Unknown vec backend type" in resp.json()["error"]

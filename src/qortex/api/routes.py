@@ -420,11 +420,15 @@ async def migrate_vec_handler(request: Request) -> JSONResponse:
     if not source:
         return _error("'source' is required (sqlite, pgvector, numpy)")
 
-    result = await service.migrate_vec(
-        source_type=source,
-        batch_size=body.get("batch_size", 500),
-        dry_run=body.get("dry_run", False),
-    )
+    try:
+        result = await service.migrate_vec(
+            source_type=source,
+            batch_size=body.get("batch_size", 500),
+            dry_run=body.get("dry_run", False),
+        )
+    except ValueError as e:
+        return _error(str(e))
+
     return JSONResponse(result)
 
 

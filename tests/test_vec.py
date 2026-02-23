@@ -202,6 +202,28 @@ class TestNumpyVectorIndex:
         expected = 1.0 / math.sqrt(2)
         assert results[0][1] == pytest.approx(expected, abs=0.001)
 
+    async def test_iter_all_empty(self):
+        idx = NumpyVectorIndex(dimensions=3)
+        batches = [b async for b in idx.iter_all()]
+        assert batches == []
+
+    async def test_iter_all_single_batch(self):
+        idx = NumpyVectorIndex(dimensions=3)
+        await idx.add(["a", "b"], [[1, 0, 0], [0, 1, 0]])
+        batches = [b async for b in idx.iter_all(batch_size=10)]
+        assert len(batches) == 1
+        ids, embs = batches[0]
+        assert set(ids) == {"a", "b"}
+        assert len(embs) == 2
+
+    async def test_iter_all_multiple_batches(self):
+        idx = NumpyVectorIndex(dimensions=3)
+        await idx.add(["a", "b", "c"], [[1, 0, 0], [0, 1, 0], [0, 0, 1]])
+        batches = [b async for b in idx.iter_all(batch_size=2)]
+        assert len(batches) == 2
+        all_ids = [id_ for ids, _ in batches for id_ in ids]
+        assert set(all_ids) == {"a", "b", "c"}
+
     async def test_persist_is_noop(self):
         idx = NumpyVectorIndex(dimensions=3)
         await idx.persist()
@@ -439,6 +461,22 @@ class TestSqliteVecIndex:
         assert results[0][0] == "a"
         await idx2.close()
 
+    async def test_iter_all_empty(self, tmp_path):
+        idx = self._make_index(tmp_path)
+        batches = [b async for b in idx.iter_all()]
+        assert batches == []
+
+    async def test_iter_all_returns_all_vectors(self, tmp_path):
+        idx = self._make_index(tmp_path)
+        await idx.add(["a", "b", "c"], [[1, 0, 0], [0, 1, 0], [0, 0, 1]])
+        batches = [b async for b in idx.iter_all(batch_size=2)]
+        all_ids = [id_ for ids, _ in batches for id_ in ids]
+        assert set(all_ids) == {"a", "b", "c"}
+        # Each embedding should have 3 floats
+        for _, embs in batches:
+            for emb in embs:
+                assert len(emb) == 3
+
     async def test_dimension_mismatch_raises(self, tmp_path):
         idx = self._make_index(tmp_path)
         with pytest.raises(ValueError, match="dims"):
@@ -507,6 +545,16 @@ class TestPgVectorIndex:
             ids = [r[0] for r in results]
             assert "a" in ids
             assert "b" not in ids
+        finally:
+            await idx.close()
+
+    async def test_iter_all_returns_all_vectors(self):
+        idx = self._make_index()
+        try:
+            await idx.add(["a", "b", "c"], [[1, 0, 0], [0, 1, 0], [0, 0, 1]])
+            batches = [b async for b in idx.iter_all(batch_size=2)]
+            all_ids = [id_ for ids, _ in batches for id_ in ids]
+            assert set(all_ids) == {"a", "b", "c"}
         finally:
             await idx.close()
 
