@@ -289,7 +289,7 @@ class PostgresSourceAdapter:
                 # Embed and upsert
                 if table_texts and embedding_model is not None and vector_index is not None:
                     embeddings = embedding_model.embed(table_texts)
-                    vector_index.add(table_ids, embeddings)
+                    await vector_index.add(table_ids, embeddings)
                     result.vectors_created += len(table_ids)
 
                 result.tables_synced += 1

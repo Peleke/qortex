@@ -180,49 +180,49 @@ def _server():
 
 
 class TestIngestMessage:
-    def test_empty_text_noop(self, _server):
+    async def test_empty_text_noop(self, _server):
         from qortex.mcp.server import _ingest_message_impl
 
-        result = _ingest_message_impl("", session_id="s1")
+        result = await _ingest_message_impl("", session_id="s1")
         assert result["chunks"] == 0
         assert result["concepts"] == 0
 
-    def test_whitespace_only_noop(self, _server):
+    async def test_whitespace_only_noop(self, _server):
         from qortex.mcp.server import _ingest_message_impl
 
-        result = _ingest_message_impl("   \n  ", session_id="s1")
+        result = await _ingest_message_impl("   \n  ", session_id="s1")
         assert result["chunks"] == 0
 
-    def test_real_text_chunks_and_returns_counts(self, _server):
+    async def test_real_text_chunks_and_returns_counts(self, _server):
         from qortex.mcp.server import _ingest_message_impl
 
         text = "The auth module handles JWT tokens. It validates signatures on every request."
-        result = _ingest_message_impl(text, session_id="s1", role="user")
+        result = await _ingest_message_impl(text, session_id="s1", role="user")
         assert result["chunks"] >= 1
         assert result["session_id"] == "s1"
         assert "latency_ms" in result
 
-    def test_invalid_role_clamped_to_unknown(self, _server):
+    async def test_invalid_role_clamped_to_unknown(self, _server):
         from qortex.mcp.server import _ingest_message_impl
 
-        result = _ingest_message_impl("test.", session_id="s1", role="evil_injection")
+        result = await _ingest_message_impl("test.", session_id="s1", role="evil_injection")
         # Should not crash; role should be clamped
         assert result["chunks"] >= 1
 
 
 class TestIngestToolResult:
-    def test_empty_text_noop(self, _server):
+    async def test_empty_text_noop(self, _server):
         from qortex.mcp.server import _ingest_tool_result_impl
 
-        result = _ingest_tool_result_impl("search", "", session_id="s1")
+        result = await _ingest_tool_result_impl("search", "", session_id="s1")
         assert result["concepts"] == 0
         assert result["edges"] == 0
 
-    def test_real_text_chunks_and_returns_counts(self, _server):
+    async def test_real_text_chunks_and_returns_counts(self, _server):
         from qortex.mcp.server import _ingest_tool_result_impl
 
         text = "Found 3 matching files. src/auth.py contains the JWT validation logic."
-        result = _ingest_tool_result_impl("grep", text, session_id="s1")
+        result = await _ingest_tool_result_impl("grep", text, session_id="s1")
         assert result["concepts"] >= 0  # no embedding model -> 0 concepts, but no crash
         assert result["tool_name"] == "grep"
         assert "latency_ms" in result
@@ -231,7 +231,7 @@ class TestIngestToolResult:
 class TestIngestWithEmbedding:
     """Regression: ensure ingest calls EmbeddingModel.embed() (not embed_batch)."""
 
-    def test_ingest_calls_embed_on_model(self, _server):
+    async def test_ingest_calls_embed_on_model(self, _server):
         import qortex.mcp.server as srv
         from qortex.mcp.server import _ingest_message_impl
 
@@ -247,14 +247,14 @@ class TestIngestWithEmbedding:
         class FakeVecIndex:
             added: list[tuple] = []
 
-            def add(self, ids, embeddings):
+            async def add(self, ids, embeddings):
                 self.added.append((ids, embeddings))
 
         old_model, old_index = srv._embedding_model, srv._vector_index
         try:
             srv._embedding_model = FakeEmbedding()
             srv._vector_index = FakeVecIndex()
-            result = _ingest_message_impl("Hello world.", session_id="s1", role="user")
+            result = await _ingest_message_impl("Hello world.", session_id="s1", role="user")
             assert result["concepts"] >= 1
             assert len(embedded_texts) == 1, "embed() should be called exactly once"
         finally:
@@ -263,7 +263,7 @@ class TestIngestWithEmbedding:
 
 
 class TestChunkingStrategyInjection:
-    def test_custom_strategy_is_used(self, _server):
+    async def test_custom_strategy_is_used(self, _server):
         from qortex.mcp.server import _ingest_message_impl, set_chunking_strategy
 
         call_count = 0
@@ -275,7 +275,7 @@ class TestChunkingStrategyInjection:
                 return [Chunk(id="custom-0", text=text, index=0)]
 
         set_chunking_strategy(CountingChunker())
-        result = _ingest_message_impl("Hello.", session_id="s1")
+        result = await _ingest_message_impl("Hello.", session_id="s1")
         assert call_count == 1
         assert result["chunks"] == 1
 
@@ -289,7 +289,7 @@ class TestChunkingStrategyInjection:
 
 
 class TestExtractionStrategyInjection:
-    def test_custom_extraction_strategy_is_used(self, _server):
+    async def test_custom_extraction_strategy_is_used(self, _server):
         import qortex.mcp.server as srv
         from qortex.mcp.server import (
             _ingest_message_impl,
@@ -317,7 +317,7 @@ class TestExtractionStrategyInjection:
                 return [[0.1, 0.2, 0.3, 0.4]] * len(texts)
 
         class FakeVecIndex:
-            def add(self, ids, embeddings):
+            async def add(self, ids, embeddings):
                 pass
 
         try:
@@ -325,7 +325,7 @@ class TestExtractionStrategyInjection:
             srv._vector_index = FakeVecIndex()
             set_extraction_strategy(TrackingExtractor(), name="test")
 
-            result = _ingest_message_impl(
+            result = await _ingest_message_impl(
                 "The auth module handles JWT tokens.",
                 session_id="s1",
             )
@@ -338,7 +338,7 @@ class TestExtractionStrategyInjection:
 
 
 class TestPipelineWithExtraction:
-    def test_creates_chunk_and_concept_nodes(self, _server):
+    async def test_creates_chunk_and_concept_nodes(self, _server):
         """Verify both chunk nodes (vec bridge) and concept nodes are created."""
         import qortex.mcp.server as srv
         from qortex.mcp.server import (
@@ -370,7 +370,7 @@ class TestPipelineWithExtraction:
                 return [[0.1, 0.2, 0.3, 0.4]] * len(texts)
 
         class FakeVecIndex:
-            def add(self, ids, embeddings):
+            async def add(self, ids, embeddings):
                 pass
 
         old_model, old_index = srv._embedding_model, srv._vector_index
@@ -379,7 +379,7 @@ class TestPipelineWithExtraction:
             srv._vector_index = FakeVecIndex()
             set_extraction_strategy(FixedExtractor(), name="test")
 
-            result = _ingest_message_impl(
+            result = await _ingest_message_impl(
                 "The auth module handles JWT tokens.",
                 session_id="s1",
             )
@@ -394,7 +394,7 @@ class TestPipelineWithExtraction:
 
 
 class TestExtractionFallback:
-    def test_raw_text_fallback_when_extractor_returns_empty(self, _server):
+    async def test_raw_text_fallback_when_extractor_returns_empty(self, _server):
         """When extraction returns empty, chunk nodes still created with raw text."""
         import qortex.mcp.server as srv
         from qortex.mcp.server import (
@@ -411,7 +411,7 @@ class TestExtractionFallback:
                 return [[0.1, 0.2, 0.3, 0.4]] * len(texts)
 
         class FakeVecIndex:
-            def add(self, ids, embeddings):
+            async def add(self, ids, embeddings):
                 pass
 
         old_model, old_index = srv._embedding_model, srv._vector_index
@@ -419,7 +419,7 @@ class TestExtractionFallback:
             srv._embedding_model = FakeEmbedding()
             srv._vector_index = FakeVecIndex()
 
-            result = _ingest_message_impl(
+            result = await _ingest_message_impl(
                 "The auth module handles JWT tokens.",
                 session_id="s1",
             )

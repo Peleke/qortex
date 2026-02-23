@@ -133,7 +133,7 @@ def embeddings():
 
 
 @pytest.fixture
-def populated_backend(backend, embeddings, dims):
+async def populated_backend(backend, embeddings, dims):
     """Backend with 6 nodes, embeddings, and edges pre-loaded."""
     backend.create_domain("e2e")
 
@@ -150,9 +150,16 @@ def populated_backend(backend, embeddings, dims):
     for node in nodes:
         backend.add_node(node)
 
-    # Stage 2: Embed vectors
+    # Stage 2: Embed vectors (backend dict + vector index)
+    ids = list(embeddings.keys())
+    emb_list = list(embeddings.values())
     for nid, emb in embeddings.items():
         backend.add_embedding(nid, emb)
+
+    # Populate the vector index (now async)
+    vi = backend._vector_index if hasattr(backend, "_vector_index") and backend._vector_index is not None else None
+    if vi is not None:
+        await vi.add(ids, emb_list)
 
     # Stage 4: Create typed edges (cluster structure + bridge)
     edges = [
@@ -188,7 +195,7 @@ def embedding_model(embeddings, dims):
 
 
 @pytest.fixture
-def vector_index(populated_backend):
+async def vector_index(populated_backend):
     """Extract the vector index from the backend."""
     backend = populated_backend[0]
     if hasattr(backend, "_vector_index") and backend._vector_index is not None:
@@ -198,7 +205,7 @@ def vector_index(populated_backend):
     for node in populated_backend[1]:
         emb = backend.get_embedding(node.id)
         if emb:
-            vi.add(node.id, emb)
+            await vi.add([node.id], [emb])
     return vi
 
 
@@ -249,19 +256,19 @@ class TestIngestPipeline:
 class TestVecOnlyRetrieval:
     """Stage 5: VecOnlyAdapter returns ranked results from vector similarity."""
 
-    def test_vec_retrieval_returns_results(self, populated_backend, vector_index, embedding_model):
+    async def test_vec_retrieval_returns_results(self, populated_backend, vector_index, embedding_model):
         backend = populated_backend[0]
         adapter = VecOnlyAdapter(vector_index, backend, embedding_model)
 
-        result = adapter.retrieve("find alpha things", top_k=5)
+        result = await adapter.retrieve("find alpha things", top_k=5)
         assert len(result.items) > 0
         assert result.query_id
 
-    def test_vec_ranking_by_cosine_sim(self, populated_backend, vector_index, embedding_model):
+    async def test_vec_ranking_by_cosine_sim(self, populated_backend, vector_index, embedding_model):
         backend = populated_backend[0]
         adapter = VecOnlyAdapter(vector_index, backend, embedding_model)
 
-        result = adapter.retrieve("find alpha things", top_k=6)
+        result = await adapter.retrieve("find alpha things", top_k=6)
         # alpha should be top-1 (exact match), beta/delta close behind
         ids = [it.id for it in result.items]
         assert ids[0] == "e2e:alpha", f"Expected alpha first, got {ids[0]}"
@@ -316,7 +323,7 @@ class TestGraphRAGRetrieval:
         # PPR should spread activation — delta (connected to alpha) should get some
         assert ppr_scores.get("e2e:delta", 0) > 0 or ppr_scores.get("e2e:beta", 0) > 0
 
-    def test_stage8_combined_scoring_differs_from_vec(
+    async def test_stage8_combined_scoring_differs_from_vec(
         self, populated_backend, vector_index, embedding_model
     ):
         """The core proof: graph-augmented ranking differs from vec-only."""
@@ -325,8 +332,8 @@ class TestGraphRAGRetrieval:
         graph_adapter = self._make_adapter(vector_index, backend, embedding_model)
 
         query = "find alpha things"
-        vec_result = vec_adapter.retrieve(query, top_k=6)
-        graph_result = graph_adapter.retrieve(query, top_k=6)
+        vec_result = await vec_adapter.retrieve(query, top_k=6)
+        graph_result = await graph_adapter.retrieve(query, top_k=6)
 
         vec_ids = [it.id for it in vec_result.items]
         graph_ids = [it.id for it in graph_result.items]
@@ -345,14 +352,14 @@ class TestGraphRAGRetrieval:
         assert "vec_score" in graph_item.metadata
         assert "kg_coverage" in graph_item.metadata
 
-    def test_graph_result_contains_delta_metadata(
+    async def test_graph_result_contains_delta_metadata(
         self, populated_backend, vector_index, embedding_model
     ):
         """Graph results embed the observability metadata."""
         backend = populated_backend[0]
         adapter = self._make_adapter(vector_index, backend, embedding_model)
 
-        result = adapter.retrieve("find alpha things", top_k=5)
+        result = await adapter.retrieve("find alpha things", top_k=5)
         for item in result.items:
             assert "vec_score" in item.metadata
             assert "ppr_score" in item.metadata
@@ -366,7 +373,7 @@ class TestGraphRAGRetrieval:
 class TestTeleportationFactors:
     """Stage 9: Feedback updates factors, shifting PPR seed weights."""
 
-    def test_factors_change_after_feedback(self, populated_backend, vector_index, embedding_model):
+    async def test_factors_change_after_feedback(self, populated_backend, vector_index, embedding_model):
         backend = populated_backend[0]
         factors = TeleportationFactors()
         adapter = GraphRAGAdapter(
@@ -378,7 +385,7 @@ class TestTeleportationFactors:
         )
 
         # Initial query
-        result = adapter.retrieve("find alpha things", top_k=5)
+        result = await adapter.retrieve("find alpha things", top_k=5)
         query_id = result.query_id
 
         # Get initial factors
@@ -447,7 +454,7 @@ class TestEdgePromotion:
 class TestFullPipeline:
     """Run the complete pipeline end-to-end and verify graph adds value."""
 
-    def test_full_pipeline_query_feedback_requery(
+    async def test_full_pipeline_query_feedback_requery(
         self, populated_backend, vector_index, embedding_model
     ):
         """Ingest → query → feedback → re-query shows learning effect."""
@@ -463,7 +470,7 @@ class TestFullPipeline:
         )
 
         # First query
-        r1 = adapter.retrieve("find alpha things", top_k=5)
+        r1 = await adapter.retrieve("find alpha things", top_k=5)
         assert len(r1.items) > 0
 
         # Feedback: boost alpha, penalize others
@@ -477,14 +484,14 @@ class TestFullPipeline:
         )
 
         # Second query — factors should influence ranking
-        r2 = adapter.retrieve("find alpha things", top_k=5)
+        r2 = await adapter.retrieve("find alpha things", top_k=5)
         assert len(r2.items) > 0
 
         # Alpha and beta should still be top-ranked after positive feedback
         top_2_ids = {it.id for it in r2.items[:2]}
         assert "e2e:alpha" in top_2_ids, f"Alpha should be in top 2, got {top_2_ids}"
 
-    def test_compare_shows_graph_delta(self, populated_backend, vector_index, embedding_model):
+    async def test_compare_shows_graph_delta(self, populated_backend, vector_index, embedding_model):
         """The compare tool's logic: graph vs vec should show differences."""
         backend = populated_backend[0]
         vec = VecOnlyAdapter(vector_index, backend, embedding_model)
@@ -496,8 +503,8 @@ class TestFullPipeline:
         )
 
         query = "find zeta bridge"
-        vec_r = vec.retrieve(query, top_k=6)
-        graph_r = graph.retrieve(query, top_k=6)
+        vec_r = await vec.retrieve(query, top_k=6)
+        graph_r = await graph.retrieve(query, top_k=6)
 
         vec_ids = [it.id for it in vec_r.items]
         graph_ids = [it.id for it in graph_r.items]  # noqa: F841

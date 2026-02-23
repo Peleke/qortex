@@ -49,7 +49,7 @@ class FakeEmbedding:
 
 
 @pytest.fixture
-def knowledge_base():
+async def knowledge_base():
     """A realistic knowledge base with security + architecture domains."""
     vector_index = NumpyVectorIndex(dimensions=DIMS)
     backend = InMemoryBackend(vector_index=vector_index)
@@ -128,8 +128,10 @@ def knowledge_base():
 
     texts = [f"{n.name}: {n.description}" for n in all_nodes]
     embeddings = embedding.embed(texts)
+    ids = [n.id for n in all_nodes]
     for node, emb in zip(all_nodes, embeddings):
         backend.add_embedding(node.id, emb)
+    await vector_index.add(ids, embeddings)
 
     client = LocalQortexClient(
         vector_index=vector_index,

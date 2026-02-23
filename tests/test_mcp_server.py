@@ -109,11 +109,12 @@ def _make_node(node_id: str, name: str, desc: str, domain: str = "test") -> Conc
     )
 
 
-def _add_nodes_with_embeddings(backend, embedding, nodes: list[ConceptNode]) -> None:
+async def _add_nodes_with_embeddings(backend, embedding, nodes: list[ConceptNode]) -> None:
     """Add nodes to backend and index their embeddings.
 
-    InMemoryBackend.add_embedding() dual-writes to both internal storage
-    and the vector_index (if configured), so VecOnlyAdapter can find them.
+    Stores embeddings in the backend dict (for get_embedding lookups) and
+    populates the VectorIndex (for adapter search). The VectorIndex.add()
+    method is async, so this helper must be awaited.
     """
     for node in nodes:
         backend.add_node(node)
@@ -122,6 +123,11 @@ def _add_nodes_with_embeddings(backend, embedding, nodes: list[ConceptNode]) -> 
     embeddings = embedding.embed(texts)
     for node, emb in zip(nodes, embeddings):
         backend.add_embedding(node.id, emb)
+
+    # Populate the VectorIndex so VecOnlyAdapter.retrieve() can find them
+    if backend._vector_index is not None:
+        ids = [n.id for n in nodes]
+        await backend._vector_index.add(ids, embeddings)
 
 
 # ===========================================================================
@@ -161,22 +167,22 @@ class TestQortexDomains:
         result = mcp_server._domains_impl()
         assert result["domains"] == []
 
-    def test_domains_after_adding_nodes(self, configured_server, backend, embedding):
+    async def test_domains_after_adding_nodes(self, configured_server, backend, embedding):
         nodes = [_make_node("n1", "Auth", "Authentication system", domain="security")]
-        _add_nodes_with_embeddings(backend, embedding, nodes)
+        await _add_nodes_with_embeddings(backend, embedding, nodes)
         backend.create_domain("security", description="Security domain")
 
         result = mcp_server._domains_impl()
         assert len(result["domains"]) == 1
         assert result["domains"][0]["name"] == "security"
 
-    def test_domains_reports_counts(self, configured_server, backend, embedding):
+    async def test_domains_reports_counts(self, configured_server, backend, embedding):
         backend.create_domain("test", description="Test domain")
         nodes = [
             _make_node("n1", "A", "desc A"),
             _make_node("n2", "B", "desc B"),
         ]
-        _add_nodes_with_embeddings(backend, embedding, nodes)
+        await _add_nodes_with_embeddings(backend, embedding, nodes)
 
         result = mcp_server._domains_impl()
         domain = result["domains"][0]
@@ -189,28 +195,28 @@ class TestQortexDomains:
 
 
 class TestQortexQuery:
-    def test_query_empty_backend(self, configured_server):
-        result = mcp_server._query_impl(context="test query")
+    async def test_query_empty_backend(self, configured_server):
+        result = await mcp_server._query_impl(context="test query")
         assert result["items"] == []
         assert result["query_id"] != ""
 
-    def test_query_returns_results(self, configured_server, backend, embedding):
+    async def test_query_returns_results(self, configured_server, backend, embedding):
         nodes = [
             _make_node("n1", "Auth", "Authentication and login system"),
             _make_node("n2", "Database", "PostgreSQL database layer"),
             _make_node("n3", "API", "REST API endpoints"),
         ]
-        _add_nodes_with_embeddings(backend, embedding, nodes)
+        await _add_nodes_with_embeddings(backend, embedding, nodes)
 
-        result = mcp_server._query_impl(context="Authentication and login system")
+        result = await mcp_server._query_impl(context="Authentication and login system")
         assert len(result["items"]) > 0
         assert result["query_id"] != ""
 
-    def test_query_items_have_required_fields(self, configured_server, backend, embedding):
+    async def test_query_items_have_required_fields(self, configured_server, backend, embedding):
         nodes = [_make_node("n1", "Auth", "Authentication system")]
-        _add_nodes_with_embeddings(backend, embedding, nodes)
+        await _add_nodes_with_embeddings(backend, embedding, nodes)
 
-        result = mcp_server._query_impl(context="auth")
+        result = await mcp_server._query_impl(context="auth")
         item = result["items"][0]
         assert "id" in item
         assert "content" in item
@@ -219,60 +225,60 @@ class TestQortexQuery:
         assert "node_id" in item
         assert "metadata" in item
 
-    def test_query_respects_top_k(self, configured_server, backend, embedding):
+    async def test_query_respects_top_k(self, configured_server, backend, embedding):
         nodes = [_make_node(f"n{i}", f"Node{i}", f"Description {i}") for i in range(10)]
-        _add_nodes_with_embeddings(backend, embedding, nodes)
+        await _add_nodes_with_embeddings(backend, embedding, nodes)
 
-        result = mcp_server._query_impl(context="description", top_k=3)
+        result = await mcp_server._query_impl(context="description", top_k=3)
         assert len(result["items"]) <= 3
 
-    def test_query_with_domain_filter(self, configured_server, backend, embedding):
+    async def test_query_with_domain_filter(self, configured_server, backend, embedding):
         nodes = [
             _make_node("n1", "Auth", "Authentication", domain="security"),
             _make_node("n2", "DB", "Database", domain="infra"),
         ]
-        _add_nodes_with_embeddings(backend, embedding, nodes)
+        await _add_nodes_with_embeddings(backend, embedding, nodes)
 
-        result = mcp_server._query_impl(
+        result = await mcp_server._query_impl(
             context="Authentication",
             domains=["security"],
         )
         for item in result["items"]:
             assert item["domain"] == "security"
 
-    def test_query_scores_are_rounded(self, configured_server, backend, embedding):
+    async def test_query_scores_are_rounded(self, configured_server, backend, embedding):
         nodes = [_make_node("n1", "Auth", "Authentication")]
-        _add_nodes_with_embeddings(backend, embedding, nodes)
+        await _add_nodes_with_embeddings(backend, embedding, nodes)
 
-        result = mcp_server._query_impl(context="auth")
+        result = await mcp_server._query_impl(context="auth")
         if result["items"]:
             score = result["items"][0]["score"]
             # Score should be rounded to 4 decimal places
             assert score == round(score, 4)
 
-    def test_query_clamps_top_k(self, configured_server, backend, embedding):
+    async def test_query_clamps_top_k(self, configured_server, backend, embedding):
         """top_k <= 0 should be clamped to 1."""
         nodes = [_make_node("n1", "Auth", "Authentication")]
-        _add_nodes_with_embeddings(backend, embedding, nodes)
+        await _add_nodes_with_embeddings(backend, embedding, nodes)
 
-        result = mcp_server._query_impl(context="auth", top_k=0)
+        result = await mcp_server._query_impl(context="auth", top_k=0)
         assert len(result["items"]) <= 1
 
-    def test_query_clamps_min_confidence(self, configured_server, backend, embedding):
+    async def test_query_clamps_min_confidence(self, configured_server, backend, embedding):
         """min_confidence > 1 should be clamped to 1.0 (no results pass)."""
         nodes = [_make_node("n1", "Auth", "Authentication")]
-        _add_nodes_with_embeddings(backend, embedding, nodes)
+        await _add_nodes_with_embeddings(backend, embedding, nodes)
 
-        result = mcp_server._query_impl(context="auth", min_confidence=2.0)
+        result = await mcp_server._query_impl(context="auth", min_confidence=2.0)
         assert result["items"] == []
 
-    def test_query_without_adapter_returns_error(self):
+    async def test_query_without_adapter_returns_error(self):
         """When no embedding model is available, return error."""
         backend = InMemoryBackend()
         backend.connect()
         mcp_server.create_server(backend=backend, embedding_model=None)
 
-        result = mcp_server._query_impl(context="test")
+        result = await mcp_server._query_impl(context="test")
         assert "error" in result
         assert result["items"] == []
 
@@ -314,63 +320,63 @@ class TestQortexFeedback:
 
 
 class TestQortexIngest:
-    def test_ingest_nonexistent_file(self, configured_server):
-        result = mcp_server._ingest_impl(
+    async def test_ingest_nonexistent_file(self, configured_server):
+        result = await mcp_server._ingest_impl(
             source_path="/nonexistent/file.txt",
             domain="test",
         )
         assert "error" in result
 
-    def test_ingest_text_file(self, configured_server):
+    async def test_ingest_text_file(self, configured_server):
         """Ingest a text file using StubLLMBackend."""
         with tempfile.NamedTemporaryFile(mode="w", suffix=".txt", delete=False) as f:
             f.write("This is test content about authentication and security.")
             f.flush()
             path = f.name
 
-        result = mcp_server._ingest_impl(source_path=path, domain="test")
+        result = await mcp_server._ingest_impl(source_path=path, domain="test")
         assert "error" not in result
         assert result["domain"] == "test"
         assert result["source"] == Path(path).name
 
         Path(path).unlink()
 
-    def test_ingest_markdown_file(self, configured_server):
+    async def test_ingest_markdown_file(self, configured_server):
         with tempfile.NamedTemporaryFile(mode="w", suffix=".md", delete=False) as f:
             f.write("# Test\n\nSome markdown content about APIs.\n")
             f.flush()
             path = f.name
 
-        result = mcp_server._ingest_impl(source_path=path, domain="docs")
+        result = await mcp_server._ingest_impl(source_path=path, domain="docs")
         assert "error" not in result
         assert result["domain"] == "docs"
 
         Path(path).unlink()
 
-    def test_ingest_auto_detects_type(self, configured_server):
+    async def test_ingest_auto_detects_type(self, configured_server):
         with tempfile.NamedTemporaryFile(mode="w", suffix=".md", delete=False) as f:
             f.write("# Markdown\n\nContent.\n")
             f.flush()
             path = f.name
 
         # source_type=None should auto-detect to "markdown"
-        result = mcp_server._ingest_impl(source_path=path, domain="test")
+        result = await mcp_server._ingest_impl(source_path=path, domain="test")
         assert "error" not in result
 
         Path(path).unlink()
 
-    def test_ingest_type_override(self, configured_server):
+    async def test_ingest_type_override(self, configured_server):
         with tempfile.NamedTemporaryFile(mode="w", suffix=".xyz", delete=False) as f:
             f.write("Plain text in unknown extension.\n")
             f.flush()
             path = f.name
 
-        result = mcp_server._ingest_impl(source_path=path, domain="test", source_type="text")
+        result = await mcp_server._ingest_impl(source_path=path, domain="test", source_type="text")
         assert "error" not in result
 
         Path(path).unlink()
 
-    def test_ingest_pdf_returns_error(self, configured_server):
+    async def test_ingest_pdf_returns_error(self, configured_server):
         """PDF ingest raises NotImplementedError, which should surface as error."""
         with tempfile.NamedTemporaryFile(mode="w", suffix=".pdf", delete=False) as f:
             f.write("fake pdf content")
@@ -378,29 +384,29 @@ class TestQortexIngest:
             path = f.name
 
         with pytest.raises(NotImplementedError):
-            mcp_server._ingest_impl(source_path=path, domain="test")
+            await mcp_server._ingest_impl(source_path=path, domain="test")
 
         Path(path).unlink()
 
-    def test_ingest_invalid_source_type(self, configured_server):
+    async def test_ingest_invalid_source_type(self, configured_server):
         with tempfile.NamedTemporaryFile(mode="w", suffix=".txt", delete=False) as f:
             f.write("test")
             f.flush()
             path = f.name
 
-        result = mcp_server._ingest_impl(source_path=path, domain="test", source_type="invalid")
+        result = await mcp_server._ingest_impl(source_path=path, domain="test", source_type="invalid")
         assert "error" in result
         assert "Invalid source_type" in result["error"]
 
         Path(path).unlink()
 
-    def test_ingest_directory_returns_error(self, configured_server):
+    async def test_ingest_directory_returns_error(self, configured_server):
         """Directories should not be accepted."""
-        result = mcp_server._ingest_impl(source_path="/tmp", domain="test")
+        result = await mcp_server._ingest_impl(source_path="/tmp", domain="test")
         assert "error" in result
         assert "Not a file" in result["error"]
 
-    def test_ingest_with_custom_llm(self, configured_server):
+    async def test_ingest_with_custom_llm(self, configured_server):
         """StubLLMBackend with injected concepts shows up in results."""
         from qortex.ingest.base import StubLLMBackend
 
@@ -415,7 +421,7 @@ class TestQortexIngest:
             f.flush()
             path = f.name
 
-        result = mcp_server._ingest_impl(source_path=path, domain="testing")
+        result = await mcp_server._ingest_impl(source_path=path, domain="testing")
         assert result["concepts"] == 1
         assert result["rules"] == 1
 
@@ -428,7 +434,7 @@ class TestQortexIngest:
 
 
 class TestIngestQueryRoundtrip:
-    def test_ingest_then_query_returns_results(self, configured_server, backend, embedding):
+    async def test_ingest_then_query_returns_results(self, configured_server, backend, embedding):
         """Full roundtrip: ingest a file, then query for its content."""
         from qortex.ingest.base import StubLLMBackend
 
@@ -454,11 +460,11 @@ class TestIngestQueryRoundtrip:
             path = f.name
 
         # Ingest
-        ingest_result = mcp_server._ingest_impl(source_path=path, domain="security")
+        ingest_result = await mcp_server._ingest_impl(source_path=path, domain="security")
         assert ingest_result["concepts"] == 2
 
         # Query
-        query_result = mcp_server._query_impl(
+        query_result = await mcp_server._query_impl(
             context="User authentication via OAuth2",
             domains=["security"],
         )
@@ -470,7 +476,7 @@ class TestIngestQueryRoundtrip:
         Path(path).unlink()
 
     async def test_ingest_then_query_with_feedback(self, configured_server, backend, embedding):
-        """Full loop: ingest → query → feedback."""
+        """Full loop: ingest -> query -> feedback."""
         from qortex.ingest.base import StubLLMBackend
 
         llm = StubLLMBackend(
@@ -483,8 +489,8 @@ class TestIngestQueryRoundtrip:
             f.flush()
             path = f.name
 
-        mcp_server._ingest_impl(source_path=path, domain="test")
-        query_result = mcp_server._query_impl(context="Test description")
+        await mcp_server._ingest_impl(source_path=path, domain="test")
+        query_result = await mcp_server._query_impl(context="Test description")
         query_id = query_result["query_id"]
 
         feedback_result = await mcp_server._feedback_impl(
@@ -541,9 +547,9 @@ class TestServerConfiguration:
 
 
 class TestQortexCompare:
-    def test_compare_returns_structure(self, configured_server):
+    async def test_compare_returns_structure(self, configured_server):
         """Compare should return all expected top-level keys even with empty data."""
-        result = mcp_server._compare_impl("test query")
+        result = await mcp_server._compare_impl("test query")
         assert "query" in result
         assert "vec_only" in result
         assert "graph_enhanced" in result
@@ -551,46 +557,46 @@ class TestQortexCompare:
         assert "summary" in result
         assert isinstance(result["summary"], str)
 
-    def test_compare_vec_only_method_label(self, configured_server):
-        result = mcp_server._compare_impl("test")
+    async def test_compare_vec_only_method_label(self, configured_server):
+        result = await mcp_server._compare_impl("test")
         assert result["vec_only"]["method"] == "Cosine similarity"
 
-    def test_compare_with_data(self, configured_server, backend, embedding):
+    async def test_compare_with_data(self, configured_server, backend, embedding):
         """With indexed nodes, both methods return items and diff is computed."""
         nodes = [
             _make_node("n1", "Auth", "Authentication and login system"),
             _make_node("n2", "Database", "PostgreSQL database layer"),
             _make_node("n3", "API", "REST API endpoints"),
         ]
-        _add_nodes_with_embeddings(backend, embedding, nodes)
+        await _add_nodes_with_embeddings(backend, embedding, nodes)
 
-        result = mcp_server._compare_impl("Authentication and login system", top_k=3)
+        result = await mcp_server._compare_impl("Authentication and login system", top_k=3)
         assert len(result["vec_only"]["items"]) > 0
         assert len(result["graph_enhanced"]["items"]) > 0
         assert "overlap" in result["diff"]
 
-    def test_compare_content_truncated(self, configured_server, backend, embedding):
+    async def test_compare_content_truncated(self, configured_server, backend, embedding):
         """Content in compare results should be truncated to 200 chars."""
         long_desc = "A" * 500
         nodes = [_make_node("n1", "LongNode", long_desc)]
-        _add_nodes_with_embeddings(backend, embedding, nodes)
+        await _add_nodes_with_embeddings(backend, embedding, nodes)
 
-        result = mcp_server._compare_impl("AAAA", top_k=1)
+        result = await mcp_server._compare_impl("AAAA", top_k=1)
         for item in result["vec_only"]["items"]:
             assert len(item["content"]) <= 200
 
-    def test_compare_clamps_top_k(self, configured_server):
+    async def test_compare_clamps_top_k(self, configured_server):
         """top_k should be clamped to [1, 20]."""
-        result = mcp_server._compare_impl("test", top_k=100)
+        result = await mcp_server._compare_impl("test", top_k=100)
         # Should not error; just clamped internally
         assert "vec_only" in result
 
-    def test_compare_no_adapter_returns_error(self):
+    async def test_compare_no_adapter_returns_error(self):
         """When no embedding model is available, return error."""
         backend = InMemoryBackend()
         backend.connect()
         mcp_server.create_server(backend=backend, embedding_model=None)
-        result = mcp_server._compare_impl("test")
+        result = await mcp_server._compare_impl("test")
         assert "error" in result
 
 
@@ -620,7 +626,7 @@ class TestQortexStats:
             _make_node("a1", "NodeA", "Desc A", domain="alpha"),
             _make_node("b1", "NodeB", "Desc B", domain="beta"),
         ]
-        _add_nodes_with_embeddings(backend, embedding, nodes)
+        await _add_nodes_with_embeddings(backend, embedding, nodes)
 
         result = await mcp_server._stats_impl()
         assert result["knowledge"]["domains"] == 2
@@ -630,12 +636,12 @@ class TestQortexStats:
     async def test_stats_tracks_queries(self, configured_server, backend, embedding):
         """Query counter should increment after _query_impl calls."""
         nodes = [_make_node("n1", "Auth", "Authentication system")]
-        _add_nodes_with_embeddings(backend, embedding, nodes)
+        await _add_nodes_with_embeddings(backend, embedding, nodes)
 
         assert mcp_server._query_count == 0
-        mcp_server._query_impl(context="auth")
+        await mcp_server._query_impl(context="auth")
         assert mcp_server._query_count == 1
-        mcp_server._query_impl(context="auth again")
+        await mcp_server._query_impl(context="auth again")
         assert mcp_server._query_count == 2
 
         result = await mcp_server._stats_impl()
@@ -654,10 +660,10 @@ class TestQortexStats:
     async def test_stats_feedback_rate(self, configured_server, backend, embedding):
         """Feedback rate = feedback_count / query_count."""
         nodes = [_make_node("n1", "Auth", "Auth system")]
-        _add_nodes_with_embeddings(backend, embedding, nodes)
+        await _add_nodes_with_embeddings(backend, embedding, nodes)
 
-        mcp_server._query_impl(context="auth")
-        mcp_server._query_impl(context="auth2")
+        await mcp_server._query_impl(context="auth")
+        await mcp_server._query_impl(context="auth2")
         await mcp_server._feedback_impl("q1", {"i1": "accepted"})
 
         result = await mcp_server._stats_impl()
@@ -722,12 +728,12 @@ class TestFeedbackInvalidOutcome:
 class TestQueryErrorDoesNotIncrement:
     """P0: Query error path must not inflate counter."""
 
-    def test_no_adapter_does_not_increment(self):
+    async def test_no_adapter_does_not_increment(self):
         """When no embedding model is available, counter stays at 0."""
         backend = InMemoryBackend()
         backend.connect()
         mcp_server.create_server(backend=backend, embedding_model=None)
-        result = mcp_server._query_impl(context="test")
+        result = await mcp_server._query_impl(context="test")
         assert "error" in result
         assert mcp_server._query_count == 0
 

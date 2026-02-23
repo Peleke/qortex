@@ -72,7 +72,7 @@ class FakeQortexEmbedding:
         return result
 
 
-def make_security_graph():
+async def make_security_graph():
     """Build a security knowledge graph with concepts, edges, and rules.
 
     This is the realistic setup: concepts linked by typed edges, with
@@ -126,7 +126,7 @@ def make_security_graph():
         backend.add_embedding(node.id, emb)
 
     ids = [n.id for n in nodes]
-    vector_index.add(ids, embeddings)
+    await vector_index.add(ids, embeddings)
 
     # Typed edges — the graph structure
     backend.add_edge(
@@ -252,8 +252,8 @@ class TestFromTextsOneliner:
 class TestSimilaritySearchE2E:
     """Standard VectorStore search — the API every LangChain user knows."""
 
-    def test_similarity_search(self):
-        client = make_security_graph()
+    async def test_similarity_search(self):
+        client = await make_security_graph()
         vs = QortexVectorStore(client=client, domain="security")
 
         docs = vs.similarity_search("OAuth2 authorization", k=3)
@@ -263,8 +263,8 @@ class TestSimilaritySearchE2E:
             assert doc.metadata["domain"] == "security"
             assert "node_id" in doc.metadata
 
-    def test_similarity_search_with_score(self):
-        client = make_security_graph()
+    async def test_similarity_search_with_score(self):
+        client = await make_security_graph()
         vs = QortexVectorStore(client=client, domain="security")
 
         results = vs.similarity_search_with_score("JWT tokens", k=3)
@@ -273,8 +273,8 @@ class TestSimilaritySearchE2E:
         # Scores should be descending (most similar first)
         assert scores == sorted(scores, reverse=True)
 
-    def test_add_then_search(self):
-        client = make_security_graph()
+    async def test_add_then_search(self):
+        client = await make_security_graph()
         vs = QortexVectorStore(client=client, domain="security")
 
         # Add new concepts dynamically
@@ -297,13 +297,13 @@ class TestSimilaritySearchE2E:
 class TestGraphExplorationE2E:
     """The differentiator: search → explore the graph from any result."""
 
-    def test_search_then_explore(self):
+    async def test_search_then_explore(self):
         """
         # Standard VectorStore: search returns flat documents. Dead end.
         # QortexVectorStore: search returns documents with node_id.
         # Use node_id to explore the graph neighborhood.
         """
-        client = make_security_graph()
+        client = await make_security_graph()
         vs = QortexVectorStore(client=client, domain="security")
 
         # 1. Search (standard LangChain API)
@@ -327,9 +327,9 @@ class TestGraphExplorationE2E:
         # OAuth2 connects to JWT and RBAC
         assert len(neighbor_ids) >= 1
 
-    def test_explore_reveals_rules_at_node(self):
+    async def test_explore_reveals_rules_at_node(self):
         """explore() surfaces rules linked to the concept and its neighbors."""
-        client = make_security_graph()
+        client = await make_security_graph()
         vs = QortexVectorStore(client=client, domain="security")
 
         explore = vs.explore("sec:oauth")
@@ -346,8 +346,8 @@ class TestGraphExplorationE2E:
 class TestRulesProjectionE2E:
     """rules() — get projected rules from the knowledge graph."""
 
-    def test_rules_for_retrieved_concepts(self):
-        client = make_security_graph()
+    async def test_rules_for_retrieved_concepts(self):
+        client = await make_security_graph()
         vs = QortexVectorStore(client=client, domain="security")
 
         docs = vs.similarity_search("OAuth2 authorization", k=3)
@@ -357,16 +357,16 @@ class TestRulesProjectionE2E:
         assert len(rules_result.rules) > 0
         assert rules_result.projection == "rules"
 
-    def test_rules_by_category(self):
-        client = make_security_graph()
+    async def test_rules_by_category(self):
+        client = await make_security_graph()
         vs = QortexVectorStore(client=client, domain="security")
 
         arch_rules = vs.rules(categories=["architectural"])
         assert all(r.category == "architectural" for r in arch_rules.rules)
 
-    def test_rules_in_query_results(self):
+    async def test_rules_in_query_results(self):
         """query() automatically includes linked rules — zero extra effort."""
-        client = make_security_graph()
+        client = await make_security_graph()
         vs = QortexVectorStore(client=client, domain="security")
 
         results = vs.similarity_search_with_score("OAuth2 authorization", k=4)
@@ -384,12 +384,12 @@ class TestRulesProjectionE2E:
 class TestFeedbackLoopE2E:
     """feedback() — close the learning loop. This is the moat."""
 
-    def test_search_feedback_re_search(self):
+    async def test_search_feedback_re_search(self):
         """
         # Standard VectorStore: search → done. No learning.
         # QortexVectorStore: search → feedback → search again → better results.
         """
-        client = make_security_graph()
+        client = await make_security_graph()
         vs = QortexVectorStore(client=client, domain="security")
 
         # 1. Search
@@ -403,8 +403,8 @@ class TestFeedbackLoopE2E:
         docs2 = vs.similarity_search("authentication protocol", k=4)
         assert len(docs2) > 0
 
-    def test_feedback_tracked_by_query_id(self):
-        client = make_security_graph()
+    async def test_feedback_tracked_by_query_id(self):
+        client = await make_security_graph()
         vs = QortexVectorStore(client=client, domain="security")
 
         vs.similarity_search("OAuth2", k=2)
@@ -425,8 +425,8 @@ class TestFeedbackLoopE2E:
 class TestFullIntegrationLoop:
     """The whole enchilada: create → search → explore → rules → feedback → repeat."""
 
-    def test_complete_vectorstore_workflow(self):
-        client = make_security_graph()
+    async def test_complete_vectorstore_workflow(self):
+        client = await make_security_graph()
         vs = QortexVectorStore(client=client, domain="security")
 
         # 1. Search (standard VectorStore API)

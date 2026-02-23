@@ -1,6 +1,6 @@
 """Tests for HttpQortexClient (async).
 
-Uses httpx.AsyncClient with ASGITransport as the backing server —
+Uses httpx.AsyncClient with ASGITransport as the backing server --
 no real HTTP needed. Verifies that HttpQortexClient correctly
 deserializes responses into protocol result types.
 """
@@ -60,7 +60,7 @@ def service() -> QortexService:
 
 @pytest.fixture
 async def http_client(service) -> HttpQortexClient:
-    """HttpQortexClient backed by httpx ASGITransport — no real HTTP."""
+    """HttpQortexClient backed by httpx ASGITransport -- no real HTTP."""
     auth_config = AuthConfig.__new__(AuthConfig)
     auth_config.enabled = False
     auth_config._key_hashes = set()
@@ -78,8 +78,8 @@ async def http_client(service) -> HttpQortexClient:
     await client.close()
 
 
-def _seed(service: QortexService):
-    service.ingest_structured(
+async def _seed(service: QortexService):
+    await service.ingest_structured(
         concepts=[
             {"name": "Python", "description": "Programming language"},
             {"name": "Rust", "description": "Systems language"},
@@ -95,7 +95,7 @@ class TestHttpClientQuery:
         assert result.items == []
 
     async def test_query_with_data(self, http_client, service):
-        _seed(service)
+        await _seed(service)
         result = await http_client.query("python programming")
         assert isinstance(result, QueryResult)
         assert len(result.items) > 0
@@ -118,7 +118,7 @@ class TestHttpClientDomains:
         assert result == []
 
     async def test_domains_after_ingest(self, http_client, service):
-        _seed(service)
+        await _seed(service)
         result = await http_client.domains()
         assert len(result) > 0
         assert isinstance(result[0], DomainInfo)
@@ -161,7 +161,7 @@ class TestHttpClientExplore:
         assert result is None
 
     async def test_explore_found(self, http_client, service):
-        _seed(service)
+        await _seed(service)
         nodes = list(service.backend._nodes.values())
         if nodes:
             result = await http_client.explore(nodes[0].id)

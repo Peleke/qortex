@@ -17,6 +17,7 @@ Result types have conversion helpers for framework interop:
 
 from __future__ import annotations
 
+import asyncio
 import logging
 import uuid
 from collections import deque
@@ -24,6 +25,24 @@ from dataclasses import dataclass, field
 from typing import Any, Protocol, runtime_checkable
 
 logger = logging.getLogger(__name__)
+
+
+def _sync(coro):
+    """Run an async coroutine from sync context.
+
+    Used by LocalQortexClient to bridge the sync QortexClient protocol
+    to the async VectorIndex/adapter internals. Framework adapters
+    (LangChain, CrewAI, AutoGen) call QortexClient methods synchronously.
+    """
+    try:
+        asyncio.get_running_loop()
+    except RuntimeError:
+        return asyncio.run(coro)
+    # Already in an async context — use a thread to avoid nested event loops
+    import concurrent.futures
+
+    with concurrent.futures.ThreadPoolExecutor(max_workers=1) as pool:
+        return pool.submit(asyncio.run, coro).result()
 
 
 # ---------------------------------------------------------------------------
@@ -454,9 +473,9 @@ class LocalQortexClient:
         if self._adapter is None:
             return QueryResult(items=[], query_id=str(uuid.uuid4()))
 
-        result = self._adapter.retrieve(
+        result = _sync(self._adapter.retrieve(
             query=context, domains=domains, top_k=top_k, min_confidence=min_confidence
-        )
+        ))
 
         items = [
             QueryItem(
@@ -893,7 +912,7 @@ class LocalQortexClient:
                 embeddings_list.append(concept.embedding)
 
         if self._vector_index is not None and ids_with_embeddings:
-            self._vector_index.add(ids_with_embeddings, embeddings_list)
+            _sync(self._vector_index.add(ids_with_embeddings, embeddings_list))
 
     def _maybe_upgrade_adapter(self) -> None:
         """If mode=auto and currently VecOnly, upgrade to GraphRAG when edges exist."""
@@ -971,7 +990,7 @@ class LocalQortexClient:
             self._backend.add_embedding(node_id, emb)
 
         if self._vector_index is not None:
-            self._vector_index.add(ids, embeddings)
+            _sync(self._vector_index.add(ids, embeddings))
 
         return ids
 

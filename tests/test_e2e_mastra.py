@@ -104,6 +104,8 @@ def mcp_server():
 @pytest.fixture(scope="module")
 def ingested_domain(mcp_server, tmp_path_factory):
     """Ingest a real document into the MCP server."""
+    import asyncio
+
     from qortex.mcp.server import _ingest_impl
 
     doc_path = tmp_path_factory.mktemp("docs") / "auth_guide.txt"
@@ -124,7 +126,7 @@ def ingested_domain(mcp_server, tmp_path_factory):
     """)
     )
 
-    result = _ingest_impl(str(doc_path), "security")
+    result = asyncio.run(_ingest_impl(str(doc_path), "security"))
     assert "error" not in result, f"Ingest failed: {result}"
     assert result["concepts"] >= 1
     return result
@@ -142,10 +144,10 @@ class TestMastraQuery:
     The Mastra TS client would call qortex_query and map the response.
     """
 
-    def test_query_returns_results_with_real_embeddings(self, mcp_server, ingested_domain):
+    async def test_query_returns_results_with_real_embeddings(self, mcp_server, ingested_domain):
         from qortex.mcp.server import _query_impl
 
-        result = _query_impl(
+        result = await _query_impl(
             context="How does OAuth2 authentication work?",
             domains=["security"],
             top_k=3,
@@ -156,11 +158,11 @@ class TestMastraQuery:
         assert len(result["items"]) > 0
         assert result["query_id"] != ""
 
-    def test_query_result_maps_to_mastra_query_result(self, mcp_server, ingested_domain):
+    async def test_query_result_maps_to_mastra_query_result(self, mcp_server, ingested_domain):
         """Verify the MCP response maps cleanly to Mastra's QueryResult shape."""
         from qortex.mcp.server import _query_impl
 
-        result = _query_impl(
+        result = await _query_impl(
             context="What is role-based access control?",
             domains=["security"],
             top_k=5,
@@ -191,11 +193,11 @@ class TestMastraQuery:
             assert isinstance(r["document"], str)
             assert len(r["document"]) > 0
 
-    def test_semantic_relevance_with_real_embeddings(self, mcp_server, ingested_domain):
+    async def test_semantic_relevance_with_real_embeddings(self, mcp_server, ingested_domain):
         """Real embeddings should rank semantically relevant results higher."""
         from qortex.mcp.server import _query_impl
 
-        result = _query_impl(
+        result = await _query_impl(
             context="OAuth2 token-based authentication",
             domains=["security"],
             top_k=4,
@@ -210,11 +212,11 @@ class TestMastraQuery:
         # The top result should be semantically related to OAuth2
         assert "oauth" in top_result["content"].lower() or "auth" in top_result["content"].lower()
 
-    def test_domain_filtering(self, mcp_server, ingested_domain):
+    async def test_domain_filtering(self, mcp_server, ingested_domain):
         """Querying a non-existent domain returns empty results."""
         from qortex.mcp.server import _query_impl
 
-        result = _query_impl(
+        result = await _query_impl(
             context="OAuth2",
             domains=["nonexistent_domain"],
             top_k=5,
@@ -222,10 +224,10 @@ class TestMastraQuery:
 
         assert result["items"] == []
 
-    def test_top_k_limits_results(self, mcp_server, ingested_domain):
+    async def test_top_k_limits_results(self, mcp_server, ingested_domain):
         from qortex.mcp.server import _query_impl
 
-        result = _query_impl(
+        result = await _query_impl(
             context="authentication",
             domains=["security"],
             top_k=1,
@@ -316,7 +318,7 @@ class TestMastraFeedbackUpgrade:
         from qortex.mcp.server import _feedback_impl, _query_impl
 
         # 1. Query (same as Mastra would)
-        query_result = _query_impl(
+        query_result = await _query_impl(
             context="authentication methods and best practices",
             domains=["security"],
             top_k=3,
@@ -387,7 +389,7 @@ class TestMastraE2ESimulation:
         assert any(idx["name"] == "security" for idx in indexes)
 
         # --- Step 3: query() ---
-        raw = _query_impl(
+        raw = await _query_impl(
             context="How should I implement token-based authentication?",
             domains=["security"],
             top_k=4,
@@ -431,7 +433,7 @@ class TestMastraE2ESimulation:
         assert fb["status"] == "recorded"
 
         # --- Step 6: query() again (in Level 2, this would improve) ---
-        raw2 = _query_impl(
+        raw2 = await _query_impl(
             context="What roles and permissions should API endpoints require?",
             domains=["security"],
             top_k=3,
@@ -455,7 +457,7 @@ class TestMastraE2ESimulation:
         domains = _domains_impl()
         assert json.loads(json.dumps(domains)) == domains
 
-        query = _query_impl("test query", domains=["security"], top_k=2)
+        query = await _query_impl("test query", domains=["security"], top_k=2)
         assert json.loads(json.dumps(query)) == query
 
         if query["items"]:

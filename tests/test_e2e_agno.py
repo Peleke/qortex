@@ -113,6 +113,8 @@ def real_backend():
 @pytest.fixture(scope="module")
 def ingested_domain(real_backend, tmp_path_factory):
     """Ingest a real document into the backend."""
+    import asyncio
+
     from qortex.mcp.server import _ingest_impl
 
     doc_path = tmp_path_factory.mktemp("docs") / "auth_guide.txt"
@@ -133,7 +135,7 @@ def ingested_domain(real_backend, tmp_path_factory):
     """)
     )
 
-    result = _ingest_impl(str(doc_path), "security")
+    result = asyncio.run(_ingest_impl(str(doc_path), "security"))
     assert "error" not in result, f"Ingest failed: {result}"
     assert result["concepts"] >= 1
     return result
