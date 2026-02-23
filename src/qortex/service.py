@@ -559,6 +559,69 @@ class QortexService:
             "rules": len(explicit_rules),
         }
 
+    async def ingest_message(
+        self,
+        text: str,
+        session_id: str,
+        role: str = "user",
+        domain: str = "session",
+    ) -> dict:
+        """Lightweight online-index pipeline: chunk, embed, index.
+
+        No LLM required. Used by the gateway to index session messages
+        for retrieval during conversations.
+        """
+        import time
+
+        _VALID_ROLES = {"user", "assistant", "system", "tool"}
+
+        if not text or not text.strip():
+            return {"session_id": session_id, "chunks": 0, "concepts": 0, "edges": 0}
+
+        safe_role = role if role in _VALID_ROLES else "unknown"
+        t0 = time.monotonic()
+
+        # Chunk
+        from qortex.online.chunker import default_chunker
+
+        chunks = default_chunker(text, source_id=f"{session_id}:{safe_role}")
+
+        chunk_count = 0
+        if self.embedding_model is not None and self.vector_index is not None and chunks:
+            ids = [f"{session_id}:{c.id}" for c in chunks]
+            texts = [c.text for c in chunks]
+            embeddings = self.embedding_model.embed(texts)
+            await self.vector_index.add(ids, embeddings)
+            chunk_count = len(chunks)
+
+        elapsed = (time.monotonic() - t0) * 1000
+
+        try:
+            from qortex.observe.emitter import emit
+            from qortex.observe.events import MessageIngested
+
+            emit(
+                MessageIngested(
+                    session_id=session_id,
+                    role=safe_role,
+                    domain=domain,
+                    chunk_count=chunk_count,
+                    concept_count=0,
+                    edge_count=0,
+                    latency_ms=elapsed,
+                )
+            )
+        except Exception:
+            pass
+
+        return {
+            "session_id": session_id,
+            "chunks": chunk_count,
+            "concepts": 0,
+            "edges": 0,
+            "latency_ms": round(elapsed, 2),
+        }
+
     async def domains(self) -> dict:
         ds = self.backend.list_domains()
         return {
