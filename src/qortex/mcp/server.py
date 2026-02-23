@@ -3095,6 +3095,44 @@ async def qortex_learning_reset(
 
 
 # ---------------------------------------------------------------------------
+# Admin / Migration
+# ---------------------------------------------------------------------------
+
+
+@mcp.tool()
+@_mcp_traced
+async def qortex_migrate_vec(
+    source: str,
+    batch_size: int = 500,
+    dry_run: bool = False,
+) -> dict:
+    """Migrate vectors from another backend into the current one.
+
+    Source reads credentials from env vars (PGVECTOR_DSN, etc.).
+    Destination is the running service's vec backend.
+
+    Args:
+        source: Source backend type: "sqlite", "pgvector", or "numpy".
+        batch_size: Number of vectors per batch.
+        dry_run: If True, read source but don't write to destination.
+    """
+    _ensure_initialized()
+    from qortex.service import QortexService
+
+    svc = QortexService(
+        backend=_backend,
+        vector_index=_vector_index,
+        embedding_model=_embedding_model,
+        interoception=_interoception,
+    )
+    return await svc.migrate_vec(
+        source_type=source,
+        batch_size=batch_size,
+        dry_run=dry_run,
+    )
+
+
+# ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
 
