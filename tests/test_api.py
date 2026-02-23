@@ -273,6 +273,78 @@ class TestLearning:
         assert resp.status_code == 200
 
 
+class TestIngestMessage:
+    def test_ingest_message(self, client):
+        resp = client.post(
+            "/v1/ingest/message",
+            json={"text": "Hello world from session", "session_id": "sess-001"},
+        )
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data["session_id"] == "sess-001"
+        assert data["chunks"] >= 1
+
+    def test_ingest_message_missing_fields(self, client):
+        resp = client.post("/v1/ingest/message", json={"text": "hello"})
+        assert resp.status_code == 400
+
+    def test_ingest_message_empty_text(self, client):
+        resp = client.post(
+            "/v1/ingest/message",
+            json={"text": "", "session_id": "sess-002"},
+        )
+        # Empty text is rejected at route validation level
+        assert resp.status_code == 400
+
+
+class TestLearningSessionsAndReset:
+    def test_session_start_and_end(self, client):
+        resp = client.post(
+            "/v1/learning/sessions/start",
+            json={"learner": "test", "session_name": "test-session"},
+        )
+        assert resp.status_code == 200
+        data = resp.json()
+        assert "session_id" in data
+        assert data["learner"] == "test"
+
+        # End the session
+        resp = client.post(
+            "/v1/learning/sessions/end",
+            json={"session_id": data["session_id"]},
+        )
+        assert resp.status_code == 200
+
+    def test_session_start_missing_fields(self, client):
+        resp = client.post(
+            "/v1/learning/sessions/start",
+            json={"learner": "test"},
+        )
+        assert resp.status_code == 400
+
+    def test_learning_reset(self, client):
+        # Create a learner first
+        client.post(
+            "/v1/learning/select",
+            json={
+                "learner": "reset-test",
+                "candidates": [{"id": "arm1", "metadata": {}}],
+            },
+        )
+        resp = client.post(
+            "/v1/learning/reset",
+            json={"learner": "reset-test"},
+        )
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data["status"] == "reset"
+        assert data["learner"] == "reset-test"
+
+    def test_learning_reset_missing_learner(self, client):
+        resp = client.post("/v1/learning/reset", json={})
+        assert resp.status_code == 400
+
+
 class TestSources:
     def test_source_list_empty(self, client):
         resp = client.get("/v1/sources")

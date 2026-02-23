@@ -163,6 +163,27 @@ async def ingest_structured_handler(request: Request) -> JSONResponse:
     return JSONResponse(result)
 
 
+async def ingest_message_handler(request: Request) -> JSONResponse:
+    service = _get_service(request)
+    try:
+        body = await request.json()
+    except Exception:
+        return _error("Invalid JSON body")
+
+    text = body.get("text")
+    session_id = body.get("session_id")
+    if not text or not session_id:
+        return _error("'text' and 'session_id' are required")
+
+    result = await service.ingest_message(
+        text=text,
+        session_id=session_id,
+        role=body.get("role", "user"),
+        domain=body.get("domain", "session"),
+    )
+    return JSONResponse(result)
+
+
 # ------------------------------------------------------------------
 # Explore / Rules / Compare
 # ------------------------------------------------------------------
@@ -275,6 +296,59 @@ async def learning_metrics_handler(request: Request) -> JSONResponse:
     return JSONResponse(result)
 
 
+async def learning_session_start_handler(request: Request) -> JSONResponse:
+    service = _get_service(request)
+    try:
+        body = await request.json()
+    except Exception:
+        return _error("Invalid JSON body")
+
+    learner = body.get("learner")
+    session_name = body.get("session_name")
+    if not learner or not session_name:
+        return _error("'learner' and 'session_name' are required")
+
+    result = await service.learning_session_start(
+        learner=learner,
+        session_name=session_name,
+    )
+    return JSONResponse(result)
+
+
+async def learning_session_end_handler(request: Request) -> JSONResponse:
+    service = _get_service(request)
+    try:
+        body = await request.json()
+    except Exception:
+        return _error("Invalid JSON body")
+
+    session_id = body.get("session_id")
+    if not session_id:
+        return _error("'session_id' is required")
+
+    result = await service.learning_session_end(session_id=session_id)
+    return JSONResponse(result)
+
+
+async def learning_reset_handler(request: Request) -> JSONResponse:
+    service = _get_service(request)
+    try:
+        body = await request.json()
+    except Exception:
+        return _error("Invalid JSON body")
+
+    learner = body.get("learner")
+    if not learner:
+        return _error("'learner' is required")
+
+    result = await service.learning_reset(
+        learner=learner,
+        arm_ids=body.get("arm_ids"),
+        context=body.get("context"),
+    )
+    return JSONResponse(result)
+
+
 # ------------------------------------------------------------------
 # Sources
 # ------------------------------------------------------------------
@@ -350,6 +424,7 @@ def build_routes() -> list[Route]:
         Route("/v1/ingest", ingest_handler, methods=["POST"]),
         Route("/v1/ingest/text", ingest_text_handler, methods=["POST"]),
         Route("/v1/ingest/structured", ingest_structured_handler, methods=["POST"]),
+        Route("/v1/ingest/message", ingest_message_handler, methods=["POST"]),
         # Explore / Rules
         Route("/v1/explore", explore_handler, methods=["POST"]),
         Route("/v1/rules", rules_handler, methods=["POST"]),
@@ -366,6 +441,10 @@ def build_routes() -> list[Route]:
             learning_metrics_handler,
             methods=["GET"],
         ),
+        # Learning sessions / reset
+        Route("/v1/learning/sessions/start", learning_session_start_handler, methods=["POST"]),
+        Route("/v1/learning/sessions/end", learning_session_end_handler, methods=["POST"]),
+        Route("/v1/learning/reset", learning_reset_handler, methods=["POST"]),
         # Sources
         Route("/v1/sources/connect", source_connect_handler, methods=["POST"]),
         Route(
