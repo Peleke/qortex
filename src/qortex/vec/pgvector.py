@@ -11,6 +11,7 @@ from __future__ import annotations
 import logging
 import re
 import time
+from collections.abc import AsyncIterator
 from typing import Any
 
 import numpy as np
@@ -213,6 +214,30 @@ class PgVectorIndex:
 
     async def persist(self) -> None:
         """No-op — PostgreSQL auto-commits."""
+
+    @traced("vec.iter_all")
+    async def iter_all(
+        self, batch_size: int = 500
+    ) -> AsyncIterator[tuple[list[str], list[list[float]]]]:
+        """Iterate all vectors in batches using cursor-based pagination."""
+        await self._ensure_schema()
+
+        offset = 0
+        while True:
+            async with self._pool.acquire() as conn:
+                rows = await conn.fetch(
+                    f"SELECT id, embedding FROM {self._table_name} ORDER BY id LIMIT $1 OFFSET $2",
+                    batch_size,
+                    offset,
+                )
+
+            if not rows:
+                break
+
+            ids = [row["id"] for row in rows]
+            embeddings = [np.array(row["embedding"]).tolist() for row in rows]
+            yield ids, embeddings
+            offset += batch_size
 
     async def close(self) -> None:
         """Close the connection pool."""
