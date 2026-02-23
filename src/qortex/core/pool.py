@@ -6,12 +6,23 @@ Tests create isolated pools directly — this singleton is for production wiring
 
 from __future__ import annotations
 
-import logging
+import asyncio
 from typing import Any, Callable
 
-logger = logging.getLogger(__name__)
+from qortex.observe.logging import get_logger
+
+logger = get_logger(__name__)
 
 _pool: Any = None
+_lock: asyncio.Lock | None = None
+
+
+def _get_lock() -> asyncio.Lock:
+    """Lazy-init the asyncio lock (must be created inside a running loop)."""
+    global _lock
+    if _lock is None:
+        _lock = asyncio.Lock()
+    return _lock
 
 
 async def get_shared_pool(
@@ -30,16 +41,25 @@ async def get_shared_pool(
     if _pool is not None:
         return _pool
 
-    import asyncpg
+    async with _get_lock():
+        # Double-check after acquiring lock
+        if _pool is not None:
+            return _pool
 
-    _pool = await asyncpg.create_pool(
-        dsn,
-        min_size=min_size,
-        max_size=max_size,
-        init=init,
-    )
-    logger.info("shared_pool.created", extra={"dsn": dsn.split("@")[-1], "max_size": max_size})
-    return _pool
+        import asyncpg
+
+        _pool = await asyncpg.create_pool(
+            dsn,
+            min_size=min_size,
+            max_size=max_size,
+            init=init,
+        )
+        logger.info(
+            "shared_pool.created",
+            dsn_host=dsn.split("@")[-1] if "@" in dsn else "local",
+            max_size=max_size,
+        )
+        return _pool
 
 
 async def close_shared_pool() -> None:

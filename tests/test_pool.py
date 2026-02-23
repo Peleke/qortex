@@ -14,8 +14,10 @@ def _reset_pool():
     import qortex.core.pool as pool_mod
 
     pool_mod._pool = None
+    pool_mod._lock = None
     yield
     pool_mod._pool = None
+    pool_mod._lock = None
 
 
 async def test_get_shared_pool_creates_once():
@@ -75,3 +77,32 @@ async def test_get_shared_pool_passes_init():
         max_size=20,
         init=init_fn,
     )
+
+
+async def test_lock_prevents_double_creation():
+    """asyncio.Lock ensures only one pool is created under concurrent access."""
+    import asyncio
+
+    import qortex.core.pool as pool_mod
+
+    mock_pool = MagicMock()
+    call_count = 0
+
+    async def _slow_create_pool(*args, **kwargs):
+        nonlocal call_count
+        call_count += 1
+        await asyncio.sleep(0.01)
+        return mock_pool
+
+    mock_asyncpg = MagicMock()
+    mock_asyncpg.create_pool = _slow_create_pool
+
+    with patch.dict(sys.modules, {"asyncpg": mock_asyncpg}):
+        results = await asyncio.gather(
+            pool_mod.get_shared_pool("postgresql://test"),
+            pool_mod.get_shared_pool("postgresql://test"),
+            pool_mod.get_shared_pool("postgresql://test"),
+        )
+
+    assert all(r is mock_pool for r in results)
+    assert call_count == 1

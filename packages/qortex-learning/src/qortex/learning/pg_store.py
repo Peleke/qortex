@@ -12,6 +12,7 @@ from datetime import UTC, datetime
 from typing import Any
 
 from qortex.learning.types import ArmState, context_hash
+from qortex.observe.tracing import traced
 
 
 class PostgresLearningStore:
@@ -51,6 +52,7 @@ class PostgresLearningStore:
 
         self._schema_ready = True
 
+    @traced("learning.pg.get")
     async def get(self, arm_id: str, context: dict | None = None) -> ArmState:
         await self._ensure_schema()
         ctx = context_hash(context or {})
@@ -73,6 +75,7 @@ class PostgresLearningStore:
             last_updated=row["last_updated"].isoformat() if row["last_updated"] else "",
         )
 
+    @traced("learning.pg.get_all")
     async def get_all(self, context: dict | None = None) -> dict[str, ArmState]:
         await self._ensure_schema()
         ctx = context_hash(context or {})
@@ -95,6 +98,7 @@ class PostgresLearningStore:
             for row in rows
         }
 
+    @traced("learning.pg.put")
     async def put(
         self, arm_id: str, state: ArmState, context: dict | None = None
     ) -> None:
@@ -124,6 +128,7 @@ class PostgresLearningStore:
                 ts,
             )
 
+    @traced("learning.pg.get_all_contexts")
     async def get_all_contexts(self) -> list[str]:
         await self._ensure_schema()
         async with self._pool.acquire() as conn:
@@ -134,6 +139,7 @@ class PostgresLearningStore:
             )
         return [row["context_hash"] for row in rows]
 
+    @traced("learning.pg.get_all_states")
     async def get_all_states(self) -> dict[str, dict[str, ArmState]]:
         await self._ensure_schema()
         async with self._pool.acquire() as conn:
@@ -157,6 +163,7 @@ class PostgresLearningStore:
             )
         return result
 
+    @traced("learning.pg.delete")
     async def delete(
         self, arm_ids: list[str] | None = None, context: dict | None = None
     ) -> int:

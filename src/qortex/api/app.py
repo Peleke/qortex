@@ -22,16 +22,19 @@ async def lifespan(app: Starlette):
         else:
             app.state.service = QortexService.from_env()
     yield
-    from qortex.core.pool import close_shared_pool
-
-    await close_shared_pool()
-    # Shutdown async interoception if applicable
+    # Shutdown order: consumers first, then the pool they depend on.
     intero = getattr(app.state.service, "interoception", None)
     if intero is not None and hasattr(intero, "shutdown"):
         import asyncio
 
         if asyncio.iscoroutinefunction(intero.shutdown):
             await intero.shutdown()
+        else:
+            intero.shutdown()
+
+    from qortex.core.pool import close_shared_pool
+
+    await close_shared_pool()
 
 
 def create_app(

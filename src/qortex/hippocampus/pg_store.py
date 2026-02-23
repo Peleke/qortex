@@ -12,6 +12,7 @@ import json
 from typing import TYPE_CHECKING, Any, Protocol, runtime_checkable
 
 from qortex.observe.logging import get_logger
+from qortex.observe.tracing import traced
 
 if TYPE_CHECKING:
     from qortex.hippocampus.buffer import EdgeStats
@@ -76,6 +77,7 @@ class PostgresInteroceptionStore:
 
     # -- Teleportation factors ------------------------------------------------
 
+    @traced("interoception.pg.load_factors")
     async def load_factors(self) -> dict[str, float]:
         await self._ensure_schema()
         async with self._pool.acquire() as conn:
@@ -84,6 +86,7 @@ class PostgresInteroceptionStore:
             )
         return {row["node_id"]: float(row["weight"]) for row in rows}
 
+    @traced("interoception.pg.save_factor")
     async def save_factor(self, node_id: str, weight: float) -> None:
         await self._ensure_schema()
         async with self._pool.acquire() as conn:
@@ -99,6 +102,7 @@ class PostgresInteroceptionStore:
                 weight,
             )
 
+    @traced("interoception.pg.save_factors")
     async def save_factors(self, factors: dict[str, float]) -> None:
         if not factors:
             return
@@ -117,6 +121,7 @@ class PostgresInteroceptionStore:
 
     # -- Edge buffer ----------------------------------------------------------
 
+    @traced("interoception.pg.load_edges")
     async def load_edges(self) -> dict[tuple[str, str], EdgeStats]:
         from qortex.hippocampus.buffer import EdgeStats as ES
 
@@ -138,6 +143,7 @@ class PostgresInteroceptionStore:
             )
         return result
 
+    @traced("interoception.pg.save_edges")
     async def save_edges(self, buffer: dict[tuple[str, str], EdgeStats]) -> None:
         if not buffer:
             return
@@ -159,6 +165,7 @@ class PostgresInteroceptionStore:
                 ],
             )
 
+    @traced("interoception.pg.remove_edges")
     async def remove_edges(self, keys: list[tuple[str, str]]) -> None:
         if not keys:
             return

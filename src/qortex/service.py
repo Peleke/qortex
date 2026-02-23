@@ -394,6 +394,23 @@ class QortexService:
             pg_pool=pool,
         )
 
+        # Best-effort atexit for non-lifespan exits (signal kill, CLI usage).
+        # Async shutdown can't be awaited from atexit, but we can at least
+        # try to run it synchronously via loop.run_until_complete.
+        def _shutdown():
+            import asyncio as _asyncio
+
+            try:
+                loop = _asyncio.get_event_loop()
+                if loop.is_running():
+                    loop.create_task(interoception.shutdown())
+                else:
+                    loop.run_until_complete(interoception.shutdown())
+            except Exception:
+                logger.warning("interoception.shutdown.failed", exc_info=True)
+
+        atexit.register(_shutdown)
+
         return service
 
     # ------------------------------------------------------------------
