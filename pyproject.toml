@@ -69,6 +69,7 @@ dev = [
     "pytest>=8.0",
     "pytest-asyncio>=0.23",
     "pytest-cov>=4.0",
+    "pytest-timeout>=2.3",
     "hypothesis>=6.0",
     "ruff>=0.2",
     "mypy>=1.8",
@@ -97,6 +98,11 @@ server = [
 ]
 http-client = [
     "httpx>=0.27",
+]
+e2e = [
+    "httpx>=0.27",
+    "schemathesis>=3.0",
+    "sentence-transformers>=2.2",
 ]
 adapters = [
     "sentence-transformers>=2.2",
@@ -172,6 +178,7 @@ dev = [
     "pytest>=8.0",
     "pytest-asyncio>=0.23",
     "pytest-cov>=4.0",
+    "pytest-timeout>=2.3",
     "hypothesis>=6.151.5",
     "ruff>=0.2",
     "mypy>=1.8",
