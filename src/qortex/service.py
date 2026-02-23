@@ -124,6 +124,27 @@ class QortexService:
         vector_index = None
         if embedding_model is not None:
             vec_backend = os.environ.get("QORTEX_VEC", "sqlite")
+            if vec_backend == "pgvector":
+                try:
+                    from qortex.vec.pgvector import PgVectorIndex
+
+                    dsn = os.environ.get("PGVECTOR_DSN")
+                    if dsn is None:
+                        host = os.environ.get("PGVECTOR_HOST", "localhost")
+                        port = os.environ.get("PGVECTOR_PORT", "5432")
+                        user = os.environ.get("PGVECTOR_USER", "qortex")
+                        password = os.environ.get("PGVECTOR_PASSWORD", "qortex")
+                        db = os.environ.get("PGVECTOR_DB", "qortex")
+                        dsn = f"postgresql://{user}:{password}@{host}:{port}/{db}"
+                    vector_index = PgVectorIndex(
+                        dsn=dsn,
+                        dimensions=embedding_model.dimensions,
+                    )
+                except ImportError:
+                    logger.warning(
+                        "pgvector.unavailable", fallback="SqliteVecIndex"
+                    )
+                    vec_backend = "sqlite"  # fall through to sqlite
             if vec_backend == "sqlite":
                 try:
                     from qortex.vec.index import SqliteVecIndex
@@ -142,7 +163,7 @@ class QortexService:
                     vector_index = NumpyVectorIndex(
                         dimensions=embedding_model.dimensions
                     )
-            else:  # "memory"
+            elif vec_backend == "memory":
                 from qortex.vec.index import NumpyVectorIndex
 
                 vector_index = NumpyVectorIndex(
@@ -223,7 +244,7 @@ class QortexService:
     # Core operations (return dicts)
     # ------------------------------------------------------------------
 
-    def query(
+    async def query(
         self,
         context: str,
         domains: list[str] | None = None,
@@ -242,7 +263,7 @@ class QortexService:
                 "error": "No embedding model available. Install qortex[vec].",
             }
 
-        result = adapter.retrieve(
+        result = await adapter.retrieve(
             query=context,
             domains=domains,
             top_k=top_k,
@@ -310,7 +331,7 @@ class QortexService:
 
         return result
 
-    def ingest(
+    async def ingest(
         self,
         source_path: str,
         domain: str,
@@ -358,7 +379,7 @@ class QortexService:
 
         manifest = ingestor.ingest(source, domain=domain)
         self.backend.ingest_manifest(manifest)
-        self._index_manifest_embeddings(manifest)
+        await self._index_manifest_embeddings(manifest)
 
         return {
             "domain": domain,
@@ -369,7 +390,7 @@ class QortexService:
             "warnings": manifest.warnings,
         }
 
-    def ingest_text(
+    async def ingest_text(
         self,
         text: str,
         domain: str,
@@ -405,7 +426,7 @@ class QortexService:
 
         manifest = ingestor.ingest(source, domain=domain)
         self.backend.ingest_manifest(manifest)
-        self._index_manifest_embeddings(manifest)
+        await self._index_manifest_embeddings(manifest)
 
         return {
             "domain": domain,
@@ -416,7 +437,7 @@ class QortexService:
             "warnings": manifest.warnings,
         }
 
-    def ingest_structured(
+    async def ingest_structured(
         self,
         concepts: list[dict],
         domain: str,
@@ -528,7 +549,7 @@ class QortexService:
         )
 
         self.backend.ingest_manifest(manifest)
-        self._index_manifest_embeddings(manifest)
+        await self._index_manifest_embeddings(manifest)
 
         return {
             "domain": domain,
@@ -538,7 +559,7 @@ class QortexService:
             "rules": len(explicit_rules),
         }
 
-    def domains(self) -> dict:
+    async def domains(self) -> dict:
         ds = self.backend.list_domains()
         return {
             "domains": [
@@ -553,7 +574,7 @@ class QortexService:
             ]
         }
 
-    def status(self) -> dict:
+    async def status(self) -> dict:
         backend_type = type(self.backend).__name__
         has_vec = self.vector_index is not None
         has_mage = self.backend.supports_mage() if self.backend else False
@@ -582,7 +603,7 @@ class QortexService:
             ),
         }
 
-    def explore(self, node_id: str, depth: int = 1) -> dict | None:
+    async def explore(self, node_id: str, depth: int = 1) -> dict | None:
         depth = max(1, min(depth, 3))
 
         node = self.backend.get_node(node_id)
@@ -675,7 +696,7 @@ class QortexService:
             "neighbors": all_neighbors,
         }
 
-    def rules(
+    async def rules(
         self,
         domains: list[str] | None = None,
         concept_ids: list[str] | None = None,
@@ -724,7 +745,7 @@ class QortexService:
             "projection": "rules",
         }
 
-    def compare(
+    async def compare(
         self,
         context: str,
         domains: list[str] | None = None,
@@ -735,13 +756,13 @@ class QortexService:
         if self.adapter is None:
             return {"error": "No vector index available. Install qortex[vec]."}
 
-        vec_result = self.adapter.retrieve(
+        vec_result = await self.adapter.retrieve(
             query=context, domains=domains, top_k=top_k, min_confidence=0.0
         )
 
         graph_result = None
         if self.graph_adapter is not None:
-            graph_result = self.graph_adapter.retrieve(
+            graph_result = await self.graph_adapter.retrieve(
                 query=context, domains=domains, top_k=top_k, min_confidence=0.0
             )
 
@@ -882,15 +903,13 @@ class QortexService:
     # Source operations
     # ------------------------------------------------------------------
 
-    def source_connect(
+    async def source_connect(
         self,
         source_id: str,
         connection_string: str,
         schemas: list[str] | None = None,
         domain_map: dict[str, str] | None = None,
     ) -> dict:
-        import asyncio
-
         from qortex.sources.base import SourceConfig
 
         config = SourceConfig(
@@ -908,10 +927,8 @@ class QortexService:
         adapter = PostgresSourceAdapter()
 
         try:
-            asyncio.get_event_loop().run_until_complete(adapter.connect(config))
-            table_schemas = asyncio.get_event_loop().run_until_complete(
-                adapter.discover()
-            )
+            await adapter.connect(config)
+            table_schemas = await adapter.discover()
         except Exception as e:
             return {"error": f"Connection failed: {e}"}
 
@@ -945,27 +962,23 @@ class QortexService:
             ],
         }
 
-    def source_sync(
+    async def source_sync(
         self,
         source_id: str,
         tables: list[str] | None = None,
         mode: str = "full",
     ) -> dict:
-        import asyncio
-
         adapter = self.source_registry.get(source_id)
         config = self.source_registry.get_config(source_id)
         if adapter is None or config is None:
             return {"error": f"Source '{source_id}' not found. Connect first."}
 
         try:
-            result = asyncio.get_event_loop().run_until_complete(
-                adapter.sync(
-                    tables=tables,
-                    mode=mode,
-                    vector_index=self.vector_index,
-                    embedding_model=self.embedding_model,
-                )
+            result = await adapter.sync(
+                tables=tables,
+                mode=mode,
+                vector_index=self.vector_index,
+                embedding_model=self.embedding_model,
             )
             return {
                 "source_id": result.source_id,
@@ -978,7 +991,7 @@ class QortexService:
         except Exception as e:
             return {"error": f"Sync failed: {e}"}
 
-    def source_list(self) -> dict:
+    async def source_list(self) -> dict:
         sources = self.source_registry.list_sources()
         return {
             "sources": [
@@ -990,16 +1003,12 @@ class QortexService:
             ]
         }
 
-    def source_disconnect(self, source_id: str) -> dict:
-        import asyncio
-
+    async def source_disconnect(self, source_id: str) -> dict:
         adapter = self.source_registry.get(source_id)
         if adapter is None:
             return {"error": f"Source '{source_id}' not found."}
 
-        asyncio.get_event_loop().run_until_complete(
-            self.source_registry.remove_async(source_id)
-        )
+        await self.source_registry.remove_async(source_id)
         return {"status": "disconnected", "source_id": source_id}
 
     # ------------------------------------------------------------------
@@ -1150,7 +1159,7 @@ class QortexService:
     # Vector-level operations (MastraVector / raw vector)
     # ------------------------------------------------------------------
 
-    def vector_create_index(
+    async def vector_create_index(
         self,
         index_name: str,
         dimension: int,
@@ -1174,21 +1183,21 @@ class QortexService:
 
         return {"status": "created", "index_name": index_name}
 
-    def vector_list_indexes(self) -> dict:
+    async def vector_list_indexes(self) -> dict:
         return {"indexes": list(self.vector_indexes.keys())}
 
-    def vector_describe_index(self, index_name: str) -> dict:
+    async def vector_describe_index(self, index_name: str) -> dict:
         if index_name not in self.vector_indexes:
             return {"error": f"Index '{index_name}' not found"}
         idx = self.vector_indexes[index_name]
         cfg = self.index_configs[index_name]
         return {
             "dimension": cfg["dimension"],
-            "count": idx.size(),
+            "count": await idx.size(),
             "metric": cfg.get("metric", "cosine"),
         }
 
-    def vector_delete_index(self, index_name: str) -> dict:
+    async def vector_delete_index(self, index_name: str) -> dict:
         if index_name not in self.vector_indexes:
             return {"error": f"Index '{index_name}' not found"}
         del self.vector_indexes[index_name]
@@ -1197,7 +1206,7 @@ class QortexService:
         self.vector_documents.pop(index_name, None)
         return {"status": "deleted", "index_name": index_name}
 
-    def vector_upsert(
+    async def vector_upsert(
         self,
         index_name: str,
         vectors: list[list[float]],
@@ -1226,7 +1235,7 @@ class QortexService:
                     "error": f"Vector {i} has dimension {len(vec)}, expected {expected_dim}",
                 }
 
-        idx.add(generated_ids, vectors)
+        await idx.add(generated_ids, vectors)
 
         meta_store = self.vector_metadata[index_name]
         doc_store = self.vector_documents[index_name]
@@ -1242,7 +1251,7 @@ class QortexService:
 
         return {"ids": generated_ids}
 
-    def vector_query(
+    async def vector_query(
         self,
         index_name: str,
         query_vector: list[float],
@@ -1265,7 +1274,7 @@ class QortexService:
             }
 
         fetch_k = top_k * 5 if filter else top_k
-        raw_results = idx.search(query_vector, top_k=fetch_k)
+        raw_results = await idx.search(query_vector, top_k=fetch_k)
 
         results: list[dict] = []
         for vid, score in raw_results:
@@ -1328,7 +1337,7 @@ class QortexService:
             for r in rules
         ]
 
-    def _index_manifest_embeddings(self, manifest: Any) -> None:
+    async def _index_manifest_embeddings(self, manifest: Any) -> None:
         ids_with_embeddings = []
         embeddings_list = []
         for concept in manifest.concepts:
@@ -1338,7 +1347,7 @@ class QortexService:
                 embeddings_list.append(concept.embedding)
 
         if self.vector_index is not None and ids_with_embeddings:
-            self.vector_index.add(ids_with_embeddings, embeddings_list)
+            await self.vector_index.add(ids_with_embeddings, embeddings_list)
 
     def _get_llm_backend(self) -> Any:
         if self.llm_backend is not None:

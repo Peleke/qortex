@@ -33,3 +33,11 @@ __all__ = [
     "SentenceTransformerEmbedding",
     "VectorIndex",
 ]
+
+# Conditional pgvector export (requires asyncpg + pgvector)
+try:
+    from qortex.vec.pgvector import PgVectorIndex
+
+    __all__.append("PgVectorIndex")
+except ImportError:
+    pass

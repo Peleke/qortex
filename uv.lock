@@ -3043,6 +3043,18 @@ wheels = [
 ]
 
 [[package]]
+name = "pgvector"
+version = "0.4.2"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "numpy" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/25/6c/6d8b4b03b958c02fa8687ec6063c49d952a189f8c91ebbe51e877dfab8f7/pgvector-0.4.2.tar.gz", hash = "sha256:322cac0c1dc5d41c9ecf782bd9991b7966685dee3a00bc873631391ed949513a", size = 31354, upload-time = "2025-12-05T01:07:17.87Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/5a/26/6cee8a1ce8c43625ec561aff19df07f9776b7525d9002c86bceb3e0ac970/pgvector-0.4.2-py3-none-any.whl", hash = "sha256:549d45f7a18593783d5eec609ea1684a724ba8405c4cb182a0b2b08aeff04e08", size = 27441, upload-time = "2025-12-05T01:07:16.536Z" },
+]
+
+[[package]]
 name = "pillow"
 version = "12.1.0"
 source = { registry = "https://pypi.org/simple" }
@@ -3755,6 +3767,7 @@ all = [
     { name = "neo4j" },
     { name = "networkx" },
     { name = "pdfplumber" },
+    { name = "pgvector" },
     { name = "pymupdf" },
     { name = "pytest" },
     { name = "pytest-asyncio" },
@@ -3834,6 +3847,11 @@ source-postgres = [
 vec = [
     { name = "sentence-transformers" },
 ]
+vec-pgvector = [
+    { name = "asyncpg" },
+    { name = "pgvector" },
+    { name = "sentence-transformers" },
+]
 vec-sqlite = [
     { name = "sentence-transformers" },
     { name = "sqlite-vec" },
@@ -3856,6 +3874,7 @@ requires-dist = [
     { name = "agno", marker = "extra == 'adapters'", specifier = ">=1.0" },
     { name = "anthropic", marker = "extra == 'llm'", specifier = ">=0.18" },
     { name = "asyncpg", marker = "extra == 'source-postgres'", specifier = ">=0.29" },
+    { name = "asyncpg", marker = "extra == 'vec-pgvector'", specifier = ">=0.29" },
     { name = "autogen-core", marker = "extra == 'adapters'", specifier = ">=0.4" },
     { name = "chirho", marker = "extra == 'causal-full'", specifier = ">=0.2" },
     { name = "dowhy", marker = "extra == 'causal-dowhy'", specifier = ">=0.11" },
@@ -3875,6 +3894,7 @@ requires-dist = [
     { name = "networkx", marker = "extra == 'dev'", specifier = ">=3.0" },
     { name = "numpy", specifier = ">=1.24" },
     { name = "pdfplumber", marker = "extra == 'pdf'", specifier = ">=0.10" },
+    { name = "pgvector", marker = "extra == 'vec-pgvector'", specifier = ">=0.3" },
     { name = "pymupdf", marker = "extra == 'pdf'", specifier = ">=1.23" },
     { name = "pyro-ppl", marker = "extra == 'causal-full'", specifier = ">=1.8" },
     { name = "pytest", marker = "extra == 'dev'", specifier = ">=8.0" },
@@ -3882,7 +3902,8 @@ requires-dist = [
     { name = "pytest-cov", marker = "extra == 'dev'", specifier = ">=4.0" },
     { name = "pytest-timeout", marker = "extra == 'dev'", specifier = ">=2.3" },
     { name = "pyyaml", specifier = ">=6.0" },
-    { name = "qortex", extras = ["pdf", "vec-sqlite", "mcp", "llm", "memgraph", "causal", "source-postgres", "observability", "nlp", "dev", "adapters", "server", "http-client"], marker = "extra == 'all'" },
+    { name = "qortex", extras = ["pdf", "vec-sqlite", "vec-pgvector", "mcp", "llm", "memgraph", "causal", "source-postgres", "observability", "nlp", "dev", "adapters", "server", "http-client"], marker = "extra == 'all'" },
+    { name = "qortex", extras = ["vec"], marker = "extra == 'vec-pgvector'" },
     { name = "qortex", extras = ["vec"], marker = "extra == 'vec-sqlite'" },
     { name = "qortex-ingest", editable = "packages/qortex-ingest" },
     { name = "qortex-learning", editable = "packages/qortex-learning" },
@@ -3903,7 +3924,7 @@ requires-dist = [
     { name = "types-pyyaml", marker = "extra == 'dev'", specifier = ">=6.0" },
     { name = "uvicorn", extras = ["standard"], marker = "extra == 'server'", specifier = ">=0.25" },
 ]
-provides-extras = ["pdf", "vec", "vec-sqlite", "source-postgres", "mcp", "causal", "causal-dowhy", "causal-full", "dev", "llm", "memgraph", "observability", "nlp", "server", "http-client", "e2e", "adapters", "all"]
+provides-extras = ["pdf", "vec", "vec-sqlite", "vec-pgvector", "source-postgres", "mcp", "causal", "causal-dowhy", "causal-full", "dev", "llm", "memgraph", "observability", "nlp", "server", "http-client", "e2e", "adapters", "all"]
 
 [package.metadata.requires-dev]
 dev = [

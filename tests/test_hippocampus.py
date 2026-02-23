@@ -12,6 +12,7 @@ Coverage:
 - Metamorphic tests: outcome order independence, shutdown/startup identity
 """
 
+import asyncio
 import json
 import logging
 import math
@@ -88,7 +89,7 @@ def make_node(domain: str, name: str, desc: str = "") -> ConceptNode:
     )
 
 
-def make_graph_with_embeddings(dims=3):
+async def make_graph_with_embeddings(dims=3):
     """Build a small test graph with embeddings for GraphRAG testing.
 
     Creates 5 nodes in 'testing' domain with known embeddings and 2 edges.
@@ -132,6 +133,11 @@ def make_graph_with_embeddings(dims=3):
         backend.add_node(node)
     for nid, emb in embeddings.items():
         backend.add_embedding(nid, emb)
+
+    # Populate the vector index (async)
+    ids = list(embeddings.keys())
+    vecs = list(embeddings.values())
+    await vector_index.add(ids, vecs)
 
     # Add typed edges: alpha → beta (REQUIRES), gamma → epsilon (SIMILAR_TO)
     backend.add_edge(
@@ -492,34 +498,34 @@ class TestPPRPowerIteration:
         assert scores["test:lonely"] > 0  # Has mass
         assert len(scores) == 1  # Only node in graph
 
-    def test_seed_has_highest_score(self):
+    async def test_seed_has_highest_score(self):
         """Seed should always have highest score in a connected graph."""
-        backend, vi, emb, node_ids = make_graph_with_embeddings()
+        backend, vi, emb, node_ids = await make_graph_with_embeddings()
 
         scores = backend.personalized_pagerank(["testing:alpha"])
         assert scores["testing:alpha"] == max(scores.values())
 
-    def test_neighbor_gets_mass(self):
+    async def test_neighbor_gets_mass(self):
         """Direct neighbor should get mass via edge traversal."""
-        backend, vi, emb, node_ids = make_graph_with_embeddings()
+        backend, vi, emb, node_ids = await make_graph_with_embeddings()
 
         scores = backend.personalized_pagerank(["testing:alpha"])
         # beta is a direct neighbor of alpha
         assert "testing:beta" in scores
         assert scores["testing:beta"] > 0
 
-    def test_domain_filter(self):
+    async def test_domain_filter(self):
         """Nodes outside the domain should not appear in results."""
-        backend, vi, emb, node_ids = make_graph_with_embeddings()
+        backend, vi, emb, node_ids = await make_graph_with_embeddings()
         backend.create_domain("other")
         backend.add_node(make_node("other", "outsider"))
 
         scores = backend.personalized_pagerank(["testing:alpha"], domain="testing")
         assert "other:outsider" not in scores
 
-    def test_seed_weights_bias_results(self):
+    async def test_seed_weights_bias_results(self):
         """Providing seed_weights should bias PPR toward weighted seeds."""
-        backend, vi, emb, node_ids = make_graph_with_embeddings()
+        backend, vi, emb, node_ids = await make_graph_with_embeddings()
 
         # Equal seeds
         scores_equal = backend.personalized_pagerank(["testing:alpha", "testing:gamma"])
@@ -615,76 +621,77 @@ class TestPPRPowerIteration:
 class TestGraphRAGAdapter:
     """Tests for the full GraphRAG retrieval pipeline."""
 
-    def test_retrieve_returns_results(self):
-        backend, vi, emb, node_ids = make_graph_with_embeddings()
+    async def test_retrieve_returns_results(self):
+        backend, vi, emb, node_ids = await make_graph_with_embeddings()
         adapter = GraphRAGAdapter(vi, backend, emb)
 
-        result = adapter.retrieve("find alpha", domains=["testing"], top_k=5)
+        result = await adapter.retrieve("find alpha", domains=["testing"], top_k=5)
         assert len(result.items) > 0
         assert result.query_id  # non-empty
 
-    def test_retrieve_scores_are_positive(self):
-        backend, vi, emb, node_ids = make_graph_with_embeddings()
+    async def test_retrieve_scores_are_positive(self):
+        backend, vi, emb, node_ids = await make_graph_with_embeddings()
         adapter = GraphRAGAdapter(vi, backend, emb)
 
-        result = adapter.retrieve("find alpha", top_k=5)
+        result = await adapter.retrieve("find alpha", top_k=5)
         for item in result.items:
             assert item.score > 0
 
-    def test_retrieve_metadata_has_scores(self):
+    async def test_retrieve_metadata_has_scores(self):
         """Each item should have vec_score, ppr_score, kg_coverage in metadata."""
-        backend, vi, emb, node_ids = make_graph_with_embeddings()
+        backend, vi, emb, node_ids = await make_graph_with_embeddings()
         adapter = GraphRAGAdapter(vi, backend, emb)
 
-        result = adapter.retrieve("find alpha", top_k=5)
+        result = await adapter.retrieve("find alpha", top_k=5)
         for item in result.items:
             assert "vec_score" in item.metadata
             assert "ppr_score" in item.metadata
             assert "kg_coverage" in item.metadata
 
-    def test_retrieve_respects_top_k(self):
-        backend, vi, emb, node_ids = make_graph_with_embeddings()
+    async def test_retrieve_respects_top_k(self):
+        backend, vi, emb, node_ids = await make_graph_with_embeddings()
         adapter = GraphRAGAdapter(vi, backend, emb)
 
-        result = adapter.retrieve("find alpha", top_k=2)
+        result = await adapter.retrieve("find alpha", top_k=2)
         assert len(result.items) <= 2
 
-    def test_retrieve_respects_domain_filter(self):
-        backend, vi, emb, node_ids = make_graph_with_embeddings()
+    async def test_retrieve_respects_domain_filter(self):
+        backend, vi, emb, node_ids = await make_graph_with_embeddings()
         backend.create_domain("other")
         backend.add_node(make_node("other", "outsider"))
         backend.add_embedding("other:outsider", [1.0, 0.0, 0.0])  # same as alpha
+        await vi.add(["other:outsider"], [[1.0, 0.0, 0.0]])
 
         adapter = GraphRAGAdapter(vi, backend, emb)
-        result = adapter.retrieve("find alpha", domains=["testing"], top_k=10)
+        result = await adapter.retrieve("find alpha", domains=["testing"], top_k=10)
         for item in result.items:
             assert item.domain == "testing"
 
-    def test_retrieve_empty_index_returns_empty(self):
+    async def test_retrieve_empty_index_returns_empty(self):
         vi = NumpyVectorIndex(dimensions=3)
         backend = InMemoryBackend(vector_index=vi)
         backend.connect()
         emb = FakeEmbedding(dims=3)
         adapter = GraphRAGAdapter(vi, backend, emb)
 
-        result = adapter.retrieve("anything")
+        result = await adapter.retrieve("anything")
         assert result.items == []
 
-    def test_feedback_updates_factors(self):
-        backend, vi, emb, node_ids = make_graph_with_embeddings()
+    async def test_feedback_updates_factors(self):
+        backend, vi, emb, node_ids = await make_graph_with_embeddings()
         factors = TeleportationFactors()
         adapter = GraphRAGAdapter(vi, backend, emb, factors=factors)
 
         # Query first
-        result = adapter.retrieve("find alpha", top_k=3)
-        # Then feedback
+        result = await adapter.retrieve("find alpha", top_k=3)
+        # Then feedback (sync — not awaited)
         if result.items:
             outcomes = {result.items[0].id: "accepted"}
             adapter.feedback(result.query_id, outcomes)
             assert factors.get(result.items[0].id) > 1.0
 
-    def test_online_edge_gen_connects_similar_nodes(self):
-        backend, vi, emb, node_ids = make_graph_with_embeddings()
+    async def test_online_edge_gen_connects_similar_nodes(self):
+        backend, vi, emb, node_ids = await make_graph_with_embeddings()
         adapter = GraphRAGAdapter(vi, backend, emb, online_sim_threshold=0.5)
 
         # alpha, beta, delta are all similar (emb_a ≈ emb_b ≈ emb_d)
@@ -695,21 +702,21 @@ class TestGraphRAGAdapter:
         for _src, _tgt, weight in edges:
             assert weight >= 0.5
 
-    def test_online_edge_gen_skips_dissimilar(self):
-        backend, vi, emb, node_ids = make_graph_with_embeddings()
+    async def test_online_edge_gen_skips_dissimilar(self):
+        backend, vi, emb, node_ids = await make_graph_with_embeddings()
         adapter = GraphRAGAdapter(vi, backend, emb, online_sim_threshold=0.95)
 
         # alpha and gamma are orthogonal, shouldn't connect at 0.95 threshold
         edges = adapter._build_online_edges(["testing:alpha", "testing:gamma"])
         assert len(edges) == 0
 
-    def test_online_edge_gen_single_node_returns_empty(self):
-        backend, vi, emb, node_ids = make_graph_with_embeddings()
+    async def test_online_edge_gen_single_node_returns_empty(self):
+        backend, vi, emb, node_ids = await make_graph_with_embeddings()
         adapter = GraphRAGAdapter(vi, backend, emb)
         assert adapter._build_online_edges(["testing:alpha"]) == []
 
-    def test_edge_buffer_records_during_retrieve(self):
-        backend, vi, emb, node_ids = make_graph_with_embeddings()
+    async def test_edge_buffer_records_during_retrieve(self):
+        backend, vi, emb, node_ids = await make_graph_with_embeddings()
         buffer = EdgePromotionBuffer()
         adapter = GraphRAGAdapter(
             vi,
@@ -719,30 +726,30 @@ class TestGraphRAGAdapter:
             online_sim_threshold=0.5,
         )
 
-        adapter.retrieve("find alpha", top_k=5)
+        await adapter.retrieve("find alpha", top_k=5)
         # Buffer should have recorded some online edges
         # (depends on similarity between candidates)
         # At minimum the buffer exists and didn't error
         assert isinstance(buffer.summary(), dict)
 
-    def test_count_persistent_edges(self):
-        backend, vi, emb, node_ids = make_graph_with_embeddings()
+    async def test_count_persistent_edges(self):
+        backend, vi, emb, node_ids = await make_graph_with_embeddings()
         adapter = GraphRAGAdapter(vi, backend, emb)
 
         # alpha → beta edge exists
         count = adapter._count_persistent_edges(["testing:alpha", "testing:beta"])
         assert count >= 1
 
-    def test_vec_only_vs_graph_different_results(self):
+    async def test_vec_only_vs_graph_different_results(self):
         """GraphRAGAdapter should produce different rankings than VecOnlyAdapter
         when the graph has meaningful edges."""
-        backend, vi, emb, node_ids = make_graph_with_embeddings()
+        backend, vi, emb, node_ids = await make_graph_with_embeddings()
 
         vec_adapter = VecOnlyAdapter(vi, backend, emb)
         graph_adapter = GraphRAGAdapter(vi, backend, emb)
 
-        vec_result = vec_adapter.retrieve("find alpha", top_k=5)
-        graph_result = graph_adapter.retrieve("find alpha", top_k=5)
+        vec_result = await vec_adapter.retrieve("find alpha", top_k=5)
+        graph_result = await graph_adapter.retrieve("find alpha", top_k=5)
 
         # Both should return results
         assert len(vec_result.items) > 0
@@ -766,25 +773,25 @@ class TestGraphRAGAdapter:
 class TestModeSelection:
     """Tests for mode parameter on query."""
 
-    def test_local_client_vec_mode(self):
+    async def test_local_client_vec_mode(self):
         from qortex.client import LocalQortexClient
 
-        backend, vi, emb, node_ids = make_graph_with_embeddings()
+        backend, vi, emb, node_ids = await make_graph_with_embeddings()
         client = LocalQortexClient(vi, backend, emb, mode="vec")
         assert isinstance(client._adapter, VecOnlyAdapter)
 
-    def test_local_client_graph_mode(self):
+    async def test_local_client_graph_mode(self):
         from qortex.client import LocalQortexClient
 
-        backend, vi, emb, node_ids = make_graph_with_embeddings()
+        backend, vi, emb, node_ids = await make_graph_with_embeddings()
         client = LocalQortexClient(vi, backend, emb, mode="graph")
         assert isinstance(client._adapter, GraphRAGAdapter)
 
-    def test_local_client_auto_mode_with_edges(self):
+    async def test_local_client_auto_mode_with_edges(self):
         """Auto mode should select GraphRAGAdapter when edges exist."""
         from qortex.client import LocalQortexClient
 
-        backend, vi, emb, node_ids = make_graph_with_embeddings()
+        backend, vi, emb, node_ids = await make_graph_with_embeddings()
         client = LocalQortexClient(vi, backend, emb, mode="auto")
         assert isinstance(client._adapter, GraphRAGAdapter)
 
@@ -801,28 +808,28 @@ class TestModeSelection:
         client = LocalQortexClient(vi, backend, FakeEmbedding(), mode="auto")
         assert isinstance(client._adapter, VecOnlyAdapter)
 
-    def test_mcp_select_adapter_vec(self):
+    async def test_mcp_select_adapter_vec(self):
         from qortex.mcp.server import _select_adapter, create_server
 
-        backend, vi, emb, node_ids = make_graph_with_embeddings()
+        backend, vi, emb, node_ids = await make_graph_with_embeddings()
         create_server(backend=backend, embedding_model=emb, vector_index=vi)
 
         adapter = _select_adapter("vec")
         assert isinstance(adapter, VecOnlyAdapter)
 
-    def test_mcp_select_adapter_graph(self):
+    async def test_mcp_select_adapter_graph(self):
         from qortex.mcp.server import _select_adapter, create_server
 
-        backend, vi, emb, node_ids = make_graph_with_embeddings()
+        backend, vi, emb, node_ids = await make_graph_with_embeddings()
         create_server(backend=backend, embedding_model=emb, vector_index=vi)
 
         adapter = _select_adapter("graph")
         assert isinstance(adapter, GraphRAGAdapter)
 
-    def test_mcp_select_adapter_auto(self):
+    async def test_mcp_select_adapter_auto(self):
         from qortex.mcp.server import _select_adapter, create_server
 
-        backend, vi, emb, node_ids = make_graph_with_embeddings()
+        backend, vi, emb, node_ids = await make_graph_with_embeddings()
         create_server(backend=backend, embedding_model=emb, vector_index=vi)
 
         adapter = _select_adapter("auto")
@@ -1256,31 +1263,31 @@ class TestMcpOutcomeSource:
 class TestAdapterInteroception:
     """GraphRAGAdapter integration with InteroceptionProvider."""
 
-    def test_adapter_uses_interoception_for_seeds(self):
-        backend, vi, emb, node_ids = make_graph_with_embeddings()
+    async def test_adapter_uses_interoception_for_seeds(self):
+        backend, vi, emb, node_ids = await make_graph_with_embeddings()
         provider = LocalInteroceptionProvider()
         # Boost alpha so it gets higher seed weight
         provider.factors.factors["testing:alpha"] = 3.0
 
         adapter = GraphRAGAdapter(vi, backend, emb, interoception=provider)
-        result = adapter.retrieve("find alpha", domains=["testing"], top_k=5)
+        result = await adapter.retrieve("find alpha", domains=["testing"], top_k=5)
 
         # Alpha should be in results with boosted weight
         alpha_items = [i for i in result.items if i.id == "testing:alpha"]
         assert len(alpha_items) > 0
 
-    def test_adapter_feedback_routes_through_interoception(self):
-        backend, vi, emb, node_ids = make_graph_with_embeddings()
+    async def test_adapter_feedback_routes_through_interoception(self):
+        backend, vi, emb, node_ids = await make_graph_with_embeddings()
         provider = LocalInteroceptionProvider()
         adapter = GraphRAGAdapter(vi, backend, emb, interoception=provider)
 
-        result = adapter.retrieve("find alpha", top_k=3)
+        result = await adapter.retrieve("find alpha", top_k=3)
         if result.items:
             adapter.feedback(result.query_id, {result.items[0].id: "accepted"})
             assert provider.factors.get(result.items[0].id) > 1.0
 
-    def test_adapter_records_edges_through_interoception(self):
-        backend, vi, emb, node_ids = make_graph_with_embeddings()
+    async def test_adapter_records_edges_through_interoception(self):
+        backend, vi, emb, node_ids = await make_graph_with_embeddings()
         provider = LocalInteroceptionProvider()
         adapter = GraphRAGAdapter(
             vi,
@@ -1290,29 +1297,29 @@ class TestAdapterInteroception:
             online_sim_threshold=0.5,
         )
 
-        adapter.retrieve("find alpha", top_k=5)
+        await adapter.retrieve("find alpha", top_k=5)
         # Buffer should have some entries from online edge gen
         assert isinstance(provider.buffer.summary(), dict)
 
-    def test_backward_compat_factors_param(self):
-        backend, vi, emb, node_ids = make_graph_with_embeddings()
+    async def test_backward_compat_factors_param(self):
+        backend, vi, emb, node_ids = await make_graph_with_embeddings()
         factors = TeleportationFactors(factors={"testing:alpha": 2.0})
         adapter = GraphRAGAdapter(vi, backend, emb, factors=factors)
 
         # Factors should be accessible through backward-compat property
         assert adapter.factors.get("testing:alpha") == 2.0
 
-    def test_backward_compat_edge_buffer_param(self):
-        backend, vi, emb, node_ids = make_graph_with_embeddings()
+    async def test_backward_compat_edge_buffer_param(self):
+        backend, vi, emb, node_ids = await make_graph_with_embeddings()
         buffer = EdgePromotionBuffer()
         adapter = GraphRAGAdapter(vi, backend, emb, edge_buffer=buffer)
 
-        adapter.retrieve("find alpha", top_k=5, min_confidence=0.0)
+        await adapter.retrieve("find alpha", top_k=5, min_confidence=0.0)
         # Buffer should be the one we passed (proxied through interoception)
         assert adapter.edge_buffer is buffer
 
-    def test_interoception_wins_over_factors(self, caplog):
-        backend, vi, emb, node_ids = make_graph_with_embeddings()
+    async def test_interoception_wins_over_factors(self, caplog):
+        backend, vi, emb, node_ids = await make_graph_with_embeddings()
         provider = LocalInteroceptionProvider()
         factors = TeleportationFactors()
 
@@ -1329,22 +1336,22 @@ class TestAdapterInteroception:
         # Interoception's factors should be used, not the standalone one
         assert adapter.factors is provider.factors
 
-    def test_adapter_factors_property_proxies(self):
-        backend, vi, emb, node_ids = make_graph_with_embeddings()
+    async def test_adapter_factors_property_proxies(self):
+        backend, vi, emb, node_ids = await make_graph_with_embeddings()
         provider = LocalInteroceptionProvider()
         adapter = GraphRAGAdapter(vi, backend, emb, interoception=provider)
 
         assert adapter.factors is provider.factors
 
-    def test_adapter_edge_buffer_property_proxies(self):
-        backend, vi, emb, node_ids = make_graph_with_embeddings()
+    async def test_adapter_edge_buffer_property_proxies(self):
+        backend, vi, emb, node_ids = await make_graph_with_embeddings()
         provider = LocalInteroceptionProvider()
         adapter = GraphRAGAdapter(vi, backend, emb, interoception=provider)
 
         assert adapter.edge_buffer is provider.buffer
 
-    def test_get_adapter_with_interoception(self):
-        backend, vi, emb, node_ids = make_graph_with_embeddings()
+    async def test_get_adapter_with_interoception(self):
+        backend, vi, emb, node_ids = await make_graph_with_embeddings()
         provider = LocalInteroceptionProvider()
         adapter = get_adapter(vi, backend, emb, interoception=provider)
         assert isinstance(adapter, GraphRAGAdapter)
@@ -1522,7 +1529,7 @@ class TestFeedbackDrivenRetrievalDelta:
         5. Shutdown → startup → query → assert persistence
     """
 
-    def _build_e2e_graph(self, dims=3):
+    async def _build_e2e_graph(self, dims=3):
         """Build a 5-node graph for E2E testing.
 
         Nodes: alpha, beta, gamma, delta, epsilon
@@ -1566,6 +1573,11 @@ class TestFeedbackDrivenRetrievalDelta:
         for nid, emb in embeddings.items():
             backend.add_embedding(nid, emb)
 
+        # Populate the vector index (async)
+        ids = list(embeddings.keys())
+        vecs = list(embeddings.values())
+        await vector_index.add(ids, vecs)
+
         backend.add_edge(
             ConceptEdge(
                 source_id="testing:alpha",
@@ -1592,9 +1604,9 @@ class TestFeedbackDrivenRetrievalDelta:
 
         return backend, vector_index, embedding_model
 
-    def test_feedback_shifts_scores(self):
+    async def test_feedback_shifts_scores(self):
         """Core delta test: feedback changes retrieval scores."""
-        backend, vector_index, embedding_model = self._build_e2e_graph()
+        backend, vector_index, embedding_model = await self._build_e2e_graph()
 
         config = InteroceptionConfig(teleportation_enabled=True)
         interoception = LocalInteroceptionProvider(config)
@@ -1607,12 +1619,12 @@ class TestFeedbackDrivenRetrievalDelta:
         )
 
         # --- Baseline query ---
-        result1 = adapter.retrieve("find alpha", top_k=5)
+        result1 = await adapter.retrieve("find alpha", top_k=5)
         assert len(result1.items) > 0
 
         baseline_scores = {item.id: item.score for item in result1.items}
 
-        # --- Feedback: accept alpha, reject gamma ---
+        # --- Feedback: accept alpha, reject gamma (sync — not awaited) ---
         outcomes = {}
         for item in result1.items:
             if "alpha" in item.id:
@@ -1622,7 +1634,7 @@ class TestFeedbackDrivenRetrievalDelta:
         adapter.feedback(result1.query_id, outcomes)
 
         # --- Post-feedback query (same query) ---
-        result2 = adapter.retrieve("find alpha", top_k=5)
+        result2 = await adapter.retrieve("find alpha", top_k=5)
         post_scores = {item.id: item.score for item in result2.items}
 
         # Alpha should have a higher score after being accepted
@@ -1641,9 +1653,9 @@ class TestFeedbackDrivenRetrievalDelta:
                 f"Post: {post_scores['testing:gamma']}"
             )
 
-    def test_repeated_feedback_amplifies_delta(self):
+    async def test_repeated_feedback_amplifies_delta(self):
         """Multiple feedback rounds amplify the score shift."""
-        backend, vector_index, embedding_model = self._build_e2e_graph()
+        backend, vector_index, embedding_model = await self._build_e2e_graph()
 
         config = InteroceptionConfig(teleportation_enabled=True)
         interoception = LocalInteroceptionProvider(config)
@@ -1656,18 +1668,18 @@ class TestFeedbackDrivenRetrievalDelta:
         )
 
         # Baseline
-        result0 = adapter.retrieve("find alpha", top_k=5)
+        result0 = await adapter.retrieve("find alpha", top_k=5)
         baseline_alpha = next((i.score for i in result0.items if i.id == "testing:alpha"), None)
         assert baseline_alpha is not None
 
         # 5 rounds of "accepted" feedback for alpha
         for _ in range(5):
-            result = adapter.retrieve("find alpha", top_k=5)
+            result = await adapter.retrieve("find alpha", top_k=5)
             outcomes = {item.id: "accepted" for item in result.items if "alpha" in item.id}
             adapter.feedback(result.query_id, outcomes)
 
         # Final query
-        result_final = adapter.retrieve("find alpha", top_k=5)
+        result_final = await adapter.retrieve("find alpha", top_k=5)
         final_alpha = next((i.score for i in result_final.items if i.id == "testing:alpha"), None)
         assert final_alpha is not None
         assert final_alpha > baseline_alpha, (
@@ -1675,9 +1687,9 @@ class TestFeedbackDrivenRetrievalDelta:
             f"Baseline: {baseline_alpha}, Final: {final_alpha}"
         )
 
-    def test_feedback_persists_across_restart(self, tmp_path):
+    async def test_feedback_persists_across_restart(self, tmp_path):
         """Shutdown → startup → scores survive."""
-        backend, vector_index, embedding_model = self._build_e2e_graph()
+        backend, vector_index, embedding_model = await self._build_e2e_graph()
 
         factors_path = tmp_path / "factors.json"
         buffer_path = tmp_path / "buffer.json"
@@ -1698,15 +1710,15 @@ class TestFeedbackDrivenRetrievalDelta:
             interoception=interoception1,
         )
 
-        adapter1.retrieve("find alpha", top_k=5)
+        await adapter1.retrieve("find alpha", top_k=5)
         # Accept alpha repeatedly to build up factor
         for _ in range(3):
-            r = adapter1.retrieve("find alpha", top_k=5)
+            r = await adapter1.retrieve("find alpha", top_k=5)
             outcomes = {i.id: "accepted" for i in r.items if "alpha" in i.id}
             adapter1.feedback(r.query_id, outcomes)
 
         # Query after feedback
-        post_feedback = adapter1.retrieve("find alpha", top_k=5)
+        post_feedback = await adapter1.retrieve("find alpha", top_k=5)
         post_alpha = next((i.score for i in post_feedback.items if i.id == "testing:alpha"), None)
 
         # Capture factor state
@@ -1732,7 +1744,7 @@ class TestFeedbackDrivenRetrievalDelta:
             interoception=interoception2,
         )
 
-        result_restarted = adapter2.retrieve("find alpha", top_k=5)
+        result_restarted = await adapter2.retrieve("find alpha", top_k=5)
         restarted_alpha = next(
             (i.score for i in result_restarted.items if i.id == "testing:alpha"), None
         )
@@ -1743,9 +1755,9 @@ class TestFeedbackDrivenRetrievalDelta:
             f"Pre-restart: {post_alpha}, Post-restart: {restarted_alpha}"
         )
 
-    def test_no_feedback_no_change(self):
+    async def test_no_feedback_no_change(self):
         """Without feedback, repeated queries produce identical scores."""
-        backend, vector_index, embedding_model = self._build_e2e_graph()
+        backend, vector_index, embedding_model = await self._build_e2e_graph()
 
         config = InteroceptionConfig(teleportation_enabled=True)
         interoception = LocalInteroceptionProvider(config)
@@ -1757,8 +1769,8 @@ class TestFeedbackDrivenRetrievalDelta:
             interoception=interoception,
         )
 
-        result1 = adapter.retrieve("find alpha", top_k=5)
-        result2 = adapter.retrieve("find alpha", top_k=5)
+        result1 = await adapter.retrieve("find alpha", top_k=5)
+        result2 = await adapter.retrieve("find alpha", top_k=5)
 
         scores1 = {i.id: i.score for i in result1.items}
         scores2 = {i.id: i.score for i in result2.items}
@@ -1769,9 +1781,9 @@ class TestFeedbackDrivenRetrievalDelta:
                 f"Node {node_id}: {scores1[node_id]} vs {scores2.get(node_id)}"
             )
 
-    def test_disabled_teleportation_no_delta(self):
+    async def test_disabled_teleportation_no_delta(self):
         """With teleportation disabled, feedback has no effect on scores."""
-        backend, vector_index, embedding_model = self._build_e2e_graph()
+        backend, vector_index, embedding_model = await self._build_e2e_graph()
 
         config = InteroceptionConfig(teleportation_enabled=False)
         interoception = LocalInteroceptionProvider(config)
@@ -1784,15 +1796,15 @@ class TestFeedbackDrivenRetrievalDelta:
         )
 
         # Baseline
-        result1 = adapter.retrieve("find alpha", top_k=5)
+        result1 = await adapter.retrieve("find alpha", top_k=5)
         baseline = {i.id: i.score for i in result1.items}
 
-        # Feedback
+        # Feedback (sync — not awaited)
         outcomes = {i.id: "accepted" for i in result1.items if "alpha" in i.id}
         adapter.feedback(result1.query_id, outcomes)
 
         # Post-feedback — should be identical (teleportation off)
-        result2 = adapter.retrieve("find alpha", top_k=5)
+        result2 = await adapter.retrieve("find alpha", top_k=5)
         post = {i.id: i.score for i in result2.items}
 
         for node_id in baseline:
@@ -1804,9 +1816,9 @@ class TestFeedbackDrivenRetrievalDelta:
         # But factors still accumulated
         assert interoception.factors.get("testing:alpha") > 1.0
 
-    def test_client_e2e_feedback_loop(self):
+    async def test_client_e2e_feedback_loop(self):
         """Full E2E through QortexClient (not just adapter)."""
-        backend, vector_index, embedding_model = self._build_e2e_graph()
+        backend, vector_index, embedding_model = await self._build_e2e_graph()
 
         config = InteroceptionConfig(teleportation_enabled=True)
         interoception = LocalInteroceptionProvider(config)
@@ -1819,19 +1831,19 @@ class TestFeedbackDrivenRetrievalDelta:
             interoception=interoception,
         )
 
-        # Baseline query through client
+        # Baseline query through client (sync — client.query uses _sync internally)
         result1 = client.query("find alpha", top_k=5)
         assert len(result1.items) > 0
         baseline_alpha = next((i.score for i in result1.items if i.id == "testing:alpha"), None)
         assert baseline_alpha is not None
 
-        # Feedback through client
+        # Feedback through client (sync — not awaited)
         outcomes = {i.id: "accepted" for i in result1.items if "alpha" in i.id}
         fb_result = client.feedback(result1.query_id, outcomes)
         assert fb_result.status == "recorded"
         assert fb_result.outcome_count == len(outcomes)
 
-        # Post-feedback query
+        # Post-feedback query (sync)
         result2 = client.query("find alpha", top_k=5)
         post_alpha = next((i.score for i in result2.items if i.id == "testing:alpha"), None)
         assert post_alpha is not None

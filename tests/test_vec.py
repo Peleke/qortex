@@ -9,6 +9,7 @@ Coverage:
 - EmbeddingModel protocol: conformance
 """
 
+import asyncio
 import math
 import uuid
 
@@ -75,15 +76,15 @@ def make_node(domain: str, name: str, desc: str = "") -> ConceptNode:
     )
 
 
-def make_backend_with_nodes(
+async def make_backend_with_nodes(
     nodes: list[ConceptNode],
     embeddings: dict[str, list[float]] | None = None,
     dims: int = 3,
 ):
     """Create an InMemoryBackend + NumpyVectorIndex pre-populated with nodes.
 
-    Returns (backend, vector_index) tuple. Both layers are wired together:
-    InMemoryBackend dual-writes to vector_index on add_embedding().
+    Returns (backend, vector_index) tuple. Embeddings are written to both
+    the backend (for brute-force fallback) and the vector index (for search).
     """
     vector_index = NumpyVectorIndex(dimensions=dims)
     backend = InMemoryBackend(vector_index=vector_index)
@@ -94,8 +95,11 @@ def make_backend_with_nodes(
     for n in nodes:
         backend.add_node(n)
     if embeddings:
+        ids = list(embeddings.keys())
+        vecs = list(embeddings.values())
         for nid, emb in embeddings.items():
             backend.add_embedding(nid, emb)
+        await vector_index.add(ids, vecs)
     return backend, vector_index
 
 
@@ -107,120 +111,120 @@ def make_backend_with_nodes(
 class TestNumpyVectorIndex:
     """Core unit tests for NumpyVectorIndex."""
 
-    def test_add_and_size(self):
+    async def test_add_and_size(self):
         idx = NumpyVectorIndex(dimensions=3)
-        assert idx.size() == 0
-        idx.add(["a", "b"], [[1.0, 0.0, 0.0], [0.0, 1.0, 0.0]])
-        assert idx.size() == 2
+        assert await idx.size() == 0
+        await idx.add(["a", "b"], [[1.0, 0.0, 0.0], [0.0, 1.0, 0.0]])
+        assert await idx.size() == 2
 
-    def test_search_returns_correct_order(self):
+    async def test_search_returns_correct_order(self):
         idx = NumpyVectorIndex(dimensions=3)
-        idx.add(
+        await idx.add(
             ["x", "y", "z"],
             [[1.0, 0.0, 0.0], [0.0, 1.0, 0.0], [0.7, 0.7, 0.0]],
         )
-        results = idx.search([1.0, 0.0, 0.0], top_k=3)
+        results = await idx.search([1.0, 0.0, 0.0], top_k=3)
         assert results[0][0] == "x"
         assert results[0][1] == pytest.approx(1.0, abs=0.01)
         assert results[1][0] == "z"
         assert results[2][0] == "y"
 
-    def test_search_threshold_filters(self):
+    async def test_search_threshold_filters(self):
         idx = NumpyVectorIndex(dimensions=3)
-        idx.add(["a", "b"], [[1.0, 0.0, 0.0], [0.0, 1.0, 0.0]])
-        results = idx.search([1.0, 0.0, 0.0], top_k=10, threshold=0.5)
+        await idx.add(["a", "b"], [[1.0, 0.0, 0.0], [0.0, 1.0, 0.0]])
+        results = await idx.search([1.0, 0.0, 0.0], top_k=10, threshold=0.5)
         assert len(results) == 1
         assert results[0][0] == "a"
 
-    def test_search_top_k_limits(self):
+    async def test_search_top_k_limits(self):
         idx = NumpyVectorIndex(dimensions=3)
-        idx.add(
+        await idx.add(
             ["a", "b", "c"],
             [[1.0, 0.0, 0.0], [0.9, 0.1, 0.0], [0.8, 0.2, 0.0]],
         )
-        results = idx.search([1.0, 0.0, 0.0], top_k=2)
+        results = await idx.search([1.0, 0.0, 0.0], top_k=2)
         assert len(results) == 2
 
-    def test_remove(self):
+    async def test_remove(self):
         idx = NumpyVectorIndex(dimensions=3)
-        idx.add(["a", "b", "c"], [[1, 0, 0], [0, 1, 0], [0, 0, 1]])
-        idx.remove(["b"])
-        assert idx.size() == 2
-        results = idx.search([0, 1, 0], top_k=10)
+        await idx.add(["a", "b", "c"], [[1, 0, 0], [0, 1, 0], [0, 0, 1]])
+        await idx.remove(["b"])
+        assert await idx.size() == 2
+        results = await idx.search([0, 1, 0], top_k=10)
         assert "b" not in [r[0] for r in results]
 
-    def test_remove_nonexistent_id_is_silent(self):
+    async def test_remove_nonexistent_id_is_silent(self):
         idx = NumpyVectorIndex(dimensions=3)
-        idx.add(["a"], [[1, 0, 0]])
-        idx.remove(["b", "c"])  # Should not raise
-        assert idx.size() == 1
+        await idx.add(["a"], [[1, 0, 0]])
+        await idx.remove(["b", "c"])  # Should not raise
+        assert await idx.size() == 1
 
-    def test_remove_all_then_search(self):
+    async def test_remove_all_then_search(self):
         idx = NumpyVectorIndex(dimensions=3)
-        idx.add(["a", "b"], [[1, 0, 0], [0, 1, 0]])
-        idx.remove(["a", "b"])
-        assert idx.size() == 0
-        assert idx.search([1, 0, 0]) == []
+        await idx.add(["a", "b"], [[1, 0, 0], [0, 1, 0]])
+        await idx.remove(["a", "b"])
+        assert await idx.size() == 0
+        assert await idx.search([1, 0, 0]) == []
 
-    def test_upsert_semantics(self):
+    async def test_upsert_semantics(self):
         idx = NumpyVectorIndex(dimensions=3)
-        idx.add(["a"], [[1, 0, 0]])
-        idx.add(["a"], [[0, 1, 0]])  # overwrite
-        assert idx.size() == 1
-        results = idx.search([0, 1, 0], top_k=1)
+        await idx.add(["a"], [[1, 0, 0]])
+        await idx.add(["a"], [[0, 1, 0]])  # overwrite
+        assert await idx.size() == 1
+        results = await idx.search([0, 1, 0], top_k=1)
         assert results[0][0] == "a"
         assert results[0][1] == pytest.approx(1.0, abs=0.01)
 
-    def test_empty_search(self):
+    async def test_empty_search(self):
         idx = NumpyVectorIndex(dimensions=3)
-        assert idx.search([1, 0, 0]) == []
+        assert await idx.search([1, 0, 0]) == []
 
-    def test_zero_vector_search(self):
+    async def test_zero_vector_search(self):
         idx = NumpyVectorIndex(dimensions=3)
-        idx.add(["a"], [[1, 0, 0]])
-        assert idx.search([0, 0, 0]) == []
+        await idx.add(["a"], [[1, 0, 0]])
+        assert await idx.search([0, 0, 0]) == []
 
-    def test_dimension_mismatch_raises(self):
+    async def test_dimension_mismatch_raises(self):
         idx = NumpyVectorIndex(dimensions=3)
         with pytest.raises(ValueError, match="dimensions"):
-            idx.add(["a"], [[1, 0]])
+            await idx.add(["a"], [[1, 0]])
 
-    def test_ids_embeddings_length_mismatch(self):
+    async def test_ids_embeddings_length_mismatch(self):
         idx = NumpyVectorIndex(dimensions=3)
         with pytest.raises(ValueError, match="must match"):
-            idx.add(["a", "b"], [[1, 0, 0]])
+            await idx.add(["a", "b"], [[1, 0, 0]])
 
-    def test_cosine_similarity_correctness(self):
+    async def test_cosine_similarity_correctness(self):
         """Verify cosine similarity matches manual computation."""
         idx = NumpyVectorIndex(dimensions=2)
-        idx.add(["a"], [[1.0, 0.0]])
-        results = idx.search([1.0, 1.0], top_k=1)
+        await idx.add(["a"], [[1.0, 0.0]])
+        results = await idx.search([1.0, 1.0], top_k=1)
         expected = 1.0 / math.sqrt(2)
         assert results[0][1] == pytest.approx(expected, abs=0.001)
 
-    def test_persist_is_noop(self):
+    async def test_persist_is_noop(self):
         idx = NumpyVectorIndex(dimensions=3)
-        idx.persist()
+        await idx.persist()
 
-    def test_large_batch_add(self):
+    async def test_large_batch_add(self):
         """Adding many vectors at once should work."""
         idx = NumpyVectorIndex(dimensions=8)
         n = 500
         ids = [f"id_{i}" for i in range(n)]
         vecs = np.random.randn(n, 8).tolist()
-        idx.add(ids, vecs)
-        assert idx.size() == n
-        results = idx.search(vecs[0], top_k=1)
+        await idx.add(ids, vecs)
+        assert await idx.size() == n
+        results = await idx.search(vecs[0], top_k=1)
         assert results[0][0] == "id_0"
 
-    def test_search_after_interleaved_add_remove(self):
+    async def test_search_after_interleaved_add_remove(self):
         """Add, remove, add more — index stays consistent."""
         idx = NumpyVectorIndex(dimensions=2)
-        idx.add(["a", "b"], [[1, 0], [0, 1]])
-        idx.remove(["a"])
-        idx.add(["c"], [[0.7, 0.7]])
-        assert idx.size() == 2
-        results = idx.search([1, 0], top_k=3)
+        await idx.add(["a", "b"], [[1, 0], [0, 1]])
+        await idx.remove(["a"])
+        await idx.add(["c"], [[0.7, 0.7]])
+        assert await idx.size() == 2
+        results = await idx.search([1, 0], top_k=3)
         ids = [r[0] for r in results]
         assert "a" not in ids
         assert "c" in ids
@@ -258,8 +262,8 @@ class TestNumpyVectorIndexProperties:
         dims = 3
         idx = NumpyVectorIndex(dimensions=dims)
         vecs = [[float(i + j) for j in range(dims)] for i in range(len(ids))]
-        idx.add(ids, vecs)
-        assert idx.size() == len(ids)
+        asyncio.run(idx.add(ids, vecs))
+        assert asyncio.run(idx.size()) == len(ids)
 
     @given(
         st.lists(st.floats(min_value=0.01, max_value=1.0, allow_nan=False), min_size=3, max_size=3)
@@ -268,8 +272,8 @@ class TestNumpyVectorIndexProperties:
     def test_self_similarity_is_one(self, vec):
         """A vector's cosine similarity with itself should be 1.0."""
         idx = NumpyVectorIndex(dimensions=3)
-        idx.add(["self"], [vec])
-        results = idx.search(vec, top_k=1)
+        asyncio.run(idx.add(["self"], [vec]))
+        results = asyncio.run(idx.search(vec, top_k=1))
         assert len(results) == 1
         assert results[0][1] == pytest.approx(1.0, abs=0.01)
 
@@ -281,8 +285,8 @@ class TestNumpyVectorIndexProperties:
         n = 100
         ids = [f"id_{i}" for i in range(n)]
         vecs = [[float(i), float(i + 1), float(i + 2)] for i in range(n)]
-        idx.add(ids, vecs)
-        results = idx.search([1, 2, 3], top_k=k)
+        asyncio.run(idx.add(ids, vecs))
+        results = asyncio.run(idx.search([1, 2, 3], top_k=k))
         assert len(results) <= k
 
     @given(st.floats(min_value=0.0, max_value=1.0, allow_nan=False))
@@ -290,8 +294,8 @@ class TestNumpyVectorIndexProperties:
     def test_all_scores_above_threshold(self, threshold):
         """All returned results should have score >= threshold."""
         idx = NumpyVectorIndex(dimensions=3)
-        idx.add(["a", "b", "c"], [[1, 0, 0], [0, 1, 0], [0.5, 0.5, 0]])
-        results = idx.search([1, 0, 0], top_k=10, threshold=threshold)
+        asyncio.run(idx.add(["a", "b", "c"], [[1, 0, 0], [0, 1, 0], [0.5, 0.5, 0]]))
+        results = asyncio.run(idx.search([1, 0, 0], top_k=10, threshold=threshold))
         for _, score in results:
             assert score >= threshold - 1e-6  # float tolerance
 
@@ -304,53 +308,53 @@ class TestNumpyVectorIndexProperties:
 class TestNumpyVectorIndexMetamorphic:
     """Metamorphic relation tests: if we transform input, output transforms predictably."""
 
-    def test_scaling_query_preserves_ranking(self):
+    async def test_scaling_query_preserves_ranking(self):
         """Cosine sim is scale-invariant: 2*q should give same ranking as q."""
         idx = NumpyVectorIndex(dimensions=3)
-        idx.add(["a", "b", "c"], [[1, 0, 0], [0, 1, 0], [0.5, 0.5, 0]])
-        r1 = idx.search([1, 0, 0], top_k=3)
-        r2 = idx.search([10, 0, 0], top_k=3)
+        await idx.add(["a", "b", "c"], [[1, 0, 0], [0, 1, 0], [0.5, 0.5, 0]])
+        r1 = await idx.search([1, 0, 0], top_k=3)
+        r2 = await idx.search([10, 0, 0], top_k=3)
         assert [r[0] for r in r1] == [r[0] for r in r2]
 
-    def test_scaling_query_preserves_scores(self):
+    async def test_scaling_query_preserves_scores(self):
         """Scores should be identical for scaled queries."""
         idx = NumpyVectorIndex(dimensions=3)
-        idx.add(["a", "b"], [[1, 0, 0], [0.5, 0.5, 0]])
-        r1 = idx.search([1, 0, 0], top_k=2)
-        r2 = idx.search([100, 0, 0], top_k=2)
+        await idx.add(["a", "b"], [[1, 0, 0], [0.5, 0.5, 0]])
+        r1 = await idx.search([1, 0, 0], top_k=2)
+        r2 = await idx.search([100, 0, 0], top_k=2)
         for (_, s1), (_, s2) in zip(r1, r2):
             assert s1 == pytest.approx(s2, abs=0.001)
 
-    def test_negating_query_reverses_preferences(self):
+    async def test_negating_query_reverses_preferences(self):
         """If q prefers a over b, -q should prefer b over a (when a and b are orthogonal)."""
         idx = NumpyVectorIndex(dimensions=2)
-        idx.add(["pos", "neg"], [[1, 0], [-1, 0]])
-        r_pos = idx.search([1, 0], top_k=2)
-        r_neg = idx.search([-1, 0], top_k=2)
+        await idx.add(["pos", "neg"], [[1, 0], [-1, 0]])
+        r_pos = await idx.search([1, 0], top_k=2)
+        r_neg = await idx.search([-1, 0], top_k=2)
         assert r_pos[0][0] == "pos"
         assert r_neg[0][0] == "neg"
 
-    def test_adding_irrelevant_vector_doesnt_change_top_result(self):
+    async def test_adding_irrelevant_vector_doesnt_change_top_result(self):
         """Adding an orthogonal vector shouldn't change the best match."""
         idx = NumpyVectorIndex(dimensions=3)
-        idx.add(["a"], [[1, 0, 0]])
-        best_before = idx.search([1, 0, 0], top_k=1)
+        await idx.add(["a"], [[1, 0, 0]])
+        best_before = await idx.search([1, 0, 0], top_k=1)
 
-        idx.add(["b"], [[0, 0, 1]])  # orthogonal
-        best_after = idx.search([1, 0, 0], top_k=1)
+        await idx.add(["b"], [[0, 0, 1]])  # orthogonal
+        best_after = await idx.search([1, 0, 0], top_k=1)
 
         assert best_before[0][0] == best_after[0][0]
         assert best_before[0][1] == pytest.approx(best_after[0][1], abs=0.001)
 
-    def test_remove_then_readd_gives_same_results(self):
+    async def test_remove_then_readd_gives_same_results(self):
         """Removing and re-adding a vector should give identical search results."""
         idx = NumpyVectorIndex(dimensions=3)
-        idx.add(["a", "b"], [[1, 0, 0], [0, 1, 0]])
-        r_before = idx.search([0.5, 0.5, 0], top_k=2)
+        await idx.add(["a", "b"], [[1, 0, 0], [0, 1, 0]])
+        r_before = await idx.search([0.5, 0.5, 0], top_k=2)
 
-        idx.remove(["a"])
-        idx.add(["a"], [[1, 0, 0]])
-        r_after = idx.search([0.5, 0.5, 0], top_k=2)
+        await idx.remove(["a"])
+        await idx.add(["a"], [[1, 0, 0]])
+        r_after = await idx.search([0.5, 0.5, 0], top_k=2)
 
         assert set(r[0] for r in r_before) == set(r[0] for r in r_after)
 
@@ -368,6 +372,21 @@ except ImportError:
 
 skip_no_sqlite_vec = pytest.mark.skipif(not HAS_SQLITE_VEC, reason="sqlite-vec not installed")
 
+import os
+
+PGVECTOR_DSN = os.environ.get("PGVECTOR_DSN")
+HAS_PGVECTOR = False
+if PGVECTOR_DSN:
+    try:
+        import asyncpg  # noqa: F401
+        import pgvector  # noqa: F401
+
+        HAS_PGVECTOR = True
+    except ImportError:
+        pass
+
+skip_no_pgvector = pytest.mark.skipif(not HAS_PGVECTOR, reason="pgvector not installed or PGVECTOR_DSN not set")
+
 
 @skip_no_sqlite_vec
 class TestSqliteVecIndex:
@@ -378,56 +397,130 @@ class TestSqliteVecIndex:
 
         return SqliteVecIndex(db_path=str(tmp_path / "test_vectors.db"), dimensions=dims)
 
-    def test_add_and_size(self, tmp_path):
+    async def test_add_and_size(self, tmp_path):
         idx = self._make_index(tmp_path)
-        assert idx.size() == 0
-        idx.add(["a", "b"], [[1.0, 0.0, 0.0], [0.0, 1.0, 0.0]])
-        assert idx.size() == 2
+        assert await idx.size() == 0
+        await idx.add(["a", "b"], [[1.0, 0.0, 0.0], [0.0, 1.0, 0.0]])
+        assert await idx.size() == 2
 
-    def test_search_returns_results(self, tmp_path):
+    async def test_search_returns_results(self, tmp_path):
         idx = self._make_index(tmp_path)
-        idx.add(["a", "b"], [[1.0, 0.0, 0.0], [0.0, 1.0, 0.0]])
-        results = idx.search([1.0, 0.0, 0.0], top_k=2)
+        await idx.add(["a", "b"], [[1.0, 0.0, 0.0], [0.0, 1.0, 0.0]])
+        results = await idx.search([1.0, 0.0, 0.0], top_k=2)
         assert len(results) > 0
         assert results[0][0] == "a"
 
-    def test_remove(self, tmp_path):
+    async def test_remove(self, tmp_path):
         idx = self._make_index(tmp_path)
-        idx.add(["a", "b"], [[1, 0, 0], [0, 1, 0]])
-        idx.remove(["a"])
-        assert idx.size() == 1
+        await idx.add(["a", "b"], [[1, 0, 0], [0, 1, 0]])
+        await idx.remove(["a"])
+        assert await idx.size() == 1
 
-    def test_upsert_semantics(self, tmp_path):
+    async def test_upsert_semantics(self, tmp_path):
         idx = self._make_index(tmp_path)
-        idx.add(["a"], [[1, 0, 0]])
-        idx.add(["a"], [[0, 1, 0]])
-        assert idx.size() == 1
+        await idx.add(["a"], [[1, 0, 0]])
+        await idx.add(["a"], [[0, 1, 0]])
+        assert await idx.size() == 1
 
-    def test_persistence_across_instances(self, tmp_path):
+    async def test_persistence_across_instances(self, tmp_path):
         """Data should persist across SqliteVecIndex instances."""
         db_path = str(tmp_path / "persist_test.db")
 
         from qortex.vec.index import SqliteVecIndex
 
         idx1 = SqliteVecIndex(db_path=db_path, dimensions=3)
-        idx1.add(["a"], [[1, 0, 0]])
-        idx1.persist()
-        idx1.close()
+        await idx1.add(["a"], [[1, 0, 0]])
+        await idx1.persist()
+        await idx1.close()
 
         idx2 = SqliteVecIndex(db_path=db_path, dimensions=3)
-        assert idx2.size() == 1
-        results = idx2.search([1, 0, 0], top_k=1)
+        assert await idx2.size() == 1
+        results = await idx2.search([1, 0, 0], top_k=1)
         assert results[0][0] == "a"
-        idx2.close()
+        await idx2.close()
 
-    def test_dimension_mismatch_raises(self, tmp_path):
+    async def test_dimension_mismatch_raises(self, tmp_path):
         idx = self._make_index(tmp_path)
         with pytest.raises(ValueError, match="dims"):
-            idx.add(["a"], [[1, 0]])
+            await idx.add(["a"], [[1, 0]])
 
 
 # =============================================================================
-# Parametrized parity: NumpyVectorIndex and SqliteVecIndex same behavior
+# PgVectorIndex — Skip unless PGVECTOR_DSN set
+# =============================================================================
+
+
+@skip_no_pgvector
+class TestPgVectorIndex:
+    """Tests for PgVectorIndex (async, PostgreSQL + pgvector)."""
+
+    def _make_index(self, dims=3):
+        from qortex.vec.pgvector import PgVectorIndex
+
+        # Use a unique table per test to avoid cross-contamination
+        table = f"test_vec_{uuid.uuid4().hex[:8]}"
+        return PgVectorIndex(dsn=PGVECTOR_DSN, dimensions=dims, table_name=table)
+
+    async def test_add_and_size(self):
+        idx = self._make_index()
+        try:
+            assert await idx.size() == 0
+            await idx.add(["a", "b"], [[1.0, 0.0, 0.0], [0.0, 1.0, 0.0]])
+            assert await idx.size() == 2
+        finally:
+            await idx.close()
+
+    async def test_search_returns_results(self):
+        idx = self._make_index()
+        try:
+            await idx.add(["a", "b"], [[1.0, 0.0, 0.0], [0.0, 1.0, 0.0]])
+            results = await idx.search([1.0, 0.0, 0.0], top_k=2)
+            assert len(results) > 0
+            assert results[0][0] == "a"
+        finally:
+            await idx.close()
+
+    async def test_remove(self):
+        idx = self._make_index()
+        try:
+            await idx.add(["a", "b"], [[1, 0, 0], [0, 1, 0]])
+            await idx.remove(["a"])
+            assert await idx.size() == 1
+        finally:
+            await idx.close()
+
+    async def test_upsert_semantics(self):
+        idx = self._make_index()
+        try:
+            await idx.add(["a"], [[1, 0, 0]])
+            await idx.add(["a"], [[0, 1, 0]])
+            assert await idx.size() == 1
+        finally:
+            await idx.close()
+
+    async def test_search_threshold(self):
+        idx = self._make_index()
+        try:
+            await idx.add(["a", "b"], [[1.0, 0.0, 0.0], [0.0, 1.0, 0.0]])
+            # With high threshold, orthogonal vector should be filtered out
+            results = await idx.search([1.0, 0.0, 0.0], top_k=10, threshold=0.9)
+            ids = [r[0] for r in results]
+            assert "a" in ids
+            assert "b" not in ids
+        finally:
+            await idx.close()
+
+    async def test_dimension_mismatch_raises(self):
+        idx = self._make_index()
+        try:
+            with pytest.raises(ValueError, match="ids.*and embeddings.*must match"):
+                await idx.add(["a", "b"], [[1, 0, 0]])
+        finally:
+            await idx.close()
+
+
+# =============================================================================
+# Parametrized parity: NumpyVectorIndex, SqliteVecIndex, PgVectorIndex
 # =============================================================================
 
 
@@ -445,13 +538,26 @@ def get_index_factories(tmp_path):
                 ),
             )
         )
+    if HAS_PGVECTOR:
+        from qortex.vec.pgvector import PgVectorIndex
+
+        factories.append(
+            (
+                "pgvector",
+                lambda dims: PgVectorIndex(
+                    dsn=PGVECTOR_DSN,
+                    dimensions=dims,
+                    table_name=f"parity_{uuid.uuid4().hex[:8]}",
+                ),
+            )
+        )
     return factories
 
 
 class TestVectorIndexParity:
     """Both impls should return the same top-1 result for the same data."""
 
-    def test_same_top_result(self, tmp_path):
+    async def test_same_top_result(self, tmp_path):
         vecs = [[1.0, 0.0, 0.0], [0.0, 1.0, 0.0], [0.5, 0.5, 0.0]]
         ids = ["a", "b", "c"]
         query = [0.8, 0.2, 0.0]
@@ -459,8 +565,8 @@ class TestVectorIndexParity:
         results_by_impl = {}
         for name, factory in get_index_factories(tmp_path):
             idx = factory(3)
-            idx.add(ids, vecs)
-            results = idx.search(query, top_k=1)
+            await idx.add(ids, vecs)
+            results = await idx.search(query, top_k=1)
             results_by_impl[name] = results[0][0]
 
         # All impls should agree on top result
@@ -505,7 +611,7 @@ class TestInMemoryBackendVectorSearch:
         assert len(results) == 1
         assert results[0][0].id == "d1:a"
 
-    def test_vector_search_with_index(self):
+    async def test_vector_search_with_index(self):
         index = NumpyVectorIndex(dimensions=3)
         backend = InMemoryBackend(vector_index=index)
         backend.connect()
@@ -513,8 +619,9 @@ class TestInMemoryBackendVectorSearch:
 
         backend.add_node(make_node("test", "bar"))
         backend.add_embedding("test:bar", [0.0, 1.0, 0.0])
+        await index.add(["test:bar"], [[0.0, 1.0, 0.0]])
 
-        assert index.size() == 1
+        assert await index.size() == 1
 
         results = backend.vector_search([0.0, 1.0, 0.0], top_k=5)
         assert len(results) == 1
@@ -606,45 +713,45 @@ class TestVecOnlyAdapter:
     - backend: node metadata lookup (resolves IDs to concepts)
     """
 
-    def test_retrieve_returns_results(self):
-        backend, vector_index = make_backend_with_nodes(
+    async def test_retrieve_returns_results(self):
+        backend, vector_index = await make_backend_with_nodes(
             [make_node("test", "concept1")],
             {"test:concept1": [0.5, 0.5, 0.5]},
         )
         adapter = VecOnlyAdapter(vector_index, backend, FakeEmbedding())
-        result = adapter.retrieve("test query", top_k=5)
+        result = await adapter.retrieve("test query", top_k=5)
 
         assert len(result.items) > 0
         assert result.query_id
         assert result.items[0].domain == "test"
 
-    def test_retrieve_with_domain_filter(self):
-        backend, vector_index = make_backend_with_nodes(
+    async def test_retrieve_with_domain_filter(self):
+        backend, vector_index = await make_backend_with_nodes(
             [make_node("d1", "a"), make_node("d2", "b")],
             {"d1:a": [0.5, 0.5, 0.5], "d2:b": [0.5, 0.5, 0.5]},
         )
         adapter = VecOnlyAdapter(vector_index, backend, FakeEmbedding())
-        result = adapter.retrieve("test", domains=["d1"], top_k=5)
+        result = await adapter.retrieve("test", domains=["d1"], top_k=5)
 
         assert all(item.domain == "d1" for item in result.items)
 
-    def test_retrieve_empty_backend(self):
+    async def test_retrieve_empty_backend(self):
         vector_index = NumpyVectorIndex(dimensions=3)
         backend = InMemoryBackend(vector_index=vector_index)
         backend.connect()
         adapter = VecOnlyAdapter(vector_index, backend, FakeEmbedding())
-        result = adapter.retrieve("anything")
+        result = await adapter.retrieve("anything")
 
         assert len(result.items) == 0
         assert result.query_id  # Still has a query_id
 
-    def test_retrieve_populates_all_fields(self):
-        backend, vector_index = make_backend_with_nodes(
+    async def test_retrieve_populates_all_fields(self):
+        backend, vector_index = await make_backend_with_nodes(
             [make_node("test", "foo", "A foo thing")],
             {"test:foo": [0.5, 0.5, 0.5]},
         )
         adapter = VecOnlyAdapter(vector_index, backend, FakeEmbedding())
-        result = adapter.retrieve("test query")
+        result = await adapter.retrieve("test query")
 
         assert len(result.items) >= 1
         item = result.items[0]
@@ -654,53 +761,53 @@ class TestVecOnlyAdapter:
         assert item.domain == "test"
         assert item.node_id == "test:foo"
 
-    def test_retrieve_activated_nodes_populated(self):
-        backend, vector_index = make_backend_with_nodes(
+    async def test_retrieve_activated_nodes_populated(self):
+        backend, vector_index = await make_backend_with_nodes(
             [make_node("test", "a"), make_node("test", "b")],
             {"test:a": [0.5, 0.5, 0.5], "test:b": [0.4, 0.4, 0.4]},
         )
         adapter = VecOnlyAdapter(vector_index, backend, FakeEmbedding())
-        result = adapter.retrieve("test", top_k=5)
+        result = await adapter.retrieve("test", top_k=5)
 
         assert len(result.activated_nodes) == len(result.items)
 
-    def test_retrieve_query_id_unique(self):
-        backend, vector_index = make_backend_with_nodes(
+    async def test_retrieve_query_id_unique(self):
+        backend, vector_index = await make_backend_with_nodes(
             [make_node("test", "x")],
             {"test:x": [1, 0, 0]},
         )
         adapter = VecOnlyAdapter(vector_index, backend, FakeEmbedding())
-        r1 = adapter.retrieve("q1")
-        r2 = adapter.retrieve("q2")
+        r1 = await adapter.retrieve("q1")
+        r2 = await adapter.retrieve("q2")
         assert r1.query_id != r2.query_id
 
-    def test_retrieve_with_multiple_domains(self):
-        backend, vector_index = make_backend_with_nodes(
+    async def test_retrieve_with_multiple_domains(self):
+        backend, vector_index = await make_backend_with_nodes(
             [make_node("d1", "a"), make_node("d2", "b"), make_node("d3", "c")],
             {"d1:a": [0.5, 0.5, 0.5], "d2:b": [0.5, 0.5, 0.5], "d3:c": [0.5, 0.5, 0.5]},
         )
         adapter = VecOnlyAdapter(vector_index, backend, FakeEmbedding())
-        result = adapter.retrieve("test", domains=["d1", "d3"], top_k=10)
+        result = await adapter.retrieve("test", domains=["d1", "d3"], top_k=10)
 
         domains_returned = {item.domain for item in result.items}
         assert "d2" not in domains_returned
 
-    def test_feedback_is_noop(self):
+    async def test_feedback_is_noop(self):
         vector_index = NumpyVectorIndex(dimensions=3)
         backend = InMemoryBackend(vector_index=vector_index)
         adapter = VecOnlyAdapter(vector_index, backend, FakeEmbedding())
         adapter.feedback("q1", {"item1": "accepted"})  # Should not raise
 
-    def test_retrieve_respects_min_confidence(self):
+    async def test_retrieve_respects_min_confidence(self):
         """High min_confidence should filter out low-scoring results."""
-        backend, vector_index = make_backend_with_nodes(
+        backend, vector_index = await make_backend_with_nodes(
             [make_node("test", "close"), make_node("test", "far")],
             {"test:close": [1.0, 0.0, 0.0], "test:far": [0.0, 1.0, 0.0]},
         )
         # Use controlled embedding that produces a known query vector
         emb = ControlledEmbedding({"test query": [1.0, 0.0, 0.0]})
         adapter = VecOnlyAdapter(vector_index, backend, emb)
-        result = adapter.retrieve("test query", min_confidence=0.9, top_k=5)
+        result = await adapter.retrieve("test query", min_confidence=0.9, top_k=5)
 
         # Only "close" should survive the threshold
         assert len(result.items) == 1

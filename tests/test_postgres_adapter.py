@@ -69,18 +69,18 @@ class FakeVectorIndex:
     def __init__(self) -> None:
         self._store: dict[str, list[float]] = {}
 
-    def add(self, ids: list[str], embeddings: list[list[float]]) -> None:
+    async def add(self, ids: list[str], embeddings: list[list[float]]) -> None:
         for vid, emb in zip(ids, embeddings):
             self._store[vid] = emb
 
-    def search(self, query: list[float], top_k: int = 10) -> list[tuple[str, float]]:
+    async def search(self, query: list[float], top_k: int = 10) -> list[tuple[str, float]]:
         results = [(vid, 0.9) for vid in list(self._store.keys())[:top_k]]
         return results
 
-    def size(self) -> int:
+    async def size(self) -> int:
         return len(self._store)
 
-    def remove(self, ids: list[str]) -> None:
+    async def remove(self, ids: list[str]) -> None:
         for vid in ids:
             self._store.pop(vid, None)
 
@@ -383,7 +383,7 @@ class TestPostgresSync:
         assert result.tables_synced == 1
         assert result.rows_added == 2
         assert result.vectors_created == 2
-        assert vec_index.size() == 2
+        assert await vec_index.size() == 2
 
     async def test_respects_domain_map(self):
         vec_index = FakeVectorIndex()
@@ -708,16 +708,16 @@ class TestMCPSourceTools:
 
         _source_registry.clear()
 
-    def test_source_disconnect_not_found(self):
+    async def test_source_disconnect_not_found(self):
         from qortex.mcp.server import _source_disconnect_impl
 
-        result = _source_disconnect_impl("nonexistent")
+        result = await _source_disconnect_impl("nonexistent")
         assert "error" in result
 
-    def test_source_sync_not_found(self):
+    async def test_source_sync_not_found(self):
         from qortex.mcp.server import _source_sync_impl
 
-        result = _source_sync_impl("nonexistent")
+        result = await _source_sync_impl("nonexistent")
         assert "error" in result
 
     def test_source_discover_with_cached(self):

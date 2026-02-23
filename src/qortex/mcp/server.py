@@ -349,7 +349,7 @@ def create_server(
 # ---------------------------------------------------------------------------
 
 
-def _query_impl(
+async def _query_impl(
     context: str,
     domains: list[str] | None = None,
     top_k: int = 20,
@@ -370,7 +370,7 @@ def _query_impl(
             "error": "No embedding model available. Install qortex[vec].",
         }
 
-    result = adapter.retrieve(
+    result = await adapter.retrieve(
         query=context,
         domains=domains,
         top_k=top_k,
@@ -535,7 +535,7 @@ async def _feedback_impl(
 _ALLOWED_SOURCE_TYPES = {"text", "markdown", "pdf"}
 
 
-def _ingest_impl(
+async def _ingest_impl(
     source_path: str,
     domain: str,
     source_type: str | None = None,
@@ -602,7 +602,7 @@ def _ingest_impl(
             embeddings_list.append(concept.embedding)
 
     if _vector_index is not None and ids_with_embeddings:
-        _vector_index.add(ids_with_embeddings, embeddings_list)
+        await _vector_index.add(ids_with_embeddings, embeddings_list)
 
     return {
         "domain": domain,
@@ -614,7 +614,7 @@ def _ingest_impl(
     }
 
 
-def _ingest_text_impl(
+async def _ingest_text_impl(
     text: str,
     domain: str,
     format: str = "text",
@@ -668,7 +668,7 @@ def _ingest_text_impl(
             embeddings_list.append(concept.embedding)
 
     if _vector_index is not None and ids_with_embeddings:
-        _vector_index.add(ids_with_embeddings, embeddings_list)
+        await _vector_index.add(ids_with_embeddings, embeddings_list)
 
     return {
         "domain": domain,
@@ -680,7 +680,7 @@ def _ingest_text_impl(
     }
 
 
-def _ingest_structured_impl(
+async def _ingest_structured_impl(
     concepts: list[dict],
     domain: str,
     edges: list[dict] | None = None,
@@ -809,7 +809,7 @@ def _ingest_structured_impl(
             embeddings_list.append(concept.embedding)
 
     if _vector_index is not None and ids_with_embeddings:
-        _vector_index.add(ids_with_embeddings, embeddings_list)
+        await _vector_index.add(ids_with_embeddings, embeddings_list)
 
     return {
         "domain": domain,
@@ -862,7 +862,7 @@ def _status_impl() -> dict:
     }
 
 
-def _compare_impl(
+async def _compare_impl(
     context: str,
     domains: list[str] | None = None,
     top_k: int = 5,
@@ -873,7 +873,7 @@ def _compare_impl(
     # Vec-only (flat cosine)
     if _adapter is None:
         return {"error": "No vector index available. Install qortex[vec]."}
-    vec_result = _adapter.retrieve(
+    vec_result = await _adapter.retrieve(
         query=context,
         domains=domains,
         top_k=top_k,
@@ -883,7 +883,7 @@ def _compare_impl(
     # Graph-enhanced (structural + vector)
     graph_result = None
     if _graph_adapter is not None:
-        graph_result = _graph_adapter.retrieve(
+        graph_result = await _graph_adapter.retrieve(
             query=context,
             domains=domains,
             top_k=top_k,
@@ -1227,7 +1227,7 @@ def _rules_impl(
 # ---------------------------------------------------------------------------
 
 
-def _source_connect_impl(
+async def _source_connect_impl(
     source_id: str,
     connection_string: str,
     schemas: list[str] | None = None,
@@ -1235,8 +1235,6 @@ def _source_connect_impl(
     targets: str = "both",
 ) -> dict:
     """Connect to a database source, discover schemas."""
-    import asyncio
-
     from qortex.sources.base import SourceConfig
 
     _ensure_initialized()
@@ -1256,8 +1254,8 @@ def _source_connect_impl(
     adapter = PostgresSourceAdapter()
 
     try:
-        asyncio.get_event_loop().run_until_complete(adapter.connect(config))
-        table_schemas = asyncio.get_event_loop().run_until_complete(adapter.discover())
+        await adapter.connect(config)
+        table_schemas = await adapter.discover()
     except Exception as e:
         return {"error": f"Connection failed: {e}"}
 
@@ -1294,14 +1292,12 @@ def _source_discover_impl(source_id: str) -> dict:
     }
 
 
-def _source_sync_impl(
+async def _source_sync_impl(
     source_id: str,
     tables: list[str] | None = None,
     mode: str = "full",
 ) -> dict:
     """Sync a connected source's data to the vec layer."""
-    import asyncio
-
     _ensure_initialized()
 
     adapter = _source_registry.get(source_id)
@@ -1310,13 +1306,11 @@ def _source_sync_impl(
         return {"error": f"Source '{source_id}' not found. Connect first."}
 
     try:
-        result = asyncio.get_event_loop().run_until_complete(
-            adapter.sync(
-                tables=tables,
-                mode=mode,
-                vector_index=_vector_index,
-                embedding_model=_embedding_model,
-            )
+        result = await adapter.sync(
+            tables=tables,
+            mode=mode,
+            vector_index=_vector_index,
+            embedding_model=_embedding_model,
         )
         return {
             "source_id": result.source_id,
@@ -1344,15 +1338,13 @@ def _source_list_impl() -> dict:
     }
 
 
-def _source_disconnect_impl(source_id: str) -> dict:
+async def _source_disconnect_impl(source_id: str) -> dict:
     """Disconnect a source and remove it from the registry."""
-    import asyncio
-
     adapter = _source_registry.get(source_id)
     if adapter is None:
         return {"error": f"Source '{source_id}' not found."}
 
-    asyncio.get_event_loop().run_until_complete(_source_registry.remove_async(source_id))
+    await _source_registry.remove_async(source_id)
     return {"status": "disconnected", "source_id": source_id}
 
 
@@ -1361,7 +1353,7 @@ def _source_disconnect_impl(source_id: str) -> dict:
 # ---------------------------------------------------------------------------
 
 
-def _source_inspect_schema_impl(
+async def _source_inspect_schema_impl(
     connection_string: str,
     source_id: str,
     schemas: list[str] | None = None,
@@ -1371,8 +1363,6 @@ def _source_inspect_schema_impl(
 
     Connects via asyncpg, discovers schema, returns structured overview.
     """
-    import asyncio
-
     try:
         import asyncpg  # noqa: F811
     except ImportError:
@@ -1441,12 +1431,12 @@ def _source_inspect_schema_impl(
             await conn.close()
 
     try:
-        return asyncio.run(_inspect())
+        return await _inspect()
     except Exception as e:
         return {"error": str(e)}
 
 
-def _source_ingest_graph_impl(
+async def _source_ingest_graph_impl(
     connection_string: str,
     source_id: str,
     schemas: list[str] | None = None,
@@ -1460,8 +1450,6 @@ def _source_ingest_graph_impl(
     and ingests ConceptNodes/Edges/Rules into the backend.
     """
     _ensure_initialized()
-
-    import asyncio
 
     try:
         import asyncpg  # noqa: F811
@@ -1503,7 +1491,7 @@ def _source_ingest_graph_impl(
             await conn.close()
 
     try:
-        return asyncio.run(_ingest())
+        return await _ingest()
     except Exception as e:
         return {"error": str(e)}
 
@@ -1589,7 +1577,7 @@ def _vector_list_indexes_impl() -> dict:
     return {"indexes": list(_vector_indexes.keys())}
 
 
-def _vector_describe_index_impl(index_name: str) -> dict:
+async def _vector_describe_index_impl(index_name: str) -> dict:
     """Describe a named vector index."""
     if index_name not in _vector_indexes:
         return {"error": f"Index '{index_name}' not found"}
@@ -1598,7 +1586,7 @@ def _vector_describe_index_impl(index_name: str) -> dict:
     cfg = _index_configs[index_name]
     return {
         "dimension": cfg["dimension"],
-        "count": idx.size(),
+        "count": await idx.size(),
         "metric": cfg.get("metric", "cosine"),
     }
 
@@ -1616,7 +1604,7 @@ def _vector_delete_index_impl(index_name: str) -> dict:
     return {"status": "deleted", "index_name": index_name}
 
 
-def _vector_upsert_impl(
+async def _vector_upsert_impl(
     index_name: str,
     vectors: list[list[float]],
     metadata: list[dict] | None = None,
@@ -1644,7 +1632,7 @@ def _vector_upsert_impl(
                 "error": f"Vector {i} has dimension {len(vec)}, expected {expected_dim}",
             }
 
-    idx.add(generated_ids, vectors)
+    await idx.add(generated_ids, vectors)
 
     # Store metadata alongside vectors
     meta_store = _vector_metadata[index_name]
@@ -1660,7 +1648,7 @@ def _vector_upsert_impl(
     return {"ids": generated_ids}
 
 
-def _vector_query_impl(
+async def _vector_query_impl(
     index_name: str,
     query_vector: list[float],
     top_k: int = 10,
@@ -1685,7 +1673,7 @@ def _vector_query_impl(
 
     # If we have a filter, we need to over-fetch and post-filter
     fetch_k = top_k * 5 if filter else top_k
-    raw_results = idx.search(query_vector, top_k=fetch_k)
+    raw_results = await idx.search(query_vector, top_k=fetch_k)
 
     results: list[dict] = []
     for vid, score in raw_results:
@@ -1710,7 +1698,7 @@ def _vector_query_impl(
     return {"results": results}
 
 
-def _vector_update_impl(
+async def _vector_update_impl(
     index_name: str,
     id: str | None = None,
     filter: dict | None = None,
@@ -1749,7 +1737,7 @@ def _vector_update_impl(
     updated = 0
     for vid in target_ids:
         if vector is not None:
-            idx.add([vid], [vector])
+            await idx.add([vid], [vector])
         if metadata is not None:
             existing = meta_store.get(vid, {})
             existing.update(metadata)
@@ -1759,20 +1747,20 @@ def _vector_update_impl(
     return {"status": "updated", "count": updated}
 
 
-def _vector_delete_impl(index_name: str, id: str) -> dict:
+async def _vector_delete_impl(index_name: str, id: str) -> dict:
     """Delete a single vector by ID."""
     if index_name not in _vector_indexes:
         return {"error": f"Index '{index_name}' not found"}
 
     idx = _vector_indexes[index_name]
-    idx.remove([id])
+    await idx.remove([id])
     _vector_metadata[index_name].pop(id, None)
     _vector_documents[index_name].pop(id, None)
 
     return {"status": "deleted", "id": id}
 
 
-def _vector_delete_many_impl(
+async def _vector_delete_many_impl(
     index_name: str,
     ids: list[str] | None = None,
     filter: dict | None = None,
@@ -1793,7 +1781,7 @@ def _vector_delete_many_impl(
     if filter:
         ids = [vid for vid, meta in meta_store.items() if _match_filter(meta, filter)]
 
-    idx.remove(ids)
+    await idx.remove(ids)
     for vid in ids:
         meta_store.pop(vid, None)
         doc_store.pop(vid, None)
@@ -1808,7 +1796,7 @@ def _vector_delete_many_impl(
 
 @mcp.tool
 @_mcp_traced
-def qortex_query(
+async def qortex_query(
     context: str,
     domains: list[str] | None = None,
     top_k: int = 20,
@@ -1833,7 +1821,7 @@ def qortex_query(
         min_confidence: Minimum relevance score, 0.0-1.0 (default 0.0).
         mode: "auto" (recommended), "vec" (similarity only), "graph" (structural).
     """
-    return _query_impl(context, domains, top_k, min_confidence, mode)
+    return await _query_impl(context, domains, top_k, min_confidence, mode)
 
 
 @mcp.tool
@@ -1860,7 +1848,7 @@ async def qortex_feedback(
 
 @mcp.tool
 @_mcp_traced
-def qortex_ingest(
+async def qortex_ingest(
     source_path: str,
     domain: str,
     source_type: str | None = None,
@@ -1876,12 +1864,12 @@ def qortex_ingest(
         domain: Knowledge domain name (e.g. "auth", "billing", "docs").
         source_type: "text", "markdown", or "pdf". Auto-detected if None.
     """
-    return _ingest_impl(source_path, domain, source_type)
+    return await _ingest_impl(source_path, domain, source_type)
 
 
 @mcp.tool
 @_mcp_traced
-def qortex_ingest_text(
+async def qortex_ingest_text(
     text: str,
     domain: str,
     format: str = "text",
@@ -1898,12 +1886,12 @@ def qortex_ingest_text(
         format: "text" or "markdown". Selects the chunking strategy.
         name: Optional human-readable source name.
     """
-    return _ingest_text_impl(text, domain, format, name)
+    return await _ingest_text_impl(text, domain, format, name)
 
 
 @mcp.tool
 @_mcp_traced
-def qortex_ingest_structured(
+async def qortex_ingest_structured(
     concepts: list[dict],
     domain: str,
     edges: list[dict] | None = None,
@@ -1920,7 +1908,7 @@ def qortex_ingest_structured(
         edges: Optional edges. Each dict: {"source": "name", "target": "name", "relation_type": "requires"}.
         rules: Optional rules. Each dict: {"text": "rule text", "category": "optional"}.
     """
-    return _ingest_structured_impl(concepts, domain, edges, rules)
+    return await _ingest_structured_impl(concepts, domain, edges, rules)
 
 
 @mcp.tool
@@ -1996,7 +1984,7 @@ def qortex_rules(
 
 @mcp.tool
 @_mcp_traced
-def qortex_compare(
+async def qortex_compare(
     context: str,
     domains: list[str] | None = None,
     top_k: int = 5,
@@ -2012,7 +2000,7 @@ def qortex_compare(
         domains: Restrict to these domains. None = search all.
         top_k: Items per method (default 5 for readable comparison).
     """
-    return _compare_impl(context, domains, top_k)
+    return await _compare_impl(context, domains, top_k)
 
 
 @mcp.tool
@@ -2134,7 +2122,7 @@ def _slugify(name: str) -> str:
     return re.sub(r"[^a-z0-9]+", "_", name.lower()).strip("_")[:64]
 
 
-def _online_index_pipeline(
+async def _online_index_pipeline(
     text: str,
     source_id: str,
     id_prefix: str,
@@ -2157,7 +2145,7 @@ def _online_index_pipeline(
     from qortex.observe.tracing import traced
 
     @traced("online_index.pipeline")
-    def _run_pipeline() -> dict:
+    async def _run_pipeline() -> dict:
         pipeline_start = time.monotonic()
 
         # --- Span: Chunking ---
@@ -2186,11 +2174,7 @@ def _online_index_pipeline(
             embeddings = _embed()
 
             # --- Span: Vec index add ---
-            @traced("online_index.vec_add", external=True)
-            def _vec_add():
-                _vector_index.add(ids, embeddings)
-
-            _vec_add()
+            await _vector_index.add(ids, embeddings)
             chunk_nodes_added = len(ids)
 
             if _backend is not None:
@@ -2359,7 +2343,7 @@ def _online_index_pipeline(
             "latency_ms": latency_ms,
         }
 
-    return _run_pipeline()
+    return await _run_pipeline()
 
 
 def _safe_relation_type(type_str: str) -> Any:
@@ -2376,7 +2360,7 @@ def _safe_relation_type(type_str: str) -> Any:
         return RelationType.SIMILAR_TO
 
 
-def _ingest_message_impl(
+async def _ingest_message_impl(
     text: str,
     session_id: str,
     role: str = "user",
@@ -2391,7 +2375,7 @@ def _ingest_message_impl(
     # Clamp role to allowlist to prevent metric label cardinality explosion
     safe_role = role if role in _VALID_ROLES else "unknown"
 
-    result = _online_index_pipeline(
+    result = await _online_index_pipeline(
         text=text,
         source_id=f"{session_id}:{safe_role}",
         id_prefix=session_id,
@@ -2423,7 +2407,7 @@ def _ingest_message_impl(
     }
 
 
-def _ingest_tool_result_impl(
+async def _ingest_tool_result_impl(
     tool_name: str,
     result_text: str,
     session_id: str,
@@ -2438,7 +2422,7 @@ def _ingest_tool_result_impl(
     # Truncate tool_name to prevent metric label cardinality explosion
     safe_tool = tool_name[:64] if tool_name else "unknown"
 
-    result = _online_index_pipeline(
+    result = await _online_index_pipeline(
         text=result_text,
         source_id=f"{session_id}:tool:{safe_tool}",
         id_prefix=f"{session_id}:tool:{safe_tool}",
@@ -2471,7 +2455,7 @@ def _ingest_tool_result_impl(
 
 @mcp.tool
 @_mcp_traced
-def qortex_ingest_message(
+async def qortex_ingest_message(
     text: str,
     session_id: str,
     role: str = "user",
@@ -2489,12 +2473,12 @@ def qortex_ingest_message(
         role: Message role ("user", "assistant", "system", "tool").
         domain: Knowledge domain (default "session").
     """
-    return _ingest_message_impl(text, session_id, role, domain)
+    return await _ingest_message_impl(text, session_id, role, domain)
 
 
 @mcp.tool
 @_mcp_traced
-def qortex_ingest_tool_result(
+async def qortex_ingest_tool_result(
     tool_name: str,
     result_text: str,
     session_id: str,
@@ -2511,7 +2495,7 @@ def qortex_ingest_tool_result(
         session_id: Session identifier for grouping.
         domain: Knowledge domain (default "session").
     """
-    return _ingest_tool_result_impl(tool_name, result_text, session_id, domain)
+    return await _ingest_tool_result_impl(tool_name, result_text, session_id, domain)
 
 
 # ---------------------------------------------------------------------------
@@ -2521,7 +2505,7 @@ def qortex_ingest_tool_result(
 
 @mcp.tool
 @_mcp_traced
-def qortex_source_connect(
+async def qortex_source_connect(
     source_id: str,
     connection_string: str,
     schemas: list[str] | None = None,
@@ -2537,7 +2521,7 @@ def qortex_source_connect(
         domain_map: Glob pattern → domain name mapping.
         targets: Ingestion targets: "vec", "graph", or "both".
     """
-    return _source_connect_impl(source_id, connection_string, schemas, domain_map, targets)
+    return await _source_connect_impl(source_id, connection_string, schemas, domain_map, targets)
 
 
 @mcp.tool
@@ -2553,7 +2537,7 @@ def qortex_source_discover(source_id: str) -> dict:
 
 @mcp.tool
 @_mcp_traced
-def qortex_source_sync(
+async def qortex_source_sync(
     source_id: str,
     tables: list[str] | None = None,
     mode: str = "full",
@@ -2567,7 +2551,7 @@ def qortex_source_sync(
         tables: Tables to sync. None = all discovered tables.
         mode: "full" (re-sync everything) or "incremental" (only changes).
     """
-    return _source_sync_impl(source_id, tables, mode)
+    return await _source_sync_impl(source_id, tables, mode)
 
 
 @mcp.tool
@@ -2579,18 +2563,18 @@ def qortex_source_list() -> dict:
 
 @mcp.tool
 @_mcp_traced
-def qortex_source_disconnect(source_id: str) -> dict:
+async def qortex_source_disconnect(source_id: str) -> dict:
     """Disconnect a database source and remove it from the registry.
 
     Args:
         source_id: The source to disconnect.
     """
-    return _source_disconnect_impl(source_id)
+    return await _source_disconnect_impl(source_id)
 
 
 @mcp.tool
 @_mcp_traced
-def qortex_source_inspect_schema(
+async def qortex_source_inspect_schema(
     connection_string: str,
     source_id: str,
     schemas: list[str] | None = None,
@@ -2608,12 +2592,12 @@ def qortex_source_inspect_schema(
         schemas: Database schemas to inspect. Defaults to ["public"].
         domain_map: Optional glob→domain mapping (e.g. {"habit_*": "habits"}).
     """
-    return _source_inspect_schema_impl(connection_string, source_id, schemas, domain_map)
+    return await _source_inspect_schema_impl(connection_string, source_id, schemas, domain_map)
 
 
 @mcp.tool
 @_mcp_traced
-def qortex_source_ingest_graph(
+async def qortex_source_ingest_graph(
     connection_string: str,
     source_id: str,
     schemas: list[str] | None = None,
@@ -2634,7 +2618,7 @@ def qortex_source_ingest_graph(
         embed_catalog_tables: Embed catalog table rows for similarity search.
         extract_rules: Extract CHECK constraints as ExplicitRules.
     """
-    return _source_ingest_graph_impl(
+    return await _source_ingest_graph_impl(
         connection_string,
         source_id,
         schemas,
@@ -2678,7 +2662,7 @@ def qortex_vector_list_indexes() -> dict:
 
 @mcp.tool
 @_mcp_traced
-def qortex_vector_describe_index(index_name: str) -> dict:
+async def qortex_vector_describe_index(index_name: str) -> dict:
     """Get statistics for a named vector index.
 
     Returns dimension, vector count, and distance metric.
@@ -2686,7 +2670,7 @@ def qortex_vector_describe_index(index_name: str) -> dict:
     Args:
         index_name: The index to describe.
     """
-    return _vector_describe_index_impl(index_name)
+    return await _vector_describe_index_impl(index_name)
 
 
 @mcp.tool
@@ -2702,7 +2686,7 @@ def qortex_vector_delete_index(index_name: str) -> dict:
 
 @mcp.tool
 @_mcp_traced
-def qortex_vector_upsert(
+async def qortex_vector_upsert(
     index_name: str,
     vectors: list[list[float]],
     metadata: list[dict] | None = None,
@@ -2721,12 +2705,12 @@ def qortex_vector_upsert(
         ids: Optional IDs. Auto-generated if omitted.
         documents: Optional document text per vector.
     """
-    return _vector_upsert_impl(index_name, vectors, metadata, ids, documents)
+    return await _vector_upsert_impl(index_name, vectors, metadata, ids, documents)
 
 
 @mcp.tool
 @_mcp_traced
-def qortex_vector_query(
+async def qortex_vector_query(
     index_name: str,
     query_vector: list[float],
     top_k: int = 10,
@@ -2745,12 +2729,12 @@ def qortex_vector_query(
         filter: Optional metadata filter (MongoDB-like syntax).
         include_vector: Whether to include the vector in results.
     """
-    return _vector_query_impl(index_name, query_vector, top_k, filter, include_vector)
+    return await _vector_query_impl(index_name, query_vector, top_k, filter, include_vector)
 
 
 @mcp.tool
 @_mcp_traced
-def qortex_vector_update(
+async def qortex_vector_update(
     index_name: str,
     id: str | None = None,
     filter: dict | None = None,
@@ -2769,24 +2753,24 @@ def qortex_vector_update(
         vector: New embedding vector.
         metadata: Metadata fields to merge.
     """
-    return _vector_update_impl(index_name, id, filter, vector, metadata)
+    return await _vector_update_impl(index_name, id, filter, vector, metadata)
 
 
 @mcp.tool
 @_mcp_traced
-def qortex_vector_delete(index_name: str, id: str) -> dict:
+async def qortex_vector_delete(index_name: str, id: str) -> dict:
     """Delete a single vector by ID.
 
     Args:
         index_name: Target index.
         id: Vector ID to delete.
     """
-    return _vector_delete_impl(index_name, id)
+    return await _vector_delete_impl(index_name, id)
 
 
 @mcp.tool
 @_mcp_traced
-def qortex_vector_delete_many(
+async def qortex_vector_delete_many(
     index_name: str,
     ids: list[str] | None = None,
     filter: dict | None = None,
@@ -2800,7 +2784,7 @@ def qortex_vector_delete_many(
         ids: List of vector IDs to delete.
         filter: Metadata filter for bulk delete.
     """
-    return _vector_delete_many_impl(index_name, ids, filter)
+    return await _vector_delete_many_impl(index_name, ids, filter)
 
 
 # ---------------------------------------------------------------------------

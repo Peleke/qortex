@@ -1,14 +1,11 @@
 """Route handlers for the qortex REST API.
 
 Thin layer: parse request, call QortexService, return JSON.
-Sync service methods are called directly (Starlette runs handlers in
-a threadpool by default for sync endpoints). Async service methods
-(feedback, stats, learning) are awaited.
+All service methods are async — route handlers await them directly.
 """
 
 from __future__ import annotations
 
-import asyncio
 from typing import Any
 
 from starlette.requests import Request
@@ -37,13 +34,13 @@ async def health_handler(request: Request) -> JSONResponse:
 
 async def status_handler(request: Request) -> JSONResponse:
     service = _get_service(request)
-    result = await asyncio.to_thread(service.status)
+    result = await service.status()
     return JSONResponse(result)
 
 
 async def domains_handler(request: Request) -> JSONResponse:
     service = _get_service(request)
-    result = await asyncio.to_thread(service.domains)
+    result = await service.domains()
     return JSONResponse(result)
 
 
@@ -69,8 +66,7 @@ async def query_handler(request: Request) -> JSONResponse:
     if not context:
         return _error("'context' is required")
 
-    result = await asyncio.to_thread(
-        service.query,
+    result = await service.query(
         context=context,
         domains=body.get("domains"),
         top_k=body.get("top_k", 20),
@@ -117,8 +113,7 @@ async def ingest_handler(request: Request) -> JSONResponse:
     if not source_path or not domain:
         return _error("'source_path' and 'domain' are required")
 
-    result = await asyncio.to_thread(
-        service.ingest,
+    result = await service.ingest(
         source_path=source_path,
         domain=domain,
         source_type=body.get("source_type"),
@@ -138,8 +133,7 @@ async def ingest_text_handler(request: Request) -> JSONResponse:
     if not text or not domain:
         return _error("'text' and 'domain' are required")
 
-    result = await asyncio.to_thread(
-        service.ingest_text,
+    result = await service.ingest_text(
         text=text,
         domain=domain,
         format=body.get("format", "text"),
@@ -160,8 +154,7 @@ async def ingest_structured_handler(request: Request) -> JSONResponse:
     if not concepts or not domain:
         return _error("'concepts' and 'domain' are required")
 
-    result = await asyncio.to_thread(
-        service.ingest_structured,
+    result = await service.ingest_structured(
         concepts=concepts,
         domain=domain,
         edges=body.get("edges"),
@@ -186,8 +179,7 @@ async def explore_handler(request: Request) -> JSONResponse:
     if not node_id:
         return _error("'node_id' is required")
 
-    result = await asyncio.to_thread(
-        service.explore,
+    result = await service.explore(
         node_id=node_id,
         depth=body.get("depth", 1),
     )
@@ -203,8 +195,7 @@ async def rules_handler(request: Request) -> JSONResponse:
     except Exception:
         return _error("Invalid JSON body")
 
-    result = await asyncio.to_thread(
-        service.rules,
+    result = await service.rules(
         domains=body.get("domains"),
         concept_ids=body.get("concept_ids"),
         categories=body.get("categories"),
@@ -301,8 +292,7 @@ async def source_connect_handler(request: Request) -> JSONResponse:
     if not source_id or not connection_string:
         return _error("'source_id' and 'connection_string' are required")
 
-    result = await asyncio.to_thread(
-        service.source_connect,
+    result = await service.source_connect(
         source_id=source_id,
         connection_string=connection_string,
         schemas=body.get("schemas"),
@@ -319,8 +309,7 @@ async def source_sync_handler(request: Request) -> JSONResponse:
     except Exception:
         body = {}
 
-    result = await asyncio.to_thread(
-        service.source_sync,
+    result = await service.source_sync(
         source_id=source_id,
         tables=body.get("tables"),
         mode=body.get("mode", "full"),
@@ -330,14 +319,14 @@ async def source_sync_handler(request: Request) -> JSONResponse:
 
 async def source_list_handler(request: Request) -> JSONResponse:
     service = _get_service(request)
-    result = await asyncio.to_thread(service.source_list)
+    result = await service.source_list()
     return JSONResponse(result)
 
 
 async def source_disconnect_handler(request: Request) -> JSONResponse:
     service = _get_service(request)
     source_id = request.path_params["source_id"]
-    result = await asyncio.to_thread(service.source_disconnect, source_id)
+    result = await service.source_disconnect(source_id)
     return JSONResponse(result)
 
 

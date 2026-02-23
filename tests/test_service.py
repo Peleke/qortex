@@ -59,9 +59,9 @@ def service(backend, embedding, vector_index) -> QortexService:
     )
 
 
-def _seed_data(service: QortexService):
+async def _seed_data(service: QortexService):
     """Add some concepts to the service for testing."""
-    result = service.ingest_structured(
+    result = await service.ingest_structured(
         concepts=[
             {"name": "Python", "description": "A programming language"},
             {"name": "FastAPI", "description": "A web framework for Python"},
@@ -81,152 +81,152 @@ def _seed_data(service: QortexService):
 
 
 class TestServiceQuery:
-    def test_query_empty(self, service):
-        result = service.query("hello")
+    async def test_query_empty(self, service):
+        result = await service.query("hello")
         assert result["items"] == []
         assert "query_id" in result
 
-    def test_query_with_data(self, service):
-        _seed_data(service)
-        result = service.query("python programming")
+    async def test_query_with_data(self, service):
+        await _seed_data(service)
+        result = await service.query("python programming")
         assert len(result["items"]) > 0
         assert "query_id" in result
 
-    def test_query_increments_counter(self, service):
-        _seed_data(service)
+    async def test_query_increments_counter(self, service):
+        await _seed_data(service)
         assert service.query_count == 0
-        service.query("test")
+        await service.query("test")
         assert service.query_count == 1
 
-    def test_query_clamps_top_k(self, service):
-        _seed_data(service)
-        result = service.query("test", top_k=0)
+    async def test_query_clamps_top_k(self, service):
+        await _seed_data(service)
+        result = await service.query("test", top_k=0)
         assert isinstance(result, dict)
 
-    def test_query_domain_filter(self, service):
-        _seed_data(service)
-        result = service.query("python", domains=["tech"])
+    async def test_query_domain_filter(self, service):
+        await _seed_data(service)
+        result = await service.query("python", domains=["tech"])
         assert all(
             item["domain"] == "tech" for item in result["items"]
         )
 
 
 class TestServiceIngest:
-    def test_ingest_structured(self, service):
-        result = service.ingest_structured(
+    async def test_ingest_structured(self, service):
+        result = await service.ingest_structured(
             concepts=[{"name": "A", "description": "Concept A"}],
             domain="test",
         )
         assert result["concepts"] == 1
         assert result["domain"] == "test"
 
-    def test_ingest_text(self, service):
-        result = service.ingest_text(
+    async def test_ingest_text(self, service):
+        result = await service.ingest_text(
             text="Machine learning is a subset of AI.",
             domain="ml",
         )
         assert result["domain"] == "ml"
         assert result["concepts"] >= 0
 
-    def test_ingest_text_empty(self, service):
-        result = service.ingest_text(text="", domain="test")
+    async def test_ingest_text_empty(self, service):
+        result = await service.ingest_text(text="", domain="test")
         assert result["concepts"] == 0
         assert "Empty text provided" in result["warnings"]
 
-    def test_ingest_file_not_found(self, service):
-        result = service.ingest("/nonexistent/path.md", domain="test")
+    async def test_ingest_file_not_found(self, service):
+        result = await service.ingest("/nonexistent/path.md", domain="test")
         assert "error" in result
 
 
 class TestServiceDomains:
-    def test_domains_empty(self, service):
-        result = service.domains()
+    async def test_domains_empty(self, service):
+        result = await service.domains()
         assert result["domains"] == []
 
-    def test_domains_after_ingest(self, service):
-        _seed_data(service)
-        result = service.domains()
+    async def test_domains_after_ingest(self, service):
+        await _seed_data(service)
+        result = await service.domains()
         names = [d["name"] for d in result["domains"]]
         assert "tech" in names
 
 
 class TestServiceStatus:
-    def test_status(self, service):
-        result = service.status()
+    async def test_status(self, service):
+        result = await service.status()
         assert result["status"] == "ok"
         assert result["backend"] == "InMemoryBackend"
         assert result["vector_search"] is True
 
 
 class TestServiceExplore:
-    def test_explore_missing_node(self, service):
-        result = service.explore("nonexistent")
+    async def test_explore_missing_node(self, service):
+        result = await service.explore("nonexistent")
         assert result is None
 
-    def test_explore_existing_node(self, service):
-        _seed_data(service)
-        domains = service.domains()
+    async def test_explore_existing_node(self, service):
+        await _seed_data(service)
+        domains = await service.domains()
         # Get a concept ID from the backend
         nodes = list(service.backend._nodes.values())
         if nodes:
-            result = service.explore(nodes[0].id)
+            result = await service.explore(nodes[0].id)
             assert result is not None
             assert "node" in result
             assert result["node"]["id"] == nodes[0].id
 
 
 class TestServiceRules:
-    def test_rules_empty(self, service):
-        result = service.rules()
+    async def test_rules_empty(self, service):
+        result = await service.rules()
         assert result["rules"] == []
         assert result["projection"] == "rules"
 
-    def test_rules_after_ingest(self, service):
-        _seed_data(service)
-        result = service.rules(domains=["tech"])
+    async def test_rules_after_ingest(self, service):
+        await _seed_data(service)
+        result = await service.rules(domains=["tech"])
         assert result["domain_count"] >= 0
 
 
 class TestServiceCompare:
-    def test_compare_no_vec(self):
+    async def test_compare_no_vec(self):
         backend = InMemoryBackend()
         backend.connect()
         svc = QortexService(backend=backend)
-        result = svc.compare("test")
+        result = await svc.compare("test")
         assert "error" in result
 
-    def test_compare_with_data(self, service):
-        _seed_data(service)
-        result = service.compare("python")
+    async def test_compare_with_data(self, service):
+        await _seed_data(service)
+        result = await service.compare("python")
         assert "vec_only" in result
         assert "graph_enhanced" in result
         assert "diff" in result
 
 
 class TestServiceVectorOps:
-    def test_create_and_query_index(self, service):
-        result = service.vector_create_index("test_idx", 4)
+    async def test_create_and_query_index(self, service):
+        result = await service.vector_create_index("test_idx", 4)
         assert result["status"] == "created"
 
-        service.vector_upsert(
+        await service.vector_upsert(
             "test_idx",
             vectors=[[1.0, 0.0, 0.0, 0.0], [0.0, 1.0, 0.0, 0.0]],
             ids=["a", "b"],
             metadata=[{"label": "x"}, {"label": "y"}],
         )
 
-        result = service.vector_query("test_idx", [1.0, 0.0, 0.0, 0.0], top_k=2)
+        result = await service.vector_query("test_idx", [1.0, 0.0, 0.0, 0.0], top_k=2)
         assert len(result["results"]) == 2
 
-    def test_list_indexes(self, service):
-        service.vector_create_index("idx1", 4)
-        service.vector_create_index("idx2", 8)
-        result = service.vector_list_indexes()
+    async def test_list_indexes(self, service):
+        await service.vector_create_index("idx1", 4)
+        await service.vector_create_index("idx2", 8)
+        result = await service.vector_list_indexes()
         assert set(result["indexes"]) == {"idx1", "idx2"}
 
-    def test_delete_index(self, service):
-        service.vector_create_index("del_me", 4)
-        result = service.vector_delete_index("del_me")
+    async def test_delete_index(self, service):
+        await service.vector_create_index("del_me", 4)
+        result = await service.vector_delete_index("del_me")
         assert result["status"] == "deleted"
         assert "del_me" not in service.vector_indexes
 
