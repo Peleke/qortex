@@ -3104,6 +3104,7 @@ async def _migrate_vec_impl(source: str, batch_size: int = 500, dry_run: bool = 
     import asyncio
     from dataclasses import asdict
 
+    from qortex.service import create_vec_index
     from qortex.vec.migrate import migrate_vec
 
     _ensure_initialized()
@@ -3111,37 +3112,11 @@ async def _migrate_vec_impl(source: str, batch_size: int = 500, dry_run: bool = 
     if _vector_index is None:
         return {"error": "No vector index configured"}
 
-    # Build source index from type string + env vars (same logic as QortexService._create_vec_index)
     dims = 384
     if _embedding_model is not None:
         dims = _embedding_model.dimensions
 
-    if source == "sqlite":
-        from qortex.vec.index import SqliteVecIndex
-
-        vec_path = Path("~/.qortex/vectors.db").expanduser()
-        source_index = SqliteVecIndex(db_path=str(vec_path), dimensions=dims)
-    elif source == "pgvector":
-        from qortex.vec.pgvector import PgVectorIndex
-
-        dsn = os.environ.get("PGVECTOR_DSN")
-        if dsn is None:
-            host = os.environ.get("PGVECTOR_HOST", "localhost")
-            port = os.environ.get("PGVECTOR_PORT", "5432")
-            user = os.environ.get("PGVECTOR_USER", "qortex")
-            password = os.environ.get("PGVECTOR_PASSWORD", "qortex")
-            db = os.environ.get("PGVECTOR_DB", "qortex")
-            dsn = f"postgresql://{user}:{password}@{host}:{port}/{db}"
-        source_index = PgVectorIndex(dsn=dsn, dimensions=dims)
-    elif source in ("numpy", "memory"):
-        from qortex.vec.index import NumpyVectorIndex
-
-        source_index = NumpyVectorIndex(dimensions=dims)
-    else:
-        raise ValueError(
-            f"Unknown vec backend type: {source!r}. "
-            "Must be 'sqlite', 'pgvector', 'numpy', or 'memory'."
-        )
+    source_index = create_vec_index(source, dims)
 
     try:
         result = await migrate_vec(

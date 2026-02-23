@@ -225,6 +225,7 @@ class PgVectorIndex:
         offset = 0
         while True:
             async with self._pool.acquire() as conn:
+                # table_name is validated against _SAFE_IDENT at construction time (not user input)
                 rows = await conn.fetch(
                     f"SELECT id, embedding FROM {self._table_name} ORDER BY id LIMIT $1 OFFSET $2",
                     batch_size,

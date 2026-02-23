@@ -24,6 +24,39 @@ from qortex.observe.logging import get_logger
 logger = get_logger(__name__)
 
 
+def create_vec_index(type_str: str, dimensions: int = 384) -> Any:
+    """Construct a VectorIndex from type string + env vars.
+
+    Shared factory used by QortexService and MCP server.
+    """
+    if type_str == "sqlite":
+        from qortex.vec.index import SqliteVecIndex
+
+        vec_path = Path("~/.qortex/vectors.db").expanduser()
+        return SqliteVecIndex(db_path=str(vec_path), dimensions=dimensions)
+    elif type_str == "pgvector":
+        from qortex.vec.pgvector import PgVectorIndex
+
+        dsn = os.environ.get("PGVECTOR_DSN")
+        if dsn is None:
+            host = os.environ.get("PGVECTOR_HOST", "localhost")
+            port = os.environ.get("PGVECTOR_PORT", "5432")
+            user = os.environ.get("PGVECTOR_USER", "qortex")
+            password = os.environ.get("PGVECTOR_PASSWORD", "qortex")
+            db = os.environ.get("PGVECTOR_DB", "qortex")
+            dsn = f"postgresql://{user}:{password}@{host}:{port}/{db}"
+        return PgVectorIndex(dsn=dsn, dimensions=dimensions)
+    elif type_str in ("numpy", "memory"):
+        from qortex.vec.index import NumpyVectorIndex
+
+        return NumpyVectorIndex(dimensions=dimensions)
+    else:
+        raise ValueError(
+            f"Unknown vec backend type: {type_str!r}. "
+            "Must be 'sqlite', 'pgvector', 'numpy', or 'memory'."
+        )
+
+
 class QortexService:
     """Encapsulates qortex backend state and operations.
 
@@ -1401,33 +1434,7 @@ class QortexService:
         dims = 384
         if self.embedding_model is not None:
             dims = self.embedding_model.dimensions
-
-        if type_str == "sqlite":
-            from qortex.vec.index import SqliteVecIndex
-
-            vec_path = Path("~/.qortex/vectors.db").expanduser()
-            return SqliteVecIndex(db_path=str(vec_path), dimensions=dims)
-        elif type_str == "pgvector":
-            from qortex.vec.pgvector import PgVectorIndex
-
-            dsn = os.environ.get("PGVECTOR_DSN")
-            if dsn is None:
-                host = os.environ.get("PGVECTOR_HOST", "localhost")
-                port = os.environ.get("PGVECTOR_PORT", "5432")
-                user = os.environ.get("PGVECTOR_USER", "qortex")
-                password = os.environ.get("PGVECTOR_PASSWORD", "qortex")
-                db = os.environ.get("PGVECTOR_DB", "qortex")
-                dsn = f"postgresql://{user}:{password}@{host}:{port}/{db}"
-            return PgVectorIndex(dsn=dsn, dimensions=dims)
-        elif type_str in ("numpy", "memory"):
-            from qortex.vec.index import NumpyVectorIndex
-
-            return NumpyVectorIndex(dimensions=dims)
-        else:
-            raise ValueError(
-                f"Unknown vec backend type: {type_str!r}. "
-                "Must be 'sqlite', 'pgvector', 'numpy', or 'memory'."
-            )
+        return create_vec_index(type_str, dims)
 
     # ------------------------------------------------------------------
     # Internal helpers

@@ -14,6 +14,7 @@ from dataclasses import dataclass
 from typing import TYPE_CHECKING, Callable
 
 from qortex.observe.logging import get_logger
+from qortex.observe.tracing import traced
 
 if TYPE_CHECKING:
     from qortex.vec.index import VectorIndex
@@ -34,6 +35,7 @@ class MigrateResult:
     dry_run: bool
 
 
+@traced("vec.migrate")
 async def migrate_vec(
     source: VectorIndex,
     destination: VectorIndex,
