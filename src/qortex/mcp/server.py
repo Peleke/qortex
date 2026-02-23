@@ -3099,6 +3099,64 @@ async def qortex_learning_reset(
 # ---------------------------------------------------------------------------
 
 
+async def _migrate_vec_impl(source: str, batch_size: int = 500, dry_run: bool = False) -> dict:
+    """Core impl for vector migration using module globals."""
+    import asyncio
+    from dataclasses import asdict
+
+    from qortex.vec.migrate import migrate_vec
+
+    _ensure_initialized()
+
+    if _vector_index is None:
+        return {"error": "No vector index configured"}
+
+    # Build source index from type string + env vars (same logic as QortexService._create_vec_index)
+    dims = 384
+    if _embedding_model is not None:
+        dims = _embedding_model.dimensions
+
+    if source == "sqlite":
+        from qortex.vec.index import SqliteVecIndex
+
+        vec_path = Path("~/.qortex/vectors.db").expanduser()
+        source_index = SqliteVecIndex(db_path=str(vec_path), dimensions=dims)
+    elif source == "pgvector":
+        from qortex.vec.pgvector import PgVectorIndex
+
+        dsn = os.environ.get("PGVECTOR_DSN")
+        if dsn is None:
+            host = os.environ.get("PGVECTOR_HOST", "localhost")
+            port = os.environ.get("PGVECTOR_PORT", "5432")
+            user = os.environ.get("PGVECTOR_USER", "qortex")
+            password = os.environ.get("PGVECTOR_PASSWORD", "qortex")
+            db = os.environ.get("PGVECTOR_DB", "qortex")
+            dsn = f"postgresql://{user}:{password}@{host}:{port}/{db}"
+        source_index = PgVectorIndex(dsn=dsn, dimensions=dims)
+    elif source in ("numpy", "memory"):
+        from qortex.vec.index import NumpyVectorIndex
+
+        source_index = NumpyVectorIndex(dimensions=dims)
+    else:
+        raise ValueError(
+            f"Unknown vec backend type: {source!r}. "
+            "Must be 'sqlite', 'pgvector', 'numpy', or 'memory'."
+        )
+
+    try:
+        result = await migrate_vec(
+            source_index, _vector_index, batch_size=batch_size, dry_run=dry_run
+        )
+        return asdict(result)
+    finally:
+        if hasattr(source_index, "close"):
+            close = source_index.close
+            if asyncio.iscoroutinefunction(close):
+                await close()
+            else:
+                close()
+
+
 @mcp.tool()
 @_mcp_traced
 async def qortex_migrate_vec(
@@ -3116,20 +3174,7 @@ async def qortex_migrate_vec(
         batch_size: Number of vectors per batch.
         dry_run: If True, read source but don't write to destination.
     """
-    _ensure_initialized()
-    from qortex.service import QortexService
-
-    svc = QortexService(
-        backend=_backend,
-        vector_index=_vector_index,
-        embedding_model=_embedding_model,
-        interoception=_interoception,
-    )
-    return await svc.migrate_vec(
-        source_type=source,
-        batch_size=batch_size,
-        dry_run=dry_run,
-    )
+    return await _migrate_vec_impl(source, batch_size, dry_run)
 
 
 # ---------------------------------------------------------------------------

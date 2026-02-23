@@ -11,9 +11,12 @@ from __future__ import annotations
 
 import time
 from dataclasses import dataclass
-from typing import Any, Callable
+from typing import TYPE_CHECKING, Callable
 
 from qortex.observe.logging import get_logger
+
+if TYPE_CHECKING:
+    from qortex.vec.index import VectorIndex
 
 logger = get_logger(__name__)
 
@@ -32,8 +35,8 @@ class MigrateResult:
 
 
 async def migrate_vec(
-    source: Any,
-    destination: Any,
+    source: VectorIndex,
+    destination: VectorIndex,
     *,
     batch_size: int = 500,
     dry_run: bool = False,

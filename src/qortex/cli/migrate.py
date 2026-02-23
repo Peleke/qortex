@@ -19,10 +19,15 @@ def vec(
     asyncio.run(_run_migration(source, batch_size, dry_run))
 
 
-async def _run_migration(source: str, batch_size: int, dry_run: bool) -> None:
+def _make_service():
+    """Create a QortexService from env. Separate function for testability."""
     from qortex.service import QortexService
 
-    service = QortexService.from_env()
+    return QortexService.from_env()
+
+
+async def _run_migration(source: str, batch_size: int, dry_run: bool) -> None:
+    service = _make_service()
 
     if service.vector_index is None:
         typer.echo("Error: no vector index configured. Check QORTEX_VEC env var.", err=True)
