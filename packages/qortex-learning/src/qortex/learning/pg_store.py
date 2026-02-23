@@ -104,13 +104,16 @@ class PostgresLearningStore:
     ) -> None:
         await self._ensure_schema()
         ctx = context_hash(context or {})
-        ts = state.last_updated or datetime.now(UTC).isoformat()
+        if state.last_updated:
+            ts = datetime.fromisoformat(state.last_updated)
+        else:
+            ts = datetime.now(UTC)
         async with self._pool.acquire() as conn:
             await conn.execute(
                 """
                 INSERT INTO learning_arm_states
                     (learner_name, context_hash, arm_id, alpha, beta, pulls, total_reward, last_updated)
-                VALUES ($1, $2, $3, $4, $5, $6, $7, $8::timestamptz)
+                VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
                 ON CONFLICT (learner_name, context_hash, arm_id) DO UPDATE SET
                     alpha = EXCLUDED.alpha,
                     beta = EXCLUDED.beta,
