@@ -70,8 +70,16 @@ Bandit-based adaptive learning for [qortex](https://github.com/Peleke/qortex): T
 
 ## Install
 
+As a standalone package:
+
 ```bash
 pip install qortex-learning
+```
+
+Or as part of qortex:
+
+```bash
+pip install qortex  # qortex-learning is a core dependency
 ```
 
 ## Quick Start
@@ -79,7 +87,7 @@ pip install qortex-learning
 ```python
 from qortex.learning import Learner, LearnerConfig, Arm, ArmOutcome
 
-# Create a learner with SQLite persistence
+# Create a learner with SQLite persistence (default)
 learner = await Learner.create(LearnerConfig(name="prompts"))
 
 # Define candidates
@@ -143,9 +151,20 @@ State survives restarts via pluggable stores:
 | Store | Description |
 |-------|-------------|
 | `SqliteLearningStore` | SQLite backend (default). Async via aiosqlite. |
+| `PostgresLearningStore` | PostgreSQL backend. Async via asyncpg. Uses shared connection pool. |
 | `JsonLearningStore` | JSON file backend. Good for debugging. |
 
-Both implement the `LearningStore` protocol, so custom backends are straightforward.
+All three implement the async `LearningStore` protocol, so custom backends are straightforward.
+
+To use the PostgreSQL store, set `QORTEX_STORE=postgres` and `DATABASE_URL`:
+
+```python
+from qortex.learning.postgres import PostgresLearningStore
+
+store = PostgresLearningStore(pool=shared_pool)
+await store.initialize()  # creates tables if needed
+learner = await Learner.create(LearnerConfig(name="prompts"), store=store)
+```
 
 ## How It Fits
 
@@ -157,12 +176,27 @@ qortex-learning is the adaptive layer beneath `qortex_feedback`. When a user acc
 4. Next `learner.select()` samples from updated posteriors
 5. The store persists state to SQLite so learning survives restarts
 
-This creates the continuous learning loop shown on the [homepage](../index.md): retrieval gets smarter the more you use it.
+This creates the learning loop shown on the [homepage](../index.md): accepted results rise in rank on subsequent queries, and rejected results drop.
+
+## Async API
+
+As of v0.8.0, all `Learner` methods are async. The constructor has been replaced with an async factory:
+
+```python
+# Old (pre-0.8.0)
+learner = Learner(LearnerConfig(name="prompts"))
+
+# New (0.8.0+)
+learner = await Learner.create(LearnerConfig(name="prompts"))
+```
+
+All methods (`select`, `observe`, `batch_observe`, `top_arms`, `posteriors`, `metrics`, `decay_arm`, `reset`) are now `async def`.
 
 ## Requirements
 
 - Python 3.11+
-- [aiosqlite](https://pypi.org/project/aiosqlite/) (async SQLite)
+- [aiosqlite](https://pypi.org/project/aiosqlite/) (async SQLite, default store)
+- [asyncpg](https://pypi.org/project/asyncpg/) (optional, for PostgresLearningStore)
 - [qortex-observe](observe.md) (event emission for metrics/traces)
 
 ## License

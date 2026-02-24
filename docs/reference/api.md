@@ -4,7 +4,7 @@ This page provides a quick reference for the main qortex APIs. For detailed docu
 
 ## QortexClient
 
-The consumer-facing protocol. All framework adapters and MCP tools target this interface.
+The consumer-facing protocol. All framework adapters, MCP tools, and REST API endpoints target this interface.
 
 ### Protocol
 
@@ -41,9 +41,17 @@ class QortexClient(Protocol):
     def ingest(self, source_path: str, domain: str) -> dict: ...
 ```
 
+Three implementations ship with qortex:
+
+| Implementation | Transport | Use Case |
+|----------------|-----------|----------|
+| `LocalQortexClient` | In-process | Direct embedding, no network |
+| `HttpQortexClient` | HTTP (async) | Remote access via `qortex serve` |
+| MCP server | JSON-RPC (stdio/SSE) | AI assistant tool calls |
+
 ### LocalQortexClient
 
-In-process implementation.
+In-process implementation. Best for single-process deployments and testing.
 
 ```python
 from qortex.client import LocalQortexClient
@@ -79,6 +87,62 @@ ids = client.add_concepts(texts=["Zero-trust architecture"], domain="security")
 # Get nodes by ID (for adapters)
 nodes = client.get_nodes(["sec:oauth", "sec:jwt"])
 ```
+
+### HttpQortexClient
+
+Async HTTP client for remote access. Protocol-compatible with `LocalQortexClient`.
+
+```python
+from qortex.http_client import HttpQortexClient
+
+# Basic usage (no auth)
+async with HttpQortexClient("http://localhost:8741") as client:
+    result = await client.query("OAuth2 authorization", domains=["security"])
+    await client.feedback(result.query_id, {result.items[0].id: "accepted"})
+
+# With API key authentication
+async with HttpQortexClient(
+    "http://localhost:8741",
+    api_key="my-secret-key",
+) as client:
+    result = await client.query("error handling patterns")
+
+# With HMAC-SHA256 signing
+async with HttpQortexClient(
+    "http://localhost:8741",
+    hmac_secret="my-hmac-secret",
+) as client:
+    result = await client.query("error handling patterns")
+```
+
+`HttpQortexClient` uses `httpx` under the hood and supports connection pooling, automatic retries, and timeouts. All methods are async.
+
+### QortexService
+
+The service layer that wires all backends together. Used internally by `qortex serve` and the MCP server.
+
+```python
+from qortex.service import QortexService
+
+# Create from environment variables (async factory)
+service = await QortexService.async_from_env()
+
+# The service holds:
+# - service.client: LocalQortexClient
+# - service.pool: shared asyncpg pool (if QORTEX_STORE=postgres)
+# - service.vec_index: PgVectorIndex or SqliteVecIndex
+# - service.learning_store: PostgresLearningStore or SqliteLearningStore
+# - service.interoception_store: PostgresInteroceptionStore or InMemoryInteroception
+```
+
+`async_from_env()` reads these environment variables:
+
+| Variable | Effect |
+|----------|--------|
+| `QORTEX_STORE=postgres` | Uses PostgreSQL for vec, learning, and interoception |
+| `DATABASE_URL` | PostgreSQL connection string for the shared pool |
+| `QORTEX_VEC=pgvector` | Uses pgvector for vector index (implied by `QORTEX_STORE=postgres`) |
+| `QORTEX_GRAPH=memgraph` | Uses Memgraph for graph backend |
 
 ### Result Types
 
@@ -163,6 +227,150 @@ from qortex.client import (
 | `relevance` | `float` | Relevance to query/context |
 | `source_concepts` | `list[str]` | Linked concept IDs |
 | `metadata` | `dict` | Additional metadata |
+
+## REST API
+
+The REST API is served by `qortex serve` and exposes all QortexClient operations as HTTP endpoints. Base URL: `http://localhost:8741/api/v1`.
+
+### Authentication
+
+Include one of these headers depending on your configuration:
+
+```
+Authorization: Bearer <QORTEX_API_KEY>
+```
+
+Or HMAC-SHA256 signing:
+
+```
+X-Qortex-Timestamp: <unix-epoch-seconds>
+X-Qortex-Signature: <HMAC-SHA256(secret, timestamp + method + path + body)>
+```
+
+HMAC signatures are validated within a 60-second replay window.
+
+### Endpoints
+
+#### Query
+
+```
+POST /api/v1/query
+```
+
+```json
+{
+  "context": "OAuth2 authorization",
+  "domains": ["security"],
+  "top_k": 5,
+  "min_confidence": 0.0
+}
+```
+
+Returns: `QueryResult` JSON.
+
+#### Feedback
+
+```
+POST /api/v1/feedback
+```
+
+```json
+{
+  "query_id": "abc-123",
+  "outcomes": {"item-1": "accepted", "item-2": "rejected"},
+  "source": "user"
+}
+```
+
+#### Explore
+
+```
+GET /api/v1/explore/{node_id}?depth=2
+```
+
+Returns: `ExploreResult` JSON.
+
+#### Rules
+
+```
+GET /api/v1/rules?domains=security&categories=architectural&min_confidence=0.5
+```
+
+Returns: `RulesResult` JSON.
+
+#### Domains
+
+```
+GET /api/v1/domains
+```
+
+Returns: list of `DomainInfo` objects.
+
+#### Status
+
+```
+GET /api/v1/status
+```
+
+Returns: `StatusResult` JSON with backend info and health check.
+
+#### Ingest
+
+```
+POST /api/v1/ingest
+Content-Type: multipart/form-data
+
+file: <file>
+domain: security
+source_type: markdown
+```
+
+#### Ingest Text
+
+```
+POST /api/v1/ingest/text
+```
+
+```json
+{
+  "text": "OAuth2 uses bearer tokens...",
+  "domain": "security",
+  "format": "markdown"
+}
+```
+
+#### Ingest Structured
+
+```
+POST /api/v1/ingest/structured
+```
+
+```json
+{
+  "domain": "security",
+  "concepts": [{"name": "OAuth2", "description": "Authorization framework"}],
+  "edges": [{"source": "OAuth2", "target": "JWT", "relation_type": "requires"}],
+  "rules": [{"text": "Always validate JWT signatures"}]
+}
+```
+
+#### Migrate Vec
+
+```
+POST /api/v1/migrate/vec
+```
+
+```json
+{
+  "from": "sqlite",
+  "to": "pgvector",
+  "batch_size": 1000
+}
+```
+
+Returns: `{migrated: int, duration_seconds: float}`.
+
+---
 
 ## MCP Tools
 

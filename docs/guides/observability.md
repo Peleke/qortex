@@ -1,8 +1,8 @@
 # Observability and Grafana Dashboard
 
-qortex ships a full observability stack: structured events, OpenTelemetry traces and metrics, Prometheus scraping, distributed tracing, and a pre-built Grafana dashboard that visualizes the entire pipeline.
+qortex includes an observability stack built on OpenTelemetry. Structured events drive metrics (Prometheus), traces (Jaeger), and a Grafana dashboard covering the entire pipeline.
 
-The observability layer is packaged as `qortex-observe`, a standalone package that can be installed independently. It provides the event system, metric definitions, trace instrumentation, and all subscriber wiring.
+The observability layer is packaged as `qortex-observe`, a standalone package that can be installed independently. It provides the event system, metric definitions, trace instrumentation, and subscriber wiring.
 
 ## Architecture
 
@@ -21,7 +21,18 @@ qortex process
 
 All 62 metrics are defined in a single declarative schema (`metrics_schema.py`). OTel is the sole metric backend; `PrometheusMetricReader` serves the `/metrics` endpoint for Prometheus scraping. The old `prometheus.py` subscriber has been removed.
 
-Events are emitted at every stage of the pipeline: ingestion, concept extraction, vector index operations (add/search), retrieval (vec search, online edge generation, PPR), feedback (factor updates), enrichment, learning (bandit selection/observation), credit propagation, and buffer promotion. A single set of event handlers in `metrics_handlers.py` translates events into OTel instruments.
+Events are emitted at every stage of the pipeline:
+
+- **Ingestion**: manifest parsing, concept extraction
+- **Vector index**: add, search, seed yield
+- **Retrieval**: vec search, online edge generation, PPR scoring
+- **Feedback**: teleportation factor updates
+- **Enrichment**: template and LLM-backed rule enrichment
+- **Learning**: bandit selection, observation, posterior updates
+- **Credit propagation**: causal DAG traversal, alpha/beta deltas
+- **Buffer promotion**: online edge crystallization
+
+A single set of event handlers in `metrics_handlers.py` translates events into OTel instruments.
 
 ## Quick Start
 
@@ -368,6 +379,31 @@ These panels track causal credit assignment: feedback propagating backward throu
 - **Metric:** `qortex_credit_alpha_delta_total`, `qortex_credit_beta_delta_total`
 - **Source event:** `CreditPropagated`
 - **What it tells you:** Cumulative success (alpha) vs failure (beta) signal from credit propagation. Alpha ahead = net positive signal from users. Beta dominating = users are rejecting results and that negative signal is propagating to ancestor concepts.
+
+### PostgreSQL Stores (v0.8.0+)
+
+When `QORTEX_STORE=postgres`, additional metrics are emitted for the PostgreSQL-backed stores.
+
+#### Pool Utilization
+
+- **Metric:** `qortex_pool_size` (gauge), `qortex_pool_free` (gauge), `qortex_pool_used` (gauge)
+- **What it tells you:** Current state of the shared asyncpg connection pool. If `pool_free` drops to 0 consistently, increase the pool size via `DATABASE_POOL_MAX` (default 10).
+
+#### PgVector Operations
+
+- **Metrics:** `rate(qortex_pgvec_add_total[5m])`, `histogram_quantile(0.95, rate(qortex_pgvec_add_duration_seconds_bucket[5m]))`
+- **What it tells you:** pgvector insert rate and latency. Compare with the sqlite vec metrics to assess performance differences.
+
+#### Migration Progress
+
+- **Metric:** `qortex_migration_vectors_total` (counter), `qortex_migration_duration_seconds` (histogram)
+- **What it tells you:** Progress of `qortex migrate vec` operations. The counter increments per batch of migrated vectors.
+
+#### REST API
+
+- **Metrics:** `rate(qortex_http_requests_total[5m])`, `histogram_quantile(0.95, rate(qortex_http_request_duration_seconds_bucket[5m]))`
+- **Labels:** `method`, `path`, `status`
+- **What it tells you:** HTTP request rate, latency, and error rate for the REST API server.
 
 ## Complete Metric Reference
 

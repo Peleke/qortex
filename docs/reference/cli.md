@@ -1,6 +1,6 @@
 # CLI Reference
 
-qortex provides a comprehensive CLI for managing knowledge graphs.
+The qortex CLI manages knowledge graphs, infrastructure, projections, and data migrations.
 
 ## Global Options
 
@@ -22,6 +22,8 @@ qortex <command> --help  # Show command help
 | `viz` | Visualization and queries |
 | `interop` | Consumer interop protocol |
 | `prune` | Edge pruning and analysis |
+| `serve` | Start the REST API server (top-level command) |
+| `migrate` | Data migration tools |
 | `mcp-serve` | Start the MCP server (top-level command) |
 
 ---
@@ -495,6 +497,77 @@ Confidence distribution:
 
 ---
 
+## serve
+
+### `qortex serve`
+
+Start the qortex REST API server.
+
+```bash
+# Default: localhost:8741
+qortex serve
+
+# Custom host and port
+qortex serve --host 0.0.0.0 --port 9000
+
+# With API key authentication
+QORTEX_API_KEY=my-secret-key qortex serve
+
+# With CORS for web clients
+QORTEX_CORS_ORIGINS="http://localhost:3000,https://myapp.com" qortex serve
+
+# With PostgreSQL backends
+QORTEX_STORE=postgres DATABASE_URL=postgresql://user:pass@localhost/qortex qortex serve
+```
+
+Options:
+- `--host`: Bind address (default: `127.0.0.1`)
+- `--port`: Port number (default: `8741`)
+- `--reload`: Auto-reload on code changes (development only)
+
+The REST API exposes all QortexClient operations as HTTP endpoints. See [API Reference](api.md#rest-api) for the full endpoint list.
+
+**Authentication modes:**
+
+| Mode | Header | Description |
+|------|--------|-------------|
+| API Key | `Authorization: Bearer <key>` | Simple token auth. Set `QORTEX_API_KEY` env var. |
+| HMAC-SHA256 | `X-Qortex-Signature` + `X-Qortex-Timestamp` | Request signing with replay protection (60s window). Set `QORTEX_HMAC_SECRET` env var. |
+| None | (no header) | Open access. Default when no auth env vars are set. |
+
+---
+
+## migrate
+
+Data migration tools for moving between storage backends.
+
+### `qortex migrate vec`
+
+Migrate vector data between index backends.
+
+```bash
+# Migrate from SQLite to pgvector
+qortex migrate vec --from sqlite --to pgvector
+
+# Migrate with custom database URL
+DATABASE_URL=postgresql://user:pass@localhost/qortex qortex migrate vec --from sqlite
+
+# Dry run (count vectors without migrating)
+qortex migrate vec --from sqlite --dry-run
+```
+
+Options:
+- `--from`: Source backend (`sqlite`)
+- `--to`: Target backend (default: `pgvector`)
+- `--batch-size`: Vectors per batch (default: `1000`)
+- `--dry-run`: Count vectors without migrating
+
+The migration streams vectors via `iter_all()` to handle large indexes without loading everything into memory. Progress is reported as a percentage during the migration.
+
+This command is also available as a REST endpoint (`POST /api/v1/migrate/vec`) and as an MCP tool (`qortex_migrate_vec`).
+
+---
+
 ## mcp-serve
 
 ### `qortex mcp-serve`
@@ -515,6 +588,34 @@ Options:
 ---
 
 ## Environment Variables
+
+### Core
+
+| Variable | Description | Default |
+|----------|-------------|---------|
+| `QORTEX_STORE` | Storage backend for all persistent stores: `sqlite` or `postgres` | `sqlite` |
+| `QORTEX_VEC` | Vector layer backend: `memory`, `sqlite`, or `pgvector` | `sqlite` |
+| `QORTEX_GRAPH` | Graph layer backend: `memory` or `memgraph` | `memory` |
+| `QORTEX_STATE_DIR` | Override for learning state persistence directory | (none) |
+| `QORTEX_CONFIG` | Config file path | `~/.claude/qortex-consumers.yaml` |
+| `ANTHROPIC_API_KEY` | Anthropic API key for LLM extraction and enrichment | (none) |
+| `OLLAMA_HOST` | Ollama server URL for local LLM extraction | `http://localhost:11434` |
+
+### REST API Server
+
+| Variable | Description | Default |
+|----------|-------------|---------|
+| `QORTEX_API_KEY` | API key for Bearer token authentication | (none, no auth) |
+| `QORTEX_HMAC_SECRET` | Secret for HMAC-SHA256 request signing | (none) |
+| `QORTEX_CORS_ORIGINS` | Comma-separated allowed CORS origins | (none, CORS disabled) |
+
+### PostgreSQL
+
+| Variable | Description | Default |
+|----------|-------------|---------|
+| `DATABASE_URL` | PostgreSQL connection string for shared asyncpg pool | (none) |
+
+### Memgraph
 
 | Variable | Description | Default |
 |----------|-------------|---------|

@@ -7,9 +7,7 @@
   &nbsp;&middot;&nbsp; <a href="https://pypi.org/project/qortex/">PyPI</a>
 </p>
 
-**Knowledge that learns.**
-
-Your AI assistant forgets everything between conversations. qortex adds a knowledge graph that learns from every interaction. One command to install. Zero config.
+qortex is persistent, learning memory for AI agents. It builds a knowledge graph from your content and combines vector similarity with graph traversal so retrieval improves from every feedback signal.
 
 ![qortex pipeline](images/diagrams/pipeline.svg)
 
@@ -35,9 +33,9 @@ Once installed, your assistant automatically:
 1. **Searches** the knowledge graph before answering architecture questions
 2. **Retrieves** relevant concepts, relationships, and rules -- not just similar text
 3. **Learns** from your feedback: accepted results get boosted, rejected ones get suppressed
-4. **Persists** everything to SQLite so knowledge survives restarts
+4. **Persists** everything to SQLite (or PostgreSQL) so knowledge survives restarts
 
-No config files. No API keys for the knowledge layer. Just start asking questions.
+The knowledge layer requires no config files or API keys. Install and start querying.
 
 ## The difference
 
@@ -74,12 +72,13 @@ Graph retrieval promotes structurally connected concepts (AuthMiddleware depends
 ## How it works
 
 - **Graph-enhanced retrieval**: Queries combine vector similarity with structural graph traversal. Related concepts get promoted even if they don't share keywords.
-- **Adaptive learning**: Every `qortex_feedback` call updates retrieval weights via [Thompson Sampling](packages/learning.md). The system gets smarter the more you use it.
+- **Adaptive learning**: Every `qortex_feedback` call updates retrieval weights via [Thompson Sampling](packages/learning.md). Accepted results rise in rank on subsequent queries; rejected results drop.
 - **Auto-ingest**: Feed it docs, specs, or code. LLM extraction builds concepts, typed edges, and rules automatically.
-- **Persistent by default**: SQLite stores the knowledge graph, vector index, and learning state across restarts.
+- **Persistent by default**: SQLite stores the knowledge graph, vector index, and learning state across restarts. PostgreSQL + pgvector available for production scale.
+- **REST API**: `qortex serve` exposes the full API over HTTP with API key and HMAC-SHA256 authentication. Use `HttpQortexClient` for remote access.
 - **Activity tracking**: `qortex_stats` shows knowledge coverage, learning progress, and query activity at a glance.
 - **Projection pipeline**: Source, Enricher, Target architecture for projecting knowledge into any format -- buildlog seeds, flat YAML, JSON, or custom targets.
-- **Multiple backends**: InMemory (testing), Memgraph (production with MAGE algorithms), SQLite (default persistent).
+- **Multiple backends**: InMemory (testing), Memgraph (production with MAGE algorithms), SQLite (default persistent), PostgreSQL + pgvector (production persistent).
 
 ### The Learning Layer
 
@@ -99,7 +98,7 @@ See the [Learning Layer Guide](guides/learning.md) for configuration, interventi
 
 ## Quick example
 
-### Search, explore, learn
+### Search, explore, learn (in-process)
 
 ```python
 from qortex.client import LocalQortexClient
@@ -116,6 +115,16 @@ for edge in explore.edges:
 
 # Feedback: close the learning loop
 client.feedback(result.query_id, {result.items[0].id: "accepted"})
+```
+
+### Remote access (via REST API)
+
+```python
+from qortex.http_client import HttpQortexClient
+
+async with HttpQortexClient("http://localhost:8741", api_key="my-key") as client:
+    result = await client.query("OAuth2 authorization", domains=["security"])
+    await client.feedback(result.query_id, {result.items[0].id: "accepted"})
 ```
 
 ## Framework adapters
@@ -169,7 +178,9 @@ See [@peleke.s/mastra-qortex](https://github.com/Peleke/mastra-qortex) for the s
 |-----------|---------|-------------|
 | Core + MCP tools | `pip install qortex` | Knowledge graph, MCP server, vector-level tools. Consumers provide embeddings. |
 | Text-level search | `pip install qortex[vec]` | qortex embeds text with sentence-transformers. Adds ~2GB for PyTorch + model weights. |
-| Persistent vectors | `pip install qortex[vec-sqlite]` | SQLite-backed vector index. Without this, vectors are in-memory only. |
+| Persistent vectors (SQLite) | `pip install qortex[vec-sqlite]` | SQLite-backed vector index. Without this, vectors are in-memory only. |
+| Persistent vectors (PostgreSQL) | `pip install qortex[postgres]` | pgvector-backed vectors + PostgreSQL learning and interoception stores. |
+| REST API server | `pip install qortex[serve]` | `qortex serve` command with Starlette + authentication. |
 | Production graph | `pip install qortex[memgraph]` | Memgraph backend for production-scale graph operations. |
 | Everything | `pip install qortex[all]` | All of the above. |
 

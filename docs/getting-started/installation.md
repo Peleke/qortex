@@ -29,15 +29,19 @@ qortex has 13 optional dependency groups for different capabilities:
 | `causal` | `pip install qortex[causal]` | NetworkX for causal DAG support and d-separation queries. |
 | `causal-dowhy` | `pip install qortex[causal-dowhy]` | NetworkX + DoWhy for causal inference and refutation. |
 | `causal-full` | `pip install qortex[causal-full]` | NetworkX + Pyro + ChirHo for full Bayesian causal modeling. |
-| `source-postgres` | `pip install qortex[source-postgres]` | asyncpg + pgvector for PostgreSQL-backed stores (vectors, interoception, learning) and database ingestion. |
+| `postgres` | `pip install qortex[postgres]` | asyncpg + pgvector for PostgreSQL-backed vec, learning, and interoception stores. |
+| `source-postgres` | `pip install qortex[source-postgres]` | asyncpg for connecting to and ingesting from PostgreSQL databases. |
 | `observability` | `pip install qortex[observability]` | qortex-observe with OpenTelemetry exporters for distributed tracing and Prometheus metrics. |
+| `serve` | `pip install qortex[serve]` | Starlette + uvicorn for the REST API server (`qortex serve`). |
 | `dev` | `pip install qortex[dev]` | pytest, ruff, mypy, hypothesis, and other development/testing tools. |
 | `all` | `pip install qortex[all]` | All of the above (except `causal-dowhy` and `causal-full`). |
 
 ### Which groups do I need?
 
 - **Trying it out?** Start with `pip install qortex[vec]` for embedded text search.
-- **Persistent storage?** Add `vec-sqlite` so vectors survive restarts: `pip install qortex[vec-sqlite]`.
+- **Persistent storage (SQLite)?** Add `vec-sqlite` so vectors survive restarts: `pip install qortex[vec-sqlite]`.
+- **Persistent storage (PostgreSQL)?** Use `pip install qortex[postgres]` for pgvector-backed vectors, learning, and interoception. Requires a PostgreSQL instance with the pgvector extension.
+- **REST API server?** Add `serve` to run `qortex serve`: `pip install qortex[serve]`.
 - **Production?** Use `pip install qortex[all]` and configure Memgraph for graph operations.
 - **PostgreSQL backends?** Add `source-postgres` for pgvector search, postgres-backed interoception, and learning stores.
 - **Observability?** Add `observability` for OpenTelemetry traces and Prometheus metrics via qortex-observe.
@@ -84,23 +88,82 @@ qortex --help
 python -c "import qortex; print(qortex.__version__)"
 ```
 
-## PostgreSQL + pgvector (Optional)
+## REST API Server (Optional)
 
-For production deployments with persistent vector search, interoception, and learning:
+To expose qortex as a REST API for remote clients:
 
 ```bash
-# Install postgres dependencies
-pip install "qortex[source-postgres]"
+pip install qortex[serve]
 
-# Start PostgreSQL with pgvector via Docker
-cd docker && docker compose --profile postgres up -d
+# Start the server
+qortex serve
 
-# Configure qortex to use postgres backends
-export QORTEX_VEC=pgvector
-export QORTEX_STORE=postgres
+# With authentication
+QORTEX_API_KEY=my-secret-key qortex serve
+
+# With PostgreSQL backends
+QORTEX_STORE=postgres DATABASE_URL=postgresql://user:pass@localhost/qortex qortex serve
 ```
 
-See [PostgreSQL Setup](../guides/postgres-setup.md) for full configuration and schema details.
+Connect from Python:
+
+```python
+from qortex.http_client import HttpQortexClient
+
+async with HttpQortexClient("http://localhost:8741", api_key="my-secret-key") as client:
+    result = await client.query("error handling patterns")
+```
+
+See [CLI Reference](../reference/cli.md#serve) for all options.
+
+## PostgreSQL Setup (Optional)
+
+For production deployments with persistent storage across all stores:
+
+```bash
+# Install the postgres extras
+pip install qortex[postgres]
+```
+
+**Requirements:**
+
+- PostgreSQL 15+ with the [pgvector](https://github.com/pgvector/pgvector) extension
+- A database with pgvector enabled:
+
+```sql
+CREATE DATABASE qortex;
+\c qortex
+CREATE EXTENSION IF NOT EXISTS vector;
+```
+
+**Docker (quickest):**
+
+```bash
+docker run -d --name qortex-pg \
+  -e POSTGRES_DB=qortex \
+  -e POSTGRES_USER=qortex \
+  -e POSTGRES_PASSWORD=qortex \
+  -p 5432:5432 \
+  pgvector/pgvector:pg16
+
+# Enable the extension
+docker exec -it qortex-pg psql -U qortex -d qortex -c "CREATE EXTENSION IF NOT EXISTS vector;"
+```
+
+**Configure qortex:**
+
+```bash
+export QORTEX_STORE=postgres
+export DATABASE_URL=postgresql://qortex:qortex@localhost:5432/qortex
+```
+
+Tables are created automatically on first startup. To migrate existing SQLite vectors:
+
+```bash
+qortex migrate vec --from sqlite
+```
+
+See [Docker Infrastructure](../guides/docker.md) for the full compose stack including PostgreSQL.
 
 ## Memgraph Setup (Optional)
 
