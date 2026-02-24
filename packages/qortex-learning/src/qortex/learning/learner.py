@@ -3,6 +3,9 @@
 Composes strategy + reward model + state store. Exposes select(),
 observe(), batch_observe(), top_arms(), decay_arm(), metrics(),
 and posteriors(). Emits observability events.
+
+All I/O methods are async. Use ``await Learner.create(config)`` to
+construct (seed boost requires store I/O).
 """
 
 from __future__ import annotations
@@ -35,11 +38,12 @@ from qortex.observe.tracing import traced
 class Learner:
     """A bandit learner that selects arms and updates posteriors.
 
-    Usage:
-        learner = Learner(LearnerConfig(name="prompts"))
-        result = learner.select(candidates, context={"task": "type-errors"}, k=3)
+    Usage::
+
+        learner = await Learner.create(LearnerConfig(name="prompts"))
+        result = await learner.select(candidates, context={"task": "type-errors"}, k=3)
         # ... use selected arms ...
-        learner.observe(ArmOutcome(arm_id="prompt:v2", reward=1.0, outcome="accepted"))
+        await learner.observe(ArmOutcome(arm_id="prompt:v2", reward=1.0, outcome="accepted"))
     """
 
     def __init__(
@@ -53,28 +57,43 @@ class Learner:
         self.strategy = strategy or ThompsonSampling()
         self.reward_model = reward_model or TernaryReward()
         self.store = store or SqliteLearningStore(config.name, config.state_dir)
+        self._seeded = False
+        self._sessions: dict[str, RunTrace] = {}
 
-        # Apply seed boosts
-        for arm_id in config.seed_arms:
-            state = self.store.get(arm_id)
+    @classmethod
+    async def create(
+        cls,
+        config: LearnerConfig,
+        strategy: LearningStrategy | None = None,
+        reward_model: RewardModel | None = None,
+        store: LearningStore | None = None,
+    ) -> Learner:
+        """Create a Learner and apply seed boosts (requires async store I/O)."""
+        learner = cls(config, strategy, reward_model, store)
+        await learner._apply_seed_boosts()
+        return learner
+
+    async def _apply_seed_boosts(self) -> None:
+        """Apply seed arm boosts. Idempotent — only boosts arms with zero pulls."""
+        if self._seeded:
+            return
+        self._seeded = True
+        for arm_id in self.config.seed_arms:
+            state = await self.store.get(arm_id)
             if state.pulls == 0:
-                # Boost prior for seed arms
                 state = ArmState(
-                    alpha=config.seed_boost,
+                    alpha=self.config.seed_boost,
                     beta=1.0,
                     pulls=0,
                     total_reward=0.0,
                     last_updated=datetime.now(UTC).isoformat(),
                 )
-                self.store.put(arm_id, state)
-        if config.seed_arms:
-            self.store.save()
-
-        # Active sessions
-        self._sessions: dict[str, RunTrace] = {}
+                await self.store.put(arm_id, state)
+        if self.config.seed_arms:
+            await self.store.save()
 
     @traced("learning.select")
-    def select(
+    async def select(
         self,
         candidates: list[Arm],
         context: dict | None = None,
@@ -83,7 +102,7 @@ class Learner:
     ) -> SelectionResult:
         """Select k arms from candidates."""
         ctx = context or {}
-        states = {arm.id: self.store.get(arm.id, ctx) for arm in candidates}
+        states = {arm.id: await self.store.get(arm.id, ctx) for arm in candidates}
 
         result = self.strategy.select(
             candidates=candidates,
@@ -107,7 +126,7 @@ class Learner:
         return result
 
     @traced("learning.observe")
-    def observe(
+    async def observe(
         self,
         outcome: ArmOutcome,
         context: dict | None = None,
@@ -118,7 +137,7 @@ class Learner:
         if outcome.outcome and not outcome.reward:
             reward = self.reward_model.compute(outcome.outcome)
 
-        state = self.store.get(outcome.arm_id, ctx)
+        state = await self.store.get(outcome.arm_id, ctx)
         now = datetime.now(UTC).isoformat()
 
         new_state = self.strategy.update(outcome.arm_id, reward, state)
@@ -130,8 +149,8 @@ class Learner:
             last_updated=now,
         )
 
-        self.store.put(outcome.arm_id, new_state, ctx)
-        self.store.save()
+        await self.store.put(outcome.arm_id, new_state, ctx)
+        await self.store.save()
 
         ctx_hash = context_hash(ctx)
 
@@ -159,7 +178,7 @@ class Learner:
         return new_state
 
     @traced("learning.apply_credit_deltas")
-    def apply_credit_deltas(
+    async def apply_credit_deltas(
         self,
         deltas: dict[str, dict[str, float]],
         context: dict | None = None,
@@ -174,7 +193,7 @@ class Learner:
         results: dict[str, ArmState] = {}
 
         for arm_id, delta in deltas.items():
-            state = self.store.get(arm_id, ctx)
+            state = await self.store.get(arm_id, ctx)
             new_state = ArmState(
                 alpha=max(state.alpha + delta.get("alpha_delta", 0.0), 0.01),
                 beta=max(state.beta + delta.get("beta_delta", 0.0), 0.01),
@@ -182,7 +201,7 @@ class Learner:
                 total_reward=state.total_reward + delta.get("alpha_delta", 0.0),
                 last_updated=now,
             )
-            self.store.put(arm_id, new_state, ctx)
+            await self.store.put(arm_id, new_state, ctx)
             results[arm_id] = new_state
 
             emit(
@@ -196,10 +215,10 @@ class Learner:
                 )
             )
 
-        self.store.save()
+        await self.store.save()
         return results
 
-    def reset(
+    async def reset(
         self,
         arm_ids: list[str] | None = None,
         context: dict | None = None,
@@ -208,11 +227,11 @@ class Learner:
 
         Useful for resetting poisoned posteriors or clearing stale data.
         """
-        count = self.store.delete(arm_ids=arm_ids, context=context)
-        self.store.save()
+        count = await self.store.delete(arm_ids=arm_ids, context=context)
+        await self.store.save()
         return count
 
-    def batch_observe(
+    async def batch_observe(
         self,
         outcomes: list[ArmOutcome],
         context: dict | None = None,
@@ -225,10 +244,10 @@ class Learner:
         """
         results: dict[str, ArmState] = {}
         for outcome in outcomes:
-            results[outcome.arm_id] = self.observe(outcome, context)
+            results[outcome.arm_id] = await self.observe(outcome, context)
         return results
 
-    def top_arms(
+    async def top_arms(
         self,
         context: dict | None = None,
         k: int = 10,
@@ -238,7 +257,7 @@ class Learner:
         Derives from posteriors(). Returns (arm_id, ArmState) tuples
         so callers get both the ID and the full state.
         """
-        all_states = self.store.get_all(context)
+        all_states = await self.store.get_all(context)
         sorted_arms = sorted(
             all_states.items(),
             key=lambda pair: pair[1].mean,
@@ -246,7 +265,7 @@ class Learner:
         )
         return sorted_arms[:k]
 
-    def decay_arm(
+    async def decay_arm(
         self,
         arm_id: str,
         decay_factor: float = 0.9,
@@ -260,7 +279,7 @@ class Learner:
 
         Floors alpha/beta at 0.01 to avoid degenerate posteriors.
         """
-        state = self.store.get(arm_id, context)
+        state = await self.store.get(arm_id, context)
         now = datetime.now(UTC).isoformat()
         new_state = ArmState(
             alpha=max(state.alpha * decay_factor, 0.01),
@@ -269,17 +288,17 @@ class Learner:
             total_reward=state.total_reward * decay_factor,
             last_updated=now,
         )
-        self.store.put(arm_id, new_state, context)
-        self.store.save()
+        await self.store.put(arm_id, new_state, context)
+        await self.store.save()
         return new_state
 
-    def posteriors(
+    async def posteriors(
         self,
         context: dict | None = None,
         arm_ids: list[str] | None = None,
     ) -> dict[str, dict[str, Any]]:
         """Get current posteriors for arms."""
-        all_states = self.store.get_all(context)
+        all_states = await self.store.get_all(context)
 
         if arm_ids is not None:
             all_states = {k: v for k, v in all_states.items() if k in set(arm_ids)}
@@ -292,13 +311,13 @@ class Learner:
             for arm_id, state in all_states.items()
         }
 
-    def metrics(self, window: int | None = None) -> dict[str, Any]:
+    async def metrics(self, window: int | None = None) -> dict[str, Any]:
         """Compute learning metrics across all contexts."""
         total_pulls = 0
         total_reward = 0.0
         arm_count = 0
 
-        all_states = self.store.get_all_states()
+        all_states = await self.store.get_all_states()
         for states in all_states.values():
             for state in states.values():
                 total_pulls += state.pulls

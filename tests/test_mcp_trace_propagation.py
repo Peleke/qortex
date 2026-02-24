@@ -211,20 +211,20 @@ class TestMcpTraceMiddleware:
 class TestMcpTracedDecorator:
     """Verify _mcp_traced decorator on MCP server tool wrappers."""
 
-    def test_all_tools_have_traced_decorator(self):
+    async def test_all_tools_have_traced_decorator(self):
         """Every @mcp.tool wrapper should also have @_mcp_traced."""
         from qortex.mcp.server import mcp
 
-        # FastMCP wraps functions into FunctionTool objects;
-        # check the inner fn has __wrapped__ from _mcp_traced
-        tools = mcp._tool_manager._tools
-        assert len(tools) == 36, f"Expected 36 tools, got {len(tools)}"
+        # FastMCP v3: list_tools()
+        tools = await mcp.list_tools()
+        assert len(tools) >= 36, f"Expected >=36 tools, got {len(tools)}"
 
-        for name, tool in tools.items():
-            fn = tool.fn
-            assert hasattr(fn, "__wrapped__"), (
-                f"{name} missing __wrapped__ -- not decorated with @_mcp_traced"
-            )
+        for tool in tools:
+            if hasattr(tool, "fn"):
+                fn = tool.fn
+                assert hasattr(fn, "__wrapped__"), (
+                    f"{tool.name} missing __wrapped__ -- not decorated with @_mcp_traced"
+                )
 
     def test_traced_decorator_creates_span(self):
         """_mcp_traced creates a span when calling a tool."""

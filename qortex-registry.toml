@@ -1,0 +1,44 @@
+# qortex-registry.toml -- Package registry for the qortex namespace
+#
+# Single source of truth for all publishable packages in the monorepo.
+# Read by: scripts/publish-dev.py, bilrost upgrade --dev, CI workflows.
+
+[registry]
+namespace = "qortex"
+pypi_url = "https://pypi.org/simple"
+test_pypi_url = "https://test.pypi.org/simple"
+
+[packages.qortex]
+path = "."
+version = "0.7.8"
+description = "Knowledge graph that learns from every interaction"
+extras = ["mcp", "vec-sqlite", "observability", "nlp"]
+publish_tag = "v*"
+
+[packages.qortex-observe]
+path = "packages/qortex-observe"
+version = "0.1.0"
+description = "Event-driven observability for qortex"
+extras = ["otel"]
+publish_tag = "observe-v*"
+
+[packages.qortex-ingest]
+path = "packages/qortex-ingest"
+version = "0.1.0"
+description = "Pluggable ingestors (PDF, Markdown, text)"
+extras = []
+publish_tag = "ingest-v*"
+
+[packages.qortex-online]
+path = "packages/qortex-online"
+version = "0.1.0"
+description = "Online session indexing"
+extras = ["nlp"]
+publish_tag = "online-v*"
+
+[packages.qortex-learning]
+path = "packages/qortex-learning"
+version = "0.1.0"
+description = "Bandit-based adaptive learning (async, aiosqlite)"
+extras = []
+publish_tag = "learning-v*"

@@ -1,1 +1,209 @@
-<svg id="my-svg" width="100%" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" class="flowchart" style="max-width: 974.953px; background-color: transparent;" viewBox="0 0 974.953125 278" role="graphics-document document" aria-roledescription="flowchart-v2"><style>#my-svg{font-family:"trebuchet ms",verdana,arial,sans-serif;font-size:16px;fill:#333;}@keyframes edge-animation-frame{from{stroke-dashoffset:0;}}@keyframes dash{to{stroke-dashoffset:0;}}#my-svg .edge-animation-slow{stroke-dasharray:9,5!important;stroke-dashoffset:900;animation:dash 50s linear infinite;stroke-linecap:round;}#my-svg .edge-animation-fast{stroke-dasharray:9,5!important;stroke-dashoffset:900;animation:dash 20s linear infinite;stroke-linecap:round;}#my-svg .error-icon{fill:#552222;}#my-svg .error-text{fill:#552222;stroke:#552222;}#my-svg .edge-thickness-normal{stroke-width:1px;}#my-svg .edge-thickness-thick{stroke-width:3.5px;}#my-svg .edge-pattern-solid{stroke-dasharray:0;}#my-svg .edge-thickness-invisible{stroke-width:0;fill:none;}#my-svg .edge-pattern-dashed{stroke-dasharray:3;}#my-svg .edge-pattern-dotted{stroke-dasharray:2;}#my-svg .marker{fill:#333333;stroke:#333333;}#my-svg .marker.cross{stroke:#333333;}#my-svg svg{font-family:"trebuchet ms",verdana,arial,sans-serif;font-size:16px;}#my-svg p{margin:0;}#my-svg .label{font-family:"trebuchet ms",verdana,arial,sans-serif;color:#333;}#my-svg .cluster-label text{fill:#333;}#my-svg .cluster-label span{color:#333;}#my-svg .cluster-label span p{background-color:transparent;}#my-svg .label text,#my-svg span{fill:#333;color:#333;}#my-svg .node rect,#my-svg .node circle,#my-svg .node ellipse,#my-svg .node polygon,#my-svg .node path{fill:#ECECFF;stroke:#9370DB;stroke-width:1px;}#my-svg .rough-node .label text,#my-svg .node .label text,#my-svg .image-shape .label,#my-svg .icon-shape .label{text-anchor:middle;}#my-svg .node .katex path{fill:#000;stroke:#000;stroke-width:1px;}#my-svg .rough-node .label,#my-svg .node .label,#my-svg .image-shape .label,#my-svg .icon-shape .label{text-align:center;}#my-svg .node.clickable{cursor:pointer;}#my-svg .root .anchor path{fill:#333333!important;stroke-width:0;stroke:#333333;}#my-svg .arrowheadPath{fill:#333333;}#my-svg .edgePath .path{stroke:#333333;stroke-width:2.0px;}#my-svg .flowchart-link{stroke:#333333;fill:none;}#my-svg .edgeLabel{background-color:rgba(232,232,232, 0.8);text-align:center;}#my-svg .edgeLabel p{background-color:rgba(232,232,232, 0.8);}#my-svg .edgeLabel rect{opacity:0.5;background-color:rgba(232,232,232, 0.8);fill:rgba(232,232,232, 0.8);}#my-svg .labelBkg{background-color:rgba(232, 232, 232, 0.5);}#my-svg .cluster rect{fill:#ffffde;stroke:#aaaa33;stroke-width:1px;}#my-svg .cluster text{fill:#333;}#my-svg .cluster span{color:#333;}#my-svg div.mermaidTooltip{position:absolute;text-align:center;max-width:200px;padding:2px;font-family:"trebuchet ms",verdana,arial,sans-serif;font-size:12px;background:hsl(80, 100%, 96.2745098039%);border:1px solid #aaaa33;border-radius:2px;pointer-events:none;z-index:100;}#my-svg .flowchartTitleText{text-anchor:middle;font-size:18px;fill:#333;}#my-svg rect.text{fill:none;stroke-width:0;}#my-svg .icon-shape,#my-svg .image-shape{background-color:rgba(232,232,232, 0.8);text-align:center;}#my-svg .icon-shape p,#my-svg .image-shape p{background-color:rgba(232,232,232, 0.8);padding:2px;}#my-svg .icon-shape rect,#my-svg .image-shape rect{opacity:0.5;background-color:rgba(232,232,232, 0.8);fill:rgba(232,232,232, 0.8);}#my-svg .label-icon{display:inline-block;height:1em;overflow:visible;vertical-align:-0.125em;}#my-svg .node .label-icon path{fill:currentColor;stroke:revert;stroke-width:revert;}#my-svg :root{--mermaid-font-family:"trebuchet ms",verdana,arial,sans-serif;}</style><g><marker id="my-svg_flowchart-v2-pointEnd" class="marker flowchart-v2" viewBox="0 0 10 10" refX="5" refY="5" markerUnits="userSpaceOnUse" markerWidth="8" markerHeight="8" orient="auto"><path d="M 0 0 L 10 5 L 0 10 z" class="arrowMarkerPath" style="stroke-width: 1; stroke-dasharray: 1, 0;"/></marker><marker id="my-svg_flowchart-v2-pointStart" class="marker flowchart-v2" viewBox="0 0 10 10" refX="4.5" refY="5" markerUnits="userSpaceOnUse" markerWidth="8" markerHeight="8" orient="auto"><path d="M 0 5 L 10 10 L 10 0 z" class="arrowMarkerPath" style="stroke-width: 1; stroke-dasharray: 1, 0;"/></marker><marker id="my-svg_flowchart-v2-circleEnd" class="marker flowchart-v2" viewBox="0 0 10 10" refX="11" refY="5" markerUnits="userSpaceOnUse" markerWidth="11" markerHeight="11" orient="auto"><circle cx="5" cy="5" r="5" class="arrowMarkerPath" style="stroke-width: 1; stroke-dasharray: 1, 0;"/></marker><marker id="my-svg_flowchart-v2-circleStart" class="marker flowchart-v2" viewBox="0 0 10 10" refX="-1" refY="5" markerUnits="userSpaceOnUse" markerWidth="11" markerHeight="11" orient="auto"><circle cx="5" cy="5" r="5" class="arrowMarkerPath" style="stroke-width: 1; stroke-dasharray: 1, 0;"/></marker><marker id="my-svg_flowchart-v2-crossEnd" class="marker cross flowchart-v2" viewBox="0 0 11 11" refX="12" refY="5.2" markerUnits="userSpaceOnUse" markerWidth="11" markerHeight="11" orient="auto"><path d="M 1,1 l 9,9 M 10,1 l -9,9" class="arrowMarkerPath" style="stroke-width: 2; stroke-dasharray: 1, 0;"/></marker><marker id="my-svg_flowchart-v2-crossStart" class="marker cross flowchart-v2" viewBox="0 0 11 11" refX="-1" refY="5.2" markerUnits="userSpaceOnUse" markerWidth="11" markerHeight="11" orient="auto"><path d="M 1,1 l 9,9 M 10,1 l -9,9" class="arrowMarkerPath" style="stroke-width: 2; stroke-dasharray: 1, 0;"/></marker><g class="root"><g class="clusters"/><g class="edgePaths"><path d="M175.719,139L179.885,139C184.052,139,192.385,139,200.052,139C207.719,139,214.719,139,218.219,139L221.719,139" id="L_PDF_KG_0" class="edge-thickness-normal edge-pattern-solid edge-thickness-normal edge-pattern-solid flowchart-link" style=";" data-edge="true" data-et="edge" data-id="L_PDF_KG_0" data-points="W3sieCI6MTc1LjcxODc1LCJ5IjoxMzl9LHsieCI6MjAwLjcxODc1LCJ5IjoxMzl9LHsieCI6MjI1LjcxODc1LCJ5IjoxMzl9XQ==" marker-end="url(#my-svg_flowchart-v2-pointEnd)"/><path d="M365.703,139L369.87,139C374.036,139,382.37,139,390.036,139C397.703,139,404.703,139,408.203,139L411.703,139" id="L_KG_Rules_0" class="edge-thickness-normal edge-pattern-solid edge-thickness-normal edge-pattern-solid flowchart-link" style=";" data-edge="true" data-et="edge" data-id="L_KG_Rules_0" data-points="W3sieCI6MzY1LjcwMzEyNSwieSI6MTM5fSx7IngiOjM5MC43MDMxMjUsInkiOjEzOX0seyJ4Ijo0MTUuNzAzMTI1LCJ5IjoxMzl9XQ==" marker-end="url(#my-svg_flowchart-v2-pointEnd)"/><path d="M585.297,139L589.464,139C593.63,139,601.964,139,609.63,139C617.297,139,624.297,139,627.797,139L631.297,139" id="L_Rules_Enrich_0" class="edge-thickness-normal edge-pattern-solid edge-thickness-normal edge-pattern-solid flowchart-link" style=";" data-edge="true" data-et="edge" data-id="L_Rules_Enrich_0" data-points="W3sieCI6NTg1LjI5Njg3NSwieSI6MTM5fSx7IngiOjYxMC4yOTY4NzUsInkiOjEzOX0seyJ4Ijo2MzUuMjk2ODc1LCJ5IjoxMzl9XQ==" marker-end="url(#my-svg_flowchart-v2-pointEnd)"/><path d="M731.131,112L742.969,99.167C754.806,86.333,778.481,60.667,795.703,47.833C812.924,35,823.693,35,829.077,35L834.461,35" id="L_Enrich_Buildlog_0" class="edge-thickness-normal edge-pattern-solid edge-thickness-normal edge-pattern-solid flowchart-link" style=";" data-edge="true" data-et="edge" data-id="L_Enrich_Buildlog_0" data-points="W3sieCI6NzMxLjEzMTM4NTIxNjM0NjIsInkiOjExMn0seyJ4Ijo4MDIuMTU2MjUsInkiOjM1fSx7IngiOjgzOC40NjA5Mzc1LCJ5IjozNX1d" marker-end="url(#my-svg_flowchart-v2-pointEnd)"/><path d="M777.156,139L781.323,139C785.49,139,793.823,139,801.49,139C809.156,139,816.156,139,819.656,139L823.156,139" id="L_Enrich_MCP_0" class="edge-thickness-normal edge-pattern-solid edge-thickness-normal edge-pattern-solid flowchart-link" style=";" data-edge="true" data-et="edge" data-id="L_Enrich_MCP_0" data-points="W3sieCI6Nzc3LjE1NjI1LCJ5IjoxMzl9LHsieCI6ODAyLjE1NjI1LCJ5IjoxMzl9LHsieCI6ODI3LjE1NjI1LCJ5IjoxMzl9XQ==" marker-end="url(#my-svg_flowchart-v2-pointEnd)"/><path d="M731.131,166L742.969,178.833C754.806,191.667,778.481,217.333,795.002,230.167C811.523,243,820.891,243,825.574,243L830.258,243" id="L_Enrich_Agents_0" class="edge-thickness-normal edge-pattern-solid edge-thickness-normal edge-pattern-solid flowchart-link" style=";" data-edge="true" data-et="edge" data-id="L_Enrich_Agents_0" data-points="W3sieCI6NzMxLjEzMTM4NTIxNjM0NjIsInkiOjE2Nn0seyJ4Ijo4MDIuMTU2MjUsInkiOjI0M30seyJ4Ijo4MzQuMjU3ODEyNSwieSI6MjQzfV0=" marker-end="url(#my-svg_flowchart-v2-pointEnd)"/></g><g class="edgeLabels"><g class="edgeLabel"><g class="label" data-id="L_PDF_KG_0" transform="translate(0, 0)"><foreignObject width="0" height="0"><div xmlns="http://www.w3.org/1999/xhtml" class="labelBkg" style="display: table-cell; white-space: nowrap; line-height: 1.5; max-width: 200px; text-align: center;"><span class="edgeLabel"></span></div></foreignObject></g></g><g class="edgeLabel"><g class="label" data-id="L_KG_Rules_0" transform="translate(0, 0)"><foreignObject width="0" height="0"><div xmlns="http://www.w3.org/1999/xhtml" class="labelBkg" style="display: table-cell; white-space: nowrap; line-height: 1.5; max-width: 200px; text-align: center;"><span class="edgeLabel"></span></div></foreignObject></g></g><g class="edgeLabel"><g class="label" data-id="L_Rules_Enrich_0" transform="translate(0, 0)"><foreignObject width="0" height="0"><div xmlns="http://www.w3.org/1999/xhtml" class="labelBkg" style="display: table-cell; white-space: nowrap; line-height: 1.5; max-width: 200px; text-align: center;"><span class="edgeLabel"></span></div></foreignObject></g></g><g class="edgeLabel"><g class="label" data-id="L_Enrich_Buildlog_0" transform="translate(0, 0)"><foreignObject width="0" height="0"><div xmlns="http://www.w3.org/1999/xhtml" class="labelBkg" style="display: table-cell; white-space: nowrap; line-height: 1.5; max-width: 200px; text-align: center;"><span class="edgeLabel"></span></div></foreignObject></g></g><g class="edgeLabel"><g class="label" data-id="L_Enrich_MCP_0" transform="translate(0, 0)"><foreignObject width="0" height="0"><div xmlns="http://www.w3.org/1999/xhtml" class="labelBkg" style="display: table-cell; white-space: nowrap; line-height: 1.5; max-width: 200px; text-align: center;"><span class="edgeLabel"></span></div></foreignObject></g></g><g class="edgeLabel"><g class="label" data-id="L_Enrich_Agents_0" transform="translate(0, 0)"><foreignObject width="0" height="0"><div xmlns="http://www.w3.org/1999/xhtml" class="labelBkg" style="display: table-cell; white-space: nowrap; line-height: 1.5; max-width: 200px; text-align: center;"><span class="edgeLabel"></span></div></foreignObject></g></g></g><g class="nodes"><g class="node default" id="flowchart-PDF-0" transform="translate(91.859375, 139)"><rect class="basic label-container" style="" x="-83.859375" y="-27" width="167.71875" height="54"/><g class="label" style="" transform="translate(-53.859375, -12)"><rect/><foreignObject width="107.71875" height="24"><div xmlns="http://www.w3.org/1999/xhtml" style="display: table-cell; white-space: nowrap; line-height: 1.5; max-width: 200px; text-align: center;"><span class="nodeLabel"><p>PDF/Markdown</p></span></div></foreignObject></g></g><g class="node default" id="flowchart-KG-1" transform="translate(295.7109375, 139)"><path d="M0,13.206851819093107 a69.9921875,13.206851819093107 0,0,0 139.984375,0 a69.9921875,13.206851819093107 0,0,0 -139.984375,0 l0,52.2068518190931 a69.9921875,13.206851819093107 0,0,0 139.984375,0 l0,-52.2068518190931" class="basic label-container" style="" transform="translate(-69.9921875, -39.31027772863966)"/><g class="label" style="" transform="translate(-62.4921875, -2)"><rect/><foreignObject width="124.984375" height="24"><div xmlns="http://www.w3.org/1999/xhtml" style="display: table-cell; white-space: nowrap; line-height: 1.5; max-width: 200px; text-align: center;"><span class="nodeLabel"><p>Knowledge Graph</p></span></div></foreignObject></g></g><g class="node default" id="flowchart-Rules-3" transform="translate(500.5, 139)"><rect class="basic label-container" style="" x="-84.796875" y="-27" width="169.59375" height="54"/><g class="label" style="" transform="translate(-54.796875, -12)"><rect/><foreignObject width="109.59375" height="24"><div xmlns="http://www.w3.org/1999/xhtml" style="display: table-cell; white-space: nowrap; line-height: 1.5; max-width: 200px; text-align: center;"><span class="nodeLabel"><p>Rule Projection</p></span></div></foreignObject></g></g><g class="node default" id="flowchart-Enrich-5" transform="translate(706.2265625, 139)"><rect class="basic label-container" style="" x="-70.9296875" y="-27" width="141.859375" height="54"/><g class="label" style="" transform="translate(-40.9296875, -12)"><rect/><foreignObject width="81.859375" height="24"><div xmlns="http://www.w3.org/1999/xhtml" style="display: table-cell; white-space: nowrap; line-height: 1.5; max-width: 200px; text-align: center;"><span class="nodeLabel"><p>Enrichment</p></span></div></foreignObject></g></g><g class="node default" id="flowchart-Buildlog-7" transform="translate(897.0546875, 35)"><rect class="basic label-container" style="" x="-58.59375" y="-27" width="117.1875" height="54"/><g class="label" style="" transform="translate(-28.59375, -12)"><rect/><foreignObject width="57.1875" height="24"><div xmlns="http://www.w3.org/1999/xhtml" style="display: table-cell; white-space: nowrap; line-height: 1.5; max-width: 200px; text-align: center;"><span class="nodeLabel"><p>buildlog</p></span></div></foreignObject></g></g><g class="node default" id="flowchart-MCP-9" transform="translate(897.0546875, 139)"><rect class="basic label-container" style="" x="-69.8984375" y="-27" width="139.796875" height="54"/><g class="label" style="" transform="translate(-39.8984375, -12)"><rect/><foreignObject width="79.796875" height="24"><div xmlns="http://www.w3.org/1999/xhtml" style="display: table-cell; white-space: nowrap; line-height: 1.5; max-width: 200px; text-align: center;"><span class="nodeLabel"><p>MCP Server</p></span></div></foreignObject></g></g><g class="node default" id="flowchart-Agents-11" transform="translate(897.0546875, 243)"><rect class="basic label-container" style="" x="-62.796875" y="-27" width="125.59375" height="54"/><g class="label" style="" transform="translate(-32.796875, -12)"><rect/><foreignObject width="65.59375" height="24"><div xmlns="http://www.w3.org/1999/xhtml" style="display: table-cell; white-space: nowrap; line-height: 1.5; max-width: 200px; text-align: center;"><span class="nodeLabel"><p>AI Agents</p></span></div></foreignObject></g></g></g></g></g></svg>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 920 340" width="100%" role="graphics-document document" aria-roledescription="qortex pipeline diagram" aria-label="qortex pipeline: documents flow through ingestion into a knowledge graph, then through graph-enhanced retrieval to MCP consumers and AI agents, with a learning feedback loop">
+  <style>
+    .sk-box {
+      fill: rgba(168,85,247,0.08);
+      stroke: #e0e0e0;
+      stroke-width: 1.2;
+    }
+    .sk-box-accent {
+      fill: rgba(168,85,247,0.08);
+      stroke: rgb(168,85,247);
+      stroke-width: 1.5;
+      filter: url(#sk-glow);
+    }
+    .sk-label {
+      font-family: 'JetBrains Mono', 'Fira Code', monospace;
+      font-size: 9px;
+      fill: #888888;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+    }
+    .sk-title {
+      font-family: system-ui, -apple-system, sans-serif;
+      font-size: 13px;
+      fill: #e0e0e0;
+    }
+    .sk-subtitle {
+      font-family: system-ui, -apple-system, sans-serif;
+      font-size: 10px;
+      fill: #888888;
+    }
+    .sk-flow {
+      stroke: #e0e0e0;
+      stroke-width: 1.2;
+      fill: none;
+      stroke-dasharray: 6 4;
+      opacity: 0.55;
+    }
+    .sk-flow-anim {
+      animation: sk-dash 2.5s linear infinite;
+    }
+    @keyframes sk-dash { to { stroke-dashoffset: -20; } }
+    .sk-flow-solid {
+      stroke: #e0e0e0;
+      stroke-width: 1.2;
+      fill: none;
+      opacity: 0.55;
+    }
+    .sk-arrow {
+      fill: #e0e0e0;
+      opacity: 0.55;
+    }
+    .sk-feedback {
+      stroke: rgb(168,85,247);
+      stroke-width: 1.3;
+      fill: none;
+      stroke-dasharray: 5 3;
+      opacity: 0.5;
+    }
+    .sk-feedback-anim {
+      animation: sk-fb 3s linear infinite;
+    }
+    @keyframes sk-fb { to { stroke-dashoffset: -16; } }
+    .sk-fb-arrow {
+      fill: rgb(168,85,247);
+      opacity: 0.5;
+    }
+    .sk-fb-label {
+      font-family: 'JetBrains Mono', 'Fira Code', monospace;
+      font-size: 8px;
+      fill: rgb(168,85,247);
+      opacity: 0.7;
+    }
+    .sk-cylinder-body {
+      fill: rgba(168,85,247,0.08);
+      stroke: rgb(168,85,247);
+      stroke-width: 1.5;
+    }
+    .sk-cylinder-top {
+      fill: rgba(168,85,247,0.12);
+      stroke: rgb(168,85,247);
+      stroke-width: 1.5;
+    }
+  </style>
+
+  <defs>
+    <filter id="sk-glow">
+      <feGaussianBlur stdDeviation="2.5" result="b"/>
+      <feMerge>
+        <feMergeNode in="b"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+    <!-- Sketchy jitter filter -->
+    <filter id="sk-jitter" x="-2%" y="-2%" width="104%" height="104%">
+      <feTurbulence type="turbulence" baseFrequency="0.03" numOctaves="2" seed="7" result="turb"/>
+      <feDisplacementMap in="SourceGraphic" in2="turb" scale="1.5" xChannelSelector="R" yChannelSelector="G"/>
+    </filter>
+  </defs>
+
+  <!-- ============================== -->
+  <!-- ROW 1: Main pipeline (y ~140)  -->
+  <!-- ============================== -->
+
+  <!-- Box 1: Ingest (sources) -->
+  <g transform="translate(30, 118) rotate(-0.3)" filter="url(#sk-jitter)">
+    <rect x="0" y="0" width="130" height="56" rx="5" ry="5" class="sk-box"/>
+  </g>
+  <text x="46" y="137" class="sk-label">ingest</text>
+  <text x="46" y="155" class="sk-title">PDF / Markdown</text>
+  <text x="46" y="169" class="sk-subtitle">auto-extraction</text>
+
+  <!-- Arrow: Ingest -> KG -->
+  <line x1="164" y1="146" x2="214" y2="146" class="sk-flow sk-flow-anim"/>
+  <polygon points="212,142 222,146 212,150" class="sk-arrow"/>
+
+  <!-- Box 2: Knowledge Graph (cylinder) -->
+  <g transform="translate(224, 110) rotate(0.2)" filter="url(#sk-jitter)">
+    <!-- Cylinder body -->
+    <rect x="0" y="12" width="140" height="52" class="sk-cylinder-body" rx="2"/>
+    <!-- Cylinder top ellipse -->
+    <ellipse cx="70" cy="12" rx="70" ry="12" class="sk-cylinder-top"/>
+    <!-- Cylinder bottom arc -->
+    <path d="M 0,64 Q 70,88 140,64" class="sk-cylinder-body" fill="none"/>
+  </g>
+  <text x="253" y="137" class="sk-label">knowledge graph</text>
+  <text x="248" y="155" class="sk-title">Concepts + Edges</text>
+  <text x="252" y="169" class="sk-subtitle">typed relationships</text>
+
+  <!-- Arrow: KG -> Query -->
+  <line x1="368" y1="146" x2="418" y2="146" class="sk-flow sk-flow-anim"/>
+  <polygon points="416,142 426,146 416,150" class="sk-arrow"/>
+
+  <!-- Box 3: Query layer (accented) -->
+  <g transform="translate(428, 118) rotate(0.4)" filter="url(#sk-jitter)">
+    <rect x="0" y="0" width="148" height="56" rx="5" ry="5" class="sk-box-accent"/>
+  </g>
+  <text x="446" y="137" class="sk-label">retrieval</text>
+  <text x="442" y="155" class="sk-title">Vec + Graph PPR</text>
+  <text x="442" y="169" class="sk-subtitle">combined scoring</text>
+
+  <!-- Arrow: Query -> fan out (3 targets) -->
+  <!-- Main horizontal to branch point -->
+  <line x1="580" y1="146" x2="630" y2="146" class="sk-flow-solid"/>
+
+  <!-- Branch to MCP Server (middle) -->
+  <line x1="630" y1="146" x2="680" y2="146" class="sk-flow sk-flow-anim"/>
+  <polygon points="678,142 688,146 678,150" class="sk-arrow"/>
+
+  <!-- Branch to buildlog (top) -->
+  <path d="M 630,146 C 640,146 650,60 670,60" class="sk-flow sk-flow-anim"/>
+  <polygon points="668,56 678,60 668,64" class="sk-arrow"/>
+
+  <!-- Branch to AI Agents (bottom) -->
+  <path d="M 630,146 C 640,146 650,234 670,234" class="sk-flow sk-flow-anim"/>
+  <polygon points="668,230 678,234 668,238" class="sk-arrow"/>
+
+  <!-- ============================== -->
+  <!-- ROW 0: buildlog target (y ~38) -->
+  <!-- ============================== -->
+  <g transform="translate(680, 34) rotate(-0.5)" filter="url(#sk-jitter)">
+    <rect x="0" y="0" width="120" height="52" rx="5" ry="5" class="sk-box"/>
+  </g>
+  <text x="698" y="52" class="sk-label">projection</text>
+  <text x="698" y="70" class="sk-title">buildlog</text>
+  <text x="698" y="82" class="sk-subtitle">seeds + rules</text>
+
+  <!-- ============================== -->
+  <!-- ROW 1: MCP Server (y ~120)     -->
+  <!-- ============================== -->
+  <g transform="translate(690, 120) rotate(0.3)" filter="url(#sk-jitter)">
+    <rect x="0" y="0" width="130" height="52" rx="5" ry="5" class="sk-box"/>
+  </g>
+  <text x="708" y="138" class="sk-label">server</text>
+  <text x="708" y="156" class="sk-title">MCP Server</text>
+  <text x="708" y="168" class="sk-subtitle">JSON-RPC tools</text>
+
+  <!-- ============================== -->
+  <!-- ROW 2: AI Agents (y ~208)      -->
+  <!-- ============================== -->
+  <g transform="translate(680, 208) rotate(0.6)" filter="url(#sk-jitter)">
+    <rect x="0" y="0" width="130" height="52" rx="5" ry="5" class="sk-box"/>
+  </g>
+  <text x="698" y="226" class="sk-label">consumers</text>
+  <text x="698" y="244" class="sk-title">AI Agents</text>
+  <text x="698" y="256" class="sk-subtitle">Claude, Cursor, ...</text>
+
+  <!-- ============================== -->
+  <!-- FEEDBACK LOOP (Learning)       -->
+  <!-- ============================== -->
+
+  <!-- Learning box at bottom center -->
+  <g transform="translate(330, 268) rotate(-0.4)" filter="url(#sk-jitter)">
+    <rect x="0" y="0" width="140" height="52" rx="5" ry="5" class="sk-box-accent"/>
+  </g>
+  <text x="350" y="287" class="sk-label">learning</text>
+  <text x="346" y="304" class="sk-title">Thompson Sampling</text>
+  <text x="346" y="316" class="sk-subtitle">accept / reject signals</text>
+
+  <!-- Feedback arrow: AI Agents -> Learning -->
+  <path d="M 745,262 C 745,294 560,316 474,320" class="sk-feedback sk-feedback-anim"/>
+  <polygon points="476,324 466,320 476,316" class="sk-fb-arrow"/>
+  <text x="600" y="296" class="sk-fb-label">feedback</text>
+
+  <!-- Feedback arrow: Learning -> Knowledge Graph (back up) -->
+  <path d="M 370,268 C 340,220 310,192 300,180" class="sk-feedback sk-feedback-anim"/>
+  <polygon points="304,182 296,172 296,184" class="sk-fb-arrow"/>
+  <text x="308" y="238" class="sk-fb-label">update weights</text>
+
+</svg>

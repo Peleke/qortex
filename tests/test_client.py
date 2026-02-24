@@ -161,8 +161,8 @@ class TestQueryItem:
         assert result["document"] == "Foo"
         assert result["metadata"]["domain"] == "test"
 
-    def test_to_agno_document_fallback(self):
-        """Without agno installed, returns a dict with agno Document shape."""
+    def test_to_agno_document(self):
+        """Returns agno Document (real or dict fallback) with correct fields."""
         item = QueryItem(
             id="test:foo",
             content="Foo",
@@ -171,12 +171,19 @@ class TestQueryItem:
             node_id="test:foo",
         )
         result = item.to_agno_document()
-        assert isinstance(result, dict)
-        assert result["content"] == "Foo"
-        assert result["id"] == "test:foo"
-        assert result["name"] == "test:foo"
-        assert result["reranking_score"] == 0.9
-        assert result["meta_data"]["domain"] == "test"
+        # Works with both real agno.Document and dict fallback
+        if isinstance(result, dict):
+            assert result["content"] == "Foo"
+            assert result["id"] == "test:foo"
+            assert result["name"] == "test:foo"
+            assert result["reranking_score"] == 0.9
+            assert result["meta_data"]["domain"] == "test"
+        else:
+            assert result.content == "Foo"
+            assert result.id == "test:foo"
+            assert result.name == "test:foo"
+            assert result.reranking_score == 0.9
+            assert result.meta_data["domain"] == "test"
 
     def test_to_langchain_document_fallback(self):
         """Without langchain installed, returns a dict with Document shape."""

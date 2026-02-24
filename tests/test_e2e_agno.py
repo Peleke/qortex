@@ -317,50 +317,68 @@ class TestAgnoDocumentMapping:
             assert doc.reranking_score == item.score
 
     def test_agno_document_can_construct_real_instance(self, agno_knowledge):
-        """If agno source is available, verify our dicts construct real Documents."""
-        import importlib.util
-        import sys
-        import types
-        from pathlib import Path
+        """Verify our dicts construct real agno Documents."""
+        AgnoDocument = None
+        for _import_path in (
+            "agno.knowledge.document.base",
+            "agno.knowledge.document",
+            "agno.document",
+        ):
+            try:
+                import importlib
 
-        agno_src = Path("/Users/peleke/Documents/Projects/agno/libs/agno")
-        doc_path = agno_src / "agno" / "knowledge" / "document" / "base.py"
-        if not doc_path.exists():
-            pytest.skip("agno source not found")
+                _mod = importlib.import_module(_import_path)
+                AgnoDocument = getattr(_mod, "Document", None)
+                if AgnoDocument is not None:
+                    break
+            except ImportError:
+                continue
 
-        # Load Document class from source (same as test_framework_compat)
-        stubbed: list[str] = []
-        for mod_name in ("agno", "agno.knowledge", "agno.knowledge.embedder"):
-            if mod_name not in sys.modules:
-                sys.modules[mod_name] = types.ModuleType(mod_name)
-                stubbed.append(mod_name)
-        sys.modules["agno.knowledge.embedder"].Embedder = None  # type: ignore[attr-defined]
+        if AgnoDocument is None:
+            # Try loading from local source as fallback for development
+            import importlib.util
+            import sys
+            import types
+            from pathlib import Path
 
-        try:
-            spec = importlib.util.spec_from_file_location("agno_doc", doc_path)
-            mod = importlib.util.module_from_spec(spec)  # type: ignore[arg-type]
-            spec.loader.exec_module(mod)  # type: ignore[union-attr]
-            AgnoDocument = mod.Document
+            agno_src = Path("/Users/peleke/Documents/Projects/agno/libs/agno")
+            doc_path = agno_src / "agno" / "knowledge" / "document" / "base.py"
+            if not doc_path.exists():
+                pytest.skip("agno package not installed and source not found")
 
-            # Retrieve and construct real Documents
-            docs = agno_knowledge.retrieve("OAuth2 authentication")
-            assert len(docs) > 0
+            stubbed: list[str] = []
+            for mod_name in ("agno", "agno.knowledge", "agno.knowledge.embedder"):
+                if mod_name not in sys.modules:
+                    sys.modules[mod_name] = types.ModuleType(mod_name)
+                    stubbed.append(mod_name)
+            sys.modules["agno.knowledge.embedder"].Embedder = None  # type: ignore[attr-defined]
 
-            for doc_dict in docs:
-                if isinstance(doc_dict, dict):
-                    agno_doc = AgnoDocument(
-                        content=doc_dict["content"],
-                        id=doc_dict.get("id"),
-                        name=doc_dict.get("name"),
-                        meta_data=doc_dict.get("meta_data", {}),
-                        reranking_score=doc_dict.get("reranking_score"),
-                    )
-                    assert agno_doc.content == doc_dict["content"]
-                    assert agno_doc.id == doc_dict["id"]
-                    assert agno_doc.reranking_score == doc_dict["reranking_score"]
-        finally:
-            for mod_name in stubbed:
-                sys.modules.pop(mod_name, None)
+            try:
+                spec = importlib.util.spec_from_file_location("agno_doc", doc_path)
+                mod = importlib.util.module_from_spec(spec)  # type: ignore[arg-type]
+                spec.loader.exec_module(mod)  # type: ignore[union-attr]
+                AgnoDocument = mod.Document
+            except Exception:
+                for mod_name in stubbed:
+                    sys.modules.pop(mod_name, None)
+                pytest.skip("Could not load agno Document class")
+
+        # Retrieve and construct real Documents
+        docs = agno_knowledge.retrieve("OAuth2 authentication")
+        assert len(docs) > 0
+
+        for doc_dict in docs:
+            if isinstance(doc_dict, dict):
+                agno_doc = AgnoDocument(
+                    content=doc_dict["content"],
+                    id=doc_dict.get("id"),
+                    name=doc_dict.get("name"),
+                    meta_data=doc_dict.get("meta_data", {}),
+                    reranking_score=doc_dict.get("reranking_score"),
+                )
+                assert agno_doc.content == doc_dict["content"]
+                assert agno_doc.id == doc_dict["id"]
+                assert agno_doc.reranking_score == doc_dict["reranking_score"]
 
 
 # ===========================================================================
