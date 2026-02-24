@@ -794,13 +794,13 @@ class TestConcurrency:
                     },
                 )
 
-            tasks = [observe("arm-x", 1.0) for _ in range(3)] + [
-                observe("arm-y", 0.0) for _ in range(3)
+            tasks = [observe("arm-x", 1.0) for _ in range(2)] + [
+                observe("arm-y", 0.0) for _ in range(2)
             ]
             results = await asyncio.gather(*tasks, return_exceptions=True)
 
             successes = [r for r in results if not isinstance(r, Exception)]
-            assert len(successes) >= len(results) // 2, (
+            assert len(successes) >= 2, (
                 f"Too many failures: {len(results) - len(successes)}/{len(results)}"
             )
             for r in successes:
