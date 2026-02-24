@@ -16,16 +16,23 @@ metrics, traces, or logs. Subscribers handle routing.
 
 from qortex.observe.emitter import configure, emit, is_configured, reset
 from qortex.observe.events import (
+    BenchLearningCurveRecorded,
+    BenchRoundCompleted,
     BufferFlushed,
     CarbonTracked,
+    ConceptsExtracted,
+    CreditPropagated,
     EdgePromoted,
     EnrichmentCompleted,
     EnrichmentFallback,
+    ExtractionPipelineCompleted,
     FactorDriftSnapshot,
     FactorsLoaded,
     FactorsPersisted,
     FactorUpdated,
     FeedbackReceived,
+    GraphEdgesCreated,
+    GraphNodesCreated,
     InteroceptionShutdown,
     InteroceptionStarted,
     KGCoverageComputed,
@@ -33,6 +40,7 @@ from qortex.observe.events import (
     LearningPosteriorUpdated,
     LearningSelectionMade,
     ManifestIngested,
+    MessageIngested,
     OnlineEdgeRecorded,
     OnlineEdgesGenerated,
     PPRConverged,
@@ -41,6 +49,7 @@ from qortex.observe.events import (
     QueryCompleted,
     QueryFailed,
     QueryStarted,
+    ToolResultIngested,
     VecIndexUpdated,
     VecSearchCompleted,
     VecSearchResults,
@@ -101,14 +110,27 @@ __all__ = [
     "VecIndexUpdated",
     "VecSearchResults",
     "VecSeedYield",
+    # Online Indexing
+    "MessageIngested",
+    "ToolResultIngested",
+    # Concept Extraction
+    "ConceptsExtracted",
+    "ExtractionPipelineCompleted",
     # Ingestion
     "ManifestIngested",
+    "GraphNodesCreated",
+    "GraphEdgesCreated",
     # Carbon
     "CarbonTracked",
     # Learning
     "LearningSelectionMade",
     "LearningObservationRecorded",
     "LearningPosteriorUpdated",
+    # Credit Propagation
+    "CreditPropagated",
+    # Benchmarks
+    "BenchRoundCompleted",
+    "BenchLearningCurveRecorded",
     # Metric schema
     "MetricDef",
     "MetricType",
