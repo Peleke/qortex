@@ -211,6 +211,56 @@ print(f"Queries served: {stats['activity']['queries_served']}")
 print(f"Feedback rate: {stats['activity']['feedback_rate']}")
 ```
 
+## 8. Remote Access via REST API
+
+Start a qortex server and connect from any HTTP client:
+
+```bash
+# Terminal 1: start the server
+pip install qortex[serve]
+qortex serve
+```
+
+```python
+# Terminal 2: connect remotely
+from qortex.http_client import HttpQortexClient
+
+async with HttpQortexClient("http://localhost:8741") as client:
+    result = await client.query("circuit breaker patterns", domains=["error_handling"])
+    for item in result.items:
+        print(f"{item.score:.2f}: {item.content}")
+
+    await client.feedback(result.query_id, {result.items[0].id: "accepted"})
+```
+
+`HttpQortexClient` implements the same `QortexClient` protocol as `LocalQortexClient`. You can switch between local and remote access without changing your application code.
+
+## 9. PostgreSQL for Production
+
+For production deployments, switch from SQLite to PostgreSQL:
+
+```bash
+pip install qortex[postgres]
+
+# Start with PostgreSQL backends
+QORTEX_STORE=postgres \
+DATABASE_URL=postgresql://user:pass@localhost/qortex \
+qortex serve
+```
+
+This uses:
+- **pgvector** for vector storage (instead of sqlite-vec)
+- **PostgresLearningStore** for Thompson Sampling state (instead of aiosqlite)
+- **PostgresInteroceptionStore** for PPR teleportation factors (instead of in-memory)
+
+All three stores share a single asyncpg connection pool for efficiency.
+
+To migrate existing SQLite vectors:
+
+```bash
+qortex migrate vec --from sqlite
+```
+
 ## Next Steps
 
 - [Core Concepts](concepts.md) - Deep dive into domains, concepts, edges, and rules

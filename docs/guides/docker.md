@@ -29,6 +29,16 @@ Starts: OTel Collector, Jaeger, Prometheus, Grafana, VictoriaLogs.
 
 Use this when Memgraph is already running elsewhere (e.g. inside a Lima sandbox VM or on a remote host).
 
+### `postgres` profile (includes PostgreSQL + pgvector)
+
+```bash
+cd docker && docker compose --profile postgres up -d
+```
+
+Starts: everything above **plus** PostgreSQL with the pgvector extension. The database is initialized with `CREATE EXTENSION IF NOT EXISTS vector` on first boot.
+
+Use this when you want persistent PostgreSQL-backed storage for vectors, learning state, and interoception state. Set `QORTEX_STORE=postgres` and `DATABASE_URL=postgresql://qortex:qortex@localhost:5432/qortex` in your shell.
+
 ### `local-graph` profile (includes Memgraph)
 
 ```bash
@@ -110,6 +120,9 @@ Set these in your shell or a `.env` file in the `docker/` directory:
 
 | Variable | Default | Description |
 |----------|---------|-------------|
+| `POSTGRES_USER` | `qortex` | PostgreSQL username. |
+| `POSTGRES_PASSWORD` | `qortex` | PostgreSQL password. |
+| `POSTGRES_DB` | `qortex` | PostgreSQL database name. |
 | `MEMGRAPH_USER` | `memgraph` | Memgraph Bolt auth username. |
 | `MEMGRAPH_PASSWORD` | `memgraph` | Memgraph Bolt auth password. |
 | `GF_SECURITY_ADMIN_PASSWORD` | `qortex` | Grafana admin password. |
@@ -120,6 +133,8 @@ These variables configure the qortex Python process to connect to the Docker ser
 
 | Variable | Value | Description |
 |----------|-------|-------------|
+| `QORTEX_STORE` | `postgres` | Use PostgreSQL for vec, learning, and interoception stores. |
+| `DATABASE_URL` | `postgresql://qortex:qortex@localhost:5432/qortex` | PostgreSQL connection string for shared pool. |
 | `QORTEX_GRAPH` | `memgraph` | Use Memgraph backend (instead of in-memory). |
 | `MEMGRAPH_HOST` | `localhost` | Memgraph host (default works for local Docker). |
 | `MEMGRAPH_PORT` | `7687` | Memgraph Bolt port. |
@@ -131,7 +146,7 @@ These variables configure the qortex Python process to connect to the Docker ser
 | `QORTEX_PROMETHEUS_ENABLED` | `true` | Enable local `/metrics` endpoint for Prometheus scraping. |
 | `QORTEX_PROMETHEUS_PORT` | `9464` | Port for the local Prometheus scrape target. |
 
-### Full example
+### Full example (MCP server)
 
 ```bash
 QORTEX_GRAPH=memgraph \
@@ -141,6 +156,22 @@ OTEL_EXPORTER_OTLP_ENDPOINT=http://localhost:4318 \
 OTEL_EXPORTER_OTLP_PROTOCOL=http/protobuf \
 QORTEX_PROMETHEUS_ENABLED=true \
 qortex mcp-serve
+```
+
+### Full example (REST API with PostgreSQL)
+
+```bash
+QORTEX_STORE=postgres \
+DATABASE_URL=postgresql://qortex:qortex@localhost:5432/qortex \
+QORTEX_GRAPH=memgraph \
+MEMGRAPH_USER=memgraph MEMGRAPH_PASSWORD=memgraph \
+QORTEX_API_KEY=my-secret-key \
+QORTEX_CORS_ORIGINS="http://localhost:3000" \
+QORTEX_OTEL_ENABLED=true \
+OTEL_EXPORTER_OTLP_ENDPOINT=http://localhost:4318 \
+OTEL_EXPORTER_OTLP_PROTOCOL=http/protobuf \
+QORTEX_PROMETHEUS_ENABLED=true \
+qortex serve --host 0.0.0.0
 ```
 
 ## Volumes

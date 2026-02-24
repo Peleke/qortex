@@ -5,6 +5,49 @@ All notable changes to qortex are documented here.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.8.1] - 2026-02-23
+
+### Changed
+
+- Documentation updated across 10 files for v0.8.0 features: REST API (`qortex serve`), postgres stores, vec migration, `HttpQortexClient`, and service layer architecture
+- New service layer architecture diagram (`overview-6-service-layer.svg`)
+- Prose quality pass (Bragi gauntlet): replaced marketing fragments with factual descriptions, broke overlong enumerations into lists, removed puffery and blocklisted adjectives, deduplicated sections
+
+## [0.8.0] - 2026-02-23
+
+### Added
+
+- **REST API server (`qortex serve`)**: Starlette ASGI application exposing all QortexClient operations as HTTP endpoints. Supports API key authentication and HMAC-SHA256 request signing with replay protection via `X-Qortex-Timestamp` and `X-Qortex-Signature` headers (#63)
+- **`HttpQortexClient`**: Async HTTP client implementing the `QortexClient` protocol for remote access. Protocol-compatible drop-in replacement for `LocalQortexClient` (#63)
+- **CORS configuration**: `QORTEX_CORS_ORIGINS` environment variable for configuring allowed origins on the REST API
+- **`PgVectorIndex`**: Async pgvector-backed vector index with external connection pool support. Implements the `VectorIndex` protocol with `iter_all()` for streaming reads (#63)
+- **`PostgresInteroceptionStore`**: Persistent storage for PPR teleportation factors and online edge buffer, backed by PostgreSQL. Replaces in-memory interoception state for production deployments (#63)
+- **`PostgresLearningStore`**: Persistent Thompson Sampling arm states in PostgreSQL. Implements the async `LearningStore` protocol alongside the existing `SqliteLearningStore` (#63)
+- **Shared asyncpg pool**: `src/qortex/core/pool.py` singleton managing a shared asyncpg connection pool across all Postgres-backed stores. Configurable via `DATABASE_URL` environment variable (#63)
+- **`QortexService.async_from_env()`**: Async factory that reads environment variables and wires all stores (vec, learning, interoception) with shared pool connections
+- **`QORTEX_STORE=postgres`**: Environment variable to select PostgreSQL backends for all persistent stores (vec, learning, interoception) instead of SQLite defaults
+- **`qortex migrate vec --from sqlite`**: CLI command + REST endpoint + MCP tool for migrating vector data from SQLite to pgvector. Streams via `iter_all()` to handle large indexes without memory pressure
+- **`iter_all()` on VectorIndex protocol**: Async generator for streaming all vectors from an index, used by migration and backup tooling
+- **`AsyncLocalInteroceptionProvider`**: Async-compatible interoception provider with startup/shutdown lifecycle hooks
+- **Real subprocess E2E tests**: Integration tests that boot the full `qortex serve` process and exercise all REST endpoints. Includes schemathesis contract testing against the OpenAPI spec
+- **48 Prometheus metrics**: New metrics across vec, learning, and interoception stores covering pgvector operations, pool utilization, migration progress, and REST API request latencies
+- **OpenTelemetry traces**: All Postgres store operations instrumented with `@traced` decorator, including pool acquisition spans
+- **Grafana dashboard updates**: Template variable fix for multi-instance deployments, new panels for Postgres store health and migration progress
+- **Test PyPI dev publishing**: Automatic dev package publishing on push to main
+- **Adapter regression job**: CI job testing against latest versions of all framework adapters (agno, LangChain, CrewAI, AutoGen, Mastra)
+- **fastmcp v3 compatibility**: Migrated `list_tools` API for fastmcp >=3.0
+- **`qortex-learning` standalone package**: Extracted to `packages/qortex-learning/` as an independently installable PyPI package (#145)
+- **Async learning module**: All `Learner` methods, `LearningStore` protocol, and MCP dispatch functions are now async (#145)
+
+### Changed
+
+- `VectorIndex` protocol extended with `iter_all()` async generator method
+- `LearningStore` protocol: all methods are now `async def`
+- `Learner.__init__` replaced by `Learner.create()` async classmethod
+- `SqliteLearningStore` migrated from `sqlite3` to `aiosqlite`
+- `fastmcp` minimum version bumped to `>=3.0`
+- Docker compose stack updated with PostgreSQL service and pgvector extension
+
 ## [0.5.0] - 2026-02-13
 
 ### Added
