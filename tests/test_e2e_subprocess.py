@@ -23,9 +23,9 @@ import socket
 import subprocess
 import sys
 import time
+from collections.abc import AsyncIterator
 from dataclasses import dataclass
 from pathlib import Path
-from typing import AsyncIterator
 
 import httpx
 import pytest

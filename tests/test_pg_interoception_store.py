@@ -7,7 +7,6 @@ Run with: uv run pytest tests/test_pg_interoception_store.py -v -m integration
 from __future__ import annotations
 
 import os
-import uuid
 
 import pytest
 

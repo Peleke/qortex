@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import pytest
-
 from qortex.learning.strategy import ThompsonSampling
 from qortex.learning.types import Arm, ArmState, LearnerConfig
 

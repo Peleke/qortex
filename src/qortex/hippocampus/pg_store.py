@@ -134,7 +134,8 @@ class PostgresInteroceptionStore:
 
         result: dict[tuple[str, str], ES] = {}
         for row in rows:
-            scores = row["scores"] if isinstance(row["scores"], list) else []
+            raw = row["scores"]
+            scores = json.loads(raw) if isinstance(raw, str) else (raw if isinstance(raw, list) else [])
             last_seen = row["last_seen"].isoformat() if row["last_seen"] else ""
             result[(row["src_id"], row["tgt_id"])] = ES(
                 hit_count=row["hit_count"],

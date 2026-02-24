@@ -42,7 +42,6 @@ async def store(pool):
 
 
 async def test_get_default(store):
-    from qortex.learning.types import ArmState
 
     state = await store.get("nonexistent_arm")
     assert state.alpha == pytest.approx(1.0)

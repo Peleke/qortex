@@ -11,6 +11,7 @@ Coverage:
 
 import asyncio
 import math
+import os
 import uuid
 
 import numpy as np
@@ -393,8 +394,6 @@ except ImportError:
     HAS_SQLITE_VEC = False
 
 skip_no_sqlite_vec = pytest.mark.skipif(not HAS_SQLITE_VEC, reason="sqlite-vec not installed")
-
-import os
 
 PGVECTOR_DSN = os.environ.get("PGVECTOR_DSN")
 HAS_PGVECTOR = False

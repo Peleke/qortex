@@ -104,10 +104,7 @@ class PostgresLearningStore:
     ) -> None:
         await self._ensure_schema()
         ctx = context_hash(context or {})
-        if state.last_updated:
-            ts = datetime.fromisoformat(state.last_updated)
-        else:
-            ts = datetime.now(UTC)
+        ts = datetime.fromisoformat(state.last_updated) if state.last_updated else datetime.now(UTC)
         async with self._pool.acquire() as conn:
             await conn.execute(
                 """

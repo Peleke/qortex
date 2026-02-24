@@ -87,27 +87,27 @@ class TestVecInstrumentation:
     """@traced on NumpyVectorIndex.search() and .add()."""
 
     @pytest.fixture()
-    def index(self):
+    async def index(self):
         from qortex.vec.index import NumpyVectorIndex
 
         idx = NumpyVectorIndex(dimensions=3)
-        idx.add(["a", "b", "c"], [[1, 0, 0], [0, 1, 0], [0, 0, 1]])
+        await idx.add(["a", "b", "c"], [[1, 0, 0], [0, 1, 0], [0, 0, 1]])
         return idx
 
-    def test_search_still_returns_results(self, index):
+    async def test_search_still_returns_results(self, index):
         """@traced doesn't break search behavior."""
-        results = index.search([1, 0, 0], top_k=3)
+        results = await index.search([1, 0, 0], top_k=3)
         assert len(results) > 0
         assert results[0][0] == "a"
 
-    def test_add_still_works(self):
+    async def test_add_still_works(self):
         from qortex.vec.index import NumpyVectorIndex
 
         idx = NumpyVectorIndex(dimensions=2)
-        idx.add(["x"], [[1, 0]])
-        assert idx.size() == 1
+        await idx.add(["x"], [[1, 0]])
+        assert await idx.size() == 1
 
-    def test_search_creates_span(self, index):
+    async def test_search_creates_span(self, index):
         """search() creates a vec.search span when OTel is available."""
         from opentelemetry.sdk.trace import TracerProvider
         from opentelemetry.sdk.trace.export import SimpleSpanProcessor
@@ -122,7 +122,7 @@ class TestVecInstrumentation:
         trace.set_tracer_provider(provider)
 
         try:
-            index.search([1, 0, 0], top_k=3)
+            await index.search([1, 0, 0], top_k=3)
             provider.force_flush()
             spans = exporter.get_finished_spans()
             span_names = [s.name for s in spans]
@@ -131,7 +131,7 @@ class TestVecInstrumentation:
             if hasattr(trace, "_TRACER_PROVIDER_SET_ONCE"):
                 trace._TRACER_PROVIDER_SET_ONCE._done = False
 
-    def test_add_creates_span(self):
+    async def test_add_creates_span(self):
         """add() creates a vec.add span."""
         from opentelemetry.sdk.trace import TracerProvider
         from opentelemetry.sdk.trace.export import SimpleSpanProcessor
@@ -149,7 +149,7 @@ class TestVecInstrumentation:
             from qortex.vec.index import NumpyVectorIndex
 
             idx = NumpyVectorIndex(dimensions=2)
-            idx.add(["x"], [[1, 0]])
+            await idx.add(["x"], [[1, 0]])
             provider.force_flush()
             spans = exporter.get_finished_spans()
             span_names = [s.name for s in spans]
@@ -158,12 +158,12 @@ class TestVecInstrumentation:
             if hasattr(trace, "_TRACER_PROVIDER_SET_ONCE"):
                 trace._TRACER_PROVIDER_SET_ONCE._done = False
 
-    def test_search_events_still_fire(self, index):
+    async def test_search_events_still_fire(self, index):
         """VecSearchResults event still emitted alongside span."""
         from unittest.mock import patch
 
         with patch("qortex.vec.index._try_emit") as mock_emit:
-            index.search([1, 0, 0], top_k=3)
+            await index.search([1, 0, 0], top_k=3)
             assert mock_emit.called
             from qortex.observe.events import VecSearchResults
 

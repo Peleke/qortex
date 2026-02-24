@@ -7,7 +7,8 @@ Tests create isolated pools directly — this singleton is for production wiring
 from __future__ import annotations
 
 import asyncio
-from typing import Any, Callable
+from collections.abc import Callable
+from typing import Any
 
 from qortex.observe.logging import get_logger
 

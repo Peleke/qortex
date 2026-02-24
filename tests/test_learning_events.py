@@ -5,6 +5,8 @@ from __future__ import annotations
 import asyncio
 
 import pytest
+from qortex.learning.learner import Learner
+from qortex.learning.types import Arm, ArmOutcome, LearnerConfig
 from qortex.observe import reset as obs_reset
 from qortex.observe.emitter import configure
 from qortex.observe.events import (
@@ -13,9 +15,6 @@ from qortex.observe.events import (
     LearningSelectionMade,
 )
 from qortex.observe.linker import QortexEventLinker
-
-from qortex.learning.learner import Learner
-from qortex.learning.types import Arm, ArmOutcome, LearnerConfig
 
 
 @pytest.fixture(autouse=True)

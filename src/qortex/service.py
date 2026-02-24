@@ -1650,9 +1650,14 @@ class QortexService:
             return self.llm_backend
 
         try:
-            from qortex.ingest.backends.anthropic import AnthropicBackend
+            import os
 
-            self.llm_backend = AnthropicBackend()
+            from qortex.ingest.backends.anthropic import AnthropicExtractionBackend
+
+            api_key = os.environ.get("ANTHROPIC_API_KEY", "")
+            if not api_key:
+                raise ImportError("ANTHROPIC_API_KEY not set")
+            self.llm_backend = AnthropicExtractionBackend(api_key=api_key)
             return self.llm_backend
         except ImportError:
             pass
