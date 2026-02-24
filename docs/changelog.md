@@ -5,6 +5,14 @@ All notable changes to qortex are documented here.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.8.1] - 2026-02-23
+
+### Changed
+
+- Documentation updated across 10 files for v0.8.0 features: REST API (`qortex serve`), postgres stores, vec migration, `HttpQortexClient`, and service layer architecture
+- New service layer architecture diagram (`overview-6-service-layer.svg`)
+- Prose quality pass (Bragi gauntlet): replaced marketing fragments with factual descriptions, broke overlong enumerations into lists, removed puffery and blocklisted adjectives, deduplicated sections
+
 ## [0.8.0] - 2026-02-23
 
 ### Added
