@@ -1,5 +1,12 @@
 # qortex
 
+<p style="font-style: italic; color: #888; margin-bottom: 0.5em;">
+  Part of the <strong>qlawbox</strong> stack
+  &nbsp;&middot;&nbsp; <a href="https://peleke.github.io/openclaw/">vindler</a>
+  &nbsp;&middot;&nbsp; <a href="https://peleke.github.io/openclaw-sandbox/">bilrost</a>
+  &nbsp;&middot;&nbsp; <a href="https://pypi.org/project/qortex/">PyPI</a>
+</p>
+
 **Knowledge that learns.**
 
 Your AI assistant forgets everything between conversations. qortex adds a knowledge graph that learns from every interaction. One command to install. Zero config.
@@ -73,6 +80,22 @@ Graph retrieval promotes structurally connected concepts (AuthMiddleware depends
 - **Activity tracking**: `qortex_stats` shows knowledge coverage, learning progress, and query activity at a glance.
 - **Projection pipeline**: Source, Enricher, Target architecture for projecting knowledge into any format -- buildlog seeds, flat YAML, JSON, or custom targets.
 - **Multiple backends**: InMemory (testing), Memgraph (production with MAGE algorithms), SQLite (default persistent).
+
+### The Learning Layer
+
+Most retrieval systems are static: they return the same results no matter how many times you correct them. qortex treats context engineering as a **learning problem**.
+
+Every candidate that could appear in a prompt -- a retrieved concept, a tool, a file, a prompt component -- is modeled as an **arm** in a multi-armed bandit. Each arm carries a Beta(alpha, beta) posterior that encodes the system's belief about how useful that candidate is.
+
+**Selection.** When qortex needs to fill a context window, it samples from each arm's posterior using Beta-Bernoulli Thompson Sampling. Arms with strong track records are exploited; uncertain arms are explored. A configurable `baseline_rate` (default 10%) forces uniform-random exploration to prevent premature convergence.
+
+**Observation.** After the agent uses the selected context and the user provides feedback (`accepted`, `rejected`, or `partial`), a reward model maps that outcome to a float. The arm's posterior updates: `alpha += reward`, `beta += (1 - reward)`. Over time, good candidates rise and bad ones sink.
+
+**Credit propagation.** Feedback does not stop at the item that was directly used. qortex builds a causal DAG from the knowledge graph's typed edges. When a rule receives a reward signal, credit flows backward through the DAG to ancestor concepts, decaying by hop distance and edge strength. This means a successful retrieval of "JWT Validation" also strengthens "Authentication", the concept it refines.
+
+**Observability.** Every selection, observation, and posterior update emits a structured event. The `qortex-observe` package routes these to Prometheus metrics, and the pre-built Grafana dashboard (`qortex-main`) visualizes posterior means, selection rates, observation outcomes, credit propagation depth, and token budget usage in real time.
+
+See the [Learning Layer Guide](guides/learning.md) for configuration, intervention options, and observability details.
 
 ## Quick example
 
@@ -155,8 +178,19 @@ See [@peleke.s/mastra-qortex](https://github.com/Peleke/mastra-qortex) for the s
 - **[Quick Start](getting-started/quickstart.md)** -- Install qortex and run your first query in under 5 minutes
 - **[Querying Guide](guides/querying.md)** -- Graph-enhanced search with exploration and feedback
 - **[Core Concepts](getting-started/concepts.md)** -- Domains, concepts, typed edges, and the learning loop
+- **[Learning Layer](guides/learning.md)** -- Thompson Sampling, credit propagation, and observability
 - **[Framework Adapters](tutorials/case-studies/index.md)** -- Drop-in for LangChain, Mastra, CrewAI, Agno, and AutoGen
 - **[Theory](tutorials/index.md)** -- Why knowledge graphs, causal reasoning, and the geometry of learning
+
+## The qlawbox stack
+
+qortex is the knowledge layer. The full stack:
+
+| Component | Role | Docs |
+|-----------|------|------|
+| **[vindler](https://peleke.github.io/openclaw/)** | Agent runtime (OpenClaw fork) | [Docs](https://peleke.github.io/openclaw/) |
+| **[bilrost](https://peleke.github.io/openclaw-sandbox/)** | Hardened VM isolation | [PyPI](https://pypi.org/project/bilrost/) |
+| **qortex** | Knowledge graph with adaptive learning (this project) | [PyPI](https://pypi.org/project/qortex/) |
 
 ## License
 

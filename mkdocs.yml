@@ -37,6 +37,7 @@ nav:
     - Quick Start: getting-started/quickstart.md
     - Core Concepts: getting-started/concepts.md
   - Guides:
+    - Learning Layer: guides/learning.md
     - Querying the Graph: guides/querying.md
     - Projecting Rules: guides/projecting-rules.md
     - Rule Enrichment: guides/enrichment.md
