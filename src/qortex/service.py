@@ -37,14 +37,7 @@ def create_vec_index(type_str: str, dimensions: int = 384) -> Any:
     elif type_str == "pgvector":
         from qortex.vec.pgvector import PgVectorIndex
 
-        dsn = os.environ.get("PGVECTOR_DSN")
-        if dsn is None:
-            host = os.environ.get("PGVECTOR_HOST", "localhost")
-            port = os.environ.get("PGVECTOR_PORT", "5432")
-            user = os.environ.get("PGVECTOR_USER", "qortex")
-            password = os.environ.get("PGVECTOR_PASSWORD", "qortex")
-            db = os.environ.get("PGVECTOR_DB", "qortex")
-            dsn = f"postgresql://{user}:{password}@{host}:{port}/{db}"
+        dsn = _build_dsn()
         return PgVectorIndex(dsn=dsn, dimensions=dimensions)
     elif type_str in ("numpy", "memory"):
         from qortex.vec.index import NumpyVectorIndex
@@ -59,13 +52,15 @@ def create_vec_index(type_str: str, dimensions: int = 384) -> Any:
 
 def _build_dsn() -> str:
     """Construct postgres DSN from PGVECTOR_* env vars."""
+    from urllib.parse import quote_plus
+
     dsn = os.environ.get("PGVECTOR_DSN")
     if dsn is not None:
         return dsn
     host = os.environ.get("PGVECTOR_HOST", "localhost")
     port = os.environ.get("PGVECTOR_PORT", "5432")
-    user = os.environ.get("PGVECTOR_USER", "qortex")
-    password = os.environ.get("PGVECTOR_PASSWORD", "qortex")
+    user = quote_plus(os.environ.get("PGVECTOR_USER", "qortex"))
+    password = quote_plus(os.environ.get("PGVECTOR_PASSWORD", "qortex"))
     db = os.environ.get("PGVECTOR_DB", "qortex")
     return f"postgresql://{user}:{password}@{host}:{port}/{db}"
 

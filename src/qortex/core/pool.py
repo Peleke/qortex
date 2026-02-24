@@ -9,6 +9,7 @@ from __future__ import annotations
 import asyncio
 from collections.abc import Callable
 from typing import Any
+from urllib.parse import urlparse
 
 from qortex.observe.logging import get_logger
 
@@ -18,12 +19,15 @@ _pool: Any = None
 _lock: asyncio.Lock | None = None
 
 
-def _get_lock() -> asyncio.Lock:
-    """Lazy-init the asyncio lock (must be created inside a running loop)."""
-    global _lock
-    if _lock is None:
-        _lock = asyncio.Lock()
-    return _lock
+def _safe_dsn_host(dsn: str) -> str:
+    """Extract host:port from DSN for logging without leaking credentials."""
+    try:
+        parsed = urlparse(dsn)
+        host = parsed.hostname or "unknown"
+        port = parsed.port
+        return f"{host}:{port}" if port else host
+    except Exception:
+        return "unknown"
 
 
 async def get_shared_pool(
@@ -37,12 +41,19 @@ async def get_shared_pool(
 
     First call creates the pool; subsequent calls return the same instance.
     The ``init`` callback runs on each new connection (e.g. pgvector codec registration).
+
+    The lock is created lazily on first call within the running event loop,
+    avoiding cross-loop issues in test suites.
     """
-    global _pool
+    global _pool, _lock
     if _pool is not None:
         return _pool
 
-    async with _get_lock():
+    # Create lock in the current event loop (safe for Python 3.12+)
+    if _lock is None:
+        _lock = asyncio.Lock()
+
+    async with _lock:
         # Double-check after acquiring lock
         if _pool is not None:
             return _pool
@@ -57,7 +68,7 @@ async def get_shared_pool(
         )
         logger.info(
             "shared_pool.created",
-            dsn_host=dsn.split("@")[-1] if "@" in dsn else "local",
+            dsn_host=_safe_dsn_host(dsn),
             max_size=max_size,
         )
         return _pool
