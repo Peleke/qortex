@@ -6,6 +6,7 @@ qortex ships a Docker Compose stack for the graph database and observability ser
 
 | Service | Image | Purpose |
 |---------|-------|---------|
+| **PostgreSQL** | `pgvector/pgvector:pg17` | Shared database for vectors, interoception, and learning state. pgvector extension pre-installed. |
 | **Memgraph** | `memgraph/memgraph-mage:latest` | Graph database (Bolt protocol). Production backend for the knowledge graph. |
 | **Memgraph Lab** | `memgraph/lab:latest` | Web UI for Memgraph. Visual graph exploration and Cypher queries. |
 | **OTel Collector** | `otel/opentelemetry-collector-contrib:latest` | Receives OTLP telemetry from qortex and routes to backends. |
@@ -42,10 +43,29 @@ Use this for standalone local development when you need the graph database on th
 
 If qortex runs inside a Lima sandbox, the VM already runs Memgraph and Lab. Lima auto-forwards the Bolt port (7687) and Lab port (3000) to the host. **Do not start the `local-graph` profile** -- you would get port conflicts. Start only the default profile for observability.
 
+### `postgres` profile (includes PostgreSQL)
+
+```bash
+cd docker && docker compose --profile postgres up -d
+```
+
+Starts: everything above **plus** PostgreSQL with pgvector.
+
+Use this when you want postgres-backed stores for vectors, interoception, and learning state. Combines with the default observability profile.
+
+### Full production profile
+
+```bash
+cd docker && docker compose --profile local-graph --profile postgres up -d
+```
+
+Starts: all services — Memgraph, PostgreSQL, and the full observability stack.
+
 ## Port map
 
 | Port | Service | Protocol/UI |
 |------|---------|-------------|
+| 5432 | PostgreSQL | PostgreSQL wire protocol |
 | 7687 | Memgraph | Bolt protocol (graph queries) |
 | 7444 | Memgraph | Monitoring endpoint |
 | 3000 | Memgraph Lab | Web UI |
@@ -129,6 +149,7 @@ The compose file defines named volumes for persistent data:
 
 | Volume | Service | Purpose |
 |--------|---------|---------|
+| `postgres_data` | PostgreSQL | Database files (`/var/lib/postgresql/data`). |
 | `memgraph_data` | Memgraph | Graph data (`/var/lib/memgraph`). |
 | `memgraph_log` | Memgraph | Server logs (`/var/log/memgraph`). |
 | `prometheus_data` | Prometheus | Metric time-series data. |
@@ -161,6 +182,7 @@ cd docker && docker compose --profile local-graph down -v
 
 ## Next steps
 
+- [PostgreSQL Setup](postgres-setup.md) -- pgvector and postgres store configuration
 - [Observability](observability.md) -- metrics, traces, and dashboard panels reference
 - [Using Memgraph](memgraph.md) -- Memgraph backend setup and Cypher queries
 - [Online Indexing](online-indexing.md) -- how conversation turns flow into the graph
