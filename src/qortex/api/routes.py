@@ -405,6 +405,34 @@ async def source_disconnect_handler(request: Request) -> JSONResponse:
 
 
 # ------------------------------------------------------------------
+# Admin / Migration
+# ------------------------------------------------------------------
+
+
+async def migrate_vec_handler(request: Request) -> JSONResponse:
+    service = _get_service(request)
+    try:
+        body = await request.json()
+    except Exception:
+        return _error("Invalid JSON body")
+
+    source = body.get("source")
+    if not source:
+        return _error("'source' is required (sqlite, pgvector, numpy)")
+
+    try:
+        result = await service.migrate_vec(
+            source_type=source,
+            batch_size=body.get("batch_size", 500),
+            dry_run=body.get("dry_run", False),
+        )
+    except ValueError as e:
+        return _error(str(e))
+
+    return JSONResponse(result)
+
+
+# ------------------------------------------------------------------
 # Route table
 # ------------------------------------------------------------------
 
@@ -458,4 +486,6 @@ def build_routes() -> list[Route]:
             source_disconnect_handler,
             methods=["DELETE"],
         ),
+        # Admin / Migration
+        Route("/v1/admin/migrate-vec", migrate_vec_handler, methods=["POST"]),
     ]

@@ -3095,6 +3095,64 @@ async def qortex_learning_reset(
 
 
 # ---------------------------------------------------------------------------
+# Admin / Migration
+# ---------------------------------------------------------------------------
+
+
+async def _migrate_vec_impl(source: str, batch_size: int = 500, dry_run: bool = False) -> dict:
+    """Core impl for vector migration using module globals."""
+    import asyncio
+    from dataclasses import asdict
+
+    from qortex.service import create_vec_index
+    from qortex.vec.migrate import migrate_vec
+
+    _ensure_initialized()
+
+    if _vector_index is None:
+        return {"error": "No vector index configured"}
+
+    dims = 384
+    if _embedding_model is not None:
+        dims = _embedding_model.dimensions
+
+    source_index = create_vec_index(source, dims)
+
+    try:
+        result = await migrate_vec(
+            source_index, _vector_index, batch_size=batch_size, dry_run=dry_run
+        )
+        return asdict(result)
+    finally:
+        if hasattr(source_index, "close"):
+            close = source_index.close
+            if asyncio.iscoroutinefunction(close):
+                await close()
+            else:
+                close()
+
+
+@mcp.tool()
+@_mcp_traced
+async def qortex_migrate_vec(
+    source: str,
+    batch_size: int = 500,
+    dry_run: bool = False,
+) -> dict:
+    """Migrate vectors from another backend into the current one.
+
+    Source reads credentials from env vars (PGVECTOR_DSN, etc.).
+    Destination is the running service's vec backend.
+
+    Args:
+        source: Source backend type: "sqlite", "pgvector", or "numpy".
+        batch_size: Number of vectors per batch.
+        dry_run: If True, read source but don't write to destination.
+    """
+    return await _migrate_vec_impl(source, batch_size, dry_run)
+
+
+# ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
 

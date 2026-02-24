@@ -11,6 +11,7 @@ result types (QueryResult, etc.).
 
 from __future__ import annotations
 
+import asyncio
 import atexit
 import hashlib
 import os
@@ -21,6 +22,39 @@ from typing import Any
 from qortex.observe.logging import get_logger
 
 logger = get_logger(__name__)
+
+
+def create_vec_index(type_str: str, dimensions: int = 384) -> Any:
+    """Construct a VectorIndex from type string + env vars.
+
+    Shared factory used by QortexService and MCP server.
+    """
+    if type_str == "sqlite":
+        from qortex.vec.index import SqliteVecIndex
+
+        vec_path = Path("~/.qortex/vectors.db").expanduser()
+        return SqliteVecIndex(db_path=str(vec_path), dimensions=dimensions)
+    elif type_str == "pgvector":
+        from qortex.vec.pgvector import PgVectorIndex
+
+        dsn = os.environ.get("PGVECTOR_DSN")
+        if dsn is None:
+            host = os.environ.get("PGVECTOR_HOST", "localhost")
+            port = os.environ.get("PGVECTOR_PORT", "5432")
+            user = os.environ.get("PGVECTOR_USER", "qortex")
+            password = os.environ.get("PGVECTOR_PASSWORD", "qortex")
+            db = os.environ.get("PGVECTOR_DB", "qortex")
+            dsn = f"postgresql://{user}:{password}@{host}:{port}/{db}"
+        return PgVectorIndex(dsn=dsn, dimensions=dimensions)
+    elif type_str in ("numpy", "memory"):
+        from qortex.vec.index import NumpyVectorIndex
+
+        return NumpyVectorIndex(dimensions=dimensions)
+    else:
+        raise ValueError(
+            f"Unknown vec backend type: {type_str!r}. "
+            "Must be 'sqlite', 'pgvector', 'numpy', or 'memory'."
+        )
 
 
 class QortexService:
@@ -1358,6 +1392,49 @@ class QortexService:
                 break
 
         return {"results": results}
+
+    # ------------------------------------------------------------------
+    # Migration operations
+    # ------------------------------------------------------------------
+
+    async def migrate_vec(
+        self,
+        source_type: str,
+        *,
+        batch_size: int = 500,
+        dry_run: bool = False,
+    ) -> dict:
+        """Migrate vectors from another backend into the current one.
+
+        Source credentials come from env vars, not request bodies.
+        """
+        from dataclasses import asdict
+
+        from qortex.vec.migrate import migrate_vec
+
+        source = self._create_vec_index(source_type)
+        try:
+            result = await migrate_vec(
+                source,
+                self.vector_index,
+                batch_size=batch_size,
+                dry_run=dry_run,
+            )
+            return asdict(result)
+        finally:
+            if hasattr(source, "close"):
+                close = source.close
+                if asyncio.iscoroutinefunction(close):
+                    await close()
+                else:
+                    close()
+
+    def _create_vec_index(self, type_str: str) -> Any:
+        """Construct a VectorIndex from type string + env vars."""
+        dims = 384
+        if self.embedding_model is not None:
+            dims = self.embedding_model.dimensions
+        return create_vec_index(type_str, dims)
 
     # ------------------------------------------------------------------
     # Internal helpers

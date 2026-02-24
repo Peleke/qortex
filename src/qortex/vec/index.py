@@ -5,6 +5,7 @@ from __future__ import annotations
 import asyncio
 import logging
 import time
+from collections.abc import AsyncIterator
 from typing import Protocol, runtime_checkable
 
 from qortex.observe.tracing import traced
@@ -63,6 +64,16 @@ class VectorIndex(Protocol):
 
     async def persist(self) -> None:
         """Persist index to storage. No-op for in-memory implementations."""
+        ...
+
+    def iter_all(
+        self, batch_size: int = 500
+    ) -> AsyncIterator[tuple[list[str], list[list[float]]]]:
+        """Iterate all (ids, embeddings) in batches.
+
+        Yields:
+            Tuples of (ids_batch, embeddings_batch).
+        """
         ...
 
 
@@ -242,6 +253,16 @@ class NumpyVectorIndex:
     async def persist(self) -> None:
         """No-op for in-memory index."""
         pass
+
+    async def iter_all(
+        self, batch_size: int = 500
+    ) -> AsyncIterator[tuple[list[str], list[list[float]]]]:
+        """Iterate all vectors in batches."""
+        for start in range(0, len(self._ids), batch_size):
+            end = min(start + batch_size, len(self._ids))
+            ids_batch = self._ids[start:end]
+            embs_batch = self._matrix[start:end].tolist()
+            yield ids_batch, embs_batch
 
 
 class SqliteVecIndex:
@@ -441,6 +462,51 @@ class SqliteVecIndex:
     async def persist(self) -> None:
         """Commit any pending changes."""
         await asyncio.to_thread(self._persist_sync)
+
+    def _iter_all_batch_sync(
+        self, batch_size: int, offset: int
+    ) -> tuple[list[str], list[list[float]]] | None:
+        """Read a single batch from sqlite. Returns None when exhausted."""
+        import struct
+
+        with self._lock:
+            self._ensure_connection()
+            assert self._conn is not None
+
+            rows = self._conn.execute(
+                """
+                SELECT vm.id, vi.embedding
+                FROM vec_meta vm
+                JOIN vec_index vi ON vi.rowid = vm.row_id
+                LIMIT ? OFFSET ?
+                """,
+                (batch_size, offset),
+            ).fetchall()
+
+            if not rows:
+                return None
+
+            ids = []
+            embeddings = []
+            for row_id, blob in rows:
+                dims = len(blob) // 4  # float32 = 4 bytes
+                emb = list(struct.unpack(f"{dims}f", blob))
+                ids.append(row_id)
+                embeddings.append(emb)
+
+            return ids, embeddings
+
+    async def iter_all(
+        self, batch_size: int = 500
+    ) -> AsyncIterator[tuple[list[str], list[list[float]]]]:
+        """Iterate all vectors in batches (one thread call per batch)."""
+        offset = 0
+        while True:
+            batch = await asyncio.to_thread(self._iter_all_batch_sync, batch_size, offset)
+            if batch is None:
+                break
+            yield batch
+            offset += batch_size
 
     def close(self) -> None:
         """Close the database connection."""

@@ -15,7 +15,7 @@ from __future__ import annotations
 
 import typer
 
-from qortex.cli import infra, ingest, inspect_cmd, interop_cmd, project, prune, viz
+from qortex.cli import infra, ingest, inspect_cmd, interop_cmd, migrate, project, prune, viz
 
 app = typer.Typer(
     name="qortex",
@@ -30,6 +30,7 @@ app.add_typer(inspect_cmd.app, name="inspect")
 app.add_typer(viz.app, name="viz")
 app.add_typer(interop_cmd.app, name="interop")
 app.add_typer(prune.app, name="prune")
+app.add_typer(migrate.app, name="migrate")
 
 
 @app.command("mcp-serve")
