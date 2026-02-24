@@ -13,14 +13,87 @@ qortex <command> --help  # Show command help
 
 | Group | Description |
 |-------|-------------|
+| `serve` | Start the REST API server (top-level command) |
 | `infra` | Infrastructure management (Memgraph) |
 | `ingest` | Content ingestion |
+| `migrate` | Data migration between backends |
 | `project` | Rule projection |
 | `inspect` | Graph inspection |
 | `viz` | Visualization and queries |
 | `interop` | Consumer interop protocol |
 | `prune` | Edge pruning and analysis |
 | `mcp-serve` | Start the MCP server (top-level command) |
+
+---
+
+## serve
+
+### `qortex serve`
+
+Start the REST API server. Exposes the full HTTP API for queries, ingestion, learning, and administration.
+
+```bash
+# Default: localhost:8400
+qortex serve
+
+# Custom host and port
+qortex serve --host 0.0.0.0 --port 9000
+
+# With auto-reload for development
+qortex serve --host 0.0.0.0 --port 8400 --reload
+```
+
+Options:
+- `--host`: Bind address (default: `127.0.0.1`)
+- `--port`: Listen port (default: `8400`)
+- `--reload`: Enable auto-reload on code changes (development only)
+
+With postgres backends:
+
+```bash
+QORTEX_STORE=postgres \
+QORTEX_VEC=pgvector \
+QORTEX_GRAPH=memgraph \
+qortex serve --host 0.0.0.0
+```
+
+See [REST API](../guides/rest-api.md) for endpoint documentation and [PostgreSQL Setup](../guides/postgres-setup.md) for backend configuration.
+
+---
+
+## migrate
+
+Data migration between storage backends.
+
+### `qortex migrate vec`
+
+Migrate vector embeddings from one backend to another without re-computing embeddings.
+
+```bash
+# Migrate SQLite vectors to pgvector (destination from QORTEX_VEC)
+qortex migrate vec --from sqlite
+
+# Dry run — report counts without writing
+qortex migrate vec --from sqlite --dry-run
+
+# Custom batch size
+qortex migrate vec --from sqlite --batch-size 1000
+```
+
+Options:
+- `--from`: Source backend type (`sqlite`, `memory`) — **required**
+- `--batch-size`: Vectors per batch (default: `500`)
+- `--dry-run`: Report what would be migrated without writing
+
+The destination is determined by the `QORTEX_VEC` environment variable:
+
+| `--from` | `QORTEX_VEC` | Migration |
+|----------|-------------|-----------|
+| `sqlite` | `pgvector` | SQLite → PostgreSQL (most common) |
+| `sqlite` | `memory` | SQLite → in-memory |
+| `memory` | `pgvector` | In-memory → PostgreSQL |
+
+See [Vec Migration](../guides/vec-migration.md) for full documentation.
 
 ---
 
@@ -445,16 +518,25 @@ Options:
 
 | Variable | Description | Default |
 |----------|-------------|---------|
+| `QORTEX_GRAPH` | Graph backend: `memory` or `memgraph` | `memory` |
+| `QORTEX_VEC` | Vector backend: `memory`, `sqlite`, or `pgvector` | `sqlite` |
+| `QORTEX_STORE` | Persistence backend: `sqlite` or `postgres` | `sqlite` |
+| `QORTEX_STATE_DIR` | Override for state directory | `~/.qortex` |
+| `PGVECTOR_DSN` | Full PostgreSQL connection string | *(constructed)* |
+| `PGVECTOR_HOST` | PostgreSQL host | `localhost` |
+| `PGVECTOR_PORT` | PostgreSQL port | `5432` |
+| `PGVECTOR_USER` | PostgreSQL user | `qortex` |
+| `PGVECTOR_PASSWORD` | PostgreSQL password | `qortex` |
+| `PGVECTOR_DB` | PostgreSQL database | `qortex` |
 | `MEMGRAPH_HOST` | Memgraph hostname | `localhost` |
 | `MEMGRAPH_PORT` | Memgraph port | `7687` |
 | `MEMGRAPH_USER` | Memgraph username | (none) |
 | `MEMGRAPH_PASSWORD` | Memgraph password | (none) |
 | `ANTHROPIC_API_KEY` | Anthropic API key for LLM extraction and enrichment | (none) |
-| `QORTEX_CONFIG` | Config file path | `~/.claude/qortex-consumers.yaml` |
-| `QORTEX_VEC` | Vector layer backend: `memory` or `sqlite` | `sqlite` |
-| `QORTEX_GRAPH` | Graph layer backend: `memory` or `memgraph` | `memory` |
-| `QORTEX_STATE_DIR` | Override for learning state persistence directory | (none) |
 | `OLLAMA_HOST` | Ollama server URL for local LLM extraction | `http://localhost:11434` |
+| `QORTEX_CONFIG` | Config file path | `~/.claude/qortex-consumers.yaml` |
+
+See [Environment Variables](environment-variables.md) for the full reference including observability, logging, and auth settings.
 
 ---
 

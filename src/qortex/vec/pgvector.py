@@ -51,6 +51,7 @@ class PgVectorIndex:
         dimensions: int = 384,
         table_name: str = "qortex_vectors",
         pool_size: int = 10,
+        pool: Any = None,
     ) -> None:
         if not _SAFE_IDENT.match(table_name):
             raise ValueError(
@@ -61,7 +62,8 @@ class PgVectorIndex:
         self._dimensions = dimensions
         self._table_name = table_name
         self._pool_size = pool_size
-        self._pool: Any = None
+        self._pool: Any = pool
+        self._external_pool = pool is not None
         self._schema_ready = False
 
     async def _ensure_pool(self) -> None:
@@ -241,8 +243,8 @@ class PgVectorIndex:
             offset += batch_size
 
     async def close(self) -> None:
-        """Close the connection pool."""
-        if self._pool is not None:
+        """Close the connection pool (skipped when pool is externally provided)."""
+        if self._pool is not None and not self._external_pool:
             await self._pool.close()
             self._pool = None
             self._schema_ready = False

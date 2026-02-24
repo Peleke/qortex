@@ -29,7 +29,7 @@ qortex has 13 optional dependency groups for different capabilities:
 | `causal` | `pip install qortex[causal]` | NetworkX for causal DAG support and d-separation queries. |
 | `causal-dowhy` | `pip install qortex[causal-dowhy]` | NetworkX + DoWhy for causal inference and refutation. |
 | `causal-full` | `pip install qortex[causal-full]` | NetworkX + Pyro + ChirHo for full Bayesian causal modeling. |
-| `source-postgres` | `pip install qortex[source-postgres]` | asyncpg for connecting to and ingesting from PostgreSQL databases. |
+| `source-postgres` | `pip install qortex[source-postgres]` | asyncpg + pgvector for PostgreSQL-backed stores (vectors, interoception, learning) and database ingestion. |
 | `observability` | `pip install qortex[observability]` | qortex-observe with OpenTelemetry exporters for distributed tracing and Prometheus metrics. |
 | `dev` | `pip install qortex[dev]` | pytest, ruff, mypy, hypothesis, and other development/testing tools. |
 | `all` | `pip install qortex[all]` | All of the above (except `causal-dowhy` and `causal-full`). |
@@ -39,7 +39,7 @@ qortex has 13 optional dependency groups for different capabilities:
 - **Trying it out?** Start with `pip install qortex[vec]` for embedded text search.
 - **Persistent storage?** Add `vec-sqlite` so vectors survive restarts: `pip install qortex[vec-sqlite]`.
 - **Production?** Use `pip install qortex[all]` and configure Memgraph for graph operations.
-- **Database sources?** Add `source-postgres` to connect to PostgreSQL and ingest schemas or row data.
+- **PostgreSQL backends?** Add `source-postgres` for pgvector search, postgres-backed interoception, and learning stores.
 - **Observability?** Add `observability` for OpenTelemetry traces and Prometheus metrics via qortex-observe.
 - **Framework integration only?** Plain `pip install qortex` is enough if your framework (LangChain, agno) provides embeddings.
 
@@ -84,6 +84,24 @@ qortex --help
 python -c "import qortex; print(qortex.__version__)"
 ```
 
+## PostgreSQL + pgvector (Optional)
+
+For production deployments with persistent vector search, interoception, and learning:
+
+```bash
+# Install postgres dependencies
+pip install "qortex[source-postgres]"
+
+# Start PostgreSQL with pgvector via Docker
+cd docker && docker compose --profile postgres up -d
+
+# Configure qortex to use postgres backends
+export QORTEX_VEC=pgvector
+export QORTEX_STORE=postgres
+```
+
+See [PostgreSQL Setup](../guides/postgres-setup.md) for full configuration and schema details.
+
 ## Memgraph Setup (Optional)
 
 For production use with Memgraph:
@@ -98,7 +116,23 @@ qortex infra status
 
 See [Using Memgraph](../guides/memgraph.md) for detailed setup instructions.
 
+## REST API Server
+
+qortex includes a full HTTP API for programmatic access:
+
+```bash
+# Start the REST API server
+qortex serve
+
+# With all production backends
+QORTEX_STORE=postgres QORTEX_VEC=pgvector QORTEX_GRAPH=memgraph qortex serve
+```
+
+See [REST API](../guides/rest-api.md) for endpoint documentation.
+
 ## Next Steps
 
 - [Quick Start](quickstart.md) - Build a graph and run your first query
 - [Core Concepts](concepts.md) - Understand the data model
+- [PostgreSQL Setup](../guides/postgres-setup.md) - Configure postgres backends
+- [REST API](../guides/rest-api.md) - HTTP API reference

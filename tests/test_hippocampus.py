@@ -12,7 +12,6 @@ Coverage:
 - Metamorphic tests: outcome order independence, shutdown/startup identity
 """
 
-import asyncio
 import json
 import logging
 import math

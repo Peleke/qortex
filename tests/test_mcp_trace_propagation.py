@@ -215,19 +215,15 @@ class TestMcpTracedDecorator:
         """Every @mcp.tool wrapper should also have @_mcp_traced."""
         from qortex.mcp.server import mcp
 
-        # Use public async API — list_tools (fastmcp v3) or get_tools (v2)
-        if hasattr(mcp, "list_tools"):
-            tools = await mcp.list_tools()
-        else:
-            tools = await mcp.get_tools()
-        assert len(tools) >= 36, f"Expected >=36 tools, got {len(tools)}"
+        # Use public async API instead of private _tool_manager internals
+        tools = await mcp.get_tools()
+        assert len(tools) == 37, f"Expected 37 tools, got {len(tools)}"
 
-        for tool in tools:
-            if hasattr(tool, "fn"):
-                fn = tool.fn
-                assert hasattr(fn, "__wrapped__"), (
-                    f"{tool.name} missing __wrapped__ -- not decorated with @_mcp_traced"
-                )
+        for name, tool in tools.items():
+            fn = tool.fn
+            assert hasattr(fn, "__wrapped__"), (
+                f"{name} missing __wrapped__ -- not decorated with @_mcp_traced"
+            )
 
     def test_traced_decorator_creates_span(self):
         """_mcp_traced creates a span when calling a tool."""

@@ -11,7 +11,6 @@ import hashlib
 import pytest
 
 from qortex.core.memory import InMemoryBackend
-from qortex.core.models import ConceptNode
 from qortex.service import QortexService
 from qortex.vec.index import NumpyVectorIndex
 
@@ -165,7 +164,7 @@ class TestServiceExplore:
 
     async def test_explore_existing_node(self, service):
         await _seed_data(service)
-        domains = await service.domains()
+        await service.domains()
         # Get a concept ID from the backend
         nodes = list(service.backend._nodes.values())
         if nodes:
