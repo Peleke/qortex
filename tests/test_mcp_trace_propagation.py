@@ -215,8 +215,11 @@ class TestMcpTracedDecorator:
         """Every @mcp.tool wrapper should also have @_mcp_traced."""
         from qortex.mcp.server import mcp
 
-        # FastMCP v3: list_tools()
-        tools = await mcp.list_tools()
+        # Use public async API — list_tools (fastmcp v3) or get_tools (v2)
+        if hasattr(mcp, "list_tools"):
+            tools = await mcp.list_tools()
+        else:
+            tools = await mcp.get_tools()
         assert len(tools) >= 36, f"Expected >=36 tools, got {len(tools)}"
 
         for tool in tools:
