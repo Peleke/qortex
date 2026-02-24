@@ -1,0 +1,1004 @@
+openapi: "3.0.3"
+info:
+  title: qortex REST API
+  version: "0.7.8"
+  description: Knowledge graph that learns from every interaction.
+servers:
+  - url: http://127.0.0.1:{port}/v1
+    variables:
+      port:
+        default: "8400"
+
+security:
+  - bearerAuth: []
+  - hmacAuth: []
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      description: "API key sent as Authorization: Bearer <key>"
+    hmacAuth:
+      type: apiKey
+      in: header
+      name: X-Qortex-Signature
+      description: "HMAC-SHA256 signature with X-Qortex-Timestamp header"
+
+  schemas:
+    Error:
+      type: object
+      required: [error]
+      properties:
+        error:
+          type: string
+
+    HealthResponse:
+      type: object
+      required: [status]
+      properties:
+        status:
+          type: string
+          example: ok
+
+    StatusResponse:
+      type: object
+      properties:
+        status:
+          type: string
+        backend:
+          type: string
+        vector_index:
+          type: string
+          nullable: true
+        vector_search:
+          type: boolean
+        graph_algorithms:
+          type: boolean
+        domain_count:
+          type: integer
+        embedding_model:
+          type: string
+          nullable: true
+
+    DomainInfo:
+      type: object
+      properties:
+        name:
+          type: string
+        description:
+          type: string
+          nullable: true
+        concept_count:
+          type: integer
+        edge_count:
+          type: integer
+        rule_count:
+          type: integer
+
+    DomainsResponse:
+      type: object
+      properties:
+        domains:
+          type: array
+          items:
+            $ref: "#/components/schemas/DomainInfo"
+
+    QueryItem:
+      type: object
+      properties:
+        id:
+          type: string
+        content:
+          type: string
+        score:
+          type: number
+        domain:
+          type: string
+        node_id:
+          type: string
+        metadata:
+          type: object
+
+    RuleItem:
+      type: object
+      properties:
+        id:
+          type: string
+        text:
+          type: string
+        domain:
+          type: string
+        category:
+          type: string
+          nullable: true
+        confidence:
+          type: number
+        relevance:
+          type: number
+        derivation:
+          type: string
+        source_concepts:
+          type: array
+          items:
+            type: string
+        metadata:
+          type: object
+
+    NodeItem:
+      type: object
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        description:
+          type: string
+        domain:
+          type: string
+        confidence:
+          type: number
+        properties:
+          type: object
+
+    EdgeItem:
+      type: object
+      properties:
+        source_id:
+          type: string
+        target_id:
+          type: string
+        relation_type:
+          type: string
+        confidence:
+          type: number
+        properties:
+          type: object
+
+    QueryRequest:
+      type: object
+      required: [context]
+      properties:
+        context:
+          type: string
+        domains:
+          type: array
+          items:
+            type: string
+          nullable: true
+        top_k:
+          type: integer
+          default: 20
+        min_confidence:
+          type: number
+          default: 0.0
+        mode:
+          type: string
+          default: auto
+
+    QueryResponse:
+      type: object
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/QueryItem"
+        query_id:
+          type: string
+        rules:
+          type: array
+          items:
+            $ref: "#/components/schemas/RuleItem"
+
+    FeedbackRequest:
+      type: object
+      required: [query_id, outcomes]
+      properties:
+        query_id:
+          type: string
+        outcomes:
+          type: object
+          additionalProperties:
+            type: string
+        source:
+          type: string
+          default: http
+
+    FeedbackResponse:
+      type: object
+      properties:
+        status:
+          type: string
+        query_id:
+          type: string
+        outcome_count:
+          type: integer
+        source:
+          type: string
+
+    IngestRequest:
+      type: object
+      required: [source_path, domain]
+      properties:
+        source_path:
+          type: string
+        domain:
+          type: string
+        source_type:
+          type: string
+          nullable: true
+
+    IngestTextRequest:
+      type: object
+      required: [text, domain]
+      properties:
+        text:
+          type: string
+        domain:
+          type: string
+        format:
+          type: string
+          default: text
+        name:
+          type: string
+          nullable: true
+
+    IngestStructuredRequest:
+      type: object
+      required: [concepts, domain]
+      properties:
+        concepts:
+          type: array
+          items:
+            type: object
+            required: [name]
+            properties:
+              name:
+                type: string
+              description:
+                type: string
+              id:
+                type: string
+              properties:
+                type: object
+              confidence:
+                type: number
+        domain:
+          type: string
+        edges:
+          type: array
+          items:
+            type: object
+            required: [source, target, relation_type]
+            properties:
+              source:
+                type: string
+              target:
+                type: string
+              relation_type:
+                type: string
+              confidence:
+                type: number
+          nullable: true
+        rules:
+          type: array
+          items:
+            type: object
+            required: [text]
+            properties:
+              text:
+                type: string
+              category:
+                type: string
+              confidence:
+                type: number
+          nullable: true
+
+    IngestResponse:
+      type: object
+      properties:
+        domain:
+          type: string
+        source:
+          type: string
+        concepts:
+          type: integer
+        edges:
+          type: integer
+        rules:
+          type: integer
+        warnings:
+          type: array
+          items:
+            type: string
+
+    ExploreRequest:
+      type: object
+      required: [node_id]
+      properties:
+        node_id:
+          type: string
+        depth:
+          type: integer
+          default: 1
+
+    ExploreResponse:
+      type: object
+      properties:
+        node:
+          $ref: "#/components/schemas/NodeItem"
+        edges:
+          type: array
+          items:
+            $ref: "#/components/schemas/EdgeItem"
+        rules:
+          type: array
+          items:
+            $ref: "#/components/schemas/RuleItem"
+        neighbors:
+          type: array
+          items:
+            $ref: "#/components/schemas/NodeItem"
+
+    RulesRequest:
+      type: object
+      properties:
+        domains:
+          type: array
+          items:
+            type: string
+          nullable: true
+        concept_ids:
+          type: array
+          items:
+            type: string
+          nullable: true
+        categories:
+          type: array
+          items:
+            type: string
+          nullable: true
+        include_derived:
+          type: boolean
+          default: true
+        min_confidence:
+          type: number
+          default: 0.0
+
+    RulesResponse:
+      type: object
+      properties:
+        rules:
+          type: array
+          items:
+            $ref: "#/components/schemas/RuleItem"
+        domain_count:
+          type: integer
+        projection:
+          type: string
+
+    LearningSelectRequest:
+      type: object
+      required: [learner, candidates]
+      properties:
+        learner:
+          type: string
+        candidates:
+          type: array
+          items:
+            type: object
+            required: [id]
+            properties:
+              id:
+                type: string
+              metadata:
+                type: object
+              token_cost:
+                type: integer
+        context:
+          type: object
+          nullable: true
+        k:
+          type: integer
+          default: 1
+        token_budget:
+          type: integer
+          default: 0
+        min_pulls:
+          type: integer
+          default: 0
+        seed_arms:
+          type: array
+          items:
+            type: string
+          nullable: true
+        seed_boost:
+          type: number
+          nullable: true
+
+    LearningSelectResponse:
+      type: object
+      properties:
+        selected_arms:
+          type: array
+          items:
+            type: string
+        excluded_arms:
+          type: array
+          items:
+            type: string
+
+    LearningObserveRequest:
+      type: object
+      required: [learner, arm_id]
+      properties:
+        learner:
+          type: string
+        arm_id:
+          type: string
+        outcome:
+          type: string
+          default: ""
+        reward:
+          type: number
+          default: 0.0
+        context:
+          type: object
+          nullable: true
+
+    LearningObserveResponse:
+      type: object
+      properties:
+        arm_id:
+          type: string
+        alpha:
+          type: number
+        beta:
+          type: number
+        mean:
+          type: number
+        pulls:
+          type: integer
+
+    LearningPosteriorsResponse:
+      type: object
+      properties:
+        learner:
+          type: string
+        posteriors:
+          type: object
+          additionalProperties:
+            type: object
+
+    StatsResponse:
+      type: object
+      properties:
+        knowledge:
+          type: object
+        learning:
+          type: object
+        activity:
+          type: object
+        health:
+          type: object
+
+    SourceConnectRequest:
+      type: object
+      required: [source_id, connection_string]
+      properties:
+        source_id:
+          type: string
+        connection_string:
+          type: string
+        schemas:
+          type: array
+          items:
+            type: string
+          nullable: true
+        domain_map:
+          type: object
+          nullable: true
+
+    SourceSyncRequest:
+      type: object
+      properties:
+        tables:
+          type: array
+          items:
+            type: string
+          nullable: true
+        mode:
+          type: string
+          default: full
+
+paths:
+  /health:
+    get:
+      operationId: health
+      summary: Health check
+      security: []
+      responses:
+        "200":
+          description: Server is healthy
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HealthResponse"
+
+  /status:
+    get:
+      operationId: status
+      summary: Server status with backend info
+      responses:
+        "200":
+          description: Status info
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/StatusResponse"
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /domains:
+    get:
+      operationId: domains
+      summary: List all domains
+      responses:
+        "200":
+          description: Domain list
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DomainsResponse"
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /stats:
+    get:
+      operationId: stats
+      summary: Aggregate statistics
+      responses:
+        "200":
+          description: Stats
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/StatsResponse"
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /query:
+    post:
+      operationId: query
+      summary: Query the knowledge graph
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/QueryRequest"
+      responses:
+        "200":
+          description: Query results
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/QueryResponse"
+        "400":
+          description: Bad request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /feedback:
+    post:
+      operationId: feedback
+      summary: Submit feedback for a query
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/FeedbackRequest"
+      responses:
+        "200":
+          description: Feedback recorded
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/FeedbackResponse"
+        "400":
+          description: Bad request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /ingest:
+    post:
+      operationId: ingest
+      summary: Ingest from file path
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/IngestRequest"
+      responses:
+        "200":
+          description: Ingest result
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/IngestResponse"
+        "400":
+          description: Bad request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /ingest/text:
+    post:
+      operationId: ingestText
+      summary: Ingest raw text
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/IngestTextRequest"
+      responses:
+        "200":
+          description: Ingest result
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/IngestResponse"
+        "400":
+          description: Bad request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /ingest/structured:
+    post:
+      operationId: ingestStructured
+      summary: Ingest structured concepts and edges
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/IngestStructuredRequest"
+      responses:
+        "200":
+          description: Ingest result
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/IngestResponse"
+        "400":
+          description: Bad request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /explore:
+    post:
+      operationId: explore
+      summary: Explore a node's neighborhood
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ExploreRequest"
+      responses:
+        "200":
+          description: Explore result
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ExploreResponse"
+        "400":
+          description: Bad request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "404":
+          description: Node not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /rules:
+    post:
+      operationId: rules
+      summary: Query rules with filters
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RulesRequest"
+      responses:
+        "200":
+          description: Rules result
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RulesResponse"
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /learning/select:
+    post:
+      operationId: learningSelect
+      summary: Select arms via bandit
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/LearningSelectRequest"
+      responses:
+        "200":
+          description: Selection result
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/LearningSelectResponse"
+        "400":
+          description: Bad request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /learning/observe:
+    post:
+      operationId: learningObserve
+      summary: Record arm outcome
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/LearningObserveRequest"
+      responses:
+        "200":
+          description: Observation recorded
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/LearningObserveResponse"
+        "400":
+          description: Bad request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /learning/{learner}/posteriors:
+    get:
+      operationId: learningPosteriors
+      summary: Get posterior distributions for a learner
+      parameters:
+        - name: learner
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Posteriors
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/LearningPosteriorsResponse"
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /learning/{learner}/metrics:
+    get:
+      operationId: learningMetrics
+      summary: Get learning metrics for a learner
+      parameters:
+        - name: learner
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: window
+          in: query
+          required: false
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Metrics
+          content:
+            application/json:
+              schema:
+                type: object
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /sources/connect:
+    post:
+      operationId: sourceConnect
+      summary: Connect a database source
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SourceConnectRequest"
+      responses:
+        "200":
+          description: Connected
+          content:
+            application/json:
+              schema:
+                type: object
+        "400":
+          description: Bad request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /sources/{source_id}/sync:
+    post:
+      operationId: sourceSync
+      summary: Sync a connected source
+      parameters:
+        - name: source_id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SourceSyncRequest"
+      responses:
+        "200":
+          description: Sync result
+          content:
+            application/json:
+              schema:
+                type: object
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /sources:
+    get:
+      operationId: sourceList
+      summary: List connected sources
+      responses:
+        "200":
+          description: Source list
+          content:
+            application/json:
+              schema:
+                type: object
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /sources/{source_id}:
+    delete:
+      operationId: sourceDisconnect
+      summary: Disconnect a source
+      parameters:
+        - name: source_id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Disconnected
+          content:
+            application/json:
+              schema:
+                type: object
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"

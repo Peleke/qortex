@@ -15,7 +15,7 @@ from __future__ import annotations
 
 import typer
 
-from qortex.cli import infra, ingest, inspect_cmd, interop_cmd, project, prune, viz
+from qortex.cli import infra, ingest, inspect_cmd, interop_cmd, migrate, project, prune, viz
 
 app = typer.Typer(
     name="qortex",
@@ -30,6 +30,7 @@ app.add_typer(inspect_cmd.app, name="inspect")
 app.add_typer(viz.app, name="viz")
 app.add_typer(interop_cmd.app, name="interop")
 app.add_typer(prune.app, name="prune")
+app.add_typer(migrate.app, name="migrate")
 
 
 @app.command("mcp-serve")
@@ -44,6 +45,32 @@ def mcp_serve(
     from qortex.mcp.server import serve
 
     serve(transport=transport)
+
+
+@app.command("serve")
+def serve(
+    host: str = typer.Option("127.0.0.1", help="Bind host."),
+    port: int = typer.Option(8400, help="Bind port."),
+    workers: int = typer.Option(1, help="Number of workers."),
+    reload: bool = typer.Option(False, help="Auto-reload on code changes."),
+) -> None:
+    """Start the qortex REST API server.
+
+    Serves the knowledge graph over HTTP. All framework adapters
+    (Agno, AutoGen, LangChain, Mastra, CrewAI) can connect via
+    HttpQortexClient.
+    """
+    import uvicorn
+
+    from qortex.api.app import create_app
+
+    uvicorn.run(
+        create_app(),
+        host=host,
+        port=port,
+        workers=workers,
+        reload=reload,
+    )
 
 
 def main() -> None:

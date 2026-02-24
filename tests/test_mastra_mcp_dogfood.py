@@ -69,7 +69,7 @@ def _reset_server_state():
     mcp_server._interoception = None
 
 
-def setup_graph_server():
+async def setup_graph_server():
     """Boot MCP server with a graph that has concepts, edges, and rules.
 
     This is the realistic setup: not just vectors, but typed relationships
@@ -122,7 +122,7 @@ def setup_graph_server():
         backend.add_embedding(node.id, emb)
 
     ids = [n.id for n in nodes]
-    vector_index.add(ids, embeddings)
+    await vector_index.add(ids, embeddings)
 
     # Typed edges
     backend.add_edge(
@@ -196,23 +196,23 @@ def setup_graph_server():
 class TestMCPQueryWithRules:
     """qortex_query now auto-surfaces linked rules in the response."""
 
-    def test_query_includes_rules_key(self):
-        setup_graph_server()
-        result = mcp_server._query_impl(context="OAuth2 authorization")
+    async def test_query_includes_rules_key(self):
+        await setup_graph_server()
+        result = await mcp_server._query_impl(context="OAuth2 authorization")
         assert "rules" in result
 
-    def test_query_rules_linked_to_results(self):
-        setup_graph_server()
-        result = mcp_server._query_impl(context="OAuth2 authorization")
+    async def test_query_rules_linked_to_results(self):
+        await setup_graph_server()
+        result = await mcp_server._query_impl(context="OAuth2 authorization")
         if result["items"]:
             node_ids = {item["node_id"] for item in result["items"]}
             if "sec:oauth" in node_ids:
                 rule_ids = {r["id"] for r in result["rules"]}
                 assert "rule:use-oauth" in rule_ids or "rule:rotate-jwt" in rule_ids
 
-    def test_query_rules_have_all_fields(self):
-        setup_graph_server()
-        result = mcp_server._query_impl(context="OAuth2 authorization")
+    async def test_query_rules_have_all_fields(self):
+        await setup_graph_server()
+        result = await mcp_server._query_impl(context="OAuth2 authorization")
         for rule in result["rules"]:
             assert "id" in rule
             assert "text" in rule
@@ -221,9 +221,9 @@ class TestMCPQueryWithRules:
             assert "relevance" in rule
             assert "source_concepts" in rule
 
-    def test_query_rules_json_serializable(self):
-        setup_graph_server()
-        result = mcp_server._query_impl(context="OAuth2 authorization")
+    async def test_query_rules_json_serializable(self):
+        await setup_graph_server()
+        result = await mcp_server._query_impl(context="OAuth2 authorization")
         serialized = json.dumps(result)
         deserialized = json.loads(serialized)
         assert deserialized["rules"] == result["rules"]
@@ -237,12 +237,12 @@ class TestMCPQueryWithRules:
 class TestMCPExploreFromQuery:
     """Query via MCP, then explore the graph from a result node_id."""
 
-    def test_query_then_explore(self):
+    async def test_query_then_explore(self):
         """Mastra TS client: query -> take node_id -> explore neighborhood."""
-        setup_graph_server()
+        await setup_graph_server()
 
         # Step 1: Query (MCP tool call)
-        query_result = mcp_server._query_impl(context="OAuth2 authorization")
+        query_result = await mcp_server._query_impl(context="OAuth2 authorization")
         assert len(query_result["items"]) > 0
 
         # Step 2: Explore (MCP tool call)
@@ -251,8 +251,8 @@ class TestMCPExploreFromQuery:
         assert explore_result is not None
         assert explore_result["node"]["id"] == node_id
 
-    def test_explore_returns_typed_edges(self):
-        setup_graph_server()
+    async def test_explore_returns_typed_edges(self):
+        await setup_graph_server()
         result = mcp_server._explore_impl("sec:oauth")
         assert len(result["edges"]) > 0
         for edge in result["edges"]:
@@ -261,34 +261,34 @@ class TestMCPExploreFromQuery:
             assert "relation_type" in edge
             assert isinstance(edge["relation_type"], str)
 
-    def test_explore_returns_neighbors(self):
-        setup_graph_server()
+    async def test_explore_returns_neighbors(self):
+        await setup_graph_server()
         result = mcp_server._explore_impl("sec:oauth")
         neighbor_ids = {n["id"] for n in result["neighbors"]}
         assert "sec:jwt" in neighbor_ids
         assert "sec:rbac" in neighbor_ids
 
-    def test_explore_returns_linked_rules(self):
-        setup_graph_server()
+    async def test_explore_returns_linked_rules(self):
+        await setup_graph_server()
         result = mcp_server._explore_impl("sec:oauth")
         rule_ids = {r["id"] for r in result["rules"]}
         assert "rule:use-oauth" in rule_ids
 
-    def test_explore_depth_2_reaches_farther(self):
-        setup_graph_server()
+    async def test_explore_depth_2_reaches_farther(self):
+        await setup_graph_server()
         result = mcp_server._explore_impl("sec:jwt", depth=2)
         neighbor_ids = {n["id"] for n in result["neighbors"]}
         # JWT -> OAuth -> RBAC path
         assert "sec:oauth" in neighbor_ids
         assert "sec:rbac" in neighbor_ids
 
-    def test_explore_nonexistent_returns_none(self):
-        setup_graph_server()
+    async def test_explore_nonexistent_returns_none(self):
+        await setup_graph_server()
         result = mcp_server._explore_impl("nonexistent:node")
         assert result is None
 
-    def test_explore_json_serializable(self):
-        setup_graph_server()
+    async def test_explore_json_serializable(self):
+        await setup_graph_server()
         result = mcp_server._explore_impl("sec:oauth")
         serialized = json.dumps(result)
         deserialized = json.loads(serialized)
@@ -303,32 +303,32 @@ class TestMCPExploreFromQuery:
 class TestMCPRulesProjection:
     """qortex_rules: get projected rules from the knowledge graph."""
 
-    def test_rules_returns_all(self):
-        setup_graph_server()
+    async def test_rules_returns_all(self):
+        await setup_graph_server()
         result = mcp_server._rules_impl()
         assert len(result["rules"]) >= 3
         assert result["projection"] == "rules"
 
-    def test_rules_filter_by_domain(self):
-        setup_graph_server()
+    async def test_rules_filter_by_domain(self):
+        await setup_graph_server()
         result = mcp_server._rules_impl(domains=["security"])
         for r in result["rules"]:
             assert r["domain"] == "security"
 
-    def test_rules_filter_by_concept_ids(self):
-        setup_graph_server()
+    async def test_rules_filter_by_concept_ids(self):
+        await setup_graph_server()
         result = mcp_server._rules_impl(concept_ids=["sec:rbac"])
         for r in result["rules"]:
             assert "sec:rbac" in r["source_concepts"]
 
-    def test_rules_filter_by_category(self):
-        setup_graph_server()
+    async def test_rules_filter_by_category(self):
+        await setup_graph_server()
         result = mcp_server._rules_impl(categories=["operations"])
         for r in result["rules"]:
             assert r["category"] == "operations"
 
-    def test_rules_json_serializable(self):
-        setup_graph_server()
+    async def test_rules_json_serializable(self):
+        await setup_graph_server()
         result = mcp_server._rules_impl()
         serialized = json.dumps(result)
         deserialized = json.loads(serialized)
@@ -352,7 +352,7 @@ class TestMCPFullMastraLoop:
     """
 
     async def test_complete_mcp_workflow(self):
-        setup_graph_server()
+        await setup_graph_server()
 
         # 1. Status (health check)
         status = mcp_server._status_impl()
@@ -360,7 +360,7 @@ class TestMCPFullMastraLoop:
         assert status["vector_search"] is True
 
         # 2. Query (Mastra: store.query())
-        query_result = mcp_server._query_impl(
+        query_result = await mcp_server._query_impl(
             context="How to implement authentication?",
             domains=["security"],
             top_k=4,
@@ -389,7 +389,7 @@ class TestMCPFullMastraLoop:
         assert feedback_result["status"] == "recorded"
 
         # 6. Re-query (in Level 2, this improves from feedback)
-        query_result_2 = mcp_server._query_impl(
+        query_result_2 = await mcp_server._query_impl(
             context="How to implement authentication?",
             domains=["security"],
             top_k=4,
@@ -397,11 +397,11 @@ class TestMCPFullMastraLoop:
         assert len(query_result_2["items"]) > 0
         assert query_result_2["query_id"] != query_id
 
-    def test_mastra_shape_mapping(self):
+    async def test_mastra_shape_mapping(self):
         """Map MCP responses to Mastra QueryResult shape end-to-end."""
-        setup_graph_server()
+        await setup_graph_server()
 
-        raw = mcp_server._query_impl(
+        raw = await mcp_server._query_impl(
             context="OAuth2 authorization",
             domains=["security"],
             top_k=3,
@@ -436,7 +436,7 @@ class TestMCPFullMastraLoop:
 
     async def test_all_mcp_responses_json_serializable(self):
         """Every MCP response must survive JSON roundtrip (stdio transport)."""
-        setup_graph_server()
+        await setup_graph_server()
 
         # Status
         status = mcp_server._status_impl()
@@ -447,7 +447,7 @@ class TestMCPFullMastraLoop:
         assert json.loads(json.dumps(domains)) == domains
 
         # Query
-        query = mcp_server._query_impl("OAuth2", domains=["security"], top_k=2)
+        query = await mcp_server._query_impl("OAuth2", domains=["security"], top_k=2)
         assert json.loads(json.dumps(query)) == query
 
         # Explore

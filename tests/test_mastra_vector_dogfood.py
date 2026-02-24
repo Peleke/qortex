@@ -70,7 +70,7 @@ class FakeEmbedding:
 
 
 @pytest.fixture(autouse=True)
-def _server_with_graph():
+async def _server_with_graph():
     """Set up server with a pre-populated knowledge graph for graph-enhanced tests."""
     vec = NumpyVectorIndex(dimensions=8)
     backend = InMemoryBackend(vector_index=vec)
@@ -122,7 +122,7 @@ def _server_with_graph():
     embeddings = emb.embed(texts)
     for cid, embedding in zip(ids, embeddings):
         backend.add_embedding(cid, embedding)
-    vec.add(ids, embeddings)
+    await vec.add(ids, embeddings)
 
     # Add typed edges
     edges = [
@@ -178,24 +178,24 @@ def _server_with_graph():
 class TestMastraVectorDropIn:
     """Proves every MastraVector abstract method works via MCP tools."""
 
-    def test_create_and_describe_index(self):
+    async def test_create_and_describe_index(self):
         r = _vector_create_index_impl("docs", 8, "cosine")
         assert r["status"] == "created"
 
-        r = _vector_describe_index_impl("docs")
+        r = await _vector_describe_index_impl("docs")
         assert r["dimension"] == 8
         assert r["count"] == 0
         assert r["metric"] == "cosine"
 
-    def test_list_indexes(self):
+    async def test_list_indexes(self):
         _vector_create_index_impl("idx_a", 8)
         _vector_create_index_impl("idx_b", 4)
         r = _vector_list_indexes_impl()
         assert sorted(r["indexes"]) == ["idx_a", "idx_b"]
 
-    def test_upsert_with_metadata_and_documents(self):
+    async def test_upsert_with_metadata_and_documents(self):
         _vector_create_index_impl("docs", 8)
-        r = _vector_upsert_impl(
+        r = await _vector_upsert_impl(
             "docs",
             vectors=[[1, 0, 0, 0, 0, 0, 0, 0], [0, 1, 0, 0, 0, 0, 0, 0]],
             metadata=[{"source": "handbook"}, {"source": "api-docs"}],
@@ -203,24 +203,24 @@ class TestMastraVectorDropIn:
             documents=["OAuth2 authorization", "JWT token structure"],
         )
         assert r["ids"] == ["v1", "v2"]
-        assert _vector_describe_index_impl("docs")["count"] == 2
+        assert (await _vector_describe_index_impl("docs"))["count"] == 2
 
-    def test_query_with_scores(self):
+    async def test_query_with_scores(self):
         _vector_create_index_impl("docs", 8)
-        _vector_upsert_impl(
+        await _vector_upsert_impl(
             "docs",
             vectors=[[1, 0, 0, 0, 0, 0, 0, 0], [0, 1, 0, 0, 0, 0, 0, 0]],
             metadata=[{"source": "a"}, {"source": "b"}],
             ids=["v1", "v2"],
         )
-        r = _vector_query_impl("docs", [1, 0, 0, 0, 0, 0, 0, 0], top_k=2)
+        r = await _vector_query_impl("docs", [1, 0, 0, 0, 0, 0, 0, 0], top_k=2)
         assert len(r["results"]) == 2
         assert r["results"][0]["id"] == "v1"
         assert r["results"][0]["score"] > r["results"][1]["score"]
 
-    def test_query_with_metadata_filter(self):
+    async def test_query_with_metadata_filter(self):
         _vector_create_index_impl("docs", 8)
-        _vector_upsert_impl(
+        await _vector_upsert_impl(
             "docs",
             vectors=[
                 [1, 0, 0, 0, 0, 0, 0, 0],
@@ -235,7 +235,7 @@ class TestMastraVectorDropIn:
             ids=["v1", "v2", "v3"],
         )
         # Filter: only handbook source
-        r = _vector_query_impl(
+        r = await _vector_query_impl(
             "docs",
             [1, 0, 0, 0, 0, 0, 0, 0],
             top_k=10,
@@ -244,7 +244,7 @@ class TestMastraVectorDropIn:
         assert all(res["metadata"]["source"] == "handbook" for res in r["results"])
 
         # Complex filter: handbook AND auth chapter
-        r = _vector_query_impl(
+        r = await _vector_query_impl(
             "docs",
             [1, 0, 0, 0, 0, 0, 0, 0],
             top_k=10,
@@ -253,59 +253,59 @@ class TestMastraVectorDropIn:
         assert len(r["results"]) == 1
         assert r["results"][0]["id"] == "v1"
 
-    def test_query_with_documents_in_results(self):
+    async def test_query_with_documents_in_results(self):
         _vector_create_index_impl("docs", 8)
-        _vector_upsert_impl(
+        await _vector_upsert_impl(
             "docs",
             vectors=[[1, 0, 0, 0, 0, 0, 0, 0]],
             ids=["v1"],
             documents=["OAuth2 is an authorization framework"],
         )
-        r = _vector_query_impl("docs", [1, 0, 0, 0, 0, 0, 0, 0], top_k=1)
+        r = await _vector_query_impl("docs", [1, 0, 0, 0, 0, 0, 0, 0], top_k=1)
         assert r["results"][0]["document"] == "OAuth2 is an authorization framework"
 
-    def test_update_vector_by_id(self):
+    async def test_update_vector_by_id(self):
         _vector_create_index_impl("docs", 8)
-        _vector_upsert_impl(
+        await _vector_upsert_impl(
             "docs",
             vectors=[[1, 0, 0, 0, 0, 0, 0, 0]],
             metadata=[{"status": "draft"}],
             ids=["v1"],
         )
-        r = _vector_update_impl("docs", id="v1", metadata={"status": "published"})
+        r = await _vector_update_impl("docs", id="v1", metadata={"status": "published"})
         assert r["count"] == 1
 
-        q = _vector_query_impl("docs", [1, 0, 0, 0, 0, 0, 0, 0], top_k=1)
+        q = await _vector_query_impl("docs", [1, 0, 0, 0, 0, 0, 0, 0], top_k=1)
         assert q["results"][0]["metadata"]["status"] == "published"
 
-    def test_update_vector_by_filter(self):
+    async def test_update_vector_by_filter(self):
         _vector_create_index_impl("docs", 8)
-        _vector_upsert_impl(
+        await _vector_upsert_impl(
             "docs",
             vectors=[[1, 0, 0, 0, 0, 0, 0, 0], [0, 1, 0, 0, 0, 0, 0, 0]],
             metadata=[{"source": "handbook"}, {"source": "handbook"}],
             ids=["v1", "v2"],
         )
-        r = _vector_update_impl(
+        r = await _vector_update_impl(
             "docs",
             filter={"source": "handbook"},
             metadata={"archived": True},
         )
         assert r["count"] == 2
 
-    def test_delete_single_vector(self):
+    async def test_delete_single_vector(self):
         _vector_create_index_impl("docs", 8)
-        _vector_upsert_impl(
+        await _vector_upsert_impl(
             "docs",
             vectors=[[1, 0, 0, 0, 0, 0, 0, 0], [0, 1, 0, 0, 0, 0, 0, 0]],
             ids=["v1", "v2"],
         )
-        _vector_delete_impl("docs", "v1")
-        assert _vector_describe_index_impl("docs")["count"] == 1
+        await _vector_delete_impl("docs", "v1")
+        assert (await _vector_describe_index_impl("docs"))["count"] == 1
 
-    def test_delete_vectors_by_ids(self):
+    async def test_delete_vectors_by_ids(self):
         _vector_create_index_impl("docs", 8)
-        _vector_upsert_impl(
+        await _vector_upsert_impl(
             "docs",
             vectors=[
                 [1, 0, 0, 0, 0, 0, 0, 0],
@@ -314,13 +314,13 @@ class TestMastraVectorDropIn:
             ],
             ids=["v1", "v2", "v3"],
         )
-        r = _vector_delete_many_impl("docs", ids=["v1", "v2"])
+        r = await _vector_delete_many_impl("docs", ids=["v1", "v2"])
         assert r["count"] == 2
-        assert _vector_describe_index_impl("docs")["count"] == 1
+        assert (await _vector_describe_index_impl("docs"))["count"] == 1
 
-    def test_delete_vectors_by_filter(self):
+    async def test_delete_vectors_by_filter(self):
         _vector_create_index_impl("docs", 8)
-        _vector_upsert_impl(
+        await _vector_upsert_impl(
             "docs",
             vectors=[
                 [1, 0, 0, 0, 0, 0, 0, 0],
@@ -334,13 +334,13 @@ class TestMastraVectorDropIn:
             ],
             ids=["v1", "v2", "v3"],
         )
-        r = _vector_delete_many_impl("docs", filter={"source": "old"})
+        r = await _vector_delete_many_impl("docs", filter={"source": "old"})
         assert r["count"] == 2
-        assert _vector_describe_index_impl("docs")["count"] == 1
+        assert (await _vector_describe_index_impl("docs"))["count"] == 1
 
-    def test_delete_index(self):
+    async def test_delete_index(self):
         _vector_create_index_impl("docs", 8)
-        _vector_upsert_impl("docs", vectors=[[1, 0, 0, 0, 0, 0, 0, 0]], ids=["v1"])
+        await _vector_upsert_impl("docs", vectors=[[1, 0, 0, 0, 0, 0, 0, 0]], ids=["v1"])
         _vector_delete_index_impl("docs")
         assert _vector_list_indexes_impl()["indexes"] == []
 
@@ -353,9 +353,9 @@ class TestMastraVectorDropIn:
 class TestGraphEnhancedExtras:
     """Proves the graph-enhanced capabilities work alongside MastraVector."""
 
-    def test_text_query_returns_items_and_rules(self):
+    async def test_text_query_returns_items_and_rules(self):
         """qortex_query = text-level search with auto-surfaced rules."""
-        r = _query_impl("OAuth2 authorization", domains=["security"], top_k=3)
+        r = await _query_impl("OAuth2 authorization", domains=["security"], top_k=3)
 
         # Verify response shape matches what TypeScript client expects
         assert "items" in r
@@ -371,10 +371,10 @@ class TestGraphEnhancedExtras:
         assert "domain" in item
         assert "node_id" in item
 
-    def test_explore_from_query_result(self):
+    async def test_explore_from_query_result(self):
         """Query → take node_id → explore → typed edges + neighbors."""
         # First query
-        q = _query_impl("OAuth2", domains=["security"], top_k=1)
+        q = await _query_impl("OAuth2", domains=["security"], top_k=1)
         node_id = q["items"][0]["node_id"]
 
         # Explore from that result
@@ -388,7 +388,7 @@ class TestGraphEnhancedExtras:
         edge_types = {e["relation_type"] for e in r["edges"]}
         assert len(edge_types) > 0
 
-    def test_explore_depth_2(self):
+    async def test_explore_depth_2(self):
         """Explore at depth 2 returns more of the graph."""
         r1 = _explore_impl("sec:oauth", depth=1)
         r2 = _explore_impl("sec:oauth", depth=2)
@@ -413,7 +413,7 @@ class TestGraphEnhancedExtras:
 
     async def test_feedback_loop(self):
         """Feedback adjusts future retrieval (the learning loop)."""
-        q1 = _query_impl("OAuth2", domains=["security"], top_k=4)
+        q1 = await _query_impl("OAuth2", domains=["security"], top_k=4)
         assert len(q1["items"]) > 0
 
         # Submit feedback
@@ -425,9 +425,9 @@ class TestGraphEnhancedExtras:
         assert r["status"] == "recorded"
         assert r["outcome_count"] == len(outcomes)
 
-    def test_rules_in_query_results(self):
+    async def test_rules_in_query_results(self):
         """Rules auto-surfaced in query results."""
-        r = _query_impl("OAuth2 authorization", domains=["security"], top_k=3)
+        r = await _query_impl("OAuth2 authorization", domains=["security"], top_k=3)
         # Rules should be present (may be empty if no linked rules match)
         assert isinstance(r["rules"], list)
 
@@ -440,22 +440,22 @@ class TestGraphEnhancedExtras:
 class TestJsonSerialization:
     """Every MCP response must be JSON-serializable (the transport contract)."""
 
-    def test_vector_query_serializable(self):
+    async def test_vector_query_serializable(self):
         _vector_create_index_impl("docs", 8)
-        _vector_upsert_impl(
+        await _vector_upsert_impl(
             "docs",
             vectors=[[1, 0, 0, 0, 0, 0, 0, 0]],
             metadata=[{"key": "value"}],
             ids=["v1"],
             documents=["test doc"],
         )
-        r = _vector_query_impl("docs", [1, 0, 0, 0, 0, 0, 0, 0], top_k=1)
+        r = await _vector_query_impl("docs", [1, 0, 0, 0, 0, 0, 0, 0], top_k=1)
         serialized = json.dumps(r)
         deserialized = json.loads(serialized)
         assert deserialized["results"][0]["id"] == "v1"
 
-    def test_text_query_serializable(self):
-        r = _query_impl("OAuth2", domains=["security"])
+    async def test_text_query_serializable(self):
+        r = await _query_impl("OAuth2", domains=["security"])
         serialized = json.dumps(r)
         deserialized = json.loads(serialized)
         assert "items" in deserialized
@@ -503,7 +503,7 @@ class TestFullDropInSimulation:
         ]
         vectors = embedding.embed(texts)
 
-        r = _vector_upsert_impl(
+        r = await _vector_upsert_impl(
             "my_app",
             vectors=vectors,
             metadata=[{"text": t, "source": "security-handbook"} for t in texts],
@@ -514,13 +514,13 @@ class TestFullDropInSimulation:
 
         # Query (Mastra calls query with embedding)
         query_vec = embedding.embed(["how to authenticate API requests"])[0]
-        r = _vector_query_impl("my_app", query_vec, top_k=2)
+        r = await _vector_query_impl("my_app", query_vec, top_k=2)
         assert len(r["results"]) == 2
         assert all("score" in res for res in r["results"])
         assert r["results"][0]["score"] >= r["results"][1]["score"]
 
         # Query with filter (Mastra supports this)
-        r = _vector_query_impl(
+        r = await _vector_query_impl(
             "my_app",
             query_vec,
             top_k=10,
@@ -529,15 +529,15 @@ class TestFullDropInSimulation:
         assert len(r["results"]) > 0
 
         # Update metadata (Mastra calls updateVector)
-        _vector_update_impl("my_app", id="doc_0", metadata={"reviewed": True})
-        q = _vector_query_impl("my_app", vectors[0], top_k=1)
+        await _vector_update_impl("my_app", id="doc_0", metadata={"reviewed": True})
+        q = await _vector_query_impl("my_app", vectors[0], top_k=1)
         assert q["results"][0]["metadata"]["reviewed"] is True
 
         # === Phase 2: qortex graph-enhanced extras ===
         # (This is what you get on top of standard MastraVector)
 
         # Text-level query with graph-enhanced PPR
-        tq = _query_impl("OAuth2 authorization", domains=["security"], top_k=3)
+        tq = await _query_impl("OAuth2 authorization", domains=["security"], top_k=3)
         assert len(tq["items"]) > 0
         assert tq["query_id"] != ""
 
@@ -562,32 +562,32 @@ class TestFullDropInSimulation:
         # === Phase 3: Cleanup ===
 
         # Delete some vectors
-        _vector_delete_impl("my_app", "doc_3")
-        assert _vector_describe_index_impl("my_app")["count"] == 3
+        await _vector_delete_impl("my_app", "doc_3")
+        assert (await _vector_describe_index_impl("my_app"))["count"] == 3
 
         # Delete by filter
-        _vector_delete_many_impl(
+        await _vector_delete_many_impl(
             "my_app",
             filter={"source": "security-handbook"},
         )
-        assert _vector_describe_index_impl("my_app")["count"] == 0
+        assert (await _vector_describe_index_impl("my_app"))["count"] == 0
 
         # Delete index
         _vector_delete_index_impl("my_app")
         assert "my_app" not in _vector_list_indexes_impl()["indexes"]
 
-    def test_multiple_indexes_concurrent(self):
+    async def test_multiple_indexes_concurrent(self):
         """Mastra apps may use multiple indexes simultaneously."""
         _vector_create_index_impl("code", 8)
         _vector_create_index_impl("docs", 8)
 
-        _vector_upsert_impl(
+        await _vector_upsert_impl(
             "code",
             vectors=[[1, 0, 0, 0, 0, 0, 0, 0]],
             metadata=[{"type": "function"}],
             ids=["fn_1"],
         )
-        _vector_upsert_impl(
+        await _vector_upsert_impl(
             "docs",
             vectors=[[0, 1, 0, 0, 0, 0, 0, 0]],
             metadata=[{"type": "article"}],
@@ -595,33 +595,33 @@ class TestFullDropInSimulation:
         )
 
         # Query each independently
-        r_code = _vector_query_impl("code", [1, 0, 0, 0, 0, 0, 0, 0], top_k=1)
-        r_docs = _vector_query_impl("docs", [0, 1, 0, 0, 0, 0, 0, 0], top_k=1)
+        r_code = await _vector_query_impl("code", [1, 0, 0, 0, 0, 0, 0, 0], top_k=1)
+        r_docs = await _vector_query_impl("docs", [0, 1, 0, 0, 0, 0, 0, 0], top_k=1)
 
         assert r_code["results"][0]["id"] == "fn_1"
         assert r_docs["results"][0]["id"] == "art_1"
 
         # Indexes are independent
-        assert _vector_describe_index_impl("code")["count"] == 1
-        assert _vector_describe_index_impl("docs")["count"] == 1
+        assert (await _vector_describe_index_impl("code"))["count"] == 1
+        assert (await _vector_describe_index_impl("docs"))["count"] == 1
 
-    def test_upsert_overwrites_existing(self):
+    async def test_upsert_overwrites_existing(self):
         """Mastra's upsert semantics: same ID replaces."""
         _vector_create_index_impl("docs", 8)
 
-        _vector_upsert_impl(
+        await _vector_upsert_impl(
             "docs",
             vectors=[[1, 0, 0, 0, 0, 0, 0, 0]],
             metadata=[{"version": 1}],
             ids=["v1"],
         )
-        _vector_upsert_impl(
+        await _vector_upsert_impl(
             "docs",
             vectors=[[0, 1, 0, 0, 0, 0, 0, 0]],
             metadata=[{"version": 2}],
             ids=["v1"],
         )
 
-        assert _vector_describe_index_impl("docs")["count"] == 1
-        r = _vector_query_impl("docs", [0, 1, 0, 0, 0, 0, 0, 0], top_k=1)
+        assert (await _vector_describe_index_impl("docs"))["count"] == 1
+        r = await _vector_query_impl("docs", [0, 1, 0, 0, 0, 0, 0, 0], top_k=1)
         assert r["results"][0]["metadata"]["version"] == 2

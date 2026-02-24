@@ -376,10 +376,14 @@ class InMemoryBackend:
     # -------------------------------------------------------------------------
 
     def add_embedding(self, node_id: str, embedding: list[float]) -> None:
-        """Store embedding and optionally index it."""
+        """Store embedding in the dict.
+
+        Note: VectorIndex population is handled by the service layer
+        (which calls vector_index.add() directly). This method only
+        stores the embedding for brute-force fallback search and
+        get_embedding() lookups.
+        """
         self._embeddings[node_id] = embedding
-        if self._vector_index is not None:
-            self._vector_index.add([node_id], [embedding])
 
     def get_embedding(self, node_id: str) -> list[float] | None:
         return self._embeddings.get(node_id)
@@ -391,25 +395,11 @@ class InMemoryBackend:
         top_k: int = 10,
         threshold: float = 0.0,
     ) -> list[tuple[ConceptNode, float]]:
-        """Vector similarity search over concept embeddings."""
-        if self._vector_index is not None:
-            # Use the index for fast search
-            results = self._vector_index.search(
-                query_embedding, top_k=top_k * 2, threshold=threshold
-            )
-            filtered = []
-            for node_id, score in results:
-                node = self._nodes.get(node_id)
-                if node is None:
-                    continue
-                if domain and node.domain != domain:
-                    continue
-                filtered.append((node, score))
-                if len(filtered) >= top_k:
-                    break
-            return filtered
+        """Vector similarity search over concept embeddings.
 
-        # Fallback: brute-force over stored embeddings
+        Uses brute-force cosine similarity over the stored embeddings dict.
+        For indexed search, use VectorIndex.search() directly (via adapters).
+        """
         if not self._embeddings:
             return []
 

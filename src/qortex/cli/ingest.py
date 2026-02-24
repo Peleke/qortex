@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import json
 from dataclasses import asdict
 from datetime import UTC, datetime
@@ -319,7 +320,7 @@ def _embed_manifest_concepts(
         ids = [c.id for c in batch]
 
         embeddings = embedding_model.embed(texts)
-        vector_index.add(ids, embeddings)
+        asyncio.run(vector_index.add(ids, embeddings))
 
         # Also write embeddings to graph backend for PPR node lookups
         for cid, emb in zip(ids, embeddings):
@@ -327,7 +328,7 @@ def _embed_manifest_concepts(
 
         total_embedded += len(batch)
 
-    vector_index.persist()
+    asyncio.run(vector_index.persist())
     typer.echo(f"  Embedded {total_embedded} concepts into vec index ({vec_backend}).")
     return total_embedded
 

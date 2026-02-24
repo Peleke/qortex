@@ -1,7 +1,7 @@
 """End-to-end dogfood test for the learning module.
 
-Proves the full pipeline: ingest data → query → select arms → observe outcomes
-→ posteriors update → metrics reflect reality → events fire → re-query shows
+Proves the full pipeline: ingest data -> query -> select arms -> observe outcomes
+-> posteriors update -> metrics reflect reality -> events fire -> re-query shows
 improved selection from learned posteriors.
 
 This is the "show the investors" test.
@@ -112,7 +112,7 @@ def event_log():
 
 
 @pytest.fixture
-def seeded_server():
+async def seeded_server():
     """Server with knowledge graph, vec index, and concepts ready for query."""
     from qortex.vec.index import NumpyVectorIndex
 
@@ -152,7 +152,7 @@ def seeded_server():
         backend.add_node(concept)
         emb = embedding.embed([f"{concept.name}: {concept.description}"])[0]
         backend.add_embedding(concept.id, emb)
-        vec_index.add([concept.id], [emb])
+        await vec_index.add([concept.id], [emb])
 
     # Add edge: v2 REFINES v1
     backend.add_edge(
@@ -177,13 +177,13 @@ def seeded_server():
 
 
 class TestLearningE2EDogfood:
-    """Full pipeline: query → select → observe → learn → re-select."""
+    """Full pipeline: query -> select -> observe -> learn -> re-select."""
 
     async def test_full_learning_lifecycle(self, seeded_server, event_log):
         srv = seeded_server
 
-        # ── Step 1: Query the knowledge graph ──────────────────────
-        query_result = srv._query_impl(
+        # -- Step 1: Query the knowledge graph --
+        query_result = await srv._query_impl(
             context="prompt template for reasoning",
             domains=["prompts"],
             top_k=3,
@@ -191,7 +191,7 @@ class TestLearningE2EDogfood:
         )
         assert len(query_result["items"]) > 0
 
-        # ── Step 2: Select arms for prompt optimization ────────────
+        # -- Step 2: Select arms for prompt optimization --
         candidates = [
             {"id": "prompt:v1", "metadata": {"type": "basic"}, "token_cost": 100},
             {"id": "prompt:v2", "metadata": {"type": "cot"}, "token_cost": 200},
@@ -206,7 +206,7 @@ class TestLearningE2EDogfood:
         assert len(select_result["selected_arms"]) == 2
         selected_ids = {a["id"] for a in select_result["selected_arms"]}
 
-        # ── Step 3: Simulate outcomes ──────────────────────────────
+        # -- Step 3: Simulate outcomes --
         # v2 (chain-of-thought) works great; always observe it as accepted
         # regardless of whether it was selected (initial selection is random)
         await srv._learning_observe_impl(
@@ -224,7 +224,7 @@ class TestLearningE2EDogfood:
                     context={"task": "type-checking"},
                 )
 
-        # ── Step 4: Check posteriors reflect learning ──────────────
+        # -- Step 4: Check posteriors reflect learning --
         posteriors = await srv._learning_posteriors_impl(
             learner="prompt-optimizer",
             context={"task": "type-checking"},
@@ -237,7 +237,7 @@ class TestLearningE2EDogfood:
             if arm_id != "prompt:v2":
                 assert p[arm_id]["mean"] < p["prompt:v2"]["mean"]
 
-        # ── Step 5: Repeat selection — v2 should be strongly preferred ──
+        # -- Step 5: Repeat selection -- v2 should be strongly preferred --
         # Train more: 20 rounds of v2=accepted to build strong posterior
         for _ in range(20):
             await srv._learning_observe_impl(
@@ -257,7 +257,7 @@ class TestLearningE2EDogfood:
                     context={"task": "type-checking"},
                 )
 
-        # Now select — v2 should dominate (alpha~22 vs beta~1)
+        # Now select -- v2 should dominate (alpha~22 vs beta~1)
         v2_selected = 0
         for _ in range(50):
             result = await srv._learning_select_impl(
@@ -272,14 +272,14 @@ class TestLearningE2EDogfood:
         # With 10% baseline, expect ~45 out of 50 (exploration steals ~5)
         assert v2_selected > 35, f"v2 selected {v2_selected}/50 times (expected >35)"
 
-        # ── Step 6: Metrics reflect reality ────────────────────────
+        # -- Step 6: Metrics reflect reality --
         metrics = await srv._learning_metrics_impl(learner="prompt-optimizer")
         # 2 initial + 20 v2 accepted + 10 others rejected = 32 pulls
         assert metrics["total_pulls"] > 20
         assert metrics["total_reward"] > 10
         assert metrics["accuracy"] > 0.3
 
-        # ── Step 7: Events fired correctly ─────────────────────────
+        # -- Step 7: Events fired correctly --
         event_types = [t for t, _ in event_log]
 
         # Query events from Step 1
@@ -373,8 +373,9 @@ class TestLearningE2EDogfood:
         assert a_posteriors["posteriors"]["arm:x"]["mean"] > 0.7
         assert b_posteriors["posteriors"]["arm:x"]["mean"] < 0.3
 
-    def test_query_failed_event_fires_on_embedding_error(self, event_log):
+    async def test_query_failed_event_fires_on_embedding_error(self, event_log):
         """Prove QueryFailed events fire when embedding fails."""
+        import asyncio
 
         class BrokenEmbedding:
             @property
@@ -397,10 +398,15 @@ class TestLearningE2EDogfood:
         )
 
         with pytest.raises(RuntimeError, match="GPU exploded"):
-            mcp_server._query_impl(
+            await mcp_server._query_impl(
                 context="test query",
                 mode="vec",
             )
+
+        # Allow async event handlers to process (pyventus AsyncIOProcessingService
+        # schedules handlers as tasks; yield control multiple times to drain them)
+        for _ in range(10):
+            await asyncio.sleep(0)
 
         # QueryFailed event should have fired
         failed_events = [e for t, e in event_log if t == "QueryFailed"]
@@ -409,7 +415,7 @@ class TestLearningE2EDogfood:
         assert "GPU exploded" in failed_events[0].error
 
     async def test_context_partitioned_learning(self, seeded_server, event_log):
-        """Different contexts learn independently — essential for multi-task optimization."""
+        """Different contexts learn independently -- essential for multi-task optimization."""
         srv = seeded_server
 
         # Context A: arm:alpha works well

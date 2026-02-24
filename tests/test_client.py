@@ -14,6 +14,7 @@ Tests cover:
 
 from __future__ import annotations
 
+import asyncio
 import hashlib
 
 import pytest
@@ -98,8 +99,11 @@ def make_client(with_data: bool = False) -> LocalQortexClient:
             backend.add_node(node)
         texts = [f"{n.name}: {n.description}" for n in nodes]
         embeddings = embedding.embed(texts)
+        ids = [n.id for n in nodes]
         for node, emb in zip(nodes, embeddings):
             backend.add_embedding(node.id, emb)
+        # Populate vec index (async since VectorIndex protocol is now async)
+        asyncio.run(vector_index.add(ids, embeddings))
 
     return client
 

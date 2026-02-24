@@ -328,32 +328,32 @@ class TestQortexRulesMCP:
 
 
 class TestQueryWithRulesMCP:
-    def test_query_includes_rules_key(self, configured_server, backend, embedding):
+    async def test_query_includes_rules_key(self, configured_server, backend, embedding):
         _setup_graph_with_rules(backend, embedding)
-        result = mcp_server._query_impl(context="Authentication via OAuth2")
+        result = await mcp_server._query_impl(context="Authentication via OAuth2")
         assert "rules" in result
 
-    def test_query_rules_is_list(self, configured_server, backend, embedding):
+    async def test_query_rules_is_list(self, configured_server, backend, embedding):
         _setup_graph_with_rules(backend, embedding)
-        result = mcp_server._query_impl(context="Authentication via OAuth2")
+        result = await mcp_server._query_impl(context="Authentication via OAuth2")
         assert isinstance(result["rules"], list)
 
-    def test_query_rules_linked_to_results(self, configured_server, backend, embedding):
+    async def test_query_rules_linked_to_results(self, configured_server, backend, embedding):
         _setup_graph_with_rules(backend, embedding)
-        result = mcp_server._query_impl(context="Authentication via OAuth2")
+        result = await mcp_server._query_impl(context="Authentication via OAuth2")
         if result["items"]:
             node_ids = {item["node_id"] for item in result["items"]}
             if "security:Auth" in node_ids:
                 rule_ids = {r["id"] for r in result["rules"]}
                 assert "r1" in rule_ids or "r2" in rule_ids
 
-    def test_query_rules_empty_when_no_results(self, configured_server):
-        result = mcp_server._query_impl(context="nothing")
+    async def test_query_rules_empty_when_no_results(self, configured_server):
+        result = await mcp_server._query_impl(context="nothing")
         assert result["rules"] == []
 
-    def test_query_rules_have_all_fields(self, configured_server, backend, embedding):
+    async def test_query_rules_have_all_fields(self, configured_server, backend, embedding):
         _setup_graph_with_rules(backend, embedding)
-        result = mcp_server._query_impl(context="Authentication via OAuth2")
+        result = await mcp_server._query_impl(context="Authentication via OAuth2")
         for rule in result["rules"]:
             assert "id" in rule
             assert "text" in rule
@@ -364,8 +364,10 @@ class TestQueryWithRulesMCP:
             assert "derivation" in rule
             assert "source_concepts" in rule
 
-    def test_query_rules_have_relevance_from_scores(self, configured_server, backend, embedding):
+    async def test_query_rules_have_relevance_from_scores(
+        self, configured_server, backend, embedding
+    ):
         _setup_graph_with_rules(backend, embedding)
-        result = mcp_server._query_impl(context="Authentication via OAuth2")
+        result = await mcp_server._query_impl(context="Authentication via OAuth2")
         for rule in result["rules"]:
             assert isinstance(rule["relevance"], float)

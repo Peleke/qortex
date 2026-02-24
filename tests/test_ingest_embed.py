@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import hashlib
 from unittest.mock import MagicMock
 
@@ -73,7 +74,7 @@ class TestEmbedManifestConcepts:
         )
 
         assert count == 10
-        assert vec_index.size() == 10
+        assert asyncio.run(vec_index.size()) == 10
         assert graph_backend.add_embedding.call_count == 10
 
     def test_skips_concepts_without_descriptions(self):
@@ -98,7 +99,7 @@ class TestEmbedManifestConcepts:
         )
 
         assert count == 2
-        assert vec_index.size() == 2
+        assert asyncio.run(vec_index.size()) == 2
         assert graph_backend.add_embedding.call_count == 2
 
     def test_batching_works_with_large_manifest(self):
@@ -116,7 +117,7 @@ class TestEmbedManifestConcepts:
         )
 
         assert count == 150
-        assert vec_index.size() == 150
+        assert asyncio.run(vec_index.size()) == 150
         assert graph_backend.add_embedding.call_count == 150
 
     def test_embedded_concepts_are_searchable(self):
@@ -137,7 +138,7 @@ class TestEmbedManifestConcepts:
         query_emb = fake_model.embed(
             ["This is the description for concept 0 about software design."]
         )[0]
-        results = vec_index.search(query_emb, top_k=3)
+        results = asyncio.run(vec_index.search(query_emb, top_k=3))
 
         assert len(results) > 0
         assert results[0][0] == "test_domain:concept_0"
@@ -158,4 +159,4 @@ class TestEmbedManifestConcepts:
         )
 
         assert count == 0
-        assert vec_index.size() == 0
+        assert asyncio.run(vec_index.size()) == 0

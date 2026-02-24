@@ -2,8 +2,10 @@
 
 from __future__ import annotations
 
+import asyncio
 import logging
 import time
+from collections.abc import AsyncIterator
 from typing import Protocol, runtime_checkable
 
 from qortex.observe.tracing import traced
@@ -25,7 +27,7 @@ def _try_emit(event) -> None:
 class VectorIndex(Protocol):
     """Protocol for vector similarity search."""
 
-    def add(self, ids: list[str], embeddings: list[list[float]]) -> None:
+    async def add(self, ids: list[str], embeddings: list[list[float]]) -> None:
         """Add vectors to the index.
 
         Args:
@@ -34,7 +36,7 @@ class VectorIndex(Protocol):
         """
         ...
 
-    def search(
+    async def search(
         self,
         query_embedding: list[float],
         top_k: int = 10,
@@ -52,16 +54,24 @@ class VectorIndex(Protocol):
         """
         ...
 
-    def remove(self, ids: list[str]) -> None:
+    async def remove(self, ids: list[str]) -> None:
         """Remove vectors by ID."""
         ...
 
-    def size(self) -> int:
+    async def size(self) -> int:
         """Number of vectors in the index."""
         ...
 
-    def persist(self) -> None:
+    async def persist(self) -> None:
         """Persist index to storage. No-op for in-memory implementations."""
+        ...
+
+    def iter_all(self, batch_size: int = 500) -> AsyncIterator[tuple[list[str], list[list[float]]]]:
+        """Iterate all (ids, embeddings) in batches.
+
+        Yields:
+            Tuples of (ids_batch, embeddings_batch).
+        """
         ...
 
 
@@ -94,7 +104,7 @@ class NumpyVectorIndex:
         self._matrix: np.ndarray = np.zeros((0, dimensions), dtype=np.float32)
 
     @traced("vec.add")
-    def add(self, ids: list[str], embeddings: list[list[float]]) -> None:
+    async def add(self, ids: list[str], embeddings: list[list[float]]) -> None:
         """Add vectors. Overwrites if ID already exists."""
         t0 = time.perf_counter()
         if len(ids) != len(embeddings):
@@ -105,7 +115,7 @@ class NumpyVectorIndex:
         # Remove existing IDs first (upsert semantics)
         existing = [i for i in ids if i in self._id_to_idx]
         if existing:
-            self.remove(existing)
+            await self.remove(existing)
 
         new_vecs = np.array(embeddings, dtype=np.float32)
         if new_vecs.shape[1] != self._dimensions:
@@ -148,7 +158,7 @@ class NumpyVectorIndex:
         )
 
     @traced("vec.search")
-    def search(
+    async def search(
         self,
         query_embedding: list[float],
         top_k: int = 10,
@@ -213,7 +223,7 @@ class NumpyVectorIndex:
         return results
 
     @traced("vec.remove")
-    def remove(self, ids: list[str]) -> None:
+    async def remove(self, ids: list[str]) -> None:
         """Remove vectors by ID."""
         np = self._np
         indices_to_remove = set()
@@ -235,12 +245,22 @@ class NumpyVectorIndex:
         self._ids = new_ids
         self._id_to_idx = {id_: i for i, id_ in enumerate(self._ids)}
 
-    def size(self) -> int:
+    async def size(self) -> int:
         return len(self._ids)
 
-    def persist(self) -> None:
+    async def persist(self) -> None:
         """No-op for in-memory index."""
         pass
+
+    async def iter_all(
+        self, batch_size: int = 500
+    ) -> AsyncIterator[tuple[list[str], list[list[float]]]]:
+        """Iterate all vectors in batches."""
+        for start in range(0, len(self._ids), batch_size):
+            end = min(start + batch_size, len(self._ids))
+            ids_batch = self._ids[start:end]
+            embs_batch = self._matrix[start:end].tolist()
+            yield ids_batch, embs_batch
 
 
 class SqliteVecIndex:
@@ -295,11 +315,10 @@ class SqliteVecIndex:
         """)
         self._conn.commit()
 
-    def add(self, ids: list[str], embeddings: list[list[float]]) -> None:
-        """Add vectors with upsert semantics."""
+    def _add_sync(self, ids: list[str], embeddings: list[list[float]]) -> int:
+        """Sync add implementation — runs in thread."""
         import struct
 
-        t0 = time.perf_counter()
         with self._lock:
             self._ensure_connection()
             assert self._conn is not None
@@ -326,36 +345,36 @@ class SqliteVecIndex:
                 self._conn.execute("INSERT INTO vec_meta(id, row_id) VALUES (?, ?)", (id_, row_id))
 
             self._conn.commit()
+        return self._size_sync()
+
+    async def add(self, ids: list[str], embeddings: list[list[float]]) -> None:
+        """Add vectors with upsert semantics."""
+        t0 = time.perf_counter()
+        total_size = await asyncio.to_thread(self._add_sync, ids, embeddings)
 
         from qortex.observe.events import VecIndexUpdated
 
         _try_emit(
             VecIndexUpdated(
                 count_added=len(ids),
-                total_size=self.size(),
+                total_size=total_size,
                 latency_ms=(time.perf_counter() - t0) * 1000,
                 index_type="sqlite",
             )
         )
 
-    def search(
-        self,
-        query_embedding: list[float],
-        top_k: int = 10,
-        threshold: float = 0.0,
+    def _search_sync(
+        self, query_embedding: list[float], top_k: int, threshold: float
     ) -> list[tuple[str, float]]:
-        """Search using sqlite-vec's built-in distance functions."""
+        """Sync search implementation — runs in thread."""
         import struct
 
-        t0 = time.perf_counter()
         with self._lock:
             self._ensure_connection()
             assert self._conn is not None
 
             blob = struct.pack(f"{len(query_embedding)}f", *query_embedding)
 
-            # sqlite-vec returns distance (lower = more similar)
-            # We convert to cosine similarity: sim = 1 - distance
             rows = self._conn.execute(
                 """
                 SELECT vec_meta.id, vec_index.distance
@@ -372,6 +391,18 @@ class SqliteVecIndex:
             similarity = 1.0 - distance
             if similarity >= threshold:
                 results.append((id_, similarity))
+
+        return results
+
+    async def search(
+        self,
+        query_embedding: list[float],
+        top_k: int = 10,
+        threshold: float = 0.0,
+    ) -> list[tuple[str, float]]:
+        """Search using sqlite-vec's built-in distance functions."""
+        t0 = time.perf_counter()
+        results = await asyncio.to_thread(self._search_sync, query_embedding, top_k, threshold)
 
         # Vec observability: search quality signal
         elapsed = (time.perf_counter() - t0) * 1000
@@ -401,24 +432,79 @@ class SqliteVecIndex:
                 self._conn.execute("DELETE FROM vec_meta WHERE id = ?", (id_,))
         self._conn.commit()
 
-    def remove(self, ids: list[str]) -> None:
-        """Remove vectors by ID."""
+    def _remove_sync(self, ids: list[str]) -> None:
+        """Sync remove implementation — runs in thread."""
         with self._lock:
             self._ensure_connection()
             self._remove_locked(ids)
 
-    def size(self) -> int:
+    async def remove(self, ids: list[str]) -> None:
+        """Remove vectors by ID."""
+        await asyncio.to_thread(self._remove_sync, ids)
+
+    def _size_sync(self) -> int:
         with self._lock:
             self._ensure_connection()
             assert self._conn is not None
             row = self._conn.execute("SELECT COUNT(*) FROM vec_meta").fetchone()
             return row[0] if row else 0
 
-    def persist(self) -> None:
-        """Commit any pending changes."""
+    async def size(self) -> int:
+        return await asyncio.to_thread(self._size_sync)
+
+    def _persist_sync(self) -> None:
         with self._lock:
             if self._conn:
                 self._conn.commit()
+
+    async def persist(self) -> None:
+        """Commit any pending changes."""
+        await asyncio.to_thread(self._persist_sync)
+
+    def _iter_all_batch_sync(
+        self, batch_size: int, offset: int
+    ) -> tuple[list[str], list[list[float]]] | None:
+        """Read a single batch from sqlite. Returns None when exhausted."""
+        import struct
+
+        with self._lock:
+            self._ensure_connection()
+            assert self._conn is not None
+
+            rows = self._conn.execute(
+                """
+                SELECT vm.id, vi.embedding
+                FROM vec_meta vm
+                JOIN vec_index vi ON vi.rowid = vm.row_id
+                LIMIT ? OFFSET ?
+                """,
+                (batch_size, offset),
+            ).fetchall()
+
+            if not rows:
+                return None
+
+            ids = []
+            embeddings = []
+            for row_id, blob in rows:
+                dims = len(blob) // 4  # float32 = 4 bytes
+                emb = list(struct.unpack(f"{dims}f", blob))
+                ids.append(row_id)
+                embeddings.append(emb)
+
+            return ids, embeddings
+
+    async def iter_all(
+        self, batch_size: int = 500
+    ) -> AsyncIterator[tuple[list[str], list[list[float]]]]:
+        """Iterate all vectors in batches (one thread call per batch)."""
+        offset = 0
+        while True:
+            batch = await asyncio.to_thread(self._iter_all_batch_sync, batch_size, offset)
+            if batch is None:
+                break
+            yield batch
+            offset += batch_size
 
     def close(self) -> None:
         """Close the database connection."""

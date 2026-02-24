@@ -139,13 +139,13 @@ def _teleportation_enabled_default() -> bool:
 class InteroceptionConfig:
     """Configuration for LocalInteroceptionProvider.
 
-    Priority: if db_path is set, SQLite is used for persistence.
-    If only factors_path/buffer_path are set, falls back to JSON files.
+    Priority: postgres_pool > db_path (SQLite) > factors_path/buffer_path (JSON).
     """
 
     db_path: Path | None = None
     factors_path: Path | None = None
     buffer_path: Path | None = None
+    postgres_pool: Any = None
     auto_flush_threshold: int = 50
     persist_on_update: bool = True
     teleportation_enabled: bool = field(default_factory=_teleportation_enabled_default)
@@ -381,3 +381,165 @@ class McpOutcomeSource:
 
         for query_id, outcome_map in grouped.items():
             self._interoception.report_outcome(query_id, outcome_map)
+
+
+# ---------------------------------------------------------------------------
+# Async variant (postgres-backed stores)
+# ---------------------------------------------------------------------------
+
+
+class AsyncLocalInteroceptionProvider:
+    """InteroceptionProvider backed by async postgres store.
+
+    Same in-memory hot path as LocalInteroceptionProvider, but uses
+    AsyncInteroceptionStore (postgres) for persistence. startup/shutdown are async.
+
+    Hot path (get_seed_weights, report_outcome, record_online_edge) stays sync —
+    reads from in-memory dicts, fires async persists via create_task.
+    """
+
+    def __init__(self, config: InteroceptionConfig) -> None:
+        from qortex.hippocampus.buffer import EdgePromotionBuffer
+        from qortex.hippocampus.factors import TeleportationFactors
+
+        self._config = config
+        self._factors = TeleportationFactors()
+        self._buffer = EdgePromotionBuffer()
+        self._started = False
+        self._backend: Any = None
+        self._store: Any = None  # AsyncInteroceptionStore
+
+    def set_backend(self, backend: Any) -> None:
+        self._backend = backend
+
+    async def startup(self) -> None:
+        """Load persisted state from postgres."""
+        from qortex.hippocampus.buffer import EdgePromotionBuffer
+        from qortex.hippocampus.factors import TeleportationFactors
+        from qortex.hippocampus.pg_store import PostgresInteroceptionStore
+
+        if self._config.postgres_pool is None:
+            raise ValueError("AsyncLocalInteroceptionProvider requires postgres_pool in config")
+
+        self._store = PostgresInteroceptionStore(self._config.postgres_pool)
+
+        loaded_factors = await self._store.load_factors()
+        self._factors = TeleportationFactors(factors=loaded_factors)
+        logger.info(
+            "interoception.factors.loaded",
+            count=len(loaded_factors),
+            backend="postgres",
+        )
+
+        loaded_edges = await self._store.load_edges()
+        self._buffer = EdgePromotionBuffer()
+        self._buffer._buffer = loaded_edges
+        logger.info(
+            "interoception.buffer.loaded",
+            count=len(loaded_edges),
+            backend="postgres",
+        )
+
+        self._started = True
+
+        emit(
+            InteroceptionStarted(
+                factors_loaded=len(self._factors.factors),
+                buffer_loaded=self._buffer.summary()["buffered_edges"],
+                teleportation_enabled=self._config.teleportation_enabled,
+            )
+        )
+
+    async def shutdown(self) -> None:
+        """Persist state to postgres."""
+        if self._store is not None:
+            await self._store.save_factors(self._factors.factors)
+            await self._store.save_edges(self._buffer._buffer)
+            await self._store.close()
+            self._store = None
+            logger.info("interoception.persisted", backend="postgres")
+
+        s = self.summary()
+        logger.info("interoception.shutdown", **s)
+
+        emit(
+            InteroceptionShutdown(
+                factors_persisted=len(self._factors.factors),
+                buffer_persisted=self._buffer.summary()["buffered_edges"],
+                summary=s,
+            )
+        )
+
+    def get_seed_weights(self, seed_ids: list[str]) -> dict[str, float]:
+        if not self._config.teleportation_enabled:
+            if not seed_ids:
+                return {}
+            uniform = 1.0 / len(seed_ids)
+            return {nid: uniform for nid in seed_ids}
+        return self._factors.weight_seeds(seed_ids)
+
+    def report_outcome(self, query_id: str, outcomes: dict[str, str]) -> None:
+        """Update in-memory factors, fire-and-forget async persist."""
+        import asyncio
+
+        updates = self._factors.update(query_id, outcomes)
+        if updates and self._config.persist_on_update and self._store is not None:
+            for u in updates:
+                try:
+                    loop = asyncio.get_running_loop()
+                    loop.create_task(self._store.save_factor(u.node_id, u.new_factor))
+                except RuntimeError:
+                    pass  # no running loop (e.g. tests) — skip async persist
+
+    def record_online_edge(self, source_id: str, target_id: str, score: float) -> None:
+        self._buffer.record(source_id, target_id, score)
+
+        buffered = self._buffer.summary()["buffered_edges"]
+        if self._config.auto_flush_threshold > 0 and buffered >= self._config.auto_flush_threshold:
+            logger.info(
+                "interoception.buffer.threshold_reached",
+                buffered_edges=buffered,
+                threshold=self._config.auto_flush_threshold,
+            )
+            if self._backend is not None:
+                result = self.flush_buffer(self._backend)
+                logger.info(
+                    "interoception.buffer.auto_flushed",
+                    promoted=result.get("promoted", 0) if isinstance(result, dict) else 0,
+                )
+            else:
+                logger.debug("interoception.buffer.auto_flush_skipped", reason="no_backend")
+
+    def flush_buffer(self, backend: Any, **kwargs: Any) -> Any:
+        import asyncio
+
+        result = self._buffer.flush(backend, **kwargs)
+
+        if self._store is not None:
+            promoted_keys = [(d["source"], d["target"]) for d in result.details]
+            try:
+                loop = asyncio.get_running_loop()
+                loop.create_task(self._store.remove_edges(promoted_keys))
+                loop.create_task(self._store.save_edges(self._buffer._buffer))
+            except RuntimeError:
+                pass
+
+        return result
+
+    @property
+    def factors(self) -> Any:
+        return self._factors
+
+    @property
+    def buffer(self) -> Any:
+        return self._buffer
+
+    def summary(self) -> dict[str, Any]:
+        return {
+            "factors": self._factors.summary(),
+            "buffer": self._buffer.summary(),
+            "started": self._started,
+            "persist_on_update": self._config.persist_on_update,
+            "teleportation_enabled": self._config.teleportation_enabled,
+            "backend": "postgres",
+        }

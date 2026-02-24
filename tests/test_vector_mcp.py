@@ -67,9 +67,9 @@ def created_index(index_name):
 
 
 @pytest.fixture
-def populated_index(created_index):
+async def populated_index(created_index):
     """An index with 3 vectors + metadata."""
-    _vector_upsert_impl(
+    await _vector_upsert_impl(
         created_index,
         vectors=[
             [1.0, 0.0, 0.0, 0.0],
@@ -177,18 +177,18 @@ class TestListIndexes:
 
 
 class TestDescribeIndex:
-    def test_describe(self, created_index):
-        result = _vector_describe_index_impl(created_index)
+    async def test_describe(self, created_index):
+        result = await _vector_describe_index_impl(created_index)
         assert result["dimension"] == 4
         assert result["count"] == 0
         assert result["metric"] == "cosine"
 
-    def test_describe_after_upsert(self, populated_index):
-        result = _vector_describe_index_impl(populated_index)
+    async def test_describe_after_upsert(self, populated_index):
+        result = await _vector_describe_index_impl(populated_index)
         assert result["count"] == 3
 
-    def test_describe_missing(self):
-        result = _vector_describe_index_impl("nope")
+    async def test_describe_missing(self):
+        result = await _vector_describe_index_impl("nope")
         assert "error" in result
 
 
@@ -209,52 +209,56 @@ class TestDeleteIndex:
 
 
 class TestUpsert:
-    def test_upsert_with_ids(self, created_index):
-        result = _vector_upsert_impl(
+    async def test_upsert_with_ids(self, created_index):
+        result = await _vector_upsert_impl(
             created_index,
             vectors=[[1, 0, 0, 0], [0, 1, 0, 0]],
             ids=["a", "b"],
         )
         assert result["ids"] == ["a", "b"]
-        assert _vector_describe_index_impl(created_index)["count"] == 2
+        assert (await _vector_describe_index_impl(created_index))["count"] == 2
 
-    def test_upsert_auto_ids(self, created_index):
-        result = _vector_upsert_impl(
+    async def test_upsert_auto_ids(self, created_index):
+        result = await _vector_upsert_impl(
             created_index,
             vectors=[[1, 0, 0, 0]],
         )
         assert len(result["ids"]) == 1
-        assert _vector_describe_index_impl(created_index)["count"] == 1
+        assert (await _vector_describe_index_impl(created_index))["count"] == 1
 
-    def test_upsert_with_metadata(self, created_index):
-        _vector_upsert_impl(
+    async def test_upsert_with_metadata(self, created_index):
+        await _vector_upsert_impl(
             created_index,
             vectors=[[1, 0, 0, 0]],
             metadata=[{"source": "test"}],
             ids=["m1"],
         )
-        results = _vector_query_impl(created_index, [1, 0, 0, 0], top_k=1)
+        results = await _vector_query_impl(created_index, [1, 0, 0, 0], top_k=1)
         assert results["results"][0]["metadata"]["source"] == "test"
 
-    def test_upsert_with_documents(self, created_index):
-        _vector_upsert_impl(
+    async def test_upsert_with_documents(self, created_index):
+        await _vector_upsert_impl(
             created_index,
             vectors=[[1, 0, 0, 0]],
             documents=["Hello world"],
             ids=["d1"],
         )
-        results = _vector_query_impl(created_index, [1, 0, 0, 0], top_k=1)
+        results = await _vector_query_impl(created_index, [1, 0, 0, 0], top_k=1)
         assert results["results"][0]["document"] == "Hello world"
 
-    def test_upsert_missing_index(self):
-        result = _vector_upsert_impl("nope", vectors=[[1, 0, 0, 0]])
+    async def test_upsert_missing_index(self):
+        result = await _vector_upsert_impl("nope", vectors=[[1, 0, 0, 0]])
         assert "error" in result
 
-    def test_upsert_overwrites(self, created_index):
-        _vector_upsert_impl(created_index, vectors=[[1, 0, 0, 0]], ids=["x"], metadata=[{"v": 1}])
-        _vector_upsert_impl(created_index, vectors=[[0, 1, 0, 0]], ids=["x"], metadata=[{"v": 2}])
-        assert _vector_describe_index_impl(created_index)["count"] == 1
-        results = _vector_query_impl(created_index, [0, 1, 0, 0], top_k=1)
+    async def test_upsert_overwrites(self, created_index):
+        await _vector_upsert_impl(
+            created_index, vectors=[[1, 0, 0, 0]], ids=["x"], metadata=[{"v": 1}]
+        )
+        await _vector_upsert_impl(
+            created_index, vectors=[[0, 1, 0, 0]], ids=["x"], metadata=[{"v": 2}]
+        )
+        assert (await _vector_describe_index_impl(created_index))["count"] == 1
+        results = await _vector_query_impl(created_index, [0, 1, 0, 0], top_k=1)
         assert results["results"][0]["id"] == "x"
         assert results["results"][0]["metadata"]["v"] == 2
 
@@ -265,18 +269,18 @@ class TestUpsert:
 
 
 class TestQuery:
-    def test_basic_query(self, populated_index):
-        results = _vector_query_impl(populated_index, [1, 0, 0, 0], top_k=1)
+    async def test_basic_query(self, populated_index):
+        results = await _vector_query_impl(populated_index, [1, 0, 0, 0], top_k=1)
         assert len(results["results"]) == 1
         assert results["results"][0]["id"] == "v1"
         assert results["results"][0]["score"] > 0
 
-    def test_top_k(self, populated_index):
-        results = _vector_query_impl(populated_index, [1, 0, 0, 0], top_k=2)
+    async def test_top_k(self, populated_index):
+        results = await _vector_query_impl(populated_index, [1, 0, 0, 0], top_k=2)
         assert len(results["results"]) == 2
 
-    def test_with_filter(self, populated_index):
-        results = _vector_query_impl(
+    async def test_with_filter(self, populated_index):
+        results = await _vector_query_impl(
             populated_index,
             [1, 0, 0, 0],
             top_k=10,
@@ -285,8 +289,8 @@ class TestQuery:
         assert len(results["results"]) == 1
         assert results["results"][0]["id"] == "v3"
 
-    def test_filter_no_match(self, populated_index):
-        results = _vector_query_impl(
+    async def test_filter_no_match(self, populated_index):
+        results = await _vector_query_impl(
             populated_index,
             [1, 0, 0, 0],
             top_k=10,
@@ -294,12 +298,12 @@ class TestQuery:
         )
         assert len(results["results"]) == 0
 
-    def test_documents_in_results(self, populated_index):
-        results = _vector_query_impl(populated_index, [1, 0, 0, 0], top_k=1)
+    async def test_documents_in_results(self, populated_index):
+        results = await _vector_query_impl(populated_index, [1, 0, 0, 0], top_k=1)
         assert results["results"][0]["document"] == "OAuth2 framework"
 
-    def test_missing_index(self):
-        result = _vector_query_impl("nope", [1, 0, 0, 0])
+    async def test_missing_index(self):
+        result = await _vector_query_impl("nope", [1, 0, 0, 0])
         assert "error" in result
 
 
@@ -309,37 +313,41 @@ class TestQuery:
 
 
 class TestUpdate:
-    def test_update_metadata_by_id(self, populated_index):
-        result = _vector_update_impl(populated_index, id="v1", metadata={"status": "archived"})
+    async def test_update_metadata_by_id(self, populated_index):
+        result = await _vector_update_impl(
+            populated_index, id="v1", metadata={"status": "archived"}
+        )
         assert result["count"] == 1
-        q = _vector_query_impl(populated_index, [1, 0, 0, 0], top_k=1)
+        q = await _vector_query_impl(populated_index, [1, 0, 0, 0], top_k=1)
         meta = q["results"][0]["metadata"]
         assert meta["status"] == "archived"
         assert meta["source"] == "doc1"  # Original preserved
 
-    def test_update_vector_by_id(self, populated_index):
-        _vector_update_impl(populated_index, id="v1", vector=[0, 0, 0, 1])
-        q = _vector_query_impl(populated_index, [0, 0, 0, 1], top_k=1)
+    async def test_update_vector_by_id(self, populated_index):
+        await _vector_update_impl(populated_index, id="v1", vector=[0, 0, 0, 1])
+        q = await _vector_query_impl(populated_index, [0, 0, 0, 1], top_k=1)
         assert q["results"][0]["id"] == "v1"
 
-    def test_update_by_filter(self, populated_index):
-        result = _vector_update_impl(
+    async def test_update_by_filter(self, populated_index):
+        result = await _vector_update_impl(
             populated_index,
             filter={"category": "auth"},
             metadata={"reviewed": True},
         )
         assert result["count"] == 2
 
-    def test_update_no_target(self, populated_index):
-        result = _vector_update_impl(populated_index)
+    async def test_update_no_target(self, populated_index):
+        result = await _vector_update_impl(populated_index)
         assert "error" in result
 
-    def test_update_both_id_and_filter(self, populated_index):
-        result = _vector_update_impl(populated_index, id="v1", filter={"a": 1}, metadata={"x": 1})
+    async def test_update_both_id_and_filter(self, populated_index):
+        result = await _vector_update_impl(
+            populated_index, id="v1", filter={"a": 1}, metadata={"x": 1}
+        )
         assert "error" in result
 
-    def test_update_no_updates(self, populated_index):
-        result = _vector_update_impl(populated_index, id="v1")
+    async def test_update_no_updates(self, populated_index):
+        result = await _vector_update_impl(populated_index, id="v1")
         assert "error" in result
 
 
@@ -349,33 +357,33 @@ class TestUpdate:
 
 
 class TestDelete:
-    def test_delete_single(self, populated_index):
-        result = _vector_delete_impl(populated_index, "v1")
+    async def test_delete_single(self, populated_index):
+        result = await _vector_delete_impl(populated_index, "v1")
         assert result["status"] == "deleted"
-        assert _vector_describe_index_impl(populated_index)["count"] == 2
+        assert (await _vector_describe_index_impl(populated_index))["count"] == 2
 
-    def test_delete_missing_index(self):
-        result = _vector_delete_impl("nope", "v1")
+    async def test_delete_missing_index(self):
+        result = await _vector_delete_impl("nope", "v1")
         assert "error" in result
 
 
 class TestDeleteMany:
-    def test_delete_by_ids(self, populated_index):
-        result = _vector_delete_many_impl(populated_index, ids=["v1", "v2"])
+    async def test_delete_by_ids(self, populated_index):
+        result = await _vector_delete_many_impl(populated_index, ids=["v1", "v2"])
         assert result["count"] == 2
-        assert _vector_describe_index_impl(populated_index)["count"] == 1
+        assert (await _vector_describe_index_impl(populated_index))["count"] == 1
 
-    def test_delete_by_filter(self, populated_index):
-        result = _vector_delete_many_impl(populated_index, filter={"category": "auth"})
+    async def test_delete_by_filter(self, populated_index):
+        result = await _vector_delete_many_impl(populated_index, filter={"category": "auth"})
         assert result["count"] == 2
-        assert _vector_describe_index_impl(populated_index)["count"] == 1
+        assert (await _vector_describe_index_impl(populated_index))["count"] == 1
 
-    def test_delete_no_target(self, populated_index):
-        result = _vector_delete_many_impl(populated_index)
+    async def test_delete_no_target(self, populated_index):
+        result = await _vector_delete_many_impl(populated_index)
         assert "error" in result
 
-    def test_delete_both_ids_and_filter(self, populated_index):
-        result = _vector_delete_many_impl(populated_index, ids=["v1"], filter={"a": 1})
+    async def test_delete_both_ids_and_filter(self, populated_index):
+        result = await _vector_delete_many_impl(populated_index, ids=["v1"], filter={"a": 1})
         assert "error" in result
 
 
@@ -387,13 +395,13 @@ class TestDeleteMany:
 class TestMastraVectorLifecycle:
     """Simulates the full MastraVector workflow via MCP tools."""
 
-    def test_full_lifecycle(self):
+    async def test_full_lifecycle(self):
         # 1. Create index
         r = _vector_create_index_impl("docs", 4, "cosine")
         assert r["status"] == "created"
 
         # 2. Upsert vectors with metadata
-        r = _vector_upsert_impl(
+        r = await _vector_upsert_impl(
             "docs",
             vectors=[[1, 0, 0, 0], [0, 1, 0, 0], [0.7, 0.7, 0, 0]],
             metadata=[
@@ -406,17 +414,17 @@ class TestMastraVectorLifecycle:
         assert len(r["ids"]) == 3
 
         # 3. Describe index
-        r = _vector_describe_index_impl("docs")
+        r = await _vector_describe_index_impl("docs")
         assert r["count"] == 3
         assert r["dimension"] == 4
 
         # 4. Query
-        r = _vector_query_impl("docs", [1, 0, 0, 0], top_k=2)
+        r = await _vector_query_impl("docs", [1, 0, 0, 0], top_k=2)
         assert len(r["results"]) == 2
         assert r["results"][0]["id"] == "doc_1"  # Best match
 
         # 5. Query with filter
-        r = _vector_query_impl(
+        r = await _vector_query_impl(
             "docs",
             [1, 0, 0, 0],
             top_k=10,
@@ -426,17 +434,17 @@ class TestMastraVectorLifecycle:
         assert r["results"][0]["id"] == "doc_3"
 
         # 6. Update metadata
-        _vector_update_impl("docs", id="doc_1", metadata={"reviewed": True})
-        r = _vector_query_impl("docs", [1, 0, 0, 0], top_k=1)
+        await _vector_update_impl("docs", id="doc_1", metadata={"reviewed": True})
+        r = await _vector_query_impl("docs", [1, 0, 0, 0], top_k=1)
         assert r["results"][0]["metadata"]["reviewed"] is True
 
         # 7. Delete single
-        _vector_delete_impl("docs", "doc_2")
-        assert _vector_describe_index_impl("docs")["count"] == 2
+        await _vector_delete_impl("docs", "doc_2")
+        assert (await _vector_describe_index_impl("docs"))["count"] == 2
 
         # 8. Delete by filter
-        _vector_delete_many_impl("docs", filter={"source_id": "sec.pdf"})
-        assert _vector_describe_index_impl("docs")["count"] == 1
+        await _vector_delete_many_impl("docs", filter={"source_id": "sec.pdf"})
+        assert (await _vector_describe_index_impl("docs"))["count"] == 1
 
         # 9. List and describe
         r = _vector_list_indexes_impl()
@@ -455,8 +463,8 @@ class TestMastraVectorLifecycle:
 class TestDimensionValidation:
     """Validates that vector operations reject mismatched dimensions."""
 
-    def test_upsert_wrong_dimension(self, created_index):
-        result = _vector_upsert_impl(
+    async def test_upsert_wrong_dimension(self, created_index):
+        result = await _vector_upsert_impl(
             created_index,
             vectors=[[1, 0]],  # 2D, index is 4D
             ids=["bad"],
@@ -465,8 +473,8 @@ class TestDimensionValidation:
         assert "dimension 2" in result["error"]
         assert "expected 4" in result["error"]
 
-    def test_upsert_mixed_dimensions(self, created_index):
-        result = _vector_upsert_impl(
+    async def test_upsert_mixed_dimensions(self, created_index):
+        result = await _vector_upsert_impl(
             created_index,
             vectors=[[1, 0, 0, 0], [1, 0]],  # first ok, second wrong
             ids=["ok", "bad"],
@@ -474,31 +482,31 @@ class TestDimensionValidation:
         assert "error" in result
         assert "Vector 1" in result["error"]
 
-    def test_upsert_correct_dimension(self, created_index):
-        result = _vector_upsert_impl(
+    async def test_upsert_correct_dimension(self, created_index):
+        result = await _vector_upsert_impl(
             created_index,
             vectors=[[1, 0, 0, 0]],
             ids=["good"],
         )
         assert "ids" in result
 
-    def test_query_wrong_dimension(self, populated_index):
-        result = _vector_query_impl(
+    async def test_query_wrong_dimension(self, populated_index):
+        result = await _vector_query_impl(
             populated_index,
             query_vector=[1, 0],  # 2D, index is 4D
         )
         assert "error" in result
         assert "dimension 2" in result["error"]
 
-    def test_query_correct_dimension(self, populated_index):
-        result = _vector_query_impl(
+    async def test_query_correct_dimension(self, populated_index):
+        result = await _vector_query_impl(
             populated_index,
             query_vector=[1, 0, 0, 0],
         )
         assert "results" in result
 
-    def test_update_wrong_dimension(self, populated_index):
-        result = _vector_update_impl(
+    async def test_update_wrong_dimension(self, populated_index):
+        result = await _vector_update_impl(
             populated_index,
             id="v1",
             vector=[1, 0],  # 2D, index is 4D
@@ -506,8 +514,8 @@ class TestDimensionValidation:
         assert "error" in result
         assert "dimension 2" in result["error"]
 
-    def test_update_correct_dimension(self, populated_index):
-        result = _vector_update_impl(
+    async def test_update_correct_dimension(self, populated_index):
+        result = await _vector_update_impl(
             populated_index,
             id="v1",
             vector=[0, 0, 0, 1],  # 4D, correct

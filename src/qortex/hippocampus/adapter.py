@@ -72,7 +72,7 @@ class RetrievalAdapter(Protocol):
     When no graph is available, passes through vec results unchanged.
     """
 
-    def retrieve(
+    async def retrieve(
         self,
         query: str,
         domains: list[str] | None = None,
@@ -108,7 +108,7 @@ class VecOnlyAdapter:
         self.embedding_model = embedding_model
 
     @traced("retrieval.vec_only.query")
-    def retrieve(
+    async def retrieve(
         self,
         query: str,
         domains: list[str] | None = None,
@@ -130,7 +130,7 @@ class VecOnlyAdapter:
         )
 
         # 1. Embed + search
-        seed_ids, vec_scores, vec_results_count = self._vec_search(
+        seed_ids, vec_scores, vec_results_count = await self._vec_search(
             query,
             top_k,
             min_confidence,
@@ -166,7 +166,7 @@ class VecOnlyAdapter:
         )
 
     @traced("retrieval.vec_only.vec_search")
-    def _vec_search(
+    async def _vec_search(
         self,
         query: str,
         top_k: int,
@@ -194,7 +194,7 @@ class VecOnlyAdapter:
 
         fetch_k = top_k * 2 if domains else top_k
         try:
-            vec_results = self.vector_index.search(
+            vec_results = await self.vector_index.search(
                 query_embedding, top_k=fetch_k, threshold=min_confidence
             )
         except Exception as exc:
@@ -316,7 +316,7 @@ class GraphRAGAdapter:
         self._query_cache: dict[str, list[str]] = {}
 
     @traced("retrieval.query")
-    def retrieve(
+    async def retrieve(
         self,
         query: str,
         domains: list[str] | None = None,
@@ -345,7 +345,7 @@ class GraphRAGAdapter:
         )
 
         # 1. Vec layer: embed query → vector search → seed candidates
-        seed_ids, vec_scores, vec_results_count = self._vec_search(
+        seed_ids, vec_scores, vec_results_count = await self._vec_search(
             query,
             top_k,
             min_confidence,
@@ -425,7 +425,7 @@ class GraphRAGAdapter:
         )
 
     @traced("retrieval.vec_search")
-    def _vec_search(
+    async def _vec_search(
         self,
         query: str,
         top_k: int,
@@ -454,7 +454,7 @@ class GraphRAGAdapter:
 
         fetch_k = max(top_k * 3, 30)  # Over-fetch for graph expansion
         try:
-            vec_results = self.vector_index.search(
+            vec_results = await self.vector_index.search(
                 query_embedding,
                 top_k=fetch_k,
                 threshold=min_confidence,

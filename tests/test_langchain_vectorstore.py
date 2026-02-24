@@ -72,7 +72,7 @@ class FakeLangChainEmbedding(Embeddings):
         return self.embed_documents([text])[0]
 
 
-def make_client_with_graph():
+async def make_client_with_graph():
     """Create a LocalQortexClient with concepts, edges, and rules."""
     vector_index = NumpyVectorIndex(dimensions=DIMS)
     backend = InMemoryBackend(vector_index=vector_index)
@@ -170,7 +170,7 @@ def make_client_with_graph():
 
     # Also add to vector index
     ids = [n.id for n in nodes]
-    vector_index.add(ids, embeddings)
+    await vector_index.add(ids, embeddings)
 
     client = LocalQortexClient(
         vector_index=vector_index,
@@ -183,12 +183,12 @@ def make_client_with_graph():
 
 
 @pytest.fixture
-def client_and_parts():
-    return make_client_with_graph()
+async def client_and_parts():
+    return await make_client_with_graph()
 
 
 @pytest.fixture
-def vs(client_and_parts):
+async def vs(client_and_parts):
     client, _, _, _ = client_and_parts
     return QortexVectorStore(client=client, domain="security")
 
@@ -449,8 +449,8 @@ class TestQortexExtras:
         vs.feedback({docs[0].id: "accepted"})
         # No exception = success
 
-    def test_feedback_noop_without_query(self):
-        client, _, _, _ = make_client_with_graph()
+    async def test_feedback_noop_without_query(self):
+        client, _, _, _ = await make_client_with_graph()
         vs = QortexVectorStore(client=client, domain="security")
         # No prior query — feedback is a no-op
         vs.feedback({"fake-id": "accepted"})

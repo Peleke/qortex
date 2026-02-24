@@ -46,7 +46,7 @@ class FakeEmbedding:
         return result
 
 
-def make_client(
+async def make_client(
     mode: str = "auto",
     llm_backend=None,
     with_edges: bool = False,
@@ -78,7 +78,7 @@ def make_client(
         embs = embedding.embed(["A: Concept A", "B: Concept B"])
         backend.add_embedding("test:A", embs[0])
         backend.add_embedding("test:B", embs[1])
-        vector_index.add(["test:A", "test:B"], embs)
+        await vector_index.add(["test:A", "test:B"], embs)
 
     client = LocalQortexClient(
         vector_index=vector_index,
@@ -107,11 +107,11 @@ def make_stub_llm(concepts=None, relations=None, rules=None):
 
 
 class TestIngestText:
-    def test_basic_text_ingest(self):
+    async def test_basic_text_ingest(self):
         llm = make_stub_llm(
             concepts=[{"name": "Auth", "description": "Authentication protocol", "confidence": 1.0}]
         )
-        client = make_client(llm_backend=llm)
+        client = await make_client(llm_backend=llm)
         result = client.ingest_text("Authentication via OAuth2", domain="security")
 
         assert isinstance(result, IngestResult)
@@ -119,11 +119,11 @@ class TestIngestText:
         assert result.source == "raw_text"
         assert result.concepts >= 1
 
-    def test_markdown_format(self):
+    async def test_markdown_format(self):
         llm = make_stub_llm(
             concepts=[{"name": "Heading", "description": "A heading concept", "confidence": 1.0}]
         )
-        client = make_client(llm_backend=llm)
+        client = await make_client(llm_backend=llm)
         result = client.ingest_text(
             "# Auth\n\nOAuth2 is an authentication protocol.",
             domain="security",
@@ -133,8 +133,8 @@ class TestIngestText:
         assert result.domain == "security"
         assert result.concepts >= 1
 
-    def test_empty_text_returns_zero_concepts(self):
-        client = make_client()
+    async def test_empty_text_returns_zero_concepts(self):
+        client = await make_client()
         result = client.ingest_text("", domain="test")
 
         assert result.concepts == 0
@@ -142,22 +142,22 @@ class TestIngestText:
         assert result.rules == 0
         assert "Empty text" in result.warnings[0]
 
-    def test_whitespace_only_text_returns_zero(self):
-        client = make_client()
+    async def test_whitespace_only_text_returns_zero(self):
+        client = await make_client()
         result = client.ingest_text("   \n\t  ", domain="test")
 
         assert result.concepts == 0
 
-    def test_invalid_format_raises(self):
-        client = make_client()
+    async def test_invalid_format_raises(self):
+        client = await make_client()
         with pytest.raises(ValueError, match="Invalid format"):
             client.ingest_text("some text", domain="test", format="pdf")
 
-    def test_creates_domain_if_missing(self):
+    async def test_creates_domain_if_missing(self):
         llm = make_stub_llm(
             concepts=[{"name": "Foo", "description": "Foo thing", "confidence": 1.0}]
         )
-        client = make_client(llm_backend=llm)
+        client = await make_client(llm_backend=llm)
 
         # Domain shouldn't exist yet
         assert len(client.domains()) == 0
@@ -167,27 +167,27 @@ class TestIngestText:
         domains = client.domains()
         assert any(d.name == "new_domain" for d in domains)
 
-    def test_embeddings_indexed_in_vector_index(self):
+    async def test_embeddings_indexed_in_vector_index(self):
         llm = make_stub_llm(
             concepts=[{"name": "Embed", "description": "Embeddable concept", "confidence": 1.0}]
         )
-        client = make_client(llm_backend=llm)
+        client = await make_client(llm_backend=llm)
         client.ingest_text("Embeddable concept for testing", domain="test")
 
         # Should be queryable via vector search
         result = client.query("Embeddable concept")
         assert len(result.items) > 0
 
-    def test_custom_name(self):
+    async def test_custom_name(self):
         llm = make_stub_llm(
             concepts=[{"name": "Named", "description": "Named source", "confidence": 1.0}]
         )
-        client = make_client(llm_backend=llm)
+        client = await make_client(llm_backend=llm)
         result = client.ingest_text("test content", domain="test", name="my_source")
 
         assert result.source == "my_source"
 
-    def test_with_llm_extraction(self):
+    async def test_with_llm_extraction(self):
         """LLM extracts concepts, relations, and rules from text."""
         llm = make_stub_llm(
             concepts=[
@@ -204,7 +204,7 @@ class TestIngestText:
             ],
             rules=[{"text": "Always use HTTPS with OAuth2", "confidence": 1.0}],
         )
-        client = make_client(llm_backend=llm)
+        client = await make_client(llm_backend=llm)
         result = client.ingest_text("OAuth2 authentication uses JWT tokens.", domain="security")
 
         assert result.concepts == 2
@@ -218,8 +218,8 @@ class TestIngestText:
 
 
 class TestIngestStructured:
-    def test_basic_structured_ingest(self):
-        client = make_client()
+    async def test_basic_structured_ingest(self):
+        client = await make_client()
         result = client.ingest_structured(
             concepts=[
                 {"name": "Auth", "description": "Authentication"},
@@ -234,8 +234,8 @@ class TestIngestStructured:
         assert result.edges == 0
         assert result.rules == 0
 
-    def test_with_edges(self):
-        client = make_client()
+    async def test_with_edges(self):
+        client = await make_client()
         result = client.ingest_structured(
             concepts=[
                 {"name": "Auth", "description": "Authentication"},
@@ -250,8 +250,8 @@ class TestIngestStructured:
         assert result.concepts == 2
         assert result.edges == 1
 
-    def test_with_rules(self):
-        client = make_client()
+    async def test_with_rules(self):
+        client = await make_client()
         result = client.ingest_structured(
             concepts=[
                 {"name": "Auth", "description": "Authentication"},
@@ -264,9 +264,9 @@ class TestIngestStructured:
 
         assert result.rules == 1
 
-    def test_duplicate_names_produce_same_id(self):
+    async def test_duplicate_names_produce_same_id(self):
         """Two concepts with the same name get the same hash-based ID."""
-        client = make_client()
+        client = await make_client()
         result = client.ingest_structured(
             concepts=[
                 {"name": "Foo", "description": "First"},
@@ -277,8 +277,8 @@ class TestIngestStructured:
         # Both produce the same ID, second overwrites first
         assert result.concepts == 2
 
-    def test_invalid_relation_type_skipped(self):
-        client = make_client()
+    async def test_invalid_relation_type_skipped(self):
+        client = await make_client()
         result = client.ingest_structured(
             concepts=[
                 {"name": "A", "description": "A"},
@@ -293,9 +293,9 @@ class TestIngestStructured:
         # Invalid relation type is silently skipped
         assert result.edges == 0
 
-    def test_edge_resolves_by_name(self):
+    async def test_edge_resolves_by_name(self):
         """Edge source/target can reference concept names."""
-        client = make_client()
+        client = await make_client()
         result = client.ingest_structured(
             concepts=[
                 {"name": "OAuth2", "description": "Auth protocol"},
@@ -309,9 +309,9 @@ class TestIngestStructured:
 
         assert result.edges == 1
 
-    def test_edge_resolves_by_id(self):
+    async def test_edge_resolves_by_id(self):
         """Edge source/target can reference concept IDs."""
-        client = make_client()
+        client = await make_client()
         result = client.ingest_structured(
             concepts=[
                 {"id": "sec:oauth", "name": "OAuth2", "description": "Auth protocol"},
@@ -325,8 +325,8 @@ class TestIngestStructured:
 
         assert result.edges == 1
 
-    def test_edge_with_missing_target_skipped(self):
-        client = make_client()
+    async def test_edge_with_missing_target_skipped(self):
+        client = await make_client()
         result = client.ingest_structured(
             concepts=[
                 {"name": "A", "description": "A"},
@@ -339,16 +339,16 @@ class TestIngestStructured:
 
         assert result.edges == 0
 
-    def test_empty_concepts_list(self):
-        client = make_client()
+    async def test_empty_concepts_list(self):
+        client = await make_client()
         result = client.ingest_structured(concepts=[], domain="test")
 
         assert result.concepts == 0
         assert result.edges == 0
         assert result.rules == 0
 
-    def test_creates_domain(self):
-        client = make_client()
+    async def test_creates_domain(self):
+        client = await make_client()
         assert len(client.domains()) == 0
 
         client.ingest_structured(
@@ -358,8 +358,8 @@ class TestIngestStructured:
 
         assert any(d.name == "fresh" for d in client.domains())
 
-    def test_embeddings_generated_and_indexed(self):
-        client = make_client()
+    async def test_embeddings_generated_and_indexed(self):
+        client = await make_client()
         client.ingest_structured(
             concepts=[
                 {"name": "Searchable", "description": "A searchable concept for testing"},
@@ -370,9 +370,9 @@ class TestIngestStructured:
         result = client.query("searchable concept")
         assert len(result.items) > 0
 
-    def test_all_relation_types(self):
+    async def test_all_relation_types(self):
         """All valid RelationType values should work."""
-        client = make_client()
+        client = await make_client()
         concepts = [{"name": f"C{i}", "description": f"Concept {i}"} for i in range(11)]
         edges = []
         for i, rt in enumerate(RelationType):
@@ -390,12 +390,12 @@ class TestIngestStructured:
 
 
 class TestReactiveAdapter:
-    def test_starts_as_vec_only_when_no_edges(self):
-        client = make_client(mode="auto")
+    async def test_starts_as_vec_only_when_no_edges(self):
+        client = await make_client(mode="auto")
         assert isinstance(client._adapter, VecOnlyAdapter)
 
-    def test_upgrade_on_structured_ingest_with_edges(self):
-        client = make_client(mode="auto")
+    async def test_upgrade_on_structured_ingest_with_edges(self):
+        client = await make_client(mode="auto")
         assert isinstance(client._adapter, VecOnlyAdapter)
 
         client.ingest_structured(
@@ -411,9 +411,9 @@ class TestReactiveAdapter:
 
         assert isinstance(client._adapter, GraphRAGAdapter)
 
-    def test_stays_vec_when_explicit_mode(self):
+    async def test_stays_vec_when_explicit_mode(self):
         """mode='vec' should never upgrade."""
-        client = make_client(mode="vec")
+        client = await make_client(mode="vec")
         assert isinstance(client._adapter, VecOnlyAdapter)
 
         client.ingest_structured(
@@ -429,9 +429,9 @@ class TestReactiveAdapter:
 
         assert isinstance(client._adapter, VecOnlyAdapter)
 
-    def test_stays_graph_when_already_graph(self):
+    async def test_stays_graph_when_already_graph(self):
         """If already GraphRAG, don't re-create."""
-        client = make_client(mode="auto", with_edges=True)
+        client = await make_client(mode="auto", with_edges=True)
         assert isinstance(client._adapter, GraphRAGAdapter)
         original_adapter = client._adapter
 
@@ -448,9 +448,9 @@ class TestReactiveAdapter:
 
         assert client._adapter is original_adapter
 
-    def test_no_upgrade_without_edges(self):
+    async def test_no_upgrade_without_edges(self):
         """Structured ingest without edges should not upgrade."""
-        client = make_client(mode="auto")
+        client = await make_client(mode="auto")
         assert isinstance(client._adapter, VecOnlyAdapter)
 
         client.ingest_structured(
@@ -460,7 +460,7 @@ class TestReactiveAdapter:
 
         assert isinstance(client._adapter, VecOnlyAdapter)
 
-    def test_existing_ingest_also_triggers_upgrade(self, tmp_path):
+    async def test_existing_ingest_also_triggers_upgrade(self, tmp_path):
         """The file-based ingest() should also trigger upgrade."""
         llm = make_stub_llm(
             concepts=[
@@ -471,7 +471,7 @@ class TestReactiveAdapter:
                 {"source_id": "X", "target_id": "Y", "relation_type": "requires", "confidence": 1.0}
             ],
         )
-        client = make_client(mode="auto", llm_backend=llm)
+        client = await make_client(mode="auto", llm_backend=llm)
         assert isinstance(client._adapter, VecOnlyAdapter)
 
         p = tmp_path / "test.txt"
@@ -483,7 +483,7 @@ class TestReactiveAdapter:
         # produce edges from them. The key test is that _maybe_upgrade_adapter is called.
         # If edges were created, it should be GraphRAG now.
 
-    def test_ingest_text_triggers_upgrade(self):
+    async def test_ingest_text_triggers_upgrade(self):
         """ingest_text should also trigger reactive adapter upgrade."""
         llm = make_stub_llm(
             concepts=[
@@ -494,7 +494,7 @@ class TestReactiveAdapter:
                 {"source_id": "M", "target_id": "N", "relation_type": "uses", "confidence": 1.0}
             ],
         )
-        client = make_client(mode="auto", llm_backend=llm)
+        client = await make_client(mode="auto", llm_backend=llm)
         assert isinstance(client._adapter, VecOnlyAdapter)
 
         client.ingest_text("M uses N in the system.", domain="test")
@@ -531,39 +531,39 @@ class TestMCPIngestText:
         )
         return server
 
-    def test_basic_ingest_text(self):
+    async def test_basic_ingest_text(self):
         server = self._setup_server()
-        result = server._ingest_text_impl("Hello world", domain="test")
+        result = await server._ingest_text_impl("Hello world", domain="test")
 
         assert "error" not in result
         assert result["domain"] == "test"
         assert result["concepts"] >= 1
 
-    def test_markdown_format(self):
+    async def test_markdown_format(self):
         server = self._setup_server()
-        result = server._ingest_text_impl(
+        result = await server._ingest_text_impl(
             "# Heading\n\nSome content.", domain="test", format="markdown"
         )
 
         assert "error" not in result
         assert result["domain"] == "test"
 
-    def test_invalid_format(self):
+    async def test_invalid_format(self):
         server = self._setup_server()
-        result = server._ingest_text_impl("text", domain="test", format="pdf")
+        result = await server._ingest_text_impl("text", domain="test", format="pdf")
 
         assert "error" in result
 
-    def test_empty_text(self):
+    async def test_empty_text(self):
         server = self._setup_server()
-        result = server._ingest_text_impl("", domain="test")
+        result = await server._ingest_text_impl("", domain="test")
 
         assert result["concepts"] == 0
         assert "Empty text" in result["warnings"][0]
 
-    def test_custom_name(self):
+    async def test_custom_name(self):
         server = self._setup_server()
-        result = server._ingest_text_impl("content", domain="test", name="custom")
+        result = await server._ingest_text_impl("content", domain="test", name="custom")
 
         assert result["source"] == "custom"
 
@@ -589,9 +589,9 @@ class TestMCPIngestStructured:
         )
         return server
 
-    def test_basic_structured(self):
+    async def test_basic_structured(self):
         server = self._setup_server()
-        result = server._ingest_structured_impl(
+        result = await server._ingest_structured_impl(
             concepts=[
                 {"name": "Auth", "description": "Authentication"},
                 {"name": "RBAC", "description": "Access control"},
@@ -603,9 +603,9 @@ class TestMCPIngestStructured:
         assert result["concepts"] == 2
         assert result["edges"] == 0
 
-    def test_with_edges(self):
+    async def test_with_edges(self):
         server = self._setup_server()
-        result = server._ingest_structured_impl(
+        result = await server._ingest_structured_impl(
             concepts=[
                 {"name": "Auth", "description": "Authentication"},
                 {"name": "JWT", "description": "Tokens"},
@@ -618,9 +618,9 @@ class TestMCPIngestStructured:
 
         assert result["edges"] == 1
 
-    def test_with_rules(self):
+    async def test_with_rules(self):
         server = self._setup_server()
-        result = server._ingest_structured_impl(
+        result = await server._ingest_structured_impl(
             concepts=[{"name": "Auth", "description": "Auth"}],
             domain="security",
             rules=[{"text": "Always use HTTPS"}],
@@ -628,9 +628,9 @@ class TestMCPIngestStructured:
 
         assert result["rules"] == 1
 
-    def test_invalid_edge_skipped(self):
+    async def test_invalid_edge_skipped(self):
         server = self._setup_server()
-        result = server._ingest_structured_impl(
+        result = await server._ingest_structured_impl(
             concepts=[
                 {"name": "A", "description": "A"},
                 {"name": "B", "description": "B"},
@@ -643,9 +643,9 @@ class TestMCPIngestStructured:
 
         assert result["edges"] == 0
 
-    def test_empty_concepts(self):
+    async def test_empty_concepts(self):
         server = self._setup_server()
-        result = server._ingest_structured_impl(concepts=[], domain="test")
+        result = await server._ingest_structured_impl(concepts=[], domain="test")
 
         assert result["concepts"] == 0
 
@@ -656,7 +656,7 @@ class TestMCPIngestStructured:
 
 
 class TestRoundtrip:
-    def test_ingest_text_then_query(self):
+    async def test_ingest_text_then_query(self):
         llm = make_stub_llm(
             concepts=[
                 {
@@ -667,7 +667,7 @@ class TestRoundtrip:
                 {"name": "RBAC", "description": "Role-based access control", "confidence": 0.9},
             ]
         )
-        client = make_client(llm_backend=llm)
+        client = await make_client(llm_backend=llm)
 
         ingest_result = client.ingest_text(
             "OAuth2 and role-based access control.", domain="security"
@@ -678,8 +678,8 @@ class TestRoundtrip:
         assert isinstance(query_result, QueryResult)
         assert len(query_result.items) > 0
 
-    def test_ingest_structured_then_query(self):
-        client = make_client()
+    async def test_ingest_structured_then_query(self):
+        client = await make_client()
 
         client.ingest_structured(
             concepts=[
@@ -692,8 +692,8 @@ class TestRoundtrip:
         result = client.query("database", domains=["infra"])
         assert len(result.items) > 0
 
-    def test_ingest_structured_then_explore(self):
-        client = make_client()
+    async def test_ingest_structured_then_explore(self):
+        client = await make_client()
 
         client.ingest_structured(
             concepts=[
@@ -715,8 +715,8 @@ class TestRoundtrip:
         assert explore_result is not None
         assert explore_result.node.name in ("Auth", "Gateway")
 
-    def test_ingest_structured_with_rules_then_query_rules(self):
-        client = make_client()
+    async def test_ingest_structured_with_rules_then_query_rules(self):
+        client = await make_client()
 
         client.ingest_structured(
             concepts=[
@@ -732,8 +732,8 @@ class TestRoundtrip:
         assert len(rules_result.rules) >= 1
         assert any("connection pooling" in r.text for r in rules_result.rules)
 
-    def test_full_roundtrip_ingest_query_feedback(self):
-        client = make_client()
+    async def test_full_roundtrip_ingest_query_feedback(self):
+        client = await make_client()
 
         client.ingest_structured(
             concepts=[

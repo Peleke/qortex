@@ -47,8 +47,17 @@ vec-sqlite = [
     "qortex[vec]",
     "sqlite-vec>=0.1",
 ]
+vec-pgvector = [
+    "qortex[vec]",
+    "asyncpg>=0.29",
+    "pgvector>=0.3",
+]
 source-postgres = [
     "asyncpg>=0.29",
+]
+stores-postgres = [
+    "asyncpg>=0.29",
+    "pgvector>=0.3",
 ]
 mcp = [
     "fastmcp>=3.0",
@@ -69,6 +78,7 @@ dev = [
     "pytest>=8.0",
     "pytest-asyncio>=0.23",
     "pytest-cov>=4.0",
+    "pytest-timeout>=2.3",
     "hypothesis>=6.0",
     "ruff>=0.2",
     "mypy>=1.8",
@@ -76,6 +86,8 @@ dev = [
     "networkx>=3.0",
     "langchain-core>=0.2",
     "typer>=0.15",
+    "starlette>=0.36",
+    "httpx>=0.27",
 ]
 llm = [
     "anthropic>=0.18",
@@ -89,6 +101,18 @@ observability = [
 nlp = [
     "qortex-online[nlp]",
 ]
+server = [
+    "starlette>=0.36",
+    "uvicorn[standard]>=0.25",
+]
+http-client = [
+    "httpx>=0.27",
+]
+e2e = [
+    "httpx>=0.27",
+    "schemathesis>=3.0",
+    "sentence-transformers>=2.2",
+]
 adapters = [
     "sentence-transformers>=2.2",
     "langchain-core>=0.2",
@@ -96,7 +120,7 @@ adapters = [
     "agno>=1.0",
 ]
 all = [
-    "qortex[pdf,vec-sqlite,mcp,llm,memgraph,causal,source-postgres,observability,nlp,dev,adapters]",
+    "qortex[pdf,vec-sqlite,vec-pgvector,mcp,llm,memgraph,causal,source-postgres,stores-postgres,observability,nlp,dev,adapters,server,http-client]",
 ]
 
 [project.scripts]
@@ -163,6 +187,7 @@ dev = [
     "pytest>=8.0",
     "pytest-asyncio>=0.23",
     "pytest-cov>=4.0",
+    "pytest-timeout>=2.3",
     "hypothesis>=6.151.5",
     "ruff>=0.2",
     "mypy>=1.8",

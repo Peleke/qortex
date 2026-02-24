@@ -1905,7 +1905,7 @@
         "query": "prometheus",
         "current": {
           "text": "Prometheus",
-          "value": "Prometheus"
+          "value": "prometheus"
         },
         "hide": 2
       }

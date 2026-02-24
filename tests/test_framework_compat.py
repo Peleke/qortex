@@ -120,7 +120,7 @@ class FakeEmbedding:
 
 
 @pytest.fixture
-def client():
+async def client():
     """Client with realistic data."""
     vector_index = NumpyVectorIndex(dimensions=DIMS)
     backend = InMemoryBackend(vector_index=vector_index)
@@ -155,8 +155,10 @@ def client():
         backend.add_node(node)
     texts = [f"{n.name}: {n.description}" for n in nodes]
     embeddings = embedding.embed(texts)
+    ids = [n.id for n in nodes]
     for node, emb in zip(nodes, embeddings):
         backend.add_embedding(node.id, emb)
+    await vector_index.add(ids, embeddings)
 
     return LocalQortexClient(
         vector_index=vector_index,

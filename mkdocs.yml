@@ -43,6 +43,10 @@ nav:
     - Rule Enrichment: guides/enrichment.md
     - Consumer Integration: guides/consumer-integration.md
     - Using Memgraph: guides/memgraph.md
+    - PostgreSQL Setup: guides/postgres-setup.md
+    - REST API: guides/rest-api.md
+    - Vec Migration: guides/vec-migration.md
+    - Learning System: guides/learning.md
     - Online Indexing: guides/online-indexing.md
     - Visualizing Your Graph: guides/visualization.md
   - Theory:
@@ -99,6 +103,7 @@ nav:
   - Reference:
     - API Reference: reference/api.md
     - CLI Commands: reference/cli.md
+    - Environment Variables: reference/environment-variables.md
     - Data Models: reference/models.md
     - Interop Schema: reference/interop-schema.md
   - Packages:
