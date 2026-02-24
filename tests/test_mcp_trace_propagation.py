@@ -211,13 +211,12 @@ class TestMcpTraceMiddleware:
 class TestMcpTracedDecorator:
     """Verify _mcp_traced decorator on MCP server tool wrappers."""
 
-    def test_all_tools_have_traced_decorator(self):
+    async def test_all_tools_have_traced_decorator(self):
         """Every @mcp.tool wrapper should also have @_mcp_traced."""
         from qortex.mcp.server import mcp
 
-        # FastMCP wraps functions into FunctionTool objects;
-        # check the inner fn has __wrapped__ from _mcp_traced
-        tools = mcp._tool_manager._tools
+        # Use public async API instead of private _tool_manager internals
+        tools = await mcp.get_tools()
         assert len(tools) == 37, f"Expected 37 tools, got {len(tools)}"
 
         for name, tool in tools.items():
