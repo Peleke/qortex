@@ -240,6 +240,8 @@ class TestCliMigrateVec:
         assert "vec" in result.output
 
     def test_migrate_vec_help(self):
+        import re
+
         from typer.testing import CliRunner
 
         from qortex.cli import app
@@ -247,9 +249,12 @@ class TestCliMigrateVec:
         runner = CliRunner()
         result = runner.invoke(app, ["migrate", "vec", "--help"])
         assert result.exit_code == 0
-        assert "--from" in result.output
-        assert "--batch-size" in result.output
-        assert "--dry-run" in result.output
+        # Strip ANSI escape codes — Rich/Typer inserts color codes that split
+        # option names (e.g. "--from" becomes "-" + ANSI + "-from")
+        plain = re.sub(r"\x1b\[[0-9;]*m", "", result.output)
+        assert "--from" in plain
+        assert "--batch-size" in plain
+        assert "--dry-run" in plain
 
     def test_migrate_vec_requires_from(self):
         from typer.testing import CliRunner
@@ -315,5 +320,7 @@ class TestCliMigrateVec:
         assert result.exit_code == 0
         assert "DRY RUN" in result.output
         mock_svc.migrate_vec.assert_called_once_with(
-            source_type="numpy", batch_size=500, dry_run=True,
+            source_type="numpy",
+            batch_size=500,
+            dry_run=True,
         )

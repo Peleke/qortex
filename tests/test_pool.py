@@ -67,9 +67,7 @@ async def test_get_shared_pool_passes_init():
     mock_asyncpg.create_pool = AsyncMock(return_value=MagicMock())
 
     with patch.dict(sys.modules, {"asyncpg": mock_asyncpg}):
-        await pool_mod.get_shared_pool(
-            "postgresql://test", init=init_fn, min_size=3, max_size=20
-        )
+        await pool_mod.get_shared_pool("postgresql://test", init=init_fn, min_size=3, max_size=20)
 
     mock_asyncpg.create_pool.assert_called_once_with(
         "postgresql://test",

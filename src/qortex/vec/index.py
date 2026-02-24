@@ -66,9 +66,7 @@ class VectorIndex(Protocol):
         """Persist index to storage. No-op for in-memory implementations."""
         ...
 
-    def iter_all(
-        self, batch_size: int = 500
-    ) -> AsyncIterator[tuple[list[str], list[list[float]]]]:
+    def iter_all(self, batch_size: int = 500) -> AsyncIterator[tuple[list[str], list[list[float]]]]:
         """Iterate all (ids, embeddings) in batches.
 
         Yields:

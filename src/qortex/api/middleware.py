@@ -305,7 +305,9 @@ def add_middleware(app: Any, auth_config: AuthConfig | None = None) -> None:
     """
     # Outermost: CORS (must handle preflight before auth)
     cors_origins = os.environ.get("QORTEX_CORS_ORIGINS", "").strip()
-    allowed_origins = [o.strip() for o in cors_origins.split(",") if o.strip()] if cors_origins else ["*"]
+    allowed_origins = (
+        [o.strip() for o in cors_origins.split(",") if o.strip()] if cors_origins else ["*"]
+    )
     app.add_middleware(
         CORSMiddleware,
         allow_origins=allowed_origins,

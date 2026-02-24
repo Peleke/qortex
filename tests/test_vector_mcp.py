@@ -251,8 +251,12 @@ class TestUpsert:
         assert "error" in result
 
     async def test_upsert_overwrites(self, created_index):
-        await _vector_upsert_impl(created_index, vectors=[[1, 0, 0, 0]], ids=["x"], metadata=[{"v": 1}])
-        await _vector_upsert_impl(created_index, vectors=[[0, 1, 0, 0]], ids=["x"], metadata=[{"v": 2}])
+        await _vector_upsert_impl(
+            created_index, vectors=[[1, 0, 0, 0]], ids=["x"], metadata=[{"v": 1}]
+        )
+        await _vector_upsert_impl(
+            created_index, vectors=[[0, 1, 0, 0]], ids=["x"], metadata=[{"v": 2}]
+        )
         assert (await _vector_describe_index_impl(created_index))["count"] == 1
         results = await _vector_query_impl(created_index, [0, 1, 0, 0], top_k=1)
         assert results["results"][0]["id"] == "x"
@@ -310,7 +314,9 @@ class TestQuery:
 
 class TestUpdate:
     async def test_update_metadata_by_id(self, populated_index):
-        result = await _vector_update_impl(populated_index, id="v1", metadata={"status": "archived"})
+        result = await _vector_update_impl(
+            populated_index, id="v1", metadata={"status": "archived"}
+        )
         assert result["count"] == 1
         q = await _vector_query_impl(populated_index, [1, 0, 0, 0], top_k=1)
         meta = q["results"][0]["metadata"]
@@ -335,7 +341,9 @@ class TestUpdate:
         assert "error" in result
 
     async def test_update_both_id_and_filter(self, populated_index):
-        result = await _vector_update_impl(populated_index, id="v1", filter={"a": 1}, metadata={"x": 1})
+        result = await _vector_update_impl(
+            populated_index, id="v1", filter={"a": 1}, metadata={"x": 1}
+        )
         assert "error" in result
 
     async def test_update_no_updates(self, populated_index):

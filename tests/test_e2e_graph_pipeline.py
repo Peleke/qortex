@@ -157,7 +157,11 @@ async def populated_backend(backend, embeddings, dims):
         backend.add_embedding(nid, emb)
 
     # Populate the vector index (now async)
-    vi = backend._vector_index if hasattr(backend, "_vector_index") and backend._vector_index is not None else None
+    vi = (
+        backend._vector_index
+        if hasattr(backend, "_vector_index") and backend._vector_index is not None
+        else None
+    )
     if vi is not None:
         await vi.add(ids, emb_list)
 
@@ -256,7 +260,9 @@ class TestIngestPipeline:
 class TestVecOnlyRetrieval:
     """Stage 5: VecOnlyAdapter returns ranked results from vector similarity."""
 
-    async def test_vec_retrieval_returns_results(self, populated_backend, vector_index, embedding_model):
+    async def test_vec_retrieval_returns_results(
+        self, populated_backend, vector_index, embedding_model
+    ):
         backend = populated_backend[0]
         adapter = VecOnlyAdapter(vector_index, backend, embedding_model)
 
@@ -264,7 +270,9 @@ class TestVecOnlyRetrieval:
         assert len(result.items) > 0
         assert result.query_id
 
-    async def test_vec_ranking_by_cosine_sim(self, populated_backend, vector_index, embedding_model):
+    async def test_vec_ranking_by_cosine_sim(
+        self, populated_backend, vector_index, embedding_model
+    ):
         backend = populated_backend[0]
         adapter = VecOnlyAdapter(vector_index, backend, embedding_model)
 
@@ -373,7 +381,9 @@ class TestGraphRAGRetrieval:
 class TestTeleportationFactors:
     """Stage 9: Feedback updates factors, shifting PPR seed weights."""
 
-    async def test_factors_change_after_feedback(self, populated_backend, vector_index, embedding_model):
+    async def test_factors_change_after_feedback(
+        self, populated_backend, vector_index, embedding_model
+    ):
         backend = populated_backend[0]
         factors = TeleportationFactors()
         adapter = GraphRAGAdapter(
@@ -491,7 +501,9 @@ class TestFullPipeline:
         top_2_ids = {it.id for it in r2.items[:2]}
         assert "e2e:alpha" in top_2_ids, f"Alpha should be in top 2, got {top_2_ids}"
 
-    async def test_compare_shows_graph_delta(self, populated_backend, vector_index, embedding_model):
+    async def test_compare_shows_graph_delta(
+        self, populated_backend, vector_index, embedding_model
+    ):
         """The compare tool's logic: graph vs vec should show differences."""
         backend = populated_backend[0]
         vec = VecOnlyAdapter(vector_index, backend, embedding_model)

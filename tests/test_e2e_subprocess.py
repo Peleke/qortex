@@ -106,9 +106,14 @@ async def server() -> AsyncIterator[ServerInfo]:
         cmd = ["qortex", "serve", "--host", "127.0.0.1", "--port", str(port)]
     else:
         cmd = [
-            sys.executable, "-c",
+            sys.executable,
+            "-c",
             "from qortex.cli import main; main()",
-            "serve", "--host", "127.0.0.1", "--port", str(port),
+            "serve",
+            "--host",
+            "127.0.0.1",
+            "--port",
+            str(port),
         ]
 
     proc = subprocess.Popen(
@@ -184,9 +189,7 @@ async def hmac_client(server: ServerInfo) -> AsyncIterator[httpx.AsyncClient]:
 @pytest.fixture
 async def unauthed_client(server: ServerInfo) -> AsyncIterator[httpx.AsyncClient]:
     """No auth — should get 401 on everything except /v1/health."""
-    async with httpx.AsyncClient(
-        base_url=server.base_url, timeout=10.0
-    ) as client:
+    async with httpx.AsyncClient(base_url=server.base_url, timeout=10.0) as client:
         yield client
 
 
@@ -644,9 +647,7 @@ class TestErrorHandling:
         assert resp.status_code == 400
         assert "error" in resp.json()
 
-    async def test_ingest_structured_missing_concepts(
-        self, api_key_client: httpx.AsyncClient
-    ):
+    async def test_ingest_structured_missing_concepts(self, api_key_client: httpx.AsyncClient):
         resp = await api_key_client.post(
             "/v1/ingest/structured",
             json={"domain": "test"},  # missing concepts
@@ -667,18 +668,14 @@ class TestErrorHandling:
         assert resp.status_code == 400
         assert "error" in resp.json()
 
-    async def test_learning_select_missing_fields(
-        self, api_key_client: httpx.AsyncClient
-    ):
+    async def test_learning_select_missing_fields(self, api_key_client: httpx.AsyncClient):
         resp = await api_key_client.post(
             "/v1/learning/select",
             json={"learner": "test"},  # missing candidates
         )
         assert resp.status_code == 400
 
-    async def test_learning_observe_missing_fields(
-        self, api_key_client: httpx.AsyncClient
-    ):
+    async def test_learning_observe_missing_fields(self, api_key_client: httpx.AsyncClient):
         resp = await api_key_client.post(
             "/v1/learning/observe",
             json={"learner": "test"},  # missing arm_id

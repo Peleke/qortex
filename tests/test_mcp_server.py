@@ -394,7 +394,9 @@ class TestQortexIngest:
             f.flush()
             path = f.name
 
-        result = await mcp_server._ingest_impl(source_path=path, domain="test", source_type="invalid")
+        result = await mcp_server._ingest_impl(
+            source_path=path, domain="test", source_type="invalid"
+        )
         assert "error" in result
         assert "Invalid source_type" in result["error"]
 

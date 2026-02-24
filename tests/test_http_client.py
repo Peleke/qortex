@@ -71,9 +71,7 @@ async def http_client(service) -> HttpQortexClient:
     transport = httpx.ASGITransport(app=app)
     client = HttpQortexClient.__new__(HttpQortexClient)
     client._hmac_secret = None
-    client._client = httpx.AsyncClient(
-        transport=transport, base_url="http://testserver"
-    )
+    client._client = httpx.AsyncClient(transport=transport, base_url="http://testserver")
     yield client
     await client.close()
 

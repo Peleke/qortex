@@ -364,7 +364,9 @@ class TestQueryWithRulesMCP:
             assert "derivation" in rule
             assert "source_concepts" in rule
 
-    async def test_query_rules_have_relevance_from_scores(self, configured_server, backend, embedding):
+    async def test_query_rules_have_relevance_from_scores(
+        self, configured_server, backend, embedding
+    ):
         _setup_graph_with_rules(backend, embedding)
         result = await mcp_server._query_impl(context="Authentication via OAuth2")
         for rule in result["rules"]:

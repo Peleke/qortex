@@ -473,9 +473,11 @@ class LocalQortexClient:
         if self._adapter is None:
             return QueryResult(items=[], query_id=str(uuid.uuid4()))
 
-        result = _sync(self._adapter.retrieve(
-            query=context, domains=domains, top_k=top_k, min_confidence=min_confidence
-        ))
+        result = _sync(
+            self._adapter.retrieve(
+                query=context, domains=domains, top_k=top_k, min_confidence=min_confidence
+            )
+        )
 
         items = [
             QueryItem(

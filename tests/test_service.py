@@ -105,9 +105,7 @@ class TestServiceQuery:
     async def test_query_domain_filter(self, service):
         await _seed_data(service)
         result = await service.query("python", domains=["tech"])
-        assert all(
-            item["domain"] == "tech" for item in result["items"]
-        )
+        assert all(item["domain"] == "tech" for item in result["items"])
 
 
 class TestServiceIngest:

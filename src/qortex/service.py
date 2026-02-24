@@ -129,9 +129,7 @@ class QortexService:
         ):
             from qortex.hippocampus.adapter import GraphRAGAdapter, VecOnlyAdapter
 
-            self.adapter = VecOnlyAdapter(
-                self.vector_index, self.backend, self.embedding_model
-            )
+            self.adapter = VecOnlyAdapter(self.vector_index, self.backend, self.embedding_model)
             self.graph_adapter = GraphRAGAdapter(
                 self.vector_index,
                 self.backend,
@@ -185,9 +183,7 @@ class QortexService:
                         dimensions=embedding_model.dimensions,
                     )
                 except ImportError:
-                    logger.warning(
-                        "pgvector.unavailable", fallback="SqliteVecIndex"
-                    )
+                    logger.warning("pgvector.unavailable", fallback="SqliteVecIndex")
                     vec_backend = "sqlite"  # fall through to sqlite
             if vec_backend == "sqlite":
                 try:
@@ -199,20 +195,14 @@ class QortexService:
                         dimensions=embedding_model.dimensions,
                     )
                 except ImportError:
-                    logger.warning(
-                        "sqlite-vec.unavailable", fallback="NumpyVectorIndex"
-                    )
+                    logger.warning("sqlite-vec.unavailable", fallback="NumpyVectorIndex")
                     from qortex.vec.index import NumpyVectorIndex
 
-                    vector_index = NumpyVectorIndex(
-                        dimensions=embedding_model.dimensions
-                    )
+                    vector_index = NumpyVectorIndex(dimensions=embedding_model.dimensions)
             elif vec_backend == "memory":
                 from qortex.vec.index import NumpyVectorIndex
 
-                vector_index = NumpyVectorIndex(
-                    dimensions=embedding_model.dimensions
-                )
+                vector_index = NumpyVectorIndex(dimensions=embedding_model.dimensions)
 
         # --- Graph layer ---
         backend = None
@@ -225,9 +215,7 @@ class QortexService:
                 port = int(os.environ.get("MEMGRAPH_PORT", "7687"))
                 user = os.environ.get("MEMGRAPH_USER", "")
                 password = os.environ.get("MEMGRAPH_PASSWORD", "")
-                creds = (
-                    MemgraphCredentials(user=user, password=password) if user else None
-                )
+                creds = MemgraphCredentials(user=user, password=password) if user else None
                 backend = MemgraphBackend(host=host, port=port, credentials=creds)
                 backend.connect()
             except (ImportError, Exception) as e:
@@ -362,9 +350,7 @@ class QortexService:
                 backend = MemgraphBackend(host=host, port=port, credentials=creds)
                 backend.connect()
             except (ImportError, Exception) as e:
-                logger.warning(
-                    "memgraph.unavailable", error=str(e), fallback="InMemoryBackend"
-                )
+                logger.warning("memgraph.unavailable", error=str(e), fallback="InMemoryBackend")
                 backend = InMemoryBackend(vector_index=vector_index)
                 backend.connect()
         else:
@@ -525,9 +511,7 @@ class QortexService:
 
         allowed = {"text", "markdown", "pdf"}
         if source_type is not None and source_type not in allowed:
-            return {
-                "error": f"Invalid source_type: {source_type}. Must be one of {allowed}"
-            }
+            return {"error": f"Invalid source_type: {source_type}. Must be one of {allowed}"}
 
         if source_type is None:
             ext = path.suffix.lower()
@@ -698,9 +682,7 @@ class QortexService:
             rtext = r.get("text", "")
             if not rtext:
                 continue
-            rule_id = (
-                f"{domain}:rule:{hashlib.sha256(rtext.encode()).hexdigest()[:12]}"
-            )
+            rule_id = f"{domain}:rule:{hashlib.sha256(rtext.encode()).hexdigest()[:12]}"
             explicit_rules.append(
                 ExplicitRule(
                     id=rule_id,
@@ -826,9 +808,7 @@ class QortexService:
         return {
             "status": "ok",
             "backend": backend_type,
-            "vector_index": (
-                type(self.vector_index).__name__ if self.vector_index else None
-            ),
+            "vector_index": (type(self.vector_index).__name__ if self.vector_index else None),
             "vector_search": has_vec,
             "graph_algorithms": has_mage,
             "domain_count": domain_count,
@@ -841,9 +821,7 @@ class QortexService:
                 if self.embedding_model
                 else None
             ),
-            "interoception": (
-                self.interoception.summary() if self.interoception else None
-            ),
+            "interoception": (self.interoception.summary() if self.interoception else None),
         }
 
     async def explore(self, node_id: str, depth: int = 1) -> dict | None:
@@ -876,11 +854,7 @@ class QortexService:
                         "properties": edge.properties,
                     }
                     all_edges.append(edge_dict)
-                    neighbor_id = (
-                        edge.target_id
-                        if edge.source_id == current_id
-                        else edge.source_id
-                    )
+                    neighbor_id = edge.target_id if edge.source_id == current_id else edge.source_id
                     if neighbor_id not in visited:
                         visited.add(neighbor_id)
                         neighbor_node = self.backend.get_node(neighbor_id)
@@ -956,16 +930,12 @@ class QortexService:
             min_confidence=min_confidence,
         )
 
-        source = FlatRuleSource(
-            backend=self.backend, include_derived=include_derived
-        )
+        source = FlatRuleSource(backend=self.backend, include_derived=include_derived)
         all_rules = source.derive(domains=domains, filters=filt)
 
         if concept_ids is not None:
             concept_set = set(concept_ids)
-            all_rules = [
-                r for r in all_rules if concept_set.intersection(r.source_concepts)
-            ]
+            all_rules = [r for r in all_rules if concept_set.intersection(r.source_concepts)]
 
         domain_names = {r.domain for r in all_rules}
 
@@ -1047,9 +1017,7 @@ class QortexService:
                         }
                     )
 
-        rules = (
-            self._collect_query_rules(graph_items, domains) if graph_result else []
-        )
+        rules = self._collect_query_rules(graph_items, domains) if graph_result else []
 
         return {
             "query": context,
@@ -1066,9 +1034,7 @@ class QortexService:
                 "rank_changes": rank_changes,
                 "overlap": len(vec_set & graph_set),
             },
-            "summary": self._compare_summary(
-                vec_items, graph_items, graph_unique, rules
-            ),
+            "summary": self._compare_summary(vec_items, graph_items, graph_unique, rules),
         }
 
     async def stats(self) -> dict:
@@ -1098,9 +1064,7 @@ class QortexService:
             total_observations += m.get("total_pulls", 0)
 
         feedback_rate = (
-            round(self.feedback_count / self.query_count, 3)
-            if self.query_count > 0
-            else 0.0
+            round(self.feedback_count / self.query_count, 3) if self.query_count > 0 else 0.0
         )
 
         return {
@@ -1121,14 +1085,8 @@ class QortexService:
                 "outcomes": dict(self.feedback_outcomes),
             },
             "health": {
-                "backend": (
-                    type(self.backend).__name__ if self.backend else None
-                ),
-                "vector_index": (
-                    type(self.vector_index).__name__
-                    if self.vector_index
-                    else None
-                ),
+                "backend": (type(self.backend).__name__ if self.backend else None),
+                "vector_index": (type(self.vector_index).__name__ if self.vector_index else None),
                 "embedding_model": (
                     getattr(
                         self.embedding_model,
@@ -1262,9 +1220,7 @@ class QortexService:
         if name not in self.learners:
             from qortex.learning import Learner, LearnerConfig
 
-            config = LearnerConfig(
-                name=name, state_dir=self.learning_state_dir, **kwargs
-            )
+            config = LearnerConfig(name=name, state_dir=self.learning_state_dir, **kwargs)
             store = None
             if self.pg_pool is not None:
                 from qortex.learning.pg_store import PostgresLearningStore
@@ -1303,9 +1259,7 @@ class QortexService:
         lrn = await self._get_or_create_learner(learner, **create_kwargs)
         if min_pulls > 0:
             lrn.config.min_pulls = min_pulls
-        result = await lrn.select(
-            arms, context=context, k=k, token_budget=token_budget
-        )
+        result = await lrn.select(arms, context=context, k=k, token_budget=token_budget)
 
         return {
             "selected_arms": [
@@ -1361,10 +1315,7 @@ class QortexService:
         return {
             "learner": learner,
             "posteriors": {
-                arm_id: {
-                    k_: round(v, 4) if isinstance(v, float) else v
-                    for k_, v in p.items()
-                }
+                arm_id: {k_: round(v, 4) if isinstance(v, float) else v for k_, v in p.items()}
                 for arm_id, p in posteriors.items()
             },
         }
@@ -1472,9 +1423,7 @@ class QortexService:
         generated_ids = ids or [str(uuid.uuid4()) for _ in vectors]
 
         if len(generated_ids) != len(vectors):
-            return {
-                "error": f"ids ({len(generated_ids)}) and vectors ({len(vectors)}) must match"
-            }
+            return {"error": f"ids ({len(generated_ids)}) and vectors ({len(vectors)}) must match"}
 
         expected_dim = cfg["dimension"]
         for i, vec in enumerate(vectors):
@@ -1601,18 +1550,10 @@ class QortexService:
 
         from qortex.core.rules import collect_rules_for_concepts
 
-        activated_ids = [
-            item["node_id"] for item in items if item.get("node_id")
-        ]
-        scores_map = {
-            item["node_id"]: item["score"]
-            for item in items
-            if item.get("node_id")
-        }
+        activated_ids = [item["node_id"] for item in items if item.get("node_id")]
+        scores_map = {item["node_id"]: item["score"] for item in items if item.get("node_id")}
 
-        rules = collect_rules_for_concepts(
-            self.backend, activated_ids, domains, scores_map
-        )
+        rules = collect_rules_for_concepts(self.backend, activated_ids, domains, scores_map)
         return [
             {
                 "id": r.id,
@@ -1699,9 +1640,7 @@ class QortexService:
             except Exception:
                 continue
 
-            rewards = [
-                self._OUTCOME_REWARD.get(outcomes[cid], 0.0) for cid in concept_ids
-            ]
+            rewards = [self._OUTCOME_REWARD.get(outcomes[cid], 0.0) for cid in concept_ids]
             avg_reward = sum(rewards) / len(rewards)
 
             assigner = CreditAssigner(dag)
@@ -1752,9 +1691,7 @@ class QortexService:
             parts.append(f"found {len(graph_unique)} item(s) that cosine missed")
         if rules:
             parts.append(f"surfaced {len(rules)} rule(s)")
-        overlap = len(
-            set(i["id"] for i in vec_items) & set(i["id"] for i in graph_items)
-        )
+        overlap = len(set(i["id"] for i in vec_items) & set(i["id"] for i in graph_items))
         if overlap < len(vec_items):
             parts.append(f"replaced {len(vec_items) - overlap} distractor(s)")
         if not parts:
@@ -1787,14 +1724,10 @@ class QortexService:
     def _match_filter(metadata: dict, filt: dict) -> bool:
         for key, value in filt.items():
             if key == "$and":
-                if not all(
-                    QortexService._match_filter(metadata, sub) for sub in value
-                ):
+                if not all(QortexService._match_filter(metadata, sub) for sub in value):
                     return False
             elif key == "$or":
-                if not any(
-                    QortexService._match_filter(metadata, sub) for sub in value
-                ):
+                if not any(QortexService._match_filter(metadata, sub) for sub in value):
                     return False
             elif key == "$not":
                 if QortexService._match_filter(metadata, value):
@@ -1806,15 +1739,11 @@ class QortexService:
                         return False
                     if op == "$gt" and not (actual is not None and actual > operand):
                         return False
-                    if op == "$gte" and not (
-                        actual is not None and actual >= operand
-                    ):
+                    if op == "$gte" and not (actual is not None and actual >= operand):
                         return False
                     if op == "$lt" and not (actual is not None and actual < operand):
                         return False
-                    if op == "$lte" and not (
-                        actual is not None and actual <= operand
-                    ):
+                    if op == "$lte" and not (actual is not None and actual <= operand):
                         return False
                     if op == "$in" and actual not in operand:
                         return False

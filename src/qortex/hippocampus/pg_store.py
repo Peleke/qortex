@@ -81,9 +81,7 @@ class PostgresInteroceptionStore:
     async def load_factors(self) -> dict[str, float]:
         await self._ensure_schema()
         async with self._pool.acquire() as conn:
-            rows = await conn.fetch(
-                "SELECT node_id, weight FROM interoception_factors"
-            )
+            rows = await conn.fetch("SELECT node_id, weight FROM interoception_factors")
         return {row["node_id"]: float(row["weight"]) for row in rows}
 
     @traced("interoception.pg.save_factor")
@@ -128,14 +126,15 @@ class PostgresInteroceptionStore:
         await self._ensure_schema()
         async with self._pool.acquire() as conn:
             rows = await conn.fetch(
-                "SELECT src_id, tgt_id, hit_count, scores, last_seen "
-                "FROM interoception_edge_buffer"
+                "SELECT src_id, tgt_id, hit_count, scores, last_seen FROM interoception_edge_buffer"
             )
 
         result: dict[tuple[str, str], ES] = {}
         for row in rows:
             raw = row["scores"]
-            scores = json.loads(raw) if isinstance(raw, str) else (raw if isinstance(raw, list) else [])
+            scores = (
+                json.loads(raw) if isinstance(raw, str) else (raw if isinstance(raw, list) else [])
+            )
             last_seen = row["last_seen"].isoformat() if row["last_seen"] else ""
             result[(row["src_id"], row["tgt_id"])] = ES(
                 hit_count=row["hit_count"],

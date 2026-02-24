@@ -406,7 +406,9 @@ if PGVECTOR_DSN:
     except ImportError:
         pass
 
-skip_no_pgvector = pytest.mark.skipif(not HAS_PGVECTOR, reason="pgvector not installed or PGVECTOR_DSN not set")
+skip_no_pgvector = pytest.mark.skipif(
+    not HAS_PGVECTOR, reason="pgvector not installed or PGVECTOR_DSN not set"
+)
 
 
 @skip_no_sqlite_vec

@@ -52,7 +52,9 @@ async def test_get_default(store):
 async def test_put_and_get(store):
     from qortex.learning.types import ArmState
 
-    state = ArmState(alpha=3.0, beta=2.0, pulls=5, total_reward=3.5, last_updated="2025-01-01T00:00:00+00:00")
+    state = ArmState(
+        alpha=3.0, beta=2.0, pulls=5, total_reward=3.5, last_updated="2025-01-01T00:00:00+00:00"
+    )
     await store.put("arm_a", state)
 
     loaded = await store.get("arm_a")
@@ -181,7 +183,9 @@ async def test_learner_isolation(pool):
 
     # Clean up
     async with pool.acquire() as conn:
-        await conn.execute("DELETE FROM learning_arm_states WHERE learner_name IN ('learner_a', 'learner_b')")
+        await conn.execute(
+            "DELETE FROM learning_arm_states WHERE learner_name IN ('learner_a', 'learner_b')"
+        )
 
     await store_a.put("arm_x", ArmState(alpha=10.0))
     await store_b.put("arm_x", ArmState(alpha=20.0))

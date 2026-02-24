@@ -98,9 +98,14 @@ def schemathesis_server():
         cmd = ["qortex", "serve", "--host", "127.0.0.1", "--port", str(port)]
     else:
         cmd = [
-            sys.executable, "-c",
+            sys.executable,
+            "-c",
             "from qortex.cli import main; main()",
-            "serve", "--host", "127.0.0.1", "--port", str(port),
+            "serve",
+            "--host",
+            "127.0.0.1",
+            "--port",
+            str(port),
         ]
 
     proc = subprocess.Popen(
@@ -177,9 +182,7 @@ def test_api_contract(schemathesis_server: ServerInfo):
             continue
 
         # Build path_parameters dict for this operation's path params
-        op_path_params = {
-            k: v for k, v in path_params.items() if f"{{{k}}}" in op.path
-        }
+        op_path_params = {k: v for k, v in path_params.items() if f"{{{k}}}" in op.path}
 
         try:
             case = schema.make_case(

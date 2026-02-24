@@ -100,16 +100,12 @@ class TestAPIKeyAuth:
         assert resp.status_code == 401
 
     def test_protected_endpoint_accepts_valid_key(self, client):
-        resp = client.get(
-            "/v1/status", headers={"Authorization": "Bearer test-key-123"}
-        )
+        resp = client.get("/v1/status", headers={"Authorization": "Bearer test-key-123"})
         assert resp.status_code == 200
         assert resp.json()["status"] == "ok"
 
     def test_bearer_prefix_required(self, client):
-        resp = client.get(
-            "/v1/status", headers={"Authorization": "test-key-123"}
-        )
+        resp = client.get("/v1/status", headers={"Authorization": "test-key-123"})
         assert resp.status_code == 401
 
     def test_post_endpoint_with_key(self, client):
@@ -146,9 +142,7 @@ class TestHMACAuth:
     def _sign(self, body: bytes, timestamp: int | None = None) -> tuple[str, str]:
         ts = str(timestamp or int(time.time()))
         message = f"{ts}.".encode() + body
-        sig = hmac.new(
-            self.HMAC_SECRET.encode(), message, hashlib.sha256
-        ).hexdigest()
+        sig = hmac.new(self.HMAC_SECRET.encode(), message, hashlib.sha256).hexdigest()
         return sig, ts
 
     def test_hmac_valid_signature(self, client):
@@ -236,18 +230,14 @@ class TestCombinedAuth:
         return TestClient(app)
 
     def test_api_key_works(self, client):
-        resp = client.get(
-            "/v1/status", headers={"Authorization": "Bearer combo-key"}
-        )
+        resp = client.get("/v1/status", headers={"Authorization": "Bearer combo-key"})
         assert resp.status_code == 200
 
     def test_hmac_works(self, client):
         body = b'{"context": "test"}'
         ts = str(int(time.time()))
         message = f"{ts}.".encode() + body
-        sig = hmac.new(
-            self.HMAC_SECRET.encode(), message, hashlib.sha256
-        ).hexdigest()
+        sig = hmac.new(self.HMAC_SECRET.encode(), message, hashlib.sha256).hexdigest()
         resp = client.post(
             "/v1/query",
             content=body,

@@ -47,9 +47,7 @@ class HttpQortexClient:
         if api_key:
             headers["Authorization"] = f"Bearer {api_key}"
 
-        self._hmac_secret: bytes | None = (
-            hmac_secret.encode() if hmac_secret else None
-        )
+        self._hmac_secret: bytes | None = hmac_secret.encode() if hmac_secret else None
 
         event_hooks: dict[str, list] = {}
         if self._hmac_secret:
@@ -74,9 +72,7 @@ class HttpQortexClient:
         timestamp = str(int(time.time()))
         body = request.content or b""
         message = f"{timestamp}.".encode() + body
-        signature = hmac.new(
-            self._hmac_secret, message, hashlib.sha256
-        ).hexdigest()
+        signature = hmac.new(self._hmac_secret, message, hashlib.sha256).hexdigest()
 
         request.headers["X-Qortex-Timestamp"] = timestamp
         request.headers["X-Qortex-Signature"] = signature
