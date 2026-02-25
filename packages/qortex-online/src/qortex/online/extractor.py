@@ -5,7 +5,7 @@ Defines an ExtractionStrategy protocol and three implementations:
   - LLMExtractor (opt-in): wraps existing qortex-ingest LLMBackend
   - NullExtractor: explicit no-op (QORTEX_EXTRACTION=none)
 
-Every operation is span-traced for Jaeger/Grafana visibility.
+Every operation is span-traced for Tempo/Grafana visibility.
 """
 
 from __future__ import annotations

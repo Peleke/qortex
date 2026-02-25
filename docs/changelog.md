@@ -5,6 +5,15 @@ All notable changes to qortex are documented here.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.8.2] - 2026-02-25
+
+### Changed
+
+- **Tempo migration**: Replaced Jaeger with Grafana Tempo (`grafana/tempo:2.7.2`) for distributed trace storage. Traces are now queried via Grafana Explore with TraceQL instead of the Jaeger UI. OTel Collector routes traces to Tempo via OTLP gRPC.
+- **Servicegraph connector**: Added `servicegraph` connector to OTel Collector config, generating service-to-service edge metrics for Grafana's Service Graph panel.
+- **Docs**: Updated all Jaeger references across 12 files (guides, package docs, READMEs, changelog, validation script) to reference Tempo/Grafana Explore.
+- **`validate_live_stack.py`**: Rewritten trace verification section to use Tempo's search API (`/api/search`) instead of Jaeger's API.
+
 ## [0.8.1] - 2026-02-23
 
 ### Changed
@@ -56,13 +65,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Declarative metric schema**: All 36 metrics defined in a single `metrics_schema.py` registry with types, labels, and custom histogram buckets
 - **Unified metrics pipeline**: OTel as sole metric backend. One set of event handlers in `metrics_handlers.py` creates OTel instruments from the schema
 - **PrometheusMetricReader**: Replaces the old `prometheus_client` subscriber. Serves `/metrics` on port 9464 using OTel's built-in Prometheus exporter
-- **Full trace hierarchy**: `@traced` decorator on all MemgraphBackend operations (14 methods), vec layer (embeddings, index ops), and learning (select, observe, credit deltas). Jaeger shows complete parent-child span trees
+- **Full trace hierarchy**: `@traced` decorator on all MemgraphBackend operations (14 methods), vec layer (embeddings, index ops), and learning (select, observe, credit deltas). Tempo stores complete parent-child span trees, visible in Grafana Explore
 - **PPR span attributes**: `ppr.node_count`, `ppr.edge_count`, `ppr.iterations`, `ppr.converged`, `ppr.final_diff`, `ppr.latency_ms` on every PageRank execution
 - **Embedding model tracing**: `vec.embed.sentence_transformer`, `vec.embed.openai`, `vec.embed.ollama` spans with model name, batch size, and external I/O marking
 - **Cached embedding tracing**: `vec.embed.cached` spans with cache hit/miss/batch_size attributes
 - **Selective trace sampling**: `SelectiveSpanProcessor` always exports errors and slow spans; normal spans sampled at configurable rate (default 10%)
 - **Trace sampling env vars**: `QORTEX_OTEL_TRACE_SAMPLE_RATE` (default 0.1) and `QORTEX_OTEL_TRACE_LATENCY_THRESHOLD_MS` (default 100.0)
-- **Live stack validation**: `scripts/validate_live_stack.py` verifies metrics in Prometheus, traces in Jaeger, and dashboards in Grafana (132 checks)
+- **Live stack validation**: `scripts/validate_live_stack.py` verifies metrics in Prometheus, traces in Tempo, and dashboards in Grafana (132 checks)
 
 ### Removed
 

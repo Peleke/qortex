@@ -10,7 +10,7 @@ qortex ships a Docker Compose stack for the graph database and observability ser
 | **Memgraph** | `memgraph/memgraph-mage:latest` | Graph database (Bolt protocol). Production backend for the knowledge graph. |
 | **Memgraph Lab** | `memgraph/lab:latest` | Web UI for Memgraph. Visual graph exploration and Cypher queries. |
 | **OTel Collector** | `otel/opentelemetry-collector-contrib:latest` | Receives OTLP telemetry from qortex and routes to backends. |
-| **Jaeger** | `jaegertracing/all-in-one:latest` | Distributed trace viewer. |
+| **Tempo** | `grafana/tempo:2.7.2` | Distributed trace storage (queried via Grafana Explore). |
 | **Prometheus** | `prom/prometheus:latest` | Metrics storage and PromQL queries. |
 | **Grafana** | `grafana/grafana:latest` | Dashboard visualization. Ships with the pre-built `qortex-main` dashboard. |
 | **VictoriaLogs** | `victoriametrics/victoria-logs:latest` | Log aggregation (structured JSONL logs). 30-day retention. |
@@ -25,7 +25,7 @@ The stack uses Docker Compose profiles to separate concerns:
 cd docker && docker compose up -d
 ```
 
-Starts: OTel Collector, Jaeger, Prometheus, Grafana, VictoriaLogs.
+Starts: OTel Collector, Tempo, Prometheus, Grafana, VictoriaLogs.
 
 Use this when Memgraph is already running elsewhere (e.g. inside a Lima sandbox VM or on a remote host).
 
@@ -83,7 +83,7 @@ Starts: all services — Memgraph, PostgreSQL, and the full observability stack.
 | 4318 | OTel Collector | OTLP HTTP receiver |
 | 8889 | OTel Collector | Prometheus metrics (collector self-metrics) |
 | 9091 | Prometheus | Prometheus UI (mapped from container 9090 to avoid conflicts) |
-| 16686 | Jaeger | Jaeger UI |
+| 3200 | Tempo | Trace storage API (query via Grafana Explore) |
 | 3010 | Grafana | Grafana UI (mapped from container 3000 to avoid Memgraph Lab conflict) |
 | 9428 | VictoriaLogs | HTTP API |
 
@@ -98,7 +98,7 @@ curl -s http://localhost:9091/api/v1/query?query=up | python3 -m json.tool
 
 # Open dashboards
 open http://localhost:3010/d/qortex-main/qortex-observability  # Grafana
-open http://localhost:16686                                      # Jaeger
+open http://localhost:3010/explore                                # Tempo (via Grafana Explore)
 ```
 
 With Memgraph:
@@ -196,7 +196,7 @@ cd docker && docker compose --profile local-graph down -v
 ## Grafana provisioning
 
 Grafana is pre-configured with:
-- **Datasources**: Prometheus (`http://prometheus:9090`), VictoriaLogs (`http://victorialogs:9428`).
+- **Datasources**: Prometheus (`http://prometheus:9090`), Tempo (`http://tempo:3200`), VictoriaLogs (`http://victorialogs:9428`).
 - **Dashboard**: `qortex-main` auto-loaded from `docker/grafana/dashboards/qortex.json`.
 - **Plugins**: `victoriametrics-logs-datasource`, `jdbranham-diagram-panel`.
 - **Anonymous access**: enabled as Viewer (no login needed for read-only).

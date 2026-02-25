@@ -2,7 +2,7 @@
 """Live stack validation: prove observability works end-to-end.
 
 Runs a real workload (Memgraph PPR + learning + credit propagation),
-then queries Prometheus, Grafana, and Jaeger APIs to verify data arrived.
+then queries Prometheus, Grafana, and Tempo APIs to verify data arrived.
 
 Prerequisites:
     cd docker && docker compose up -d
@@ -31,7 +31,7 @@ os.environ["OTEL_EXPORTER_OTLP_ENDPOINT"] = "http://localhost:4318"
 os.environ["OTEL_EXPORTER_OTLP_PROTOCOL"] = "http/protobuf"
 os.environ["QORTEX_PROMETHEUS_ENABLED"] = "true"
 os.environ["QORTEX_PROMETHEUS_PORT"] = "9464"
-# Export ALL spans so Jaeger shows full Cypher trace tree
+# Export ALL spans so Tempo shows full Cypher trace tree
 os.environ["QORTEX_OTEL_TRACE_SAMPLE_RATE"] = "1.0"
 os.environ["QORTEX_OTEL_TRACE_LATENCY_THRESHOLD_MS"] = "0.0"
 
@@ -70,7 +70,7 @@ CHECKS = {
     "OTel Collector (4318)": _port_open("localhost", 4318),
     "Prometheus (9091)": _port_open("localhost", 9091),
     "Grafana (3010)": _port_open("localhost", 3010),
-    "Jaeger (16686)": _port_open("localhost", 16686),
+    "Tempo (3200)": _port_open("localhost", 3200),
 }
 
 print("=" * 70)
@@ -243,7 +243,7 @@ time.sleep(25)
 
 # ── Phase 5: Verify all backends ─────────────────────────────────
 print()
-print("[5/5] Verifying data in Prometheus, Grafana, and Jaeger...")
+print("[5/5] Verifying data in Prometheus, Grafana, and Tempo...")
 print()
 prom_port = int(os.environ.get("QORTEX_PROMETHEUS_PORT", "9464"))
 print(f"  --- Direct Prometheus /metrics (port {prom_port}) ---")
@@ -344,69 +344,58 @@ try:
 except requests.ConnectionError:
     check("Grafana API reachable", False, "connection refused")
 
-# ── Jaeger traces ────────────────────────────────────────────────
+# ── Tempo traces ─────────────────────────────────────────────────
 print()
-print("  --- Jaeger traces (port 16686) ---")
+print("  --- Tempo traces (port 3200) ---")
 
 try:
-    # Query Jaeger for qortex service traces
+    # Search Tempo for qortex traces
     resp = requests.get(
-        "http://localhost:16686/api/services",
-        timeout=5,
+        "http://localhost:3200/api/search",
+        params={
+            "q": '{ resource.service.name = "qortex" }',
+            "limit": 20,
+        },
+        timeout=10,
     )
-    services = resp.json().get("data", [])
-    has_qortex = "qortex" in services
-    check("Jaeger has 'qortex' service", has_qortex,
-          f"services: {services}")
+    traces = resp.json().get("traces", [])
+    check("Tempo has recent qortex traces", len(traces) > 0,
+          f"{len(traces)} traces")
 
-    if has_qortex:
-        # Get recent traces
-        resp = requests.get(
-            "http://localhost:16686/api/traces",
-            params={
-                "service": "qortex",
-                "limit": 20,
-                "lookback": "1h",
-            },
-            timeout=10,
-        )
-        traces = resp.json().get("data", [])
-        check("Jaeger has recent qortex traces", len(traces) > 0,
-              f"{len(traces)} traces")
-
-        if traces:
-            # Check for Cypher spans in trace tree
-            cypher_spans = []
+    if traces:
+        # Fetch a trace to inspect spans
+        trace_id = traces[0].get("traceID", "")
+        if trace_id:
+            resp = requests.get(
+                f"http://localhost:3200/api/traces/{trace_id}",
+                timeout=10,
+            )
+            trace_data = resp.json()
             all_span_names = set()
-            for trace_data in traces:
-                for span in trace_data.get("spans", []):
-                    op = span.get("operationName", "")
-                    all_span_names.add(op)
-                    if "cypher" in op.lower():
-                        cypher_spans.append(span)
-                        # Check for db.statement attribute
-                        tags = {t["key"]: t["value"] for t in span.get("tags", [])}
-                        if tags.get("db.system") == "memgraph":
-                            check("Cypher span has db.system=memgraph", True)
-                        if tags.get("db.statement"):
-                            stmt = tags["db.statement"]
-                            check("Cypher span has db.statement",
-                                  len(stmt) > 0,
-                                  stmt[:80])
+            cypher_spans = []
 
-            check("Jaeger has cypher.execute spans", len(cypher_spans) > 0,
+            # Tempo returns batches → resourceSpans → scopeSpans → spans
+            for batch in trace_data.get("batches", []):
+                for rs in batch.get("resource", {}).get("attributes", []):
+                    pass  # resource attributes
+                for scope_spans in batch.get("scopeSpans", []):
+                    for span in scope_spans.get("spans", []):
+                        op = span.get("name", "")
+                        all_span_names.add(op)
+                        if "cypher" in op.lower():
+                            cypher_spans.append(span)
+
+            check("Tempo has cypher.execute spans", len(cypher_spans) > 0,
                   f"found {len(cypher_spans)} cypher spans")
 
-            # Show all span operation names
             print(f"\n       Span operations found: {sorted(all_span_names)}")
 
-            # cypher.execute is the critical span (proves Cypher is traced)
             check("  Span 'cypher.execute' in traces",
                   "cypher.execute" in all_span_names,
                   f"all spans: {sorted(all_span_names)}")
 
 except requests.ConnectionError:
-    check("Jaeger API reachable", False, "connection refused")
+    check("Tempo API reachable", False, "connection refused")
 
 # ── Cleanup ──────────────────────────────────────────────────────
 backend._run("MATCH (n {domain: $d}) DETACH DELETE n", {"d": domain})
@@ -431,7 +420,7 @@ else:
     print("  ALL CHECKS PASSED. Observability stack is fully operational.")
     print()
     print("  Grafana dashboard: http://localhost:3010/d/qortex-main/qortex-observability")
-    print("  Jaeger UI:         http://localhost:16686/search?service=qortex")
+    print("  Tempo (Grafana):   http://localhost:3010/explore?datasource=tempo")
     print("  Prometheus:        http://localhost:9091/graph")
     print()
     sys.exit(0)
