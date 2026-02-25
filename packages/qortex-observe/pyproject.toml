@@ -1,6 +1,6 @@
 [project]
 name = "qortex-observe"
-version = "0.1.0"
+version = "0.2.0"
 description = "Event-driven observability for qortex: metrics, traces, logs, and alerts."
 readme = "README.md"
 requires-python = ">=3.11"
