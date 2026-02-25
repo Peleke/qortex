@@ -14,3 +14,17 @@ datasources:
     access: proxy
     url: http://victorialogs:9428
     editable: true
+
+  - name: Tempo
+    type: tempo
+    access: proxy
+    url: http://tempo:3200
+    uid: tempo
+    editable: true
+    jsonData:
+      tracesToMetrics:
+        datasourceUid: prometheus
+      nodeGraph:
+        enabled: true
+      serviceMap:
+        datasourceUid: prometheus

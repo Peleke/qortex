@@ -68,15 +68,17 @@ services:
     volumes:
       - ./otel-collector/otel-collector-config.yaml:/etc/otelcol-contrib/config.yaml
     depends_on:
-      - jaeger
+      - tempo
 
-  jaeger:
-    image: jaegertracing/all-in-one:latest
-    container_name: qortex-jaeger
+  tempo:
+    image: grafana/tempo:2.7.2
+    container_name: qortex-tempo
+    command: ["-config.file=/etc/tempo/tempo.yaml"]
     ports:
-      - "16686:16686" # Jaeger UI
-    environment:
-      - COLLECTOR_OTLP_ENABLED=true
+      - "3200:3200"   # Tempo API (Grafana queries via TraceQL)
+    volumes:
+      - ./tempo/tempo.yaml:/etc/tempo/tempo.yaml
+      - tempo_data:/var/tempo
 
   prometheus:
     image: prom/prometheus:latest
@@ -115,6 +117,7 @@ services:
     depends_on:
       - prometheus
       - victorialogs
+      - tempo
 
 volumes:
   postgres_data:
@@ -122,4 +125,5 @@ volumes:
   memgraph_log:
   prometheus_data:
   victorialogs_data:
+  tempo_data:
   grafana_data:
