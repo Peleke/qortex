@@ -12,6 +12,15 @@ receivers:
       http:
         endpoint: 0.0.0.0:4318
 
+connectors:
+  servicegraph:
+    latency_histogram_buckets: [10ms, 50ms, 100ms, 250ms, 500ms, 1s, 2s, 5s]
+    dimensions:
+      - service.namespace
+    store:
+      ttl: 2s
+      max_items: 1000
+
 processors:
   batch:
     timeout: 5s
@@ -32,8 +41,8 @@ service:
     traces:
       receivers: [otlp]
       processors: [batch]
-      exporters: [otlp_grpc/tempo]
+      exporters: [otlp_grpc/tempo, servicegraph]
     metrics:
-      receivers: [otlp]
+      receivers: [otlp, servicegraph]
       processors: [batch]
       exporters: [prometheus]
