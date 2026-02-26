@@ -244,23 +244,18 @@ Chunk nodes remain as the bridge between vector search and the concept graph. PP
 
 | Metric | Type | Source Event |
 |--------|------|--------------|
-| `qortex_concepts_extracted` | Counter | `ConceptsExtracted` |
-| `qortex_relations_extracted` | Counter | `ConceptsExtracted` |
-| `qortex_extraction_duration_seconds` | Histogram | `ConceptsExtracted` |
-| `qortex_extraction_pipeline_duration_seconds` | Histogram | `ExtractionPipelineCompleted` |
-| `qortex_extraction_concepts_per_chunk` | Histogram | `ConceptsExtracted` |
-| `qortex_extraction_relations_per_chunk` | Histogram | `ConceptsExtracted` |
-| `qortex_extractions` | Counter | `ExtractionPipelineCompleted` |
-| `qortex_graph_nodes_created_total` | Counter | `GraphNodesCreated` |
-| `qortex_graph_edges_created_total` | Counter | `GraphEdgesCreated` |
+| `qortex_messages_ingested_total` | Counter | `MessageIngested` |
+| `qortex_vec_add_total` | Counter | `VecIndexUpdated` |
+| `qortex_online_edges_generated_total` | Counter | `OnlineEdgesGenerated` |
+| `qortex_message_ingest_duration_seconds` | Histogram | `MessageIngested` |
 
 ### Grafana panels
 
 The **KG Growth** section of the `qortex-main` dashboard shows:
 
-- **Total Nodes / Total Edges**: lifetime stat panels.
-- **Nodes vs Edges over time**: time series showing growth rate.
-- **By Origin**: breakdown of `online_index` vs `manifest` vs `co_occurrence`.
+- **Vectors Indexed / Edge Events**: lifetime stat panels (mapped to `qortex_vec_add_total` and `qortex_online_edges_generated_total`).
+- **Index Growth over time**: time series showing cumulative vectors and edge events.
+- **Vectors by Index Type**: breakdown by backend (pgvector, sqlite-vec, etc.).
 
 The **Concept Extraction** section shows:
 

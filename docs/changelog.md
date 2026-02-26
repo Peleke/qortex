@@ -5,6 +5,14 @@ All notable changes to qortex are documented here.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.8.2] - 2026-02-26
+
+### Fixed
+
+- Grafana dashboard panels remapped to actually-emitted Prometheus metrics: `graph_nodes_created_total` → `vec_add_total`, `graph_edges_created_total` → `online_edges_generated_total`, `concepts_extracted_total` → `vec_add_total`, `feedback_total` → `learning_observations_total`, `ingest_duration_seconds` → `message_ingest_duration_seconds`, `manifests_ingested_total` → `messages_ingested_total`
+- Panels for not-yet-emitted metrics (factors, coverage, credit propagation) use `or vector(0)` fallbacks
+- Dashboard auto-provisions from `docker/grafana/dashboards/qortex.json`
+
 ## [0.8.1] - 2026-02-23
 
 ### Changed

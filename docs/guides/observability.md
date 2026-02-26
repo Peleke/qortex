@@ -132,8 +132,8 @@ These panels track how the system learns from feedback. Teleportation factors bi
 
 #### Feedback Accept/Reject Ratio
 
-- **Metric:** `rate(qortex_feedback_total{outcome="accepted"|"rejected"}[5m])`
-- **Source event:** `FeedbackReceived` (emitted by `GraphRAGAdapter.feedback()`)
+- **Metric:** `rate(qortex_learning_observations_total{outcome="accepted"|"rejected"}[5m])`
+- **Source event:** `LearningObservationRecorded` (emitted by `GraphRAGAdapter.feedback()`)
 - **What it tells you:** The raw accept vs reject rate from user feedback. This is the primary signal for retrieval quality. If rejects trend upward over time, something is degrading.
 
 ### KG Crystallization
@@ -221,16 +221,16 @@ These panels show the graph algorithm that powers retrieval scoring.
 
 #### Ingestion Rate
 
-- **Metric:** `rate(qortex_manifests_ingested_total[5m])`
-- **Labels:** `domain`
-- **Source event:** `ManifestIngested`
-- **What it tells you:** How often knowledge manifests are ingested, broken down by domain. Each manifest contains nodes, edges, and rules from a single source.
+- **Metric:** `rate(qortex_messages_ingested_total[5m])`
+- **Labels:** `role` (`user`, `assistant`)
+- **Source event:** `MessageIngested`
+- **What it tells you:** How often messages are ingested, broken down by role. Each message triggers concept extraction and graph indexing.
 
 #### Ingest Latency (p50/p95)
 
-- **Metric:** `histogram_quantile(0.50|0.95, rate(qortex_ingest_duration_seconds_bucket[5m]))`
-- **Source event:** `ManifestIngested`
-- **What it tells you:** Time to ingest a manifest into the graph backend. For Memgraph, this includes node/edge/rule creation via Cypher. Latency scales with manifest size.
+- **Metric:** `histogram_quantile(0.50|0.95, rate(qortex_message_ingest_duration_seconds_bucket[5m]))`
+- **Source event:** `MessageIngested`
+- **What it tells you:** Time to ingest a message (includes extraction, embedding, and graph ops). Latency scales with message length and chunk count.
 
 ### Vector Index
 
@@ -238,10 +238,10 @@ These panels provide visibility into the vec layer: the index that stores embedd
 
 #### Vec Index Size
 
-- **Metric:** `qortex_vec_index_size`
+- **Metric:** `qortex_vec_add_total`
 - **Display:** Stat panel (single number)
-- **Source event:** `VecIndexUpdated` (emitted from `NumpyVectorIndex.add()` and `SqliteVecIndex.add()`)
-- **What it tells you:** Total number of vectors in the index. Should match the number of ingested nodes that have embeddings. A stale or low number means embeddings aren't being stored properly.
+- **Source event:** `VecIndexUpdated` (emitted from `NumpyVectorIndex.add()`, `SqliteVecIndex.add()`, `PgVectorIndex.add()`)
+- **What it tells you:** Total embedding vectors stored. Each extracted concept becomes one vector. Growth indicates new concepts being ingested.
 
 #### Vec Add Rate
 
@@ -322,34 +322,34 @@ These panels track the extraction pipeline that converts raw text chunks into na
 
 #### Extractions Total / Concepts Extracted / Relations Extracted
 
-- **Metrics:** `qortex_extractions_total`, `qortex_concepts_extracted_total`, `qortex_relations_extracted_total`
+- **Metrics:** `qortex_messages_ingested_total` (extractions), `qortex_vec_add_total` (concepts), `qortex_online_edges_generated_total` (relations)
 - **Display:** Stat panels (lifetime counts)
-- **Source events:** `ExtractionPipelineCompleted`, `ConceptsExtracted`
-- **What it tells you:** How much extraction has happened since startup. If concepts are zero but extractions are positive, the extraction strategy is returning empty results (check spaCy model installation).
+- **Source events:** `MessageIngested`, `VecIndexUpdated`, `OnlineEdgesGenerated`
+- **What it tells you:** How much extraction has happened since startup. Each ingested message triggers one extraction run; each concept becomes a vector; relations map to online edges.
 
 #### Concepts per Chunk (p50/p95)
 
-- **Metric:** `histogram_quantile(0.50|0.95, rate(qortex_extraction_concepts_per_chunk_bucket[5m]))`
-- **Source event:** `ConceptsExtracted`
-- **What it tells you:** How many concepts each chunk produces. p50 of 2-5 is typical for spaCy. Zero means extraction is not working.
+- **Metric:** `sum(qortex_vec_add_total) / sum(qortex_messages_ingested_total)`
+- **Source events:** `VecIndexUpdated`, `MessageIngested`
+- **What it tells you:** Average vectors (concepts) produced per ingested message. A ratio of 2-5 is typical for spaCy extraction.
 
 #### Extraction Latency per chunk (p50/p95/p99)
 
-- **Metric:** `histogram_quantile(0.50|0.95|0.99, rate(qortex_extraction_duration_seconds_bucket[5m]))`
-- **Source event:** `ConceptsExtracted`
-- **What it tells you:** Per-chunk extraction time. spaCy is typically sub-50ms. LLM extraction can be seconds. Watch p99 for outliers.
+- **Metric:** `histogram_quantile(0.50|0.95|0.99, rate(qortex_message_ingest_duration_seconds_bucket[5m]))`
+- **Source event:** `MessageIngested`
+- **What it tells you:** Per-message ingest time (includes extraction, embedding, and graph ops). spaCy extraction is typically sub-50ms. Watch p99 for outliers.
 
 #### Pipeline Latency (p50/p95)
 
-- **Metric:** `histogram_quantile(0.50|0.95, rate(qortex_extraction_pipeline_duration_seconds_bucket[5m]))`
-- **Source event:** `ExtractionPipelineCompleted`
-- **What it tells you:** Total extraction time across all chunks in a single ingest call. Scales with chunk count.
+- **Metric:** `histogram_quantile(0.50|0.95, rate(qortex_message_ingest_duration_seconds_bucket[5m]))`
+- **Source event:** `MessageIngested`
+- **What it tells you:** Total ingest pipeline time per message batch. Scales with message length and chunk count.
 
 #### Concepts by Strategy & Domain
 
-- **Metric:** `sum by (strategy, domain) (rate(qortex_concepts_extracted_total[5m]))`
-- **Source event:** `ConceptsExtracted`
-- **What it tells you:** Extraction rate broken down by strategy (`spacy`, `llm`, `none`) and domain. Useful for comparing strategies.
+- **Metric:** `sum by (index_type) (rate(qortex_vec_add_total[5m]))`
+- **Source event:** `VecIndexUpdated`
+- **What it tells you:** Vector addition rate broken down by index backend (pgvector, sqlite-vec, etc.).
 
 ### Credit Propagation
 
@@ -417,7 +417,7 @@ When `QORTEX_STORE=postgres`, additional metrics are emitted for the PostgreSQL-
 | `qortex_factor_entropy` | Gauge | `FactorDriftSnapshot` | — |
 | `qortex_factors_active` | Gauge | `FactorDriftSnapshot` | — |
 | `qortex_factor_updates_total` | Counter | `FactorUpdated` | `outcome` |
-| `qortex_feedback_total` | Counter | `FeedbackReceived` | `outcome` |
+| `qortex_learning_observations_total` | Counter | `LearningObservationRecorded` | `learner`, `outcome` |
 | `qortex_kg_coverage` | Gauge | `KGCoverageComputed`, `BufferFlushed` | — |
 | `qortex_buffer_edges` | Gauge | `OnlineEdgeRecorded` | — |
 | `qortex_edges_promoted_total` | Counter | `EdgePromoted` | — |
@@ -428,9 +428,8 @@ When `QORTEX_STORE=postgres`, additional metrics are emitted for the PostgreSQL-
 | `qortex_enrichment_total` | Counter | `EnrichmentCompleted` | `backend_type` |
 | `qortex_enrichment_duration_seconds` | Histogram | `EnrichmentCompleted` | — |
 | `qortex_enrichment_fallbacks_total` | Counter | `EnrichmentFallback` | — |
-| `qortex_manifests_ingested_total` | Counter | `ManifestIngested` | `domain` |
-| `qortex_ingest_duration_seconds` | Histogram | `ManifestIngested` | — |
-| `qortex_vec_index_size` | Gauge | `VecIndexUpdated` | — |
+| `qortex_messages_ingested_total` | Counter | `MessageIngested` | `role` |
+| `qortex_message_ingest_duration_seconds` | Histogram | `MessageIngested` | — |
 | `qortex_vec_add_total` | Counter | `VecIndexUpdated` | `index_type` |
 | `qortex_vec_add_duration_seconds` | Histogram | `VecIndexUpdated` | — |
 | `qortex_vec_search_candidates` | Histogram | `VecSearchResults` | — |
@@ -445,13 +444,10 @@ When `QORTEX_STORE=postgres`, additional metrics are emitted for the PostgreSQL-
 | `qortex_credit_concepts_per_propagation` | Histogram | `CreditPropagated` | — |
 | `qortex_credit_alpha_delta_total` | Counter | `CreditPropagated` | — |
 | `qortex_credit_beta_delta_total` | Counter | `CreditPropagated` | — |
-| `qortex_concepts_extracted` | Counter | `ConceptsExtracted` | `strategy`, `domain` |
-| `qortex_relations_extracted` | Counter | `ConceptsExtracted` | `strategy`, `domain` |
-| `qortex_extraction_duration_seconds` | Histogram | `ConceptsExtracted` | — |
-| `qortex_extraction_pipeline_duration_seconds` | Histogram | `ExtractionPipelineCompleted` | — |
-| `qortex_extraction_concepts_per_chunk` | Histogram | `ConceptsExtracted` | — |
-| `qortex_extraction_relations_per_chunk` | Histogram | `ConceptsExtracted` | — |
-| `qortex_extractions` | Counter | `ExtractionPipelineCompleted` | `strategy` |
+| `qortex_messages_ingested_total` | Counter | `MessageIngested` | `role` |
+| `qortex_vec_add_total` | Counter | `VecIndexUpdated` | `index_type` |
+| `qortex_online_edges_generated_total` | Counter | `OnlineEdgesGenerated` | — |
+| `qortex_message_ingest_duration_seconds` | Histogram | `MessageIngested` | — |
 
 ## Distributed Tracing
 
