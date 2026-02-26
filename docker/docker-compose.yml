@@ -1,4 +1,39 @@
 services:
+  # --- qortex application ---
+  # The qortex server with the embedding model baked into the image.
+  # Start with: docker compose up -d qortex
+  qortex:
+    image: ghcr.io/peleke/qortex:latest
+    container_name: qortex
+    ports:
+      - "8400:8400"   # REST API
+      - "8401:8401"   # MCP Streamable HTTP
+    environment:
+      QORTEX_STORE: ${QORTEX_STORE:-postgres}
+      DATABASE_URL: postgresql://qortex:qortex@postgres:5432/qortex
+      QORTEX_GRAPH: ${QORTEX_GRAPH:-memgraph}
+      MEMGRAPH_HOST: memgraph
+      MEMGRAPH_PORT: "7687"
+      MEMGRAPH_USER: ${MEMGRAPH_USER:-memgraph}
+      MEMGRAPH_PASSWORD: ${MEMGRAPH_PASSWORD:-memgraph}
+      QORTEX_EXTRACTION: ${QORTEX_EXTRACTION:-spacy}
+      QORTEX_OTEL_ENABLED: "true"
+      OTEL_EXPORTER_OTLP_ENDPOINT: http://otel-collector:4318
+      OTEL_EXPORTER_OTLP_PROTOCOL: http/protobuf
+      QORTEX_PROMETHEUS_ENABLED: "true"
+      QORTEX_PROMETHEUS_PORT: "9464"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      otel-collector:
+        condition: service_started
+    healthcheck:
+      test: ["CMD", "python3", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8400/v1/health')"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 15s
+
   # Memgraph + Lab: only needed for local-only dev (no sandbox).
   # When using the sandbox, Lima auto-forwards these ports from the VM.
   # Start with: docker compose --profile local-graph up -d
@@ -68,15 +103,17 @@ services:
     volumes:
       - ./otel-collector/otel-collector-config.yaml:/etc/otelcol-contrib/config.yaml
     depends_on:
-      - jaeger
+      - tempo
 
-  jaeger:
-    image: jaegertracing/all-in-one:latest
-    container_name: qortex-jaeger
+  tempo:
+    image: grafana/tempo:2.7.2
+    container_name: qortex-tempo
     ports:
-      - "16686:16686" # Jaeger UI
-    environment:
-      - COLLECTOR_OTLP_ENABLED=true
+      - "3200:3200"   # Tempo HTTP API (query frontend)
+    volumes:
+      - ./tempo/tempo.yaml:/etc/tempo/tempo.yaml
+      - tempo_data:/var/tempo
+    command: ["-config.file=/etc/tempo/tempo.yaml"]
 
   prometheus:
     image: prom/prometheus:latest
@@ -111,10 +148,11 @@ services:
       - GF_SECURITY_ADMIN_PASSWORD=${GF_SECURITY_ADMIN_PASSWORD:-qortex}
       - GF_AUTH_ANONYMOUS_ENABLED=true
       - GF_AUTH_ANONYMOUS_ORG_ROLE=Viewer
-      - GF_INSTALL_PLUGINS=victoriametrics-logs-datasource,jdbranham-diagram-panel
+      - GF_INSTALL_PLUGINS=victoriametrics-logs-datasource,jdbranham-diagram-panel,grafana-tempo-datasource
     depends_on:
       - prometheus
       - victorialogs
+      - tempo
 
 volumes:
   postgres_data:
@@ -123,3 +161,4 @@ volumes:
   prometheus_data:
   victorialogs_data:
   grafana_data:
+  tempo_data:

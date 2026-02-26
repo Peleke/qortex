@@ -1,6 +1,6 @@
 # Observability and Grafana Dashboard
 
-qortex includes an observability stack built on OpenTelemetry. Structured events drive metrics (Prometheus), traces (Jaeger), and a Grafana dashboard covering the entire pipeline.
+qortex includes an observability stack built on OpenTelemetry. Structured events drive metrics (Prometheus), traces (Tempo), and a Grafana dashboard covering the entire pipeline.
 
 The observability layer is packaged as `qortex-observe`, a standalone package that can be installed independently. It provides the event system, metric definitions, trace instrumentation, and subscriber wiring.
 
@@ -12,7 +12,7 @@ qortex process
   │   ├─ metrics_handlers      → OTel instruments (counters, histograms, gauges)
   │   │   ├─ OTLP push         → OTel Collector → Prometheus (remote write)
   │   │   └─ PrometheusReader  → HTTP /metrics (local scrape target, port 9464)
-  │   ├─ otel_traces           → OTel spans → Jaeger (trace viewer)
+  │   ├─ otel_traces           → OTel spans → OTel Collector → Tempo (trace storage)
   │   ├─ structlog             → stdout / JSONL sink / VictoriaLogs
   │   ├─ jsonl                 → append-only log file
   │   └─ alerts                → threshold-based alerting
@@ -54,7 +54,7 @@ open http://localhost:3010/d/qortex-main/qortex-observability
 | OTel Collector | 4317, 4318 | Receives OTLP (gRPC + HTTP) |
 | Prometheus | 9091 | Metrics storage + PromQL |
 | Grafana | 3010 | Dashboard visualization |
-| Jaeger | 16686 | Trace viewer |
+| Tempo | 3200 | Trace storage (query via Grafana Explore with TraceQL) |
 | VictoriaLogs | 9428 | Log aggregation |
 
 ## Environment Variables
@@ -455,7 +455,7 @@ When `QORTEX_STORE=postgres`, additional metrics are emitted for the PostgreSQL-
 
 ## Distributed Tracing
 
-qortex uses the `@traced` decorator from `qortex.observe.tracing` to create OpenTelemetry spans with automatic parent-child hierarchy. When OTel is enabled, every operation produces a trace tree visible in Jaeger.
+qortex uses the `@traced` decorator from `qortex.observe.tracing` to create OpenTelemetry spans with automatic parent-child hierarchy. When OTel is enabled, every operation produces a trace tree visible in Grafana via the Tempo datasource.
 
 ### Span Hierarchy
 
@@ -538,19 +538,21 @@ By default, only 10% of normal traces are exported. The `SelectiveSpanProcessor`
 
 Adjust with `QORTEX_OTEL_TRACE_SAMPLE_RATE` and `QORTEX_OTEL_TRACE_LATENCY_THRESHOLD_MS`.
 
-### Viewing Traces in Jaeger
+### Viewing Traces in Grafana (Tempo)
 
 ```bash
 # Ensure the stack is running
-cd docker && docker compose up -d
+cd docker && docker compose up -d qortex
 
-# Open Jaeger
-open http://localhost:16686
+# Open Grafana Explore with Tempo datasource
+open http://localhost:3010/explore
 
-# Select service "qortex" and search for traces
+# Select the "Tempo" datasource, search for service "qortex"
 ```
 
 Traces show the full call hierarchy: an `ingest_manifest` trace includes every `add_node`, `add_edge`, and underlying `cypher.execute` as child spans. Click any span to see its attributes (PPR convergence stats, embedding batch sizes, cache hit rates, etc.).
+
+You can use TraceQL queries for advanced filtering, e.g. `{ resource.service.name = "qortex" && span.http.status_code >= 400 }`.
 
 ## Testing the Dashboard
 

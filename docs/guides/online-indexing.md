@@ -270,9 +270,9 @@ The **Concept Extraction** section shows:
 - **Pipeline Latency (p50/p95)**: total extraction time across all chunks.
 - **Concepts by Strategy & Domain**: breakdown by extraction strategy and domain.
 
-### Jaeger traces
+### Traces (Tempo)
 
-When OTel is enabled (`QORTEX_OTEL_ENABLED=true`), each ingest call produces a trace tree:
+When OTel is enabled (`QORTEX_OTEL_ENABLED=true`), each ingest call produces a trace tree visible in Grafana via the Tempo datasource:
 
 ```
 mcp.tool.qortex_ingest_message
