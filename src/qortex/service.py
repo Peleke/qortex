@@ -728,12 +728,16 @@ class QortexService:
         role: str = "user",
         domain: str = "session",
     ) -> dict:
-        """Lightweight online-index pipeline: chunk, embed, index.
+        """Online-index pipeline: chunk, embed, extract concepts, write graph.
 
-        No LLM required. Used by the gateway to index session messages
-        for retrieval during conversations.
+        Uses spaCy (or configured QORTEX_EXTRACTION strategy) for concept
+        extraction — no LLM required. Creates chunk nodes, concept nodes,
+        CONTAINS edges, relation edges, and co-occurrence edges in the graph.
         """
+        import re
         import time
+
+        from qortex.core.models import ConceptEdge, ConceptNode, RelationType
 
         _VALID_ROLES = {"user", "assistant", "system", "tool"}
 
@@ -742,19 +746,108 @@ class QortexService:
 
         safe_role = role if role in _VALID_ROLES else "unknown"
         t0 = time.monotonic()
+        source_id = f"{session_id}:{safe_role}"
+        id_prefix = session_id
+
+        def _slugify(name: str) -> str:
+            return re.sub(r"[^a-z0-9]+", "_", name.lower()).strip("_")[:64]
 
         # Chunk
         from qortex.online.chunker import default_chunker
 
-        chunks = default_chunker(text, source_id=f"{session_id}:{safe_role}")
+        chunks = default_chunker(text, source_id=source_id)
 
         chunk_count = 0
+        concept_count = 0
+        edge_count = 0
+
         if self.embedding_model is not None and self.vector_index is not None and chunks:
-            ids = [f"{session_id}:{c.id}" for c in chunks]
+            ids = [f"{id_prefix}:{c.id}" for c in chunks]
             texts = [c.text for c in chunks]
             embeddings = self.embedding_model.embed(texts)
             await self.vector_index.add(ids, embeddings)
             chunk_count = len(chunks)
+
+            # Write chunk nodes + extract concepts if graph backend available
+            if self.backend is not None:
+                extractor = self._get_extraction_strategy()
+
+                for chunk_id, chunk in zip(ids, chunks):
+                    # Create chunk node in graph (bridges vec → graph)
+                    self.backend.add_node(
+                        ConceptNode(
+                            id=chunk_id,
+                            name=chunk.text[:80],
+                            description=chunk.text,
+                            domain=domain,
+                            source_id=source_id,
+                            confidence=1.0,
+                        )
+                    )
+
+                    # Extract concepts via spaCy (or configured strategy)
+                    extraction_result = extractor(chunk.text, domain)
+
+                    if not extraction_result.empty:
+                        for concept in extraction_result.concepts:
+                            concept_id = f"{id_prefix}:concept:{_slugify(concept.name)}"
+                            self.backend.add_node(
+                                ConceptNode(
+                                    id=concept_id,
+                                    name=concept.name,
+                                    description=concept.description,
+                                    domain=domain,
+                                    source_id=source_id,
+                                    confidence=concept.confidence,
+                                )
+                            )
+                            concept_count += 1
+                            # CONTAINS edge: chunk → concept
+                            self.backend.add_edge(
+                                ConceptEdge(
+                                    source_id=chunk_id,
+                                    target_id=concept_id,
+                                    relation_type=RelationType.CONTAINS,
+                                    confidence=concept.confidence,
+                                    properties={"origin": "extraction"},
+                                )
+                            )
+                            edge_count += 1
+
+                        # Typed edges between extracted concepts
+                        for rel in extraction_result.relations:
+                            src_id = f"{id_prefix}:concept:{_slugify(rel.source_name)}"
+                            tgt_id = f"{id_prefix}:concept:{_slugify(rel.target_name)}"
+                            try:
+                                rel_type = RelationType(rel.relation_type.lower())
+                            except (ValueError, KeyError):
+                                # Fallback: try upper-case member name
+                                member = rel.relation_type.upper().replace(" ", "_")
+                                rel_type = getattr(RelationType, member, RelationType.SIMILAR_TO)
+                            self.backend.add_edge(
+                                ConceptEdge(
+                                    source_id=src_id,
+                                    target_id=tgt_id,
+                                    relation_type=rel_type,
+                                    confidence=rel.confidence,
+                                    properties={"origin": "extraction"},
+                                )
+                            )
+                            edge_count += 1
+
+                # Co-occurrence edges between consecutive chunks
+                if len(ids) > 1:
+                    for i in range(len(ids) - 1):
+                        self.backend.add_edge(
+                            ConceptEdge(
+                                source_id=ids[i],
+                                target_id=ids[i + 1],
+                                relation_type=RelationType.REQUIRES,
+                                confidence=0.8,
+                                properties={"origin": "co_occurrence"},
+                            )
+                        )
+                        edge_count += 1
 
         elapsed = (time.monotonic() - t0) * 1000
 
@@ -768,8 +861,8 @@ class QortexService:
                     role=safe_role,
                     domain=domain,
                     chunk_count=chunk_count,
-                    concept_count=0,
-                    edge_count=0,
+                    concept_count=concept_count,
+                    edge_count=edge_count,
                     latency_ms=elapsed,
                 )
             )
@@ -779,8 +872,8 @@ class QortexService:
         return {
             "session_id": session_id,
             "chunks": chunk_count,
-            "concepts": 0,
-            "edges": 0,
+            "concepts": concept_count,
+            "edges": edge_count,
             "latency_ms": round(elapsed, 2),
         }
 
@@ -1604,6 +1697,46 @@ class QortexService:
 
         self.llm_backend = StubLLMBackend()
         return self.llm_backend
+
+    _extraction_strategy: Any = None
+
+    def _get_extraction_strategy(self) -> Any:
+        """Return the active extraction strategy (spaCy by default).
+
+        Configured via QORTEX_EXTRACTION env var: "spacy" | "llm" | "none".
+        """
+        if self._extraction_strategy is not None:
+            return self._extraction_strategy
+
+        import os
+
+        mode = os.environ.get("QORTEX_EXTRACTION", "spacy").lower()
+
+        if mode == "llm":
+            try:
+                from qortex.ingest.backends import get_extraction_backend
+                from qortex.online.extractor import LLMExtractor
+
+                backend = get_extraction_backend()
+                self._extraction_strategy = LLMExtractor(backend)
+                logger.info("extraction.strategy", strategy="llm")
+            except Exception:
+                logger.warning("extraction.llm.unavailable", fallback="spacy")
+                mode = "spacy"
+
+        if mode == "none":
+            from qortex.online.extractor import NullExtractor
+
+            self._extraction_strategy = NullExtractor()
+            logger.info("extraction.strategy", strategy="none")
+        elif self._extraction_strategy is None:
+            # Default: spaCy
+            from qortex.online.extractor import SpaCyExtractor
+
+            self._extraction_strategy = SpaCyExtractor()
+            logger.info("extraction.strategy", strategy="spacy")
+
+        return self._extraction_strategy
 
     async def _maybe_propagate_credit(
         self,
