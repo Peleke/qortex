@@ -1,48 +1,62 @@
 # Docker Infrastructure
 
-qortex ships a Docker Compose stack for the graph database and observability services. The compose file lives at `docker/docker-compose.yml`.
+qortex ships a Docker Compose stack that includes the qortex server itself, the graph database, and full observability services. The compose file lives at `docker/docker-compose.yml`.
 
 ## Services overview
 
 | Service | Image | Purpose |
 |---------|-------|---------|
+| **qortex** | `ghcr.io/peleke/qortex:latest` | qortex REST API + MCP server. The embedding model (sentence-transformers) is baked into the image. |
 | **PostgreSQL** | `pgvector/pgvector:pg17` | Shared database for vectors, interoception, and learning state. pgvector extension pre-installed. |
 | **Memgraph** | `memgraph/memgraph-mage:latest` | Graph database (Bolt protocol). Production backend for the knowledge graph. |
 | **Memgraph Lab** | `memgraph/lab:latest` | Web UI for Memgraph. Visual graph exploration and Cypher queries. |
 | **OTel Collector** | `otel/opentelemetry-collector-contrib:latest` | Receives OTLP telemetry from qortex and routes to backends. |
-| **Jaeger** | `jaegertracing/all-in-one:latest` | Distributed trace viewer. |
+| **Tempo** | `grafana/tempo:2.7.2` | Distributed trace storage. Queried via Grafana with TraceQL. |
 | **Prometheus** | `prom/prometheus:latest` | Metrics storage and PromQL queries. |
 | **Grafana** | `grafana/grafana:latest` | Dashboard visualization. Ships with the pre-built `qortex-main` dashboard. |
 | **VictoriaLogs** | `victoriametrics/victoria-logs:latest` | Log aggregation (structured JSONL logs). 30-day retention. |
+
+> **Note**: Tempo v2.7.2 is pinned deliberately. Later versions (v2.10+) have a known partition ring issue that causes startup failures.
+
+## Running qortex
+
+qortex runs as a Docker container. The embedding model is baked into the image, so there is no separate download step and no `vec.unavailable` fallback.
+
+```bash
+# Start qortex + PostgreSQL + observability
+cd docker && docker compose up -d qortex
+
+# qortex waits for PostgreSQL to be healthy before starting.
+# Verify:
+curl -s http://localhost:8400/v1/health
+```
+
+The `qortex` service depends on `postgres` and `otel-collector`, which are started automatically. The REST API is available on port 8400 and the MCP Streamable HTTP endpoint on port 8401.
+
+### With Memgraph (full stack)
+
+```bash
+cd docker && docker compose --profile local-graph up -d qortex
+```
+
+This starts qortex, PostgreSQL, Memgraph, Memgraph Lab, and the full observability stack.
 
 ## Compose profiles
 
 The stack uses Docker Compose profiles to separate concerns:
 
-### Default profile (observability only)
+### Default (qortex + postgres + observability)
 
 ```bash
-cd docker && docker compose up -d
+cd docker && docker compose up -d qortex
 ```
 
-Starts: OTel Collector, Jaeger, Prometheus, Grafana, VictoriaLogs.
-
-Use this when Memgraph is already running elsewhere (e.g. inside a Lima sandbox VM or on a remote host).
-
-### `postgres` profile (includes PostgreSQL + pgvector)
-
-```bash
-cd docker && docker compose --profile postgres up -d
-```
-
-Starts: everything above **plus** PostgreSQL with the pgvector extension. The database is initialized with `CREATE EXTENSION IF NOT EXISTS vector` on first boot.
-
-Use this when you want persistent PostgreSQL-backed storage for vectors, learning state, and interoception state. Set `QORTEX_STORE=postgres` and `DATABASE_URL=postgresql://qortex:qortex@localhost:5432/qortex` in your shell.
+Starts: qortex, PostgreSQL, OTel Collector, Tempo, Prometheus, Grafana, VictoriaLogs.
 
 ### `local-graph` profile (includes Memgraph)
 
 ```bash
-cd docker && docker compose --profile local-graph up -d
+cd docker && docker compose --profile local-graph up -d qortex
 ```
 
 Starts: everything above **plus** Memgraph and Memgraph Lab.
@@ -51,30 +65,31 @@ Use this for standalone local development when you need the graph database on th
 
 ### When using the sandbox (Lima VM)
 
-If qortex runs inside a Lima sandbox, the VM already runs Memgraph and Lab. Lima auto-forwards the Bolt port (7687) and Lab port (3000) to the host. **Do not start the `local-graph` profile** -- you would get port conflicts. Start only the default profile for observability.
+If qortex runs inside a Lima sandbox, the VM already runs Memgraph and Lab. Lima auto-forwards the Bolt port (7687) and Lab port (3000) to the host. **Do not start the `local-graph` profile** -- you would get port conflicts. Start only the default services.
 
-### `postgres` profile (includes PostgreSQL)
+### Observability only (no qortex container)
 
-```bash
-cd docker && docker compose --profile postgres up -d
-```
-
-Starts: everything above **plus** PostgreSQL with pgvector.
-
-Use this when you want postgres-backed stores for vectors, interoception, and learning state. Combines with the default observability profile.
-
-### Full production profile
+If you want to run qortex as a bare process on the host but still use the observability stack:
 
 ```bash
-cd docker && docker compose --profile local-graph --profile postgres up -d
+cd docker && docker compose up -d otel-collector tempo prometheus grafana victorialogs
 ```
 
-Starts: all services — Memgraph, PostgreSQL, and the full observability stack.
+Then point the host qortex process at the collector:
+
+```bash
+QORTEX_OTEL_ENABLED=true \
+OTEL_EXPORTER_OTLP_ENDPOINT=http://localhost:4318 \
+OTEL_EXPORTER_OTLP_PROTOCOL=http/protobuf \
+qortex serve
+```
 
 ## Port map
 
 | Port | Service | Protocol/UI |
 |------|---------|-------------|
+| 8400 | qortex | REST API |
+| 8401 | qortex | MCP Streamable HTTP |
 | 5432 | PostgreSQL | PostgreSQL wire protocol |
 | 7687 | Memgraph | Bolt protocol (graph queries) |
 | 7444 | Memgraph | Monitoring endpoint |
@@ -83,29 +98,32 @@ Starts: all services — Memgraph, PostgreSQL, and the full observability stack.
 | 4318 | OTel Collector | OTLP HTTP receiver |
 | 8889 | OTel Collector | Prometheus metrics (collector self-metrics) |
 | 9091 | Prometheus | Prometheus UI (mapped from container 9090 to avoid conflicts) |
-| 16686 | Jaeger | Jaeger UI |
+| 3200 | Tempo | Tempo HTTP API (TraceQL query frontend) |
 | 3010 | Grafana | Grafana UI (mapped from container 3000 to avoid Memgraph Lab conflict) |
 | 9428 | VictoriaLogs | HTTP API |
 
 ## Quick start
 
 ```bash
-# Start observability stack (no Memgraph)
-cd docker && docker compose up -d
+# Start qortex with observability
+cd docker && docker compose up -d qortex
 
-# Verify services are healthy
+# Verify qortex is healthy
+curl -s http://localhost:8400/v1/health
+
+# Verify observability services
 curl -s http://localhost:9091/api/v1/query?query=up | python3 -m json.tool
 
 # Open dashboards
 open http://localhost:3010/d/qortex-main/qortex-observability  # Grafana
-open http://localhost:16686                                      # Jaeger
+open http://localhost:3010/explore                               # Tempo traces (via Grafana Explore)
 ```
 
 With Memgraph:
 
 ```bash
 # Start everything including graph database
-cd docker && docker compose --profile local-graph up -d
+cd docker && docker compose --profile local-graph up -d qortex
 
 # Verify Memgraph
 python3 -c "import socket; s=socket.socket(); s.connect(('localhost',7687)); s.close(); print('ok')"
@@ -120,6 +138,9 @@ Set these in your shell or a `.env` file in the `docker/` directory:
 
 | Variable | Default | Description |
 |----------|---------|-------------|
+| `QORTEX_STORE` | `postgres` | Storage backend (`postgres` or `sqlite`). |
+| `QORTEX_GRAPH` | `memgraph` | Graph backend (`memgraph` or `memory`). |
+| `QORTEX_EXTRACTION` | `spacy` | Extraction strategy (`spacy`, `llm`, or `none`). |
 | `POSTGRES_USER` | `qortex` | PostgreSQL username. |
 | `POSTGRES_PASSWORD` | `qortex` | PostgreSQL password. |
 | `POSTGRES_DB` | `qortex` | PostgreSQL database name. |
@@ -127,52 +148,23 @@ Set these in your shell or a `.env` file in the `docker/` directory:
 | `MEMGRAPH_PASSWORD` | `memgraph` | Memgraph Bolt auth password. |
 | `GF_SECURITY_ADMIN_PASSWORD` | `qortex` | Grafana admin password. |
 
-### qortex process environment
+### qortex container environment
 
-These variables configure the qortex Python process to connect to the Docker services:
+These variables are pre-configured inside the `qortex` Docker service and typically do not need overriding:
 
 | Variable | Value | Description |
 |----------|-------|-------------|
 | `QORTEX_STORE` | `postgres` | Use PostgreSQL for vec, learning, and interoception stores. |
-| `DATABASE_URL` | `postgresql://qortex:qortex@localhost:5432/qortex` | PostgreSQL connection string for shared pool. |
+| `DATABASE_URL` | `postgresql://qortex:qortex@postgres:5432/qortex` | PostgreSQL connection string (container-internal hostname). |
 | `QORTEX_GRAPH` | `memgraph` | Use Memgraph backend (instead of in-memory). |
-| `MEMGRAPH_HOST` | `localhost` | Memgraph host (default works for local Docker). |
+| `MEMGRAPH_HOST` | `memgraph` | Memgraph container hostname. |
 | `MEMGRAPH_PORT` | `7687` | Memgraph Bolt port. |
-| `MEMGRAPH_USER` | `memgraph` | Must match the Docker env. |
-| `MEMGRAPH_PASSWORD` | `memgraph` | Must match the Docker env. |
+| `QORTEX_EXTRACTION` | `spacy` | Concept extraction via spaCy (model baked into image). |
 | `QORTEX_OTEL_ENABLED` | `true` | Enable OTel metrics and traces export. |
-| `OTEL_EXPORTER_OTLP_ENDPOINT` | `http://localhost:4318` | OTel Collector HTTP endpoint. |
+| `OTEL_EXPORTER_OTLP_ENDPOINT` | `http://otel-collector:4318` | OTel Collector HTTP endpoint (container-internal). |
 | `OTEL_EXPORTER_OTLP_PROTOCOL` | `http/protobuf` | OTLP export protocol. |
 | `QORTEX_PROMETHEUS_ENABLED` | `true` | Enable local `/metrics` endpoint for Prometheus scraping. |
 | `QORTEX_PROMETHEUS_PORT` | `9464` | Port for the local Prometheus scrape target. |
-
-### Full example (MCP server)
-
-```bash
-QORTEX_GRAPH=memgraph \
-MEMGRAPH_USER=memgraph MEMGRAPH_PASSWORD=memgraph \
-QORTEX_OTEL_ENABLED=true \
-OTEL_EXPORTER_OTLP_ENDPOINT=http://localhost:4318 \
-OTEL_EXPORTER_OTLP_PROTOCOL=http/protobuf \
-QORTEX_PROMETHEUS_ENABLED=true \
-qortex mcp-serve
-```
-
-### Full example (REST API with PostgreSQL)
-
-```bash
-QORTEX_STORE=postgres \
-DATABASE_URL=postgresql://qortex:qortex@localhost:5432/qortex \
-QORTEX_GRAPH=memgraph \
-MEMGRAPH_USER=memgraph MEMGRAPH_PASSWORD=memgraph \
-QORTEX_API_KEY=my-secret-key \
-QORTEX_CORS_ORIGINS="http://localhost:3000" \
-QORTEX_OTEL_ENABLED=true \
-OTEL_EXPORTER_OTLP_ENDPOINT=http://localhost:4318 \
-OTEL_EXPORTER_OTLP_PROTOCOL=http/protobuf \
-QORTEX_PROMETHEUS_ENABLED=true \
-qortex serve --host 0.0.0.0
-```
 
 ## Volumes
 
@@ -186,6 +178,7 @@ The compose file defines named volumes for persistent data:
 | `prometheus_data` | Prometheus | Metric time-series data. |
 | `victorialogs_data` | VictoriaLogs | Aggregated logs. |
 | `grafana_data` | Grafana | Dashboard state and user preferences. |
+| `tempo_data` | Tempo | Trace data (`/var/tempo`). |
 
 To reset all data:
 
@@ -196,10 +189,12 @@ cd docker && docker compose --profile local-graph down -v
 ## Grafana provisioning
 
 Grafana is pre-configured with:
-- **Datasources**: Prometheus (`http://prometheus:9090`), VictoriaLogs (`http://victorialogs:9428`).
+- **Datasources**: Prometheus (`http://prometheus:9090`), Tempo (`http://tempo:3200`), VictoriaLogs (`http://victorialogs:9428`).
 - **Dashboard**: `qortex-main` auto-loaded from `docker/grafana/dashboards/qortex.json`.
-- **Plugins**: `victoriametrics-logs-datasource`, `jdbranham-diagram-panel`.
+- **Plugins**: `victoriametrics-logs-datasource`, `jdbranham-diagram-panel`, `grafana-tempo-datasource`.
 - **Anonymous access**: enabled as Viewer (no login needed for read-only).
+
+Traces are viewable in Grafana via the Tempo datasource. Use **Explore > Tempo** to search by service name (`qortex`) or use TraceQL queries.
 
 ## Stopping services
 

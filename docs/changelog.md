@@ -56,13 +56,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Declarative metric schema**: All 36 metrics defined in a single `metrics_schema.py` registry with types, labels, and custom histogram buckets
 - **Unified metrics pipeline**: OTel as sole metric backend. One set of event handlers in `metrics_handlers.py` creates OTel instruments from the schema
 - **PrometheusMetricReader**: Replaces the old `prometheus_client` subscriber. Serves `/metrics` on port 9464 using OTel's built-in Prometheus exporter
-- **Full trace hierarchy**: `@traced` decorator on all MemgraphBackend operations (14 methods), vec layer (embeddings, index ops), and learning (select, observe, credit deltas). Jaeger shows complete parent-child span trees
+- **Full trace hierarchy**: `@traced` decorator on all MemgraphBackend operations (14 methods), vec layer (embeddings, index ops), and learning (select, observe, credit deltas). Tempo (via Grafana) shows complete parent-child span trees
 - **PPR span attributes**: `ppr.node_count`, `ppr.edge_count`, `ppr.iterations`, `ppr.converged`, `ppr.final_diff`, `ppr.latency_ms` on every PageRank execution
 - **Embedding model tracing**: `vec.embed.sentence_transformer`, `vec.embed.openai`, `vec.embed.ollama` spans with model name, batch size, and external I/O marking
 - **Cached embedding tracing**: `vec.embed.cached` spans with cache hit/miss/batch_size attributes
 - **Selective trace sampling**: `SelectiveSpanProcessor` always exports errors and slow spans; normal spans sampled at configurable rate (default 10%)
 - **Trace sampling env vars**: `QORTEX_OTEL_TRACE_SAMPLE_RATE` (default 0.1) and `QORTEX_OTEL_TRACE_LATENCY_THRESHOLD_MS` (default 100.0)
-- **Live stack validation**: `scripts/validate_live_stack.py` verifies metrics in Prometheus, traces in Jaeger, and dashboards in Grafana (132 checks)
+- **Live stack validation**: `scripts/validate_live_stack.py` verifies metrics in Prometheus, traces in Tempo, and dashboards in Grafana (132 checks)
 
 ### Removed
 

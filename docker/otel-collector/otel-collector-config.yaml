@@ -1,4 +1,4 @@
-# OpenTelemetry Collector config: receives OTLP, routes traces to Jaeger,
+# OpenTelemetry Collector config: receives OTLP, routes traces to Tempo,
 # exports metrics for Prometheus scraping.
 #
 # This enables push-based observability from remote environments (e.g. sandbox)
@@ -17,8 +17,8 @@ processors:
     timeout: 5s
 
 exporters:
-  otlp/jaeger:
-    endpoint: jaeger:4317
+  otlp/tempo:
+    endpoint: tempo:4317
     tls:
       insecure: true
 
@@ -32,7 +32,7 @@ service:
     traces:
       receivers: [otlp]
       processors: [batch]
-      exporters: [otlp/jaeger]
+      exporters: [otlp/tempo]
     metrics:
       receivers: [otlp]
       processors: [batch]
