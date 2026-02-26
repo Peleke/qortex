@@ -37,6 +37,54 @@ services:
       - QUICK_CONNECT_MG_PORT=7687
       - QUICK_CONNECT_MG_IS_ENCRYPTED=false
 
+  # --- qortex REST API server ---
+  # The actual knowledge graph service. Gateway talks to this via plain HTTP.
+  # Build: docker compose build qortex
+  # Profiles: always starts (no profile gate) — it IS the product.
+  qortex:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile
+    container_name: qortex-server
+    ports:
+      - "8400:8400"    # REST API
+    volumes:
+      - qortex_data:/root/.qortex
+    environment:
+      # Vec backend
+      QORTEX_VEC: ${QORTEX_VEC:-sqlite}
+      # Graph backend (memgraph when available)
+      QORTEX_GRAPH: ${QORTEX_GRAPH:-none}
+      MEMGRAPH_HOST: memgraph
+      MEMGRAPH_PORT: 7687
+      MEMGRAPH_USER: ${MEMGRAPH_USER:-memgraph}
+      MEMGRAPH_PASSWORD: ${MEMGRAPH_PASSWORD:-memgraph}
+      # pgvector (when using postgres vec backend)
+      PGVECTOR_DSN: postgresql://qortex:qortex@postgres:5432/qortex
+      # Extraction pipeline
+      QORTEX_EXTRACTION: ${QORTEX_EXTRACTION:-spacy}
+      # OTEL — push to the collector on the docker network
+      QORTEX_OTEL_ENABLED: "true"
+      OTEL_EXPORTER_OTLP_ENDPOINT: http://otel-collector:4318
+      OTEL_EXPORTER_OTLP_PROTOCOL: http/protobuf
+      OTEL_SERVICE_NAME: qortex
+      # Prometheus metrics
+      QORTEX_PROMETHEUS_ENABLED: "true"
+      QORTEX_PROMETHEUS_PORT: "9090"
+      # Embedding model is baked into the image
+      HF_HUB_OFFLINE: "1"
+      # Auth (optional — set in .env)
+      QORTEX_API_KEYS: ${QORTEX_API_KEYS:-}
+    depends_on:
+      otel-collector:
+        condition: service_started
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8400/v1/health')"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 15s
+
   # --- Postgres (pgvector) ---
   postgres:
     image: pgvector/pgvector:pg17
@@ -120,6 +168,7 @@ services:
       - tempo
 
 volumes:
+  qortex_data:
   postgres_data:
   memgraph_data:
   memgraph_log:

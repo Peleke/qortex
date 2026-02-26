@@ -103,7 +103,7 @@ class OpenAIExtractor:
 
 ## Observability
 
-Every extraction step emits OpenTelemetry spans visible in Jaeger:
+Every extraction step emits OpenTelemetry spans visible in Grafana Explore (via Tempo):
 
 ```
 extraction.spacy                    [total time]

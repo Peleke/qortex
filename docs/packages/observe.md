@@ -1,6 +1,6 @@
 # qortex-observe
 
-Event-driven observability for [qortex](https://github.com/Peleke/qortex): metrics, traces, logs, and alerts.
+Event-driven observability for [qortex](https://github.com/Peleke/qortex): metrics, traces (Tempo), logs, and alerts.
 
 <div align="center">
 
