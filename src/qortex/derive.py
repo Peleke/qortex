@@ -11,6 +11,7 @@ LLM cascade (Ollama → API → template) for rule text generation.
 from __future__ import annotations
 
 import logging
+import os
 from dataclasses import dataclass, field
 from typing import Any, Protocol
 
@@ -92,8 +93,9 @@ def _generate_rule_llm(
     try:
         import ollama
 
+        model = os.environ.get("QORTEX_OLLAMA_MODEL", "qwen2.5:14b")
         resp = ollama.chat(
-            model="llama3.2",
+            model=model,
             messages=[{"role": "user", "content": prompt}],
         )
         text = resp["message"]["content"].strip()

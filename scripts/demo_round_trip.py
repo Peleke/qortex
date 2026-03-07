@@ -160,11 +160,12 @@ def main():
         credit_manifest = IngestionManifest(
             source=SourceMetadata(
                 id="buildlog:credits", name="gauntlet_credits",
-                source_type="structured", path_or_url="~/.buildlog/buildlog.db",
+                source_type="text", path_or_url="~/.buildlog/buildlog.db",
             ),
             domain="buildlog",
             concepts=credit_nodes,
             edges=credit_edges,
+            rules=[],
         )
         graph.ingest_manifest(credit_manifest)
         print("Credit data loaded into Memgraph")
