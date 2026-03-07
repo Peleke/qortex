@@ -517,3 +517,167 @@ def bridge_gauntlet_rules(
 
     db.close()
     return concepts, edges
+
+
+# =============================================================================
+# Gauntlet Credits Bridge: performance signal + co-occurrence edges
+# =============================================================================
+
+
+@dataclass
+class RuleCreditStats:
+    """Aggregated credit statistics for a single gauntlet rule."""
+
+    rule_id: str
+    total_credits: int = 0
+    projects_credited: set[str] = field(default_factory=set)
+    first_credited: str = ""
+    last_credited: str = ""
+    co_occurring_rules: dict[str, int] = field(default_factory=dict)  # rule_id -> count
+
+
+def read_gauntlet_credits(
+    db_path: Path = DEFAULT_BUILDLOG_DB,
+    since: str | None = None,
+) -> dict[str, RuleCreditStats]:
+    """Read gauntlet_credits table and aggregate per-rule statistics.
+
+    Args:
+        db_path: Path to buildlog's SQLite database.
+        since: Only read credits after this ISO timestamp (for incremental).
+
+    Returns:
+        Dict of rule_id -> RuleCreditStats with totals and co-occurrence counts.
+    """
+    import sqlite3
+
+    if not db_path.exists():
+        return {}
+
+    db = sqlite3.connect(str(db_path))
+    db.row_factory = sqlite3.Row
+
+    query = "SELECT project_id, timestamp, rules FROM gauntlet_credits"
+    params: tuple = ()
+    if since:
+        query += " WHERE timestamp > ?"
+        params = (since,)
+    query += " ORDER BY timestamp ASC"
+
+    stats: dict[str, RuleCreditStats] = {}
+
+    for row in db.execute(query, params):
+        project_id = row["project_id"]
+        timestamp = row["timestamp"]
+        try:
+            rule_ids = json.loads(row["rules"])
+        except (json.JSONDecodeError, TypeError):
+            continue
+
+        if not isinstance(rule_ids, list):
+            continue
+
+        # Update per-rule stats
+        for rid in rule_ids:
+            if rid not in stats:
+                stats[rid] = RuleCreditStats(
+                    rule_id=rid,
+                    first_credited=timestamp,
+                )
+            s = stats[rid]
+            s.total_credits += 1
+            s.projects_credited.add(project_id)
+            s.last_credited = timestamp
+
+        # Track co-occurrence: every pair in the same credit event
+        for i, a in enumerate(rule_ids):
+            for b in rule_ids[i + 1 :]:
+                stats[a].co_occurring_rules[b] = stats[a].co_occurring_rules.get(b, 0) + 1
+                stats[b].co_occurring_rules[a] = stats[b].co_occurring_rules.get(a, 0) + 1
+
+    db.close()
+    return stats
+
+
+def bridge_gauntlet_credits(
+    db_path: Path = DEFAULT_BUILDLOG_DB,
+    since: str | None = None,
+    min_cooccurrence: int = 2,
+) -> tuple[list[ConceptNode], list[ConceptEdge]]:
+    """Enrich gauntlet rule nodes with credit stats and add co-occurrence edges.
+
+    Reads gauntlet_credits from buildlog's DB, enriches existing
+    gauntlet_rule:{id} concept nodes with performance properties
+    (credit_count, credit_rate), and creates CORRELATES_WITH edges
+    between rules that co-occur in credit events.
+
+    Args:
+        db_path: Path to buildlog SQLite database.
+        since: Only process credits after this timestamp (incremental).
+        min_cooccurrence: Minimum co-occurrence count to create an edge.
+
+    Returns:
+        Tuple of (enriched_nodes, co_occurrence_edges).
+    """
+    credit_stats = read_gauntlet_credits(db_path, since=since)
+    if not credit_stats:
+        return [], []
+
+    # Count total credit events for rate calculation
+    total_events = sum(s.total_credits for s in credit_stats.values())
+    max_credits = max(s.total_credits for s in credit_stats.values())
+
+    nodes: list[ConceptNode] = []
+    edges: list[ConceptEdge] = []
+    seen_edge_pairs: set[tuple[str, str]] = set()
+
+    for rule_id, s in credit_stats.items():
+        # Enriched node with performance properties
+        nodes.append(
+            ConceptNode(
+                id=f"gauntlet_rule:{rule_id}",
+                name=rule_id,
+                description=f"Gauntlet rule credited {s.total_credits} times",
+                domain="buildlog",
+                source_id="buildlog:gauntlet_credits",
+                properties={
+                    "credit_count": s.total_credits,
+                    "credit_rate": round(s.total_credits / max_credits, 4) if max_credits else 0,
+                    "projects_credited": len(s.projects_credited),
+                    "first_credited": s.first_credited,
+                    "last_credited": s.last_credited,
+                },
+            )
+        )
+
+        # Co-occurrence edges
+        for other_id, count in s.co_occurring_rules.items():
+            if count < min_cooccurrence:
+                continue
+
+            # Bidirectional dedup: only create one edge per pair
+            pair = tuple(sorted((rule_id, other_id)))
+            if pair in seen_edge_pairs:
+                continue
+            seen_edge_pairs.add(pair)
+
+            other_stats = credit_stats.get(other_id)
+            max_individual = max(
+                s.total_credits,
+                other_stats.total_credits if other_stats else 1,
+            )
+
+            edges.append(
+                ConceptEdge(
+                    source_id=f"gauntlet_rule:{rule_id}",
+                    target_id=f"gauntlet_rule:{other_id}",
+                    relation_type=RelationType.CORRELATES_WITH,
+                    confidence=round(count / max_individual, 4),
+                    bidirectional=True,
+                    properties={
+                        "co_occurrence_count": count,
+                    },
+                )
+            )
+
+    return nodes, edges

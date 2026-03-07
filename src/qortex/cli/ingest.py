@@ -504,6 +504,11 @@ def ingest_emissions(
         "--resolve-rules/--no-resolve-rules",
         help="Resolve historical skill ID edge targets to gauntlet_rule:{id} format",
     ),
+    bridge_credits: bool = typer.Option(
+        True,
+        "--bridge-credits/--no-bridge-credits",
+        help="Bridge gauntlet credits (performance signal + co-occurrence edges)",
+    ),
 ) -> None:
     """Ingest buildlog emission artifacts into the knowledge graph.
 
@@ -514,6 +519,10 @@ def ingest_emissions(
     With --bridge (default), also reads gauntlet rules from buildlog's DB and
     creates cross-domain edges linking experiential data to design pattern
     domains (observer_pattern, implementation_hiding, etc.).
+
+    With --bridge-credits (default), reads gauntlet_credits from buildlog's DB,
+    enriches rule nodes with credit counts, and adds CORRELATES_WITH edges
+    between rules that co-occur in credit events.
 
     No LLM calls required — emission data is already structured.
 
@@ -577,6 +586,19 @@ def ingest_emissions(
             typer.echo("\n  Gauntlet bridge:")
             typer.echo(f"    Bridge concepts: {len(bridge_concepts)}")
             typer.echo(f"    Bridge edges:    {len(bridge_edges)}")
+
+    # Bridge gauntlet credits (performance signal + co-occurrence)
+    if bridge_credits:
+        from qortex.ingest_emissions import bridge_gauntlet_credits
+
+        db_expanded = Path(buildlog_db).expanduser()
+        credit_concepts, credit_edges = bridge_gauntlet_credits(db_path=db_expanded)
+        if credit_concepts:
+            manifest.concepts.extend(credit_concepts)
+            manifest.edges.extend(credit_edges)
+            typer.echo("\n  Gauntlet credits:")
+            typer.echo(f"    Credited rules:      {len(credit_concepts)}")
+            typer.echo(f"    Co-occurrence edges: {len(credit_edges)}")
 
     # Save manifest if requested
     if save_manifest:

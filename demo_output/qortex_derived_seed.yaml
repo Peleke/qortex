@@ -1,0 +1,103 @@
+persona: qortex_derived
+version: 1
+rules:
+- rule: Do not reuse the generic placeholder "Reference node from mistake_manifest";
+    instead, explicitly describe each mistake and its resolution with clear, specific
+    details to ensure actionable insights.
+  category: unknown
+  context: Derived from uncovered_cluster
+  antipattern: ''
+  rationale: 'KG derivation (uncovered_cluster): llm'
+  tags:
+  - kg-derived
+  - uncovered_cluster
+  provenance:
+    domain: buildlog
+    derivation: derived
+    confidence: 0.9
+    error_class: unknown
+    mistake_count: 75
+    mistake_ids:
+    - prior-1
+    - r1
+    - r2
+    - bragi:92b40f51
+    - qortex_impl_hiding:6a975854
+    - qortex_observer:1dc72bd4
+    - qortex_observer:78868c08
+    - qortex_observer:d9ac86a0
+    - qortex_observer:19c437b4
+    - bragi:d720e228
+    - qortex_impl_hiding:29c3da41
+    - qortex_observer:eaa94cdd
+    - qortex_design_patterns:009a418c
+    - qortex_observer:a090c803
+    - qortex_observer:aeecbb13
+    - qortex_observer:a70b45d7
+    - qortex_observer:964c28c2
+    - qortex_observer:fd4d1087
+    - arch-b0fcb62a1e
+    - secu-849ee7b88f
+    - dk-a019284fe7
+    - test_terrorist:2c42a90c
+    - qortex_impl_hiding:1bbbbcd6
+    - qortex_design_patterns:211f6637
+    - qortex_impl_hiding:d27ed782
+    - qortex_observer:ed0c2afb
+    - qortex_observer:a168c23d
+    - test_terrorist:f1378eae
+    - qortex_observer:e1c642cc
+    - bragi:2e966d45
+    - qortex_observer:4e9e5c68
+    - documentation
+    - code_citations
+    - line_number_drift
+    - resolution:mistake-documentat-20260214-165158-563740
+    - tool-023839bebf
+    - dk-37bed7291f
+    - arch-0cda924aeb
+    - dk-22bbd76410
+    - wf-5a531bf437
+    - test_terrorist:fe8aa547
+    - qortex_observer:b791f0e4
+    - qortex_observer:48a4251a
+    - qortex_impl_hiding:4a9e5b86
+    - qortex_observer:04545c6d
+    - qortex_observer:5d85527d
+    - test_terrorist:eb977154
+    - qortex_observer:5d7d7338
+    - bragi:980ac190
+    - qortex_impl_hiding:2bf055c6
+    - qortex_observer:2743739e
+    - qortex_observer:f74947ec
+    - qortex_observer:a2963f43
+    - test_terrorist:946b7a06
+    - security_karen:a3bb96fb
+    - qortex_observer:de7f125f
+    - qortex_observer:7930bb43
+    - qortex_observer:4e97c534
+    - qortex_observer:b33f203d
+    - security_karen:5f3ca636
+    - qortex_design_patterns:5421537f
+    - test_terrorist:9f320811
+    - call_graph_verification
+    - dead_code
+    - single_source_of_truth
+    - regression_testing
+    - resolution:mistake-dead_code_-20260215-042359-511010
+    - qortex_design_patterns:6895e4e3
+    - qortex_observer:7b88ef97
+    - qortex_observer:90765dde
+    - qortex_observer:d04277bb
+    - qortex_design_patterns:00c3a9ae
+    - security_karen:35d8a3ad
+    - qortex_design_patterns:77939dc5
+    - qortex_observer:b3719375
+    generation_method: llm
+metadata:
+  source: qortex
+  source_version: 0.9.0
+  projected_at: '2026-03-07T05:00:12.460972+00:00'
+  rule_count: 1
+  derivation_patterns:
+  - uncovered_cluster
