@@ -1,0 +1,7 @@
+{
+  "V1_emission_subgraph": "\nMATCH (m:Concept {domain: \"buildlog\"})-[r]->(t)\nWHERE m.source_id STARTS WITH \"buildlog:\"\nRETURN m, r, t LIMIT 100",
+  "V2_credit_cooccurrence": "\nMATCH (a:Concept)-[r:CORRELATES_WITH]->(b:Concept)\nRETURN a, r, b",
+  "V3_uncovered_mistakes": "\nMATCH (m:Concept)\nWHERE m.source_id STARTS WITH \"buildlog:mistake\"\nAND NOT EXISTS {\n  MATCH (m)-[:CHALLENGES]->(r:Concept)\n  WHERE r.credit_count > 0\n}\nRETURN m LIMIT 50",
+  "V4_derived_provenance": "\nMATCH (d:Concept {source_id: \"qortex:derived\"})-[r:DERIVED_FROM]->(source)\nRETURN d, r, source",
+  "V5_cross_domain_bridge": "\nMATCH (d:Concept)-[r:DERIVED_FROM]->(source)\nWHERE d.domain <> source.domain\nRETURN d, r, source"
+}
