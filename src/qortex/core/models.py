@@ -51,6 +51,10 @@ class RelationType(StrEnum):
     INSTANCE_OF = "instance_of"  # FK to template/catalog (e.g. event.template_id → template)
     CONTAINS = "contains"  # Parent contains children (inverse of PART_OF for schema)
 
+    # Feedback-derived relationships (gauntlet credits, rule derivation)
+    CORRELATES_WITH = "correlates_with"  # Co-occurrence in feedback data
+    DERIVED_FROM = "derived_from"  # Rule derived from graph pattern/cluster
+
 
 @dataclass
 class ConceptNode:
