@@ -181,7 +181,7 @@ class SkillipediaTarget:
             "learning" otherwise.
         """
         r = rule.rule if isinstance(rule, EnrichedRule) else rule
-        if r.metadata.get("skill_format"):
+        if hasattr(r, "metadata") and r.metadata and r.metadata.get("skill_format"):
             return "skill"
         if rule.derivation == "derived":
             return "pattern"
