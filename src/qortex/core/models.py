@@ -149,7 +149,7 @@ class SourceMetadata:
 
     id: str
     name: str
-    source_type: Literal["pdf", "markdown", "text", "url", "database"]
+    source_type: Literal["pdf", "markdown", "text", "url", "database", "skill_md"]
     path_or_url: str
 
     # Ingestion info

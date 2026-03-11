@@ -251,6 +251,148 @@ def ingest_file(
         graph_backend.disconnect()
 
 
+@app.command("skill")
+def ingest_skill(
+    path: Path = typer.Argument(..., help="Path to SKILL.md file or directory of skills"),
+    domain: str = typer.Option(
+        None, "--domain", "-d", help="Override domain (default: skill:{name})"
+    ),
+    dry_run: bool = typer.Option(
+        False, "--dry-run", help="Show extraction without saving to graph"
+    ),
+    save_manifest: Path = typer.Option(
+        None, "--save-manifest", "-o", help="Save manifest(s) to JSON"
+    ),
+    recursive: bool = typer.Option(
+        True, "--recursive/--no-recursive", help="Recursively find SKILL.md files in directory"
+    ),
+) -> None:
+    """Ingest SKILL.md file(s) into the knowledge graph.
+
+    No LLM calls required — SKILL.md files are already structured.
+    Supports canonical (agentskills.io), OpenClaw, and ClawHub formats.
+
+    Single file:
+        qortex ingest skill path/to/SKILL.md
+        qortex ingest skill path/to/skill-dir/
+
+    Directory (batch):
+        qortex ingest skill ./skills/           # all SKILL.md files recursively
+        qortex ingest skill ./skills/ --dry-run  # preview without saving
+    """
+    if not path.exists():
+        handle_error(f"Path not found: {path}")
+
+    from qortex.projectors.sources.skill_md import SkillMdIngestor
+
+    ingestor = SkillMdIngestor()
+
+    if path.is_file():
+        if path.name != "SKILL.md":
+            typer.echo(f"Warning: Expected SKILL.md, got {path.name}", err=True)
+        manifests = [ingestor.ingest(path, domain=domain)]
+    elif path.is_dir():
+        manifests = ingestor.ingest_directory(path, recursive=recursive)
+        if domain:
+            for m in manifests:
+                m.domain = domain
+    else:
+        handle_error(f"Path is neither a file nor directory: {path}")
+
+    if not manifests:
+        typer.echo("No SKILL.md files found.")
+        return
+
+    typer.echo(f"\nFound {len(manifests)} skill(s):")
+    for m in manifests:
+        typer.echo(
+            f"  {m.source.name} -> domain:{m.domain} "
+            f"({len(m.concepts)} concepts, {len(m.rules)} rules)"
+        )
+
+    if save_manifest:
+        all_data = [_serialize_manifest(m) for m in manifests]
+        save_manifest.write_text(json.dumps(all_data, indent=2, default=str))
+        typer.echo(f"\nManifests saved to: {save_manifest}")
+
+    if dry_run:
+        typer.echo("\n[Dry run - not saving to graph]")
+        for m in manifests:
+            typer.echo(f"\n--- {m.source.name} ---")
+            typer.echo(f"  Domain: {m.domain}")
+            typer.echo(f"  Concepts: {len(m.concepts)}")
+            for c in m.concepts[:5]:
+                desc = c.description[:60] if c.description else "(no desc)"
+                typer.echo(f"    - {c.name}: {desc}...")
+            typer.echo(f"  Edges: {len(m.edges)}")
+            typer.echo(f"  Rules: {len(m.rules)}")
+            for r in m.rules[:3]:
+                typer.echo(f"    - {r.text[:80]}...")
+        return
+
+    # Save to graph
+    from qortex.cli._config import get_config
+    from qortex.core.backend import MemgraphBackend, MemgraphCredentials
+
+    config = get_config()
+    try:
+        creds = MemgraphCredentials.from_tuple(config.memgraph_credentials.auth_tuple)
+        graph_backend = MemgraphBackend(
+            uri=config.get_memgraph_uri(),
+            credentials=creds,
+        )
+        graph_backend.connect()
+    except Exception as e:
+        uri = config.get_memgraph_uri()
+        if not save_manifest:
+            fallback = Path("skill_manifests.json")
+            try:
+                all_data = [_serialize_manifest(m) for m in manifests]
+                fallback.write_text(json.dumps(all_data, indent=2, default=str))
+                typer.echo(f"\nManifests auto-saved to: {fallback}", err=True)
+            except Exception:
+                pass
+        handle_error(
+            f"Could not connect to Memgraph at {uri}.\n"
+            f"Start it with: qortex infra up\n"
+            f"Original error: {e}"
+        )
+
+    try:
+        total_concepts = 0
+        total_rules = 0
+        for manifest in manifests:
+            existing = graph_backend.get_domain(manifest.domain)
+            if not existing:
+                graph_backend.create_domain(
+                    manifest.domain,
+                    f"Skill: {manifest.source.name}",
+                )
+            graph_backend.ingest_manifest(manifest)
+            total_concepts += len(manifest.concepts)
+            total_rules += len(manifest.rules)
+
+        typer.echo(
+            f"\nSaved {len(manifests)} skill(s) to graph "
+            f"({total_concepts} concepts, {total_rules} rules)"
+        )
+        typer.echo("View with: qortex inspect domains")
+        typer.echo("Project with: qortex project skillipedia --output ./content/")
+
+    except Exception as e:
+        if not save_manifest:
+            fallback = Path("skill_manifests.json")
+            try:
+                all_data = [_serialize_manifest(m) for m in manifests]
+                fallback.write_text(json.dumps(all_data, indent=2, default=str))
+                typer.echo(f"\nManifests auto-saved to: {fallback}", err=True)
+            except Exception:
+                pass
+        handle_error(f"Failed to save to graph: {e}")
+    finally:
+        graph_backend.disconnect()
+
+
 def _embed_manifest_concepts(
     manifest: IngestionManifest,
     graph_backend: Any,
