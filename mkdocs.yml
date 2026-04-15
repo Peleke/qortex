@@ -46,7 +46,6 @@ nav:
     - PostgreSQL Setup: guides/postgres-setup.md
     - REST API: guides/rest-api.md
     - Vec Migration: guides/vec-migration.md
-    - Learning System: guides/learning.md
     - Online Indexing: guides/online-indexing.md
     - Visualizing Your Graph: guides/visualization.md
   - Theory:
