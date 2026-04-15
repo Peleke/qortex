@@ -8,6 +8,7 @@ from typing import Any
 import typer
 
 from qortex.cli._config import get_config
+from qortex.cli._errors import handle_error
 
 app = typer.Typer(help="Project rules from the knowledge graph.")
 
@@ -149,3 +150,106 @@ def json_cmd(
     target = FlatJSONTarget()
     result = _run_projection(target, domain, enrich)
     _write_output(result, output, "JSON")
+
+
+@app.command()
+def skillipedia(
+    domain: str = typer.Option(None, "--domain", "-d", help="Limit to domain"),
+    output: Path = typer.Option(None, "--output", "-o", help="Output directory for MDX files"),
+    enrich: bool = typer.Option(True, "--enrich/--no-enrich", help="Run enrichment"),
+    group_by: str = typer.Option(
+        "per_rule", "--group-by", "-g", help="Grouping: per_rule or per_domain"
+    ),
+    no_edges: bool = typer.Option(
+        False, "--no-edges", help="Exclude edge-derived rules"
+    ),
+) -> None:
+    """Project rules to Skillipedia MDX format.
+
+    Generates MDX files with YAML frontmatter suitable for Astro sites.
+
+    Examples:
+        qortex project skillipedia --output ./content/
+        qortex project skillipedia --domain skill:ax-rubric --output ./content/
+        qortex project skillipedia --group-by per_domain --output ./content/
+    """
+    from qortex.projectors.targets.skillipedia import SkillipediaTarget
+
+    target = SkillipediaTarget(group_by=group_by)
+    result = _run_projection(target, domain, enrich, include_edge_derived=not no_edges)
+
+    if not result:
+        typer.echo("No rules to project.")
+        return
+
+    if output:
+        output.mkdir(parents=True, exist_ok=True)
+        for page in result:
+            page_path = output / page["path"]
+            page_path.parent.mkdir(parents=True, exist_ok=True)
+            page_path.write_text(page["content"])
+        typer.echo(f"Wrote {len(result)} MDX file(s) to {output}/")
+    else:
+        for page in result:
+            typer.echo(f"\n--- {page['path']} ---")
+            typer.echo(page["content"][:500])
+            if len(page["content"]) > 500:
+                typer.echo(f"  ... ({len(page['content'])} chars total)")
+
+
+@app.command()
+def skill(
+    domain: str = typer.Option(None, "--domain", "-d", help="Limit to domain"),
+    output: Path = typer.Option(None, "--output", "-o", help="Output directory"),
+    format: str = typer.Option(
+        "claude-code", "--format", "-f", help="Format: claude-code or openclaw"
+    ),
+    name: str = typer.Option(
+        None, "--name", "-n", help="Override skill name (single-skill mode)"
+    ),
+    enrich: bool = typer.Option(True, "--enrich/--no-enrich", help="Run enrichment"),
+    no_edges: bool = typer.Option(
+        False, "--no-edges", help="Exclude edge-derived rules"
+    ),
+) -> None:
+    """Project rules to SKILL.md format (Claude Code or OpenClaw).
+
+    Re-emits knowledge graph rules as installable SKILL.md files.
+
+    Examples:
+        qortex project skill --domain skill:ax-rubric --output ./emit/
+        qortex project skill --format openclaw --output ./emit/
+        qortex project skill --name my-skill --format claude-code --output ./emit/
+    """
+    if format == "claude-code":
+        from qortex.projectors.targets.claude_code_skill import ClaudeCodeSkillTarget
+
+        target = ClaudeCodeSkillTarget(skill_name=name)
+    elif format == "openclaw":
+        from qortex.projectors.targets.openclaw_skill import OpenClawSkillTarget
+
+        target = OpenClawSkillTarget(skill_name=name)
+    else:
+        handle_error(f"Unknown format: {format}. Use 'claude-code' or 'openclaw'.")
+
+    result = _run_projection(target, domain, enrich, include_edge_derived=not no_edges)
+
+    if not result:
+        typer.echo("No rules to project.")
+        return
+
+    if output:
+        output.mkdir(parents=True, exist_ok=True)
+        for item in result:
+            item_path = output / item["path"]
+            item_path.parent.mkdir(parents=True, exist_ok=True)
+            item_path.write_text(item["content"])
+        typer.echo(
+            f"Wrote {len(result)} SKILL.md file(s) to {output}/ ({format} format)"
+        )
+    else:
+        for item in result:
+            typer.echo(f"\n--- {item['path']} ---")
+            typer.echo(item["content"][:1000])
+            if len(item["content"]) > 1000:
+                typer.echo(f"  ... ({len(item['content'])} chars total)")
