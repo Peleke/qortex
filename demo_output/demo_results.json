@@ -1,0 +1,30 @@
+{
+  "step1": {
+    "total": 7867,
+    "mistake_manifest": 1745,
+    "reward_signal": 2155,
+    "session_summary": 948,
+    "learned_rules": 3019
+  },
+  "step2": {
+    "concepts": 5641,
+    "edges": 3125,
+    "rules": 4331,
+    "bridge_concepts": 110,
+    "bridge_edges": 100
+  },
+  "step2b": {
+    "credited_rules": 4,
+    "enriched_nodes": 4,
+    "cooccurrence_edges": 0
+  },
+  "step3": {
+    "derived_count": 1,
+    "by_type": {
+      "uncovered_cluster": 1
+    }
+  },
+  "step4": {
+    "seed_rules": 1
+  }
+}

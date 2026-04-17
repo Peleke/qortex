@@ -504,21 +504,40 @@ class MemgraphBackend:
 
     @traced("memgraph.add_node")
     def add_node(self, node: ConceptNode) -> None:
-        self._run(
-            "MERGE (c:Concept {id: $id}) "
+        # Flatten properties into individual Memgraph node properties
+        # (Memgraph only supports primitives, so non-primitive values get JSON-serialized)
+        params: dict[str, Any] = {
+            "id": node.id,
+            "name": node.name,
+            "desc": node.description,
+            "domain": node.domain,
+            "source_id": node.source_id,
+            "source_location": node.source_location,
+            "confidence": node.confidence,
+        }
+        prop_sets: list[str] = []
+        for k, v in node.properties.items():
+            safe_key = k.replace("-", "_").replace(" ", "_")
+            param_name = f"prop_{safe_key}"
+            if isinstance(v, (str, int, float, bool)):
+                params[param_name] = v
+            elif v is None:
+                continue
+            else:
+                params[param_name] = json.dumps(v)
+            prop_sets.append(f"c.{safe_key} = ${param_name}")
+
+        set_clause = (
             "SET c.name = $name, c.description = $desc, c.domain = $domain, "
             "c.source_id = $source_id, c.source_location = $source_location, "
-            "c.confidence = $confidence, c.properties = $props",
-            {
-                "id": node.id,
-                "name": node.name,
-                "desc": node.description,
-                "domain": node.domain,
-                "source_id": node.source_id,
-                "source_location": node.source_location,
-                "confidence": node.confidence,
-                "props": json.dumps(node.properties),
-            },
+            "c.confidence = $confidence"
+        )
+        if prop_sets:
+            set_clause += ", " + ", ".join(prop_sets)
+
+        self._run(
+            f"MERGE (c:Concept {{id: $id}}) {set_clause}",
+            params,
         )
 
     @traced("memgraph.get_node")
